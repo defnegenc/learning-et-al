@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { papers, qaPairs } from "@/lib/db/schema";
+import { papers, qaPairs, interests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { qaPrompt } from "@/lib/ai/prompts";
@@ -65,6 +65,44 @@ export async function POST(
       question,
       answer,
     }).returning();
+
+    // Count total QA pairs for this paper by this user
+    const allPairs = await db.query.qaPairs.findMany({
+      where: and(eq(qaPairs.paperId, id), eq(qaPairs.userId, userId)),
+    });
+    const totalCount = allPairs.length;
+
+    // Every 3 questions, boost the paper's keywords in user interests
+    if (totalCount > 0 && totalCount % 3 === 0) {
+      const keywords: string[] = paper.keywords ? JSON.parse(paper.keywords) : [];
+
+      for (const keyword of keywords) {
+        const existing = await db.query.interests.findFirst({
+          where: and(
+            eq(interests.userId, userId),
+            eq(interests.keyword, keyword)
+          ),
+        });
+
+        if (existing) {
+          await db
+            .update(interests)
+            .set({
+              weight: (existing.weight ?? 1.0) + 0.3,
+              source: "engagement",
+              updatedAt: new Date(),
+            })
+            .where(eq(interests.id, existing.id));
+        } else {
+          await db.insert(interests).values({
+            userId,
+            keyword,
+            weight: 0.3,
+            source: "engagement",
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ qaPair: pair });
   } catch (error) {
