@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PaperCard, type PaperItem } from "./paper-card";
+import { PaperDetail } from "./paper-detail";
 import { SynthesisBanner } from "./synthesis-banner";
 import { KnowledgeGraph } from "./knowledge-graph";
 
@@ -42,9 +43,6 @@ export function TodayPage({ session }: TodayPageProps) {
   const [generating, setGenerating] = useState(false);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   const [selectedPaper, setSelectedPaper] = useState<PaperItem | null>(null);
-
-  // Suppress unused var warning — selectedPaper will be used in Task 7
-  void selectedPaper;
 
   const fetchDigest = useCallback(async () => {
     try {
@@ -157,6 +155,18 @@ export function TodayPage({ session }: TodayPageProps) {
           )}
         </Button>
       </div>
+    );
+  }
+
+  if (selectedPaper) {
+    return (
+      <PaperDetail
+        paper={selectedPaper}
+        session={session}
+        onBack={() => setSelectedPaper(null)}
+        onStar={(id) => handleFeedback(id, "star")}
+        onDislike={(id) => handleFeedback(id, "dislike")}
+      />
     );
   }
 
