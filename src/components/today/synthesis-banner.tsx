@@ -1,5 +1,6 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
 import { Badge } from "@/components/ui/badge";
 
 interface SynthesisBannerProps {
@@ -34,9 +35,9 @@ export function SynthesisBanner({
           ))}
         </div>
       )}
-      <p className="text-sm text-muted-foreground leading-relaxed">
-        {synthesis}
-      </p>
+      <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+        <ReactMarkdown>{synthesis}</ReactMarkdown>
+      </div>
     </div>
   );
 }

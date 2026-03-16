@@ -22,6 +22,16 @@ export async function generateDigest(userId: string, aiConfig: AIConfig) {
     orderBy: desc(interests.weight),
   });
 
+  // Apply 5% daily decay to all interest weights
+  for (const interest of userInterests) {
+    const decayedWeight = (interest.weight ?? 1.0) * 0.95;
+    await db
+      .update(interests)
+      .set({ weight: decayedWeight, updatedAt: new Date() })
+      .where(eq(interests.id, interest.id));
+    interest.weight = decayedWeight;
+  }
+
   const topKeywords = userInterests.slice(0, 10).map((i) => i.keyword);
   const searchQuery = topKeywords.join(" OR ");
 

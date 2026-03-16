@@ -32,7 +32,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
       const res = await fetch(`/api/papers/${paperId}/qa`);
       if (!res.ok) return;
       const data = await res.json();
-      setPairs(data.qa ?? []);
+      setPairs(data.qaPairs ?? []);
     } catch (err) {
       console.error("Failed to fetch Q&A:", err);
     } finally {
@@ -71,7 +71,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
       });
       if (res.ok) {
         const data = await res.json();
-        const newPair: QAPair = data.qa;
+        const newPair: QAPair = data.qaPair;
         setPairs((prev) => [...prev, newPair]);
         setExpandedIds((prev) => new Set(prev).add(newPair.id));
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);

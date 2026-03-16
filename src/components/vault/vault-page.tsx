@@ -143,6 +143,19 @@ export function VaultPage({ session }: VaultPageProps) {
     );
   }
 
+  // Feedback handlers
+  const handleFeedback = async (paperId: string, type: "star" | "dislike") => {
+    try {
+      await fetch(`/api/papers/${paperId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+    } catch (err) {
+      console.error("Failed to submit feedback:", err);
+    }
+  };
+
   // If viewing a single paper detail
   if (selectedPaper) {
     return (
@@ -150,8 +163,8 @@ export function VaultPage({ session }: VaultPageProps) {
         paper={selectedPaper}
         session={session}
         onBack={() => setSelectedPaper(null)}
-        onStar={() => {}}
-        onDislike={() => {}}
+        onStar={(id) => handleFeedback(id, "star")}
+        onDislike={(id) => handleFeedback(id, "dislike")}
       />
     );
   }
