@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Paper Processor",
-  description: "AI-powered research paper recommendation and synthesis",
+  title: "Learning et al.",
+  description: "Your AI research companion",
 };
 
 export default function RootLayout({

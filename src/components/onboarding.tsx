@@ -119,7 +119,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           </CardTitle>
           <CardDescription>
             {step === 1
-              ? "Paper Processor uses an LLM to summarize and rank papers. Enter your API key to get started."
+              ? "Learning et al. uses an LLM to summarize and rank papers. Enter your API key to get started."
               : "Add 3\u201310 short phrases describing your research interests. Press Enter after each one."}
           </CardDescription>
         </CardHeader>
