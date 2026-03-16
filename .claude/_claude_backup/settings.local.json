@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx:*)",
+      "Read(//Users/defnegenc/Developer/**)",
+      "Bash(mv paper-processor/.claude /tmp/_claude_backup)",
+      "Bash(mv paper-processor/CLAUDE.md /tmp/_claudemd_backup)",
+      "Bash(mv paper-processor/docs /tmp/_docs_backup)",
+      "Bash(mv paper-processor/.DS_Store /tmp/_ds_backup)"
+    ]
+  }
+}
