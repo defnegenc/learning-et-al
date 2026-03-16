@@ -2,6 +2,7 @@
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TodayPage } from "@/components/today/today-page";
+import { VaultPage } from "@/components/vault/vault-page";
 
 interface Session {
   userId: string | null;
@@ -39,11 +40,7 @@ export function AppShell({ session }: AppShellProps) {
           </TabsContent>
 
           <TabsContent value="vault">
-            <div className="flex items-center justify-center py-20">
-              <p className="text-sm text-muted-foreground">
-                Vault coming soon
-              </p>
-            </div>
+            <VaultPage session={session} />
           </TabsContent>
         </Tabs>
       </main>
