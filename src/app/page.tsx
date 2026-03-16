@@ -2,6 +2,7 @@
 
 import { useSession } from "@/lib/hooks/use-session";
 import { Onboarding } from "@/components/onboarding";
+import { AppShell } from "@/components/app-shell";
 
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
@@ -31,14 +32,5 @@ export default function Home() {
     );
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-        <p className="mt-2 text-muted-foreground">
-          Your paper feed is being prepared.
-        </p>
-      </div>
-    </div>
-  );
+  return <AppShell session={session} />;
 }
