@@ -365,7 +365,7 @@ export function VaultPage({ session }: VaultPageProps) {
                           fontFamily: '"Courier New", Courier, monospace',
                         }}
                       >
-                        {paper.source === "arxiv" ? "ARXIV" : "RSS"}
+                        {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"}
                       </span>
                     </div>
 

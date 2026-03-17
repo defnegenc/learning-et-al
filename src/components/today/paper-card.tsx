@@ -6,7 +6,7 @@ export interface PaperItem {
   id: string;
   title: string;
   summary: string | null;
-  source: "arxiv" | "rss";
+  source: "arxiv" | "rss" | "semantic_scholar";
   sourceUrl: string | null;
   keywords: string[];
   authors: string[];
@@ -53,7 +53,7 @@ export function PaperCard({
           className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
-          {paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
+          {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
         </span>
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button

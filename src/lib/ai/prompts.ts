@@ -2,11 +2,11 @@ export const SYNTHESIS_SYSTEM = `You are a research synthesis expert. You analyz
 
 export const SEARCH_PLAN_SYSTEM = `You are a research planning assistant. You help users find the most relevant academic papers and news based on their interests and expertise level. Always return valid JSON.`;
 
-export function searchPlanPrompt(interests: { keyword: string; level: string }[]) {
+export function searchPlanPrompt(interests: { keyword: string; field: string; level: string }[]) {
   return `Given these research interests and expertise levels, suggest specific search queries.
 
 Interests:
-${interests.map(i => `- "${i.keyword}" (level: ${i.level})`).join('\n')}
+${interests.map(i => `- "${i.keyword}" (field: ${i.field}, level: ${i.level})`).join('\n')}
 
 Return a JSON object (no markdown fences, just raw JSON):
 {

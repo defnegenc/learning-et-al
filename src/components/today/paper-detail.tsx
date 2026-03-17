@@ -89,7 +89,7 @@ export function PaperDetail({
         className="inline-block border border-[#1a1a1a] px-2 py-0.5 text-[0.6rem] uppercase tracking-[2px] text-[#555]"
         style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
       >
-        {paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
+        {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
       </span>
 
       {/* Title */}

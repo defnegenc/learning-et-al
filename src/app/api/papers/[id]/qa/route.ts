@@ -4,6 +4,7 @@ import { papers, qaPairs, interests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { qaPrompt } from "@/lib/ai/prompts";
+import { downloadAndParsePdf } from "@/lib/fetchers/pdf";
 
 export async function GET(
   req: NextRequest,
@@ -52,11 +53,35 @@ export async function POST(
       return NextResponse.json({ error: "Paper not found" }, { status: 404 });
     }
 
+    // On-demand PDF download: if fullText is just the abstract (or missing) and we have a pdfUrl, fetch it now
+    let fullText = paper.fullText || "";
+    const abstractText = paper.abstract || "";
+    const hasRichFullText = fullText.length > abstractText.length + 100;
+
+    if (!hasRichFullText && paper.pdfUrl) {
+      try {
+        const pdfText = await downloadAndParsePdf(paper.pdfUrl);
+        if (pdfText && pdfText.length > abstractText.length) {
+          fullText = pdfText;
+          // Save to DB so we don't re-download next time
+          await db
+            .update(papers)
+            .set({ fullText: pdfText })
+            .where(eq(papers.id, id));
+        }
+      } catch (e) {
+        console.error("On-demand PDF download failed, falling back to abstract:", e);
+      }
+    }
+
+    // Fall back to abstract if fullText is still empty
+    if (!fullText) fullText = abstractText;
+
     const aiConfig: AIConfig = { apiKey, provider, model, baseUrl };
     const answer = await aiComplete(
       aiConfig,
       "You are a helpful research assistant that answers questions about academic papers.",
-      qaPrompt(paper.title, paper.fullText || paper.abstract || "", question)
+      qaPrompt(paper.title, fullText, question)
     );
 
     const [pair] = await db.insert(qaPairs).values({

@@ -1,9 +1,8 @@
 import { db } from "@/lib/db";
 import { digests, papers, interests, users } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { searchArxiv } from "@/lib/fetchers/arxiv";
+import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
-import { downloadAndParsePdf } from "@/lib/fetchers/pdf";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { digestPrompt, searchPlanPrompt, SYNTHESIS_SYSTEM, SEARCH_PLAN_SYSTEM } from "@/lib/ai/prompts";
 
@@ -38,7 +37,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     await db.delete(digests).where(eq(digests.id, existing.id));
   }
 
-  // Get user's weighted interests (with levels)
+  // Get user's weighted interests (with levels and fields)
   const userInterests = await db.query.interests.findMany({
     where: eq(interests.userId, userId),
     orderBy: desc(interests.weight),
@@ -56,6 +55,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
 
   const topInterests = userInterests.slice(0, 10).map((i) => ({
     keyword: i.keyword,
+    field: i.field ?? "Computer Science",
     level: i.level ?? "intermediate",
   }));
 
@@ -114,8 +114,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     abstract: string;
     sourceUrl: string;
     pdfUrl?: string;
-    fullText?: string;
-    source: "arxiv" | "rss";
+    source: "arxiv" | "rss" | "semantic_scholar";
     category: "foundational" | "recent" | "news";
   };
 
@@ -123,35 +122,40 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   const recentItems: TaggedItem[] = [];
   const newsItems: TaggedItem[] = [];
 
-  // Search for each interest in parallel
-  const searchPromises = searchPlan.searches.map(async (search) => {
-    const [foundational, recent, news] = await Promise.all([
-      searchArxiv(search.foundationalQuery, 3),
-      searchArxiv(search.recentQuery, 3),
-      fetchRssArticles(search.newsKeywords, 3),
-    ]);
+  // Search for each interest sequentially (to respect Semantic Scholar rate limits)
+  for (const search of searchPlan.searches) {
+    // Foundational: Semantic Scholar sorted by citation count
+    const foundational = await searchSemanticScholar(search.foundationalQuery, 3, "citationCount");
 
-    return { search, foundational, recent, news };
-  });
+    // Recent: Semantic Scholar sorted by publication date (last 2 years)
+    const recent = await searchSemanticScholar(search.recentQuery, 3, "publicationDate");
 
-  const searchResults = await Promise.all(searchPromises);
+    // News: RSS feeds
+    const news = await fetchRssArticles(search.newsKeywords, 3);
 
-  for (const result of searchResults) {
-    for (const paper of result.foundational) {
+    for (const paper of foundational) {
       foundationalItems.push({
-        ...paper,
-        source: "arxiv",
+        title: paper.title,
+        authors: paper.authors,
+        abstract: paper.abstract,
+        sourceUrl: paper.sourceUrl,
+        pdfUrl: paper.pdfUrl || undefined,
+        source: "semantic_scholar",
         category: "foundational",
       });
     }
-    for (const paper of result.recent) {
+    for (const paper of recent) {
       recentItems.push({
-        ...paper,
-        source: "arxiv",
+        title: paper.title,
+        authors: paper.authors,
+        abstract: paper.abstract,
+        sourceUrl: paper.sourceUrl,
+        pdfUrl: paper.pdfUrl || undefined,
+        source: "semantic_scholar",
         category: "recent",
       });
     }
-    for (const article of result.news) {
+    for (const article of news) {
       newsItems.push({
         ...article,
         pdfUrl: undefined,
@@ -182,13 +186,11 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     throw new Error("No papers or articles found for your interests. Try broader interest terms.");
   }
 
-  // Download PDFs for arXiv papers (parallel)
-  const allItems = await Promise.all(
-    allSelected.map(async (item) => ({
-      ...item,
-      fullText: item.pdfUrl ? await downloadAndParsePdf(item.pdfUrl) : item.abstract,
-    }))
-  );
+  // Use abstracts as fullText (no PDF downloading during digest)
+  const allItems = allSelected.map((item) => ({
+    ...item,
+    fullText: item.abstract,
+  }));
 
   // === AI CALL 2: Digest synthesis ===
   const aiResponse = await aiComplete(

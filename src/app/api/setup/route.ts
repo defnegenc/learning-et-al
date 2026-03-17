@@ -8,8 +8,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { timezone, contentMix } = body;
 
-    // Support both old format (interestStrings: string[]) and new format (interests: {keyword, level}[])
-    let interestItems: { keyword: string; level: string }[];
+    // Support both old format (interestStrings: string[]) and new format (interests: {keyword, field, level}[])
+    let interestItems: { keyword: string; field?: string; level: string }[];
     if (body.interests && Array.isArray(body.interests)) {
       interestItems = body.interests;
     } else if (body.interestStrings && Array.isArray(body.interestStrings)) {
@@ -28,12 +28,13 @@ export async function POST(req: NextRequest) {
       contentMix: typeof contentMix === "number" ? contentMix : 50,
     }).returning();
 
-    // Insert seed interests with level
+    // Insert seed interests with field and level
     for (const item of interestItems) {
       const level = ["beginner", "intermediate", "expert"].includes(item.level) ? item.level : "intermediate";
       await db.insert(interests).values({
         userId: user.id,
         keyword: item.keyword.trim(),
+        field: item.field || "Computer Science",
         weight: 1.0,
         source: "seed",
         level: level as "beginner" | "intermediate" | "expert",

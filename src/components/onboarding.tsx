@@ -6,9 +6,23 @@ import { NoiseOverlay } from "@/components/noise-overlay";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
 type ExpertiseLevel = "beginner" | "intermediate" | "expert";
+type AcademicField = "Computer Science" | "Medicine" | "Biology" | "Physics" | "Psychology" | "Economics" | "Engineering" | "Mathematics" | "Other";
+
+const FIELDS: { value: AcademicField; label: string }[] = [
+  { value: "Computer Science", label: "CS" },
+  { value: "Medicine", label: "MED" },
+  { value: "Biology", label: "BIO" },
+  { value: "Physics", label: "PHYS" },
+  { value: "Psychology", label: "PSYCH" },
+  { value: "Economics", label: "ECON" },
+  { value: "Engineering", label: "ENG" },
+  { value: "Mathematics", label: "MATH" },
+  { value: "Other", label: "OTHER" },
+];
 
 interface InterestWithLevel {
   keyword: string;
+  field: AcademicField;
   level: ExpertiseLevel;
 }
 
@@ -62,7 +76,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       e.preventDefault();
       const value = interestInput.trim().toLowerCase();
       if (!interests.some((i) => i.keyword === value) && interests.length < 10) {
-        setInterests([...interests, { keyword: value, level: "intermediate" }]);
+        setInterests([...interests, { keyword: value, field: "Computer Science", level: "intermediate" }]);
       }
       setInterestInput("");
     }
@@ -70,6 +84,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
   function handleRemoveInterest(keyword: string) {
     setInterests(interests.filter((i) => i.keyword !== keyword));
+  }
+
+  function handleSetField(keyword: string, field: AcademicField) {
+    setInterests(interests.map((i) => i.keyword === keyword ? { ...i, field } : i));
   }
 
   function handleSetLevel(keyword: string, level: ExpertiseLevel) {
@@ -86,7 +104,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          interests: interests.map((i) => ({ keyword: i.keyword, level: i.level })),
+          interests: interests.map((i) => ({ keyword: i.keyword, field: i.field, level: i.level })),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           contentMix,
         }),
@@ -286,6 +304,22 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                       >
                         <X className="size-3" />
                       </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {FIELDS.map((f) => (
+                        <button
+                          key={f.value}
+                          onClick={() => handleSetField(interest.keyword, f.value)}
+                          className={`border border-[#1a1a1a] px-1.5 py-0.5 text-[0.55rem] uppercase tracking-[0.5px] transition-colors ${
+                            interest.field === f.value
+                              ? "bg-[#1a1a1a] text-[#e8e8e8]"
+                              : "text-[#555] hover:bg-[#d8d8d8]"
+                          }`}
+                          style={{ borderWidth: "1px", fontFamily: '"Courier New", Courier, monospace' }}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
                     </div>
                     <div className="flex gap-0">
                       {(["beginner", "intermediate", "expert"] as ExpertiseLevel[]).map((lvl) => (
