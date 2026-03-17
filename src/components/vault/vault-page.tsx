@@ -288,25 +288,22 @@ export function VaultPage({ session }: VaultPageProps) {
                 fontSize: "1.2rem",
                 fontWeight: 800,
                 textTransform: "uppercase",
-                letterSpacing: "3px",
+                letterSpacing: "1px",
                 color: "#1a1a1a",
                 fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 margin: 0,
               }}
             >
-              REPORT MATRIX
+              Your Vault
             </h2>
             <span
               style={{
                 fontSize: "0.65rem",
-                textTransform: "uppercase",
-                letterSpacing: "2px",
-                color: "#1a1a1a",
-                opacity: 0.6,
+                color: "#888",
                 fontFamily: '"Courier New", Courier, monospace',
               }}
             >
-              ACTIVE_REPORTS: {total}
+              {total} papers saved
             </span>
           </div>
 
@@ -425,8 +422,8 @@ export function VaultPage({ session }: VaultPageProps) {
                 }}
               >
                 {debouncedSearch
-                  ? "NO_PAPERS_MATCH_YOUR_SEARCH"
-                  : "VAULT_EMPTY. GENERATE_FIRST_DIGEST_FROM_TODAY_TAB."}
+                  ? "No papers match your search"
+                  : "Your vault is empty. Generate your first digest from the Today tab."}
               </span>
             </div>
           )}
@@ -497,15 +494,12 @@ export function VaultPage({ session }: VaultPageProps) {
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span
                           style={{
-                            fontSize: "0.7rem",
-                            fontWeight: "bold",
+                            fontSize: "0.6rem",
                             fontFamily: '"Courier New", Courier, monospace',
-                            textTransform: "uppercase",
-                            letterSpacing: "2px",
-                            color: "#1a1a1a",
+                            color: "#888",
                           }}
                         >
-                          REP_{repNum}
+                          {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "arxiv" : "news"}
                         </span>
                         <span
                           style={{
@@ -541,21 +535,27 @@ export function VaultPage({ session }: VaultPageProps) {
 
                     {/* Bottom section */}
                     <div style={{ position: "relative", zIndex: 2 }}>
-                      {/* Category tag */}
-                      <span
-                        style={{
-                          fontSize: "0.55rem",
-                          textTransform: "uppercase",
-                          letterSpacing: "1px",
-                          opacity: 0.6,
-                          fontFamily: '"Courier New", Courier, monospace',
-                          display: "block",
-                          marginBottom: "6px",
-                        }}
-                      >
-                        {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"}
-                        {paper.keywords.length > 0 ? ` / ${paper.keywords[0]}` : ""}
-                      </span>
+                      {/* Keywords */}
+                      {paper.keywords.length > 0 && (
+                        <div style={{ display: "flex", gap: "4px", marginBottom: "6px", flexWrap: "wrap" }}>
+                          {paper.keywords.slice(0, 2).map((kw, ki) => (
+                            <span
+                              key={kw}
+                              style={{
+                                fontSize: "0.5rem",
+                                padding: "1px 6px",
+                                background: ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"][ki % 5],
+                                border: "1px solid rgba(26,26,26,0.15)",
+                                color: "#1a1a1a",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                              }}
+                            >
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Title */}
                       <h3
@@ -706,7 +706,7 @@ export function VaultPage({ session }: VaultPageProps) {
               margin: 0,
             }}
           >
-            ARCHIVE_TIMELINE
+            Recent Papers
           </h3>
         </div>
 
@@ -724,7 +724,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   fontFamily: '"Courier New", Courier, monospace',
                 }}
               >
-                {monthLabel}_CYCLE
+                {monthLabel}
               </span>
               {papers.slice(0, 8).map((p, i) => (
                 <div
@@ -798,7 +798,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 fontFamily: '"Courier New", Courier, monospace',
               }}
             >
-              NO_ENTRIES
+              No papers yet
             </span>
           )}
         </div>
@@ -821,7 +821,7 @@ export function VaultPage({ session }: VaultPageProps) {
               margin: 0,
             }}
           >
-            SYSTEM_LOGS
+            Activity
           </h3>
         </div>
 
@@ -835,7 +835,7 @@ export function VaultPage({ session }: VaultPageProps) {
               margin: 0,
             }}
           >
-            [{new Date().toLocaleTimeString("en-US", { hour12: false })}] VAULT_LOADED // {total} RECORDS
+            {total} papers in vault
           </p>
           <p
             style={{
@@ -845,7 +845,7 @@ export function VaultPage({ session }: VaultPageProps) {
               margin: 0,
             }}
           >
-            [{new Date().toLocaleTimeString("en-US", { hour12: false })}] PAGE_{page}_OF_{totalPages} // LIMIT_{LIMIT}
+            Page {page} of {totalPages}
           </p>
           {compareMode && (
             <p
@@ -856,7 +856,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 margin: 0,
               }}
             >
-              [ACTIVE] COMPARE_MODE // {selectedIds.size} SELECTED
+              Comparing {selectedIds.size} papers
             </p>
           )}
         </div>
