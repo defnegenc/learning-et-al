@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { PaperCard, type PaperItem } from "./paper-card";
 import { PaperDetail } from "./paper-detail";
 import { SynthesisBanner } from "./synthesis-banner";
@@ -41,6 +40,7 @@ export function TodayPage({ session }: TodayPageProps) {
   const [interests, setInterests] = useState<Interest[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   const [selectedPaper, setSelectedPaper] = useState<PaperItem | null>(null);
 
@@ -73,8 +73,9 @@ export function TodayPage({ session }: TodayPageProps) {
     );
   }, [fetchDigest, fetchInterests]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (force = false) => {
     setGenerating(true);
+    setGenerateError(null);
     try {
       const res = await fetch("/api/digest/generate", {
         method: "POST",
@@ -84,13 +85,18 @@ export function TodayPage({ session }: TodayPageProps) {
           provider: session.provider,
           model: session.model,
           baseUrl: session.baseUrl,
+          force,
         }),
       });
       if (res.ok) {
         await fetchDigest();
         await fetchInterests();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setGenerateError(data.error || `Generation failed (${res.status}). Check your API key in settings.`);
       }
     } catch (err) {
+      setGenerateError("Network error — couldn't reach the server.");
       console.error("Failed to generate digest:", err);
     } finally {
       setGenerating(false);
@@ -114,9 +120,6 @@ export function TodayPage({ session }: TodayPageProps) {
     setActiveConcept((prev) => (prev === concept ? null : concept));
   };
 
-  const researchPapers = papers.filter((p) => p.source === "arxiv");
-  const newsPapers = papers.filter((p) => p.source === "rss");
-
   const isPaperHighlighted = (paper: PaperItem) => {
     if (!activeConcept) return false;
     const conceptLower = activeConcept.toLowerCase();
@@ -130,7 +133,7 @@ export function TodayPage({ session }: TodayPageProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <Loader2 className="size-6 animate-spin text-[#555]" />
       </div>
     );
   }
@@ -138,107 +141,153 @@ export function TodayPage({ session }: TodayPageProps) {
   if (!digest) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <p className="text-muted-foreground text-sm">
-          No digest found for today.
+        <p
+          className="text-[0.75rem] uppercase tracking-[2px] text-[#555]"
+          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+        >
+          NO_DIGEST_FOUND_FOR_TODAY
         </p>
-        <Button onClick={handleGenerate} disabled={generating}>
+        {generateError && (
+          <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">
+            {generateError}
+          </p>
+        )}
+        <button
+          onClick={() => handleGenerate(true)}
+          disabled={generating}
+          className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
+          style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+        >
           {generating ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Generating...
-            </>
+            <span className="flex items-center gap-2">
+              <Loader2 className="size-3 animate-spin" />
+              GENERATING (THIS MAY TAKE A MINUTE)...
+            </span>
           ) : (
-            <>
-              <RefreshCw className="size-4" />
-              Generate today&apos;s digest
-            </>
+            <span className="flex items-center gap-2">
+              <RefreshCw className="size-3" />
+              {generateError ? "TRY_AGAIN" : "GENERATE_TODAYS_DIGEST"}
+            </span>
           )}
-        </Button>
+        </button>
       </div>
     );
   }
 
   if (selectedPaper) {
     return (
-      <PaperDetail
-        paper={selectedPaper}
-        session={session}
-        onBack={() => setSelectedPaper(null)}
-        onStar={(id) => handleFeedback(id, "star")}
-        onDislike={(id) => handleFeedback(id, "dislike")}
-      />
+      <div className="p-4">
+        <PaperDetail
+          paper={selectedPaper}
+          session={session}
+          onBack={() => setSelectedPaper(null)}
+          onStar={(id) => handleFeedback(id, "star")}
+          onDislike={(id) => handleFeedback(id, "dislike")}
+        />
+      </div>
     );
   }
 
+  const allPapers = papers;
+
   return (
-    <div className="flex gap-6">
-      {/* Main content */}
-      <div className="flex-1 min-w-0 space-y-6">
-        {digest.synthesisContent && (
-          <SynthesisBanner
-            synthesis={digest.synthesisContent}
-            keyConcepts={digest.keyConcepts}
-            activeConcept={activeConcept}
-            onConceptClick={handleConceptClick}
-          />
-        )}
+    <div className="flex h-[calc(100vh-7rem)]">
+      {/* Sidebar - paper cards (33.33vw) */}
+      <aside
+        className="border-r border-[#1a1a1a] overflow-y-auto shrink-0"
+        style={{ width: "33.33vw", borderRightWidth: "1.5px" }}
+      >
+        {/* Sidebar header */}
+        <div
+          className="sticky top-0 z-10 border-b border-[#1a1a1a] px-3 py-2"
+          style={{ borderBottomWidth: "1.5px", background: "#e8e8e8" }}
+        >
+          <h2
+            className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
+            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          >
+            TODAY // {allPapers.length} ITEMS
+          </h2>
+        </div>
 
-        {researchPapers.length > 0 && (
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold tracking-tight text-foreground">
-              Research Papers
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {researchPapers.map((paper) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  highlighted={isPaperHighlighted(paper)}
-                  onSelect={setSelectedPaper}
-                  onStar={(id) => handleFeedback(id, "star")}
-                  onDislike={(id) => handleFeedback(id, "dislike")}
-                />
-              ))}
+        {/* Paper cards list */}
+        <div className="p-2 space-y-2">
+          {allPapers.map((paper) => (
+            <PaperCard
+              key={paper.id}
+              paper={paper}
+              highlighted={isPaperHighlighted(paper)}
+              onSelect={setSelectedPaper}
+              onStar={(id) => handleFeedback(id, "star")}
+              onDislike={(id) => handleFeedback(id, "dislike")}
+            />
+          ))}
+
+          {allPapers.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <p
+                className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
+                style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              >
+                NO_PAPERS_FOUND
+              </p>
+              {generateError && (
+                <p className="text-[0.7rem] text-[#ff007f] max-w-md text-center">
+                  {generateError}
+                </p>
+              )}
+              <button
+                onClick={() => handleGenerate(true)}
+                disabled={generating}
+                className="border border-[#1a1a1a] px-3 py-1 text-[0.6rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
+                style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+              >
+                {generating ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="size-3 animate-spin" /> REGENERATING...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="size-3" /> REGENERATE_DIGEST
+                  </span>
+                )}
+              </button>
             </div>
-          </section>
-        )}
+          )}
+        </div>
+      </aside>
 
-        {newsPapers.length > 0 && (
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold tracking-tight text-foreground">
-              News &amp; Articles
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {newsPapers.map((paper) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  highlighted={isPaperHighlighted(paper)}
-                  onSelect={setSelectedPaper}
-                  onStar={(id) => handleFeedback(id, "star")}
-                  onDislike={(id) => handleFeedback(id, "dislike")}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {researchPapers.length === 0 && newsPapers.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No papers found in today&apos;s digest.
-          </p>
-        )}
-      </div>
-
-      {/* Knowledge graph sidebar */}
-      <aside className="hidden lg:block w-[280px] shrink-0">
-        <div className="sticky top-20">
+      {/* Canvas area (66.66vw) */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Knowledge graph (45%) */}
+        <div className="overflow-hidden" style={{ height: "45%" }}>
           <KnowledgeGraph
             interests={interests}
             onNodeClick={handleConceptClick}
           />
         </div>
-      </aside>
+
+        {/* Synthesis panel (55%) */}
+        <div className="overflow-y-auto border-t border-[#1a1a1a] p-4" style={{ height: "55%", borderTopWidth: "1.5px" }}>
+          {digest.synthesisContent ? (
+            <SynthesisBanner
+              synthesis={digest.synthesisContent}
+              keyConcepts={digest.keyConcepts}
+              activeConcept={activeConcept}
+              onConceptClick={handleConceptClick}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <span
+                className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
+                style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              >
+                NO_SYNTHESIS_AVAILABLE
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

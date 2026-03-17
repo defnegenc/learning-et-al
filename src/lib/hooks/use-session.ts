@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 interface Session {
   userId: string | null;
   apiKey: string;
-  provider: "openai" | "anthropic" | "other";
+  provider: "openai" | "anthropic" | "gemini" | "other";
   model: string;
   baseUrl: string;
   isSetUp: boolean;

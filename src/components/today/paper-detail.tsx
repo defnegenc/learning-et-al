@@ -2,16 +2,11 @@
 
 import { useState } from "react";
 import {
-  ArrowLeft,
   Star,
   ThumbsDown,
   ExternalLink,
   Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import { QAThread } from "./qa-thread";
 import type { PaperItem } from "./paper-card";
 
@@ -28,6 +23,8 @@ interface PaperDetailProps {
   onStar: (paperId: string) => void;
   onDislike: (paperId: string) => void;
 }
+
+const ACCENT_COLORS = ["#38b000", "#ff007f", "#7700ff", "#0077ff", "#ff8800"];
 
 export function PaperDetail({
   paper,
@@ -79,112 +76,159 @@ export function PaperDetail({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Back button */}
-      <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2">
-        <ArrowLeft className="size-4" />
-        Back
-      </Button>
+      <button
+        onClick={onBack}
+        className="text-[0.7rem] uppercase tracking-[2px] text-[#1a1a1a] hover:text-[#ff007f] transition-colors"
+        style={{ fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair", background: "none", border: "none", padding: 0 }}
+      >
+        &larr; BACK
+      </button>
 
-      {/* Source badge */}
-      <Badge variant={paper.source === "arxiv" ? "default" : "secondary"}>
-        {paper.source === "arxiv" ? "arXiv" : "News"}
-      </Badge>
+      {/* Source label */}
+      <span
+        className="inline-block border border-[#1a1a1a] px-2 py-0.5 text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+        style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+      >
+        {paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
+      </span>
 
       {/* Title */}
-      <h1 className="text-2xl font-bold leading-tight">{paper.title}</h1>
+      <h1
+        className="text-xl font-bold uppercase leading-tight text-[#1a1a1a]"
+        style={{ fontFamily: '"Courier New", Courier, monospace', letterSpacing: "1px" }}
+      >
+        {paper.title}
+      </h1>
 
       {/* Authors */}
       {paper.authors.length > 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[0.75rem] italic text-[#555]">
           {paper.authors.join(", ")}
         </p>
       )}
 
       {/* Action buttons */}
       <div className="flex items-center gap-2">
-        <Button
-          variant={starred ? "default" : "outline"}
-          size="sm"
+        <button
           onClick={handleStar}
+          className={`border border-[#1a1a1a] px-3 py-1 text-[0.65rem] uppercase tracking-[2px] transition-colors flex items-center gap-1.5 ${
+            starred
+              ? "bg-[#1a1a1a] text-[#e8e8e8]"
+              : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
+          }`}
+          style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
         >
-          <Star className={`size-4 ${starred ? "fill-current" : ""}`} />
-          {starred ? "Starred" : "Star"}
-        </Button>
+          <Star className={`size-3 ${starred ? "fill-current" : ""}`} />
+          {starred ? "STARRED" : "STAR"}
+        </button>
 
-        <Button
-          variant="outline"
-          size="sm"
+        <button
           onClick={handleDislikeClick}
           disabled={dislikeState !== "idle"}
+          className="border border-[#1a1a1a] px-3 py-1 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors flex items-center gap-1.5 disabled:opacity-50"
+          style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
         >
-          <ThumbsDown className="size-4" />
-          Dislike
-        </Button>
+          <ThumbsDown className="size-3" />
+          DISLIKE
+        </button>
 
         {paper.sourceUrl && (
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={() => window.open(paper.sourceUrl!, "_blank", "noopener,noreferrer")}
+            className="border border-[#1a1a1a] px-3 py-1 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors flex items-center gap-1.5"
+            style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
           >
-            <ExternalLink className="size-4" />
-            Open source
-          </Button>
+            <ExternalLink className="size-3" />
+            OPEN_SOURCE
+          </button>
         )}
       </div>
 
       {/* Dislike flow */}
       {dislikeState === "input" && (
         <div className="flex items-center gap-2">
-          <Input
-            placeholder="Why didn't you like this?"
+          <input
+            placeholder="WHY DIDN'T YOU LIKE THIS?"
             value={dislikeReason}
             onChange={(e) => setDislikeReason(e.target.value)}
-            className="flex-1"
+            className="flex-1 border border-[#1a1a1a] bg-transparent px-2 py-1 text-[0.75rem] placeholder:text-[#555] focus:outline-none"
+            style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', borderRadius: 0 }}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") handleDislikeSubmit();
             }}
           />
-          <Button size="sm" onClick={handleDislikeSubmit}>
-            Submit
-          </Button>
+          <button
+            onClick={handleDislikeSubmit}
+            className="border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-3 py-1 text-[0.65rem] uppercase tracking-[2px]"
+            style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
+          >
+            SUBMIT
+          </button>
         </div>
       )}
       {dislikeState === "submitting" && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          Submitting...
+        <div className="flex items-center gap-2 text-[0.75rem] text-[#555]">
+          <Loader2 className="size-3 animate-spin" />
+          <span
+            className="text-[0.65rem] uppercase tracking-[2px]"
+            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          >
+            SUBMITTING...
+          </span>
         </div>
       )}
       {dislikeState === "done" && (
-        <p className="text-sm text-muted-foreground italic">
-          Thanks, we&apos;ll consider this.
+        <p
+          className="text-[0.7rem] text-[#555]"
+          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+        >
+          FEEDBACK_RECORDED. THANK_YOU.
         </p>
       )}
 
-      {/* Keywords */}
+      {/* Keywords with accent colors */}
       {paper.keywords.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {paper.keywords.map((kw) => (
-            <Badge key={kw} variant="outline" className="text-xs">
-              {kw}
-            </Badge>
-          ))}
+          {paper.keywords.map((kw, idx) => {
+            const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
+            return (
+              <span
+                key={kw}
+                className="px-2 py-0.5 text-[0.6rem] uppercase tracking-[1px]"
+                style={{
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                  borderColor: color,
+                  color: color,
+                  fontFamily: '"Courier New", Courier, monospace',
+                }}
+              >
+                {kw}
+              </span>
+            );
+          })}
         </div>
       )}
 
-      <Separator />
+      {/* Separator */}
+      <div className="h-[1.5px] bg-[#1a1a1a]" />
 
       {/* AI Summary */}
       {paper.summary && (
         <>
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold tracking-tight">AI Summary</h2>
-            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+            <h2
+              className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
+              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            >
+              AI_SUMMARY
+            </h2>
+            <p className="text-[0.85rem] leading-relaxed text-[#1a1a1a] whitespace-pre-wrap">
               {paper.summary}
             </p>
           </section>
-          <Separator />
+          <div className="h-[1.5px] bg-[#1a1a1a]" />
         </>
       )}
 

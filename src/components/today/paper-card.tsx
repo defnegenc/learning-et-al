@@ -1,9 +1,6 @@
 "use client";
 
 import { Star, ThumbsDown } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 export interface PaperItem {
   id: string;
@@ -23,6 +20,8 @@ interface PaperCardProps {
   onDislike: (paperId: string) => void;
 }
 
+const ACCENT_COLORS = ["#38b000", "#ff007f", "#7700ff", "#0077ff", "#ff8800"];
+
 export function PaperCard({
   paper,
   highlighted = false,
@@ -31,62 +30,93 @@ export function PaperCard({
   onDislike,
 }: PaperCardProps) {
   return (
-    <Card
-      className={`group relative cursor-pointer transition-shadow hover:shadow-md ${
-        highlighted ? "ring-2 ring-primary/40" : ""
+    <div
+      className={`group relative border border-[#1a1a1a] p-3 space-y-2 transition-all duration-150 ${
+        highlighted ? "bg-[#d8d8d8]" : "bg-[#e8e8e8] hover:bg-[#f0f0f0]"
       }`}
+      style={{
+        borderWidth: "1.5px",
+        cursor: "crosshair",
+        transition: "transform 150ms ease, background 150ms ease",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.transform = "translateX(5px)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
+      }}
       onClick={() => onSelect(paper)}
     >
-      <CardHeader className="pb-0">
-        <div className="flex items-start justify-between gap-2">
-          <Badge
-            variant={paper.source === "arxiv" ? "default" : "secondary"}
+      {/* Source label + action buttons */}
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+        >
+          {paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
+        </span>
+        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            className="p-1 hover:text-[#38b000] transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStar(paper.id);
+            }}
+            style={{ cursor: "crosshair" }}
           >
-            {paper.source === "arxiv" ? "arXiv" : "News"}
-          </Badge>
-          <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStar(paper.id);
-              }}
-            >
-              <Star className="size-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDislike(paper.id);
-              }}
-            >
-              <ThumbsDown className="size-3.5" />
-            </Button>
-          </div>
+            <Star className="size-3" />
+          </button>
+          <button
+            className="p-1 hover:text-[#ff007f] transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDislike(paper.id);
+            }}
+            style={{ cursor: "crosshair" }}
+          >
+            <ThumbsDown className="size-3" />
+          </button>
         </div>
-        <CardTitle className="line-clamp-2 text-sm leading-snug">
-          {paper.title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {paper.summary && (
-          <p className="line-clamp-2 text-xs text-muted-foreground">
-            {paper.summary}
-          </p>
-        )}
-        {paper.keywords.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {paper.keywords.slice(0, 3).map((kw) => (
-              <Badge key={kw} variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+      </div>
+
+      {/* Title */}
+      <h3
+        className="text-[1rem] font-bold uppercase leading-snug line-clamp-2 text-[#1a1a1a]"
+        style={{ fontFamily: '"Courier New", Courier, monospace' }}
+      >
+        {paper.title}
+      </h3>
+
+      {/* Summary */}
+      {paper.summary && (
+        <p className="text-[0.8rem] text-[#444] line-clamp-3 leading-relaxed">
+          {paper.summary}
+        </p>
+      )}
+
+      {/* Keywords */}
+      {paper.keywords.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-1">
+          {paper.keywords.slice(0, 4).map((kw, idx) => {
+            const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
+            return (
+              <span
+                key={kw}
+                className="px-1.5 py-0 text-[0.6rem] uppercase tracking-[1px]"
+                style={{
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                  borderColor: color,
+                  color: color,
+                  fontFamily: '"Courier New", Courier, monospace',
+                }}
+              >
                 {kw}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

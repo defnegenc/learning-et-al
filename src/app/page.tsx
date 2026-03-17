@@ -9,8 +9,8 @@ export default function Home() {
 
   if (!loaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "#e8e8e8" }}>
+        <div className="size-6 animate-spin border-[1.5px] border-[#1a1a1a] border-t-transparent" />
       </div>
     );
   }
@@ -32,5 +32,5 @@ export default function Home() {
     );
   }
 
-  return <AppShell session={session} />;
+  return <AppShell session={session} updateSession={updateSession} />;
 }

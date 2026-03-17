@@ -1,12 +1,11 @@
-import { PDFParse } from "pdf-parse";
+import { extractText } from "unpdf";
 
 export async function downloadAndParsePdf(pdfUrl: string): Promise<string> {
   try {
     const response = await fetch(pdfUrl);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    const result = await parser.getText();
-    return result.text || "";
+    const buffer = new Uint8Array(await response.arrayBuffer());
+    const { text } = await extractText(buffer);
+    return Array.isArray(text) ? text.join("\n") : text;
   } catch (e) {
     console.error(`Failed to parse PDF from ${pdfUrl}:`, e);
     return "";

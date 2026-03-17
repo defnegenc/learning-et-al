@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MessageCircle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface QAPair {
   id: string;
@@ -92,64 +90,95 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-2">
-        <MessageCircle className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold tracking-tight">
-          Q&amp;A ({pairs.length})
+        <h3
+          className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
+          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+        >
+          Q&amp;A // {pairs.length} THREADS
         </h3>
       </div>
 
       {fetching ? (
         <div className="flex items-center justify-center py-6">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          <Loader2 className="size-4 animate-spin text-[#555]" />
         </div>
       ) : (
         <div className="space-y-2">
           {pairs.map((pair) => {
             const expanded = expandedIds.has(pair.id);
             return (
-              <Card
+              <div
                 key={pair.id}
-                className="cursor-pointer transition-shadow hover:shadow-sm"
+                className="border border-[#1a1a1a] transition-colors hover:bg-[#f0f0f0]"
+                style={{ borderWidth: "1.5px", cursor: "crosshair" }}
                 onClick={() => toggleExpand(pair.id)}
               >
-                <CardContent className="py-3 space-y-2">
+                <div className="p-3 space-y-2">
                   <div className="flex items-start gap-2">
                     {expanded ? (
-                      <ChevronDown className="size-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <ChevronDown className="size-3 mt-0.5 shrink-0 text-[#555]" />
                     ) : (
-                      <ChevronRight className="size-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <ChevronRight className="size-3 mt-0.5 shrink-0 text-[#555]" />
                     )}
-                    <p className="text-sm font-medium">{pair.question}</p>
+                    <p
+                      className="text-[0.8rem] font-bold text-[#1a1a1a] uppercase"
+                      style={{ fontFamily: '"Courier New", Courier, monospace', letterSpacing: "0.5px" }}
+                    >
+                      {pair.question}
+                    </p>
                   </div>
                   {expanded && (
-                    <div className="ml-6 border-t pt-2">
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    <div className="ml-5 border-t border-[#1a1a1a] pt-2" style={{ borderTopWidth: "1px" }}>
+                      <p className="text-[0.8rem] text-[#555] whitespace-pre-wrap leading-relaxed">
                         {pair.answer}
                       </p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
 
-      <div className="relative">
-        <Textarea
-          placeholder="Ask a question about this paper..."
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={loading}
-          className="pr-10 min-h-10"
-        />
-        {loading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          </div>
-        )}
+      {/* Question input */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <textarea
+            placeholder="ASK A QUESTION ABOUT THIS PAPER..."
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
+            className="w-full border border-[#1a1a1a] bg-transparent px-3 py-2 text-[0.8rem] placeholder:text-[#555] placeholder:uppercase placeholder:tracking-[1px] focus:outline-none disabled:opacity-50 min-h-10"
+            style={{
+              borderWidth: "1.5px",
+              resize: "none",
+              fontFamily: '"Courier New", Courier, monospace',
+              borderRadius: 0,
+              cursor: "crosshair",
+            }}
+          />
+          {loading && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Loader2 className="size-3 animate-spin text-[#555]" />
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={loading || !question.trim()}
+          className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50 self-start"
+          style={{
+            borderWidth: "1.5px",
+            fontFamily: '"Courier New", Courier, monospace',
+            cursor: "crosshair",
+          }}
+        >
+          ASK
+        </button>
       </div>
       <div ref={bottomRef} />
     </div>

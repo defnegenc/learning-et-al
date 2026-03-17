@@ -8,7 +8,13 @@
       "Bash(git commit:*)",
       "Bash(npm run:*)",
       "Bash(git reset:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(sleep:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "WebSearch",
+      "Bash(kill:*)"
     ]
   }
 }

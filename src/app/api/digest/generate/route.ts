@@ -9,18 +9,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { apiKey, provider, model, baseUrl } = await req.json();
+    const { apiKey, provider, model, baseUrl, force } = await req.json();
 
     if (!apiKey || !provider) {
       return NextResponse.json({ error: "apiKey and provider are required" }, { status: 400 });
     }
 
     const aiConfig: AIConfig = { apiKey, provider, model, baseUrl };
-    const digest = await generateDigest(userId, aiConfig);
+    const digest = await generateDigest(userId, aiConfig, force);
 
     return NextResponse.json({ digest });
   } catch (error) {
     console.error("Digest generation error:", error);
-    return NextResponse.json({ error: "Failed to generate digest" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to generate digest";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

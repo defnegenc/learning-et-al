@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo } from "react";
 
 interface Interest {
   id: string;
@@ -16,141 +15,201 @@ interface KnowledgeGraphProps {
 }
 
 const SOURCE_COLORS: Record<string, string> = {
-  seed: "#6366f1",
-  star: "#eab308",
-  engagement: "#22c55e",
-  dislike: "#94a3b8",
+  seed: "#7700ff",
+  star: "#ffcc00",
+  engagement: "#38b000",
+  dislike: "#555555",
 };
 
-interface Node {
+interface NodePosition {
   x: number;
   y: number;
-  radius: number;
   keyword: string;
   color: string;
+  size: number;
 }
 
 export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const nodesRef = useRef<Node[]>([]);
+  const nodes = useMemo(() => {
+    if (interests.length === 0) return [];
 
-  const drawGraph = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = 250 * dpr;
-    canvas.height = 250 * dpr;
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, 250, 250);
-
-    if (interests.length === 0) {
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = "12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("No interests yet", 125, 125);
-      return;
-    }
-
-    // Create nodes in a circular layout
-    const cx = 125;
-    const cy = 115;
-    const layoutRadius = 70;
     const maxWeight = Math.max(...interests.map((i) => i.weight ?? 1));
+    const cx = 50;
+    const cy = 45;
+    const layoutRadius = 32;
 
-    const nodes: Node[] = interests.slice(0, 12).map((interest, idx, arr) => {
+    return interests.slice(0, 12).map((interest, idx, arr): NodePosition => {
       const angle = (2 * Math.PI * idx) / arr.length - Math.PI / 2;
       const w = interest.weight ?? 1;
-      const radius = 6 + (w / maxWeight) * 14;
+      const size = 0.5 + (w / maxWeight) * 0.5;
       return {
         x: cx + layoutRadius * Math.cos(angle),
         y: cy + layoutRadius * Math.sin(angle),
-        radius,
         keyword: interest.keyword,
         color: SOURCE_COLORS[interest.source] ?? SOURCE_COLORS.dislike,
+        size,
       };
     });
+  }, [interests]);
 
-    nodesRef.current = nodes;
-
-    // Draw edges between nearby nodes
-    ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
-    ctx.lineWidth = 1;
+  // Generate connections between nearby nodes
+  const connections = useMemo(() => {
+    const conns: { x1: number; y1: number; x2: number; y2: number }[] = [];
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[i].x - nodes[j].x;
         const dy = nodes[i].y - nodes[j].y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < layoutRadius * 1.5) {
-          ctx.beginPath();
-          ctx.moveTo(nodes[i].x, nodes[i].y);
-          ctx.lineTo(nodes[j].x, nodes[j].y);
-          ctx.stroke();
+        if (dist < 50) {
+          conns.push({
+            x1: nodes[i].x,
+            y1: nodes[i].y,
+            x2: nodes[j].x,
+            y2: nodes[j].y,
+          });
         }
       }
     }
-
-    // Draw nodes
-    for (const node of nodes) {
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-      ctx.fillStyle = node.color;
-      ctx.globalAlpha = 0.85;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      // Label
-      ctx.fillStyle = "#64748b";
-      ctx.font = "9px sans-serif";
-      ctx.textAlign = "center";
-      const label =
-        node.keyword.length > 10
-          ? node.keyword.slice(0, 9) + "\u2026"
-          : node.keyword;
-      ctx.fillText(label, node.x, node.y + node.radius + 10);
-    }
-  }, [interests]);
-
-  useEffect(() => {
-    drawGraph();
-  }, [drawGraph]);
-
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!onNodeClick) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    for (const node of nodesRef.current) {
-      const dx = x - node.x;
-      const dy = y - node.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= node.radius + 4) {
-        onNodeClick(node.keyword);
-        return;
-      }
-    }
-  };
+    return conns;
+  }, [nodes]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">Knowledge Graph</CardTitle>
-      </CardHeader>
-      <CardContent className="flex items-center justify-center pb-4">
-        <canvas
-          ref={canvasRef}
-          width={250}
-          height={250}
-          style={{ width: 250, height: 250 }}
-          className="cursor-pointer"
-          onClick={handleClick}
+    <div
+      className="border border-[#1a1a1a] relative overflow-hidden"
+      style={{ borderWidth: "1.5px", height: "100%", width: "100%", background: "#f0f0f0" }}
+    >
+      {/* Header */}
+      <div
+        className="border-b border-[#1a1a1a] px-3 py-1.5"
+        style={{ borderBottomWidth: "1.5px" }}
+      >
+        <h3
+          className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
+          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+        >
+          KNOWLEDGE_GRAPH // NODE_MAP
+        </h3>
+      </div>
+
+      {/* Graph area */}
+      <div className="relative" style={{ height: "calc(100% - 30px)" }}>
+        {/* Aura blobs - ONLY place these appear */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: "180px",
+            height: "180px",
+            background: "#38b000",
+            borderRadius: "50%",
+            filter: "blur(60px)",
+            opacity: 0.15,
+            top: "5%",
+            left: "8%",
+          }}
         />
-      </CardContent>
-    </Card>
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: "150px",
+            height: "150px",
+            background: "#ff007f",
+            borderRadius: "50%",
+            filter: "blur(55px)",
+            opacity: 0.12,
+            bottom: "8%",
+            right: "8%",
+          }}
+        />
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: "120px",
+            height: "120px",
+            background: "#7700ff",
+            borderRadius: "50%",
+            filter: "blur(45px)",
+            opacity: 0.1,
+            top: "45%",
+            left: "45%",
+            transform: "translate(-50%, -50%)",
+          }}
+        />
+
+        {interests.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <span
+              className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
+              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            >
+              NO_INTERESTS_FOUND
+            </span>
+          </div>
+        ) : (
+          <svg
+            viewBox="0 0 100 90"
+            className="w-full h-full"
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {/* Connection lines - dashed */}
+            {connections.map((conn, idx) => (
+              <line
+                key={idx}
+                x1={conn.x1}
+                y1={conn.y1}
+                x2={conn.x2}
+                y2={conn.y2}
+                stroke="#1a1a1a"
+                strokeWidth="0.15"
+                strokeDasharray="0.8,0.8"
+                opacity="0.3"
+              />
+            ))}
+
+            {/* Nodes */}
+            {nodes.map((node) => (
+              <g
+                key={node.keyword}
+                onClick={() => onNodeClick?.(node.keyword)}
+                style={{ cursor: "crosshair" }}
+              >
+                {/* Node dot */}
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={1.5 * node.size + 1}
+                  fill={node.color}
+                  opacity={0.7}
+                />
+                {/* Node label box */}
+                <rect
+                  x={node.x - 9}
+                  y={node.y + 2}
+                  width={18}
+                  height={4.5}
+                  fill="#f0f0f0"
+                  stroke="#1a1a1a"
+                  strokeWidth="0.15"
+                />
+                {/* Label text */}
+                <text
+                  x={node.x}
+                  y={node.y + 5.2}
+                  textAnchor="middle"
+                  fontSize="1.8"
+                  fontFamily="Courier New, Courier, monospace"
+                  fill="#1a1a1a"
+                  letterSpacing="0.5"
+                  style={{ textTransform: "uppercase" }}
+                >
+                  {node.keyword.length > 12
+                    ? node.keyword.slice(0, 11) + "\u2026"
+                    : node.keyword}
+                </text>
+              </g>
+            ))}
+          </svg>
+        )}
+      </div>
+    </div>
   );
 }

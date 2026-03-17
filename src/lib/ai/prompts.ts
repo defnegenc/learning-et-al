@@ -1,24 +1,38 @@
-export const SYNTHESIS_SYSTEM = `You are a research synthesis expert. You analyze academic papers and news articles, highlighting contrasting perspectives, key findings, and connections between them. Be concise but insightful. Use markdown formatting.`;
+export const SYNTHESIS_SYSTEM = `You are a research synthesis expert. You analyze academic papers and news articles, highlighting contrasting perspectives, key findings, and connections between them. Be concise but insightful.`;
 
-export function synthesisPrompt(papers: { title: string; abstract: string; fullText: string; source: string }[]) {
-  const paperSummaries = papers.map((p, i) =>
-    `## Paper ${i + 1}: ${p.title} (${p.source})\n\nAbstract: ${p.abstract}\n\nFull text (truncated): ${p.fullText.slice(0, 8000)}`
-  ).join("\n\n---\n\n");
+export function digestPrompt(items: { title: string; abstract: string; source: string }[]) {
+  const listing = items.map((p, i) =>
+    `[${i + 1}] "${p.title}" (${p.source})\n${p.abstract.slice(0, 2000)}`
+  ).join("\n\n");
 
-  return `Analyze these ${papers.length} papers/articles and produce:
-1. A one-line summary for each
-2. A synthesis section highlighting how they CONTRAST with each other — different perspectives, contradictory findings, complementary angles
-3. Key takeaways connecting them to broader themes
-4. A JSON array of 5-8 key concept tags (short phrases) at the very end, on its own line, prefixed with "KEY_CONCEPTS:" — e.g. KEY_CONCEPTS:["attention mechanisms","few-shot learning","model efficiency"]
+  return `Here are ${items.length} papers/articles. Produce a JSON response with this EXACT structure (no markdown fences, just raw JSON):
 
-${paperSummaries}`;
+{
+  "items": [
+    {
+      "index": 1,
+      "summary": "2-3 sentence summary",
+      "keywords": ["keyword1", "keyword2", "keyword3"]
+    }
+  ],
+  "synthesis": "The synthesis text - see rules below",
+  "keyConcepts": ["concept1", "concept2", "concept3", "concept4", "concept5"]
 }
 
-export function paperSummaryPrompt(title: string, fullText: string) {
-  return `Summarize this paper in 2-3 sentences, focusing on the key contribution and finding:
+Rules:
+- "items" array must have one entry per paper, matching the index
+- "summary" is 2-3 sentences about the key contribution
+- "keywords" is 3-5 specific research topics per paper
+- "synthesis" MUST follow this format:
+  1. Start with a theme line: "Today's theme: [a punchy question or statement that ties the papers together]"
+  2. Then write conversationally, like you're briefing a smart friend over coffee. For example: "Paper 1 digs into X, which is interesting because... Meanwhile, paper 2 takes a completely different angle — they argue that... Oh, and I found this article from [source] that adds a nice wrinkle..."
+  3. Keep it SHORT — 4-6 sentences max after the theme line. No academic jargon. Be opinionated.
+  4. Use markdown bold for paper titles when mentioning them.
+- "keyConcepts" is 5-8 overarching themes across all papers
 
-Title: ${title}
-Text: ${fullText.slice(0, 10000)}`;
+Papers:
+
+${listing}`;
 }
 
 export function qaPrompt(paperTitle: string, fullText: string, question: string) {
@@ -41,11 +55,4 @@ export function comparisonPrompt(papers: { title: string; fullText: string }[]) 
 3. Complementary insights — what does combining them reveal?
 
 ${texts}`;
-}
-
-export function keywordExtractionPrompt(title: string, abstract: string) {
-  return `Extract 3-5 specific research keywords/topics from this paper. Return ONLY a JSON array of strings, nothing else.
-
-Title: ${title}
-Abstract: ${abstract}`;
 }

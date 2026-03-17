@@ -33,6 +33,9 @@ Your AI research companion — a research paper recommendation and synthesis sys
 | 2026-03-16 | Engagement-based interest boosting | Done |
 | 2026-03-16 | Interest decay (5% daily) | Done |
 | 2026-03-16 | Synthesis markdown rendering | Done |
+| 2026-03-16 | Gemini as first-class provider | Done |
+| 2026-03-16 | Settings dialog (change API key/provider anytime) | Done |
+| 2026-03-16 | Fixed PDF parsing (swapped pdf-parse for unpdf) | Done |
 
 ## Not Yet Implemented
 - Cron scheduler (5am auto-generation) — currently manual "Generate" button only
@@ -46,3 +49,8 @@ Your AI research companion — a research paper recommendation and synthesis sys
 | 2026-03-16 | Synthesis banner rendered markdown as plain text | AI-generated content needs a markdown renderer, not raw `<p>` tags |
 | 2026-03-16 | Vault star/dislike were no-op empty functions | When reusing components across pages, wire up all handlers |
 | 2026-03-16 | Interest decay was specified in PRD but not implemented | Cross-check PRD features against actual implementation before calling done |
+| 2026-03-16 | No way to change API key after onboarding | Always provide a settings escape hatch for credentials |
+| 2026-03-16 | pdf-parse broken with Turbopack (worker module missing) | Use unpdf instead — works with modern bundlers |
+| 2026-03-16 | Gemini wasn't a provider option, user had to figure out base URL | Add common providers as first-class options, don't make users configure URLs |
+| 2026-03-16 | Gemini added to provider config but button never rendered in onboarding UI | When adding a new option, grep for ALL places it needs to appear — config, UI, types |
+| 2026-03-16 | Double res.json() call in onboarding — second call got empty body | Only call res.json() once, store the result |

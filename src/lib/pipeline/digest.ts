@@ -5,16 +5,28 @@ import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { downloadAndParsePdf } from "@/lib/fetchers/pdf";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
-import { synthesisPrompt, paperSummaryPrompt, keywordExtractionPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
+import { digestPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
 
-export async function generateDigest(userId: string, aiConfig: AIConfig) {
+interface DigestAIResponse {
+  items: { index: number; summary: string; keywords: string[] }[];
+  synthesis: string;
+  keyConcepts: string[];
+}
+
+export async function generateDigest(userId: string, aiConfig: AIConfig, force?: boolean) {
   const today = new Date().toISOString().split("T")[0];
 
   // Check if digest already exists for today
   const existing = await db.query.digests.findFirst({
     where: and(eq(digests.userId, userId), eq(digests.date, today)),
   });
-  if (existing) return existing;
+  if (existing && !force) return existing;
+
+  // If forcing, delete old digest and its papers
+  if (existing && force) {
+    await db.delete(papers).where(eq(papers.digestId, existing.id));
+    await db.delete(digests).where(eq(digests.id, existing.id));
+  }
 
   // Get user's weighted interests
   const userInterests = await db.query.interests.findMany({
@@ -22,7 +34,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig) {
     orderBy: desc(interests.weight),
   });
 
-  // Apply 5% daily decay to all interest weights
+  // Apply 5% daily decay
   for (const interest of userInterests) {
     const decayedWeight = (interest.weight ?? 1.0) * 0.95;
     await db
@@ -41,87 +53,71 @@ export async function generateDigest(userId: string, aiConfig: AIConfig) {
     fetchRssArticles(topKeywords),
   ]);
 
-  // Pick top 3 of each
   const selectedArxiv = arxivPapers.slice(0, 3);
   const selectedRss = rssArticles.slice(0, 3);
+
+  // Download PDFs for arXiv papers (parallel, no AI calls)
+  const arxivWithText = await Promise.all(
+    selectedArxiv.map(async (paper) => ({
+      ...paper,
+      fullText: paper.pdfUrl ? await downloadAndParsePdf(paper.pdfUrl) : paper.abstract,
+    }))
+  );
+
+  // Build the list of all items for the single AI call
+  const allItems = [
+    ...arxivWithText.map((p) => ({ title: p.title, abstract: p.abstract, source: "arxiv" as const, fullText: p.fullText, authors: p.authors, sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl })),
+    ...selectedRss.map((a) => ({ title: a.title, abstract: a.abstract, source: "rss" as const, fullText: a.abstract, authors: a.authors, sourceUrl: a.sourceUrl, pdfUrl: undefined })),
+  ];
+
+  if (allItems.length === 0) {
+    throw new Error("No papers or articles found for your interests. Try broader interest terms.");
+  }
+
+  // === ONE AI CALL for everything ===
+  const aiResponse = await aiComplete(aiConfig, SYNTHESIS_SYSTEM, digestPrompt(allItems));
+
+  // Parse the JSON response
+  let parsed: DigestAIResponse;
+  try {
+    // Strip markdown code fences if present
+    const cleaned = aiResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    parsed = JSON.parse(cleaned);
+  } catch {
+    // Fallback: use the raw response as synthesis, no per-paper summaries
+    parsed = {
+      items: allItems.map((_, i) => ({ index: i + 1, summary: "", keywords: [] })),
+      synthesis: aiResponse,
+      keyConcepts: [],
+    };
+  }
 
   // Create digest record
   const [digest] = await db.insert(digests).values({
     userId,
     date: today,
+    synthesisContent: parsed.synthesis,
+    keyConcepts: JSON.stringify(parsed.keyConcepts || []),
   }).returning();
 
-  // Process arXiv papers: download PDFs and parse
-  for (const paper of selectedArxiv) {
-    const fullText = paper.pdfUrl ? await downloadAndParsePdf(paper.pdfUrl) : paper.abstract;
-    const summary = await aiComplete(aiConfig, SYNTHESIS_SYSTEM, paperSummaryPrompt(paper.title, fullText));
-    const keywordsJson = await aiComplete(aiConfig, "You extract keywords from papers.", keywordExtractionPrompt(paper.title, paper.abstract));
-
-    let extractedKeywords: string[] = [];
-    try { extractedKeywords = JSON.parse(keywordsJson); } catch { /* ignore parse errors */ }
+  // Insert papers with AI-generated summaries and keywords
+  for (let i = 0; i < allItems.length; i++) {
+    const item = allItems[i];
+    const aiItem = parsed.items.find((x) => x.index === i + 1) || { summary: "", keywords: [] };
 
     await db.insert(papers).values({
       digestId: digest.id,
-      title: paper.title,
-      authors: JSON.stringify(paper.authors),
-      abstract: paper.abstract,
-      fullText,
-      summary,
-      source: "arxiv",
-      sourceUrl: paper.sourceUrl,
-      pdfUrl: paper.pdfUrl,
-      keywords: JSON.stringify(extractedKeywords),
+      title: item.title,
+      authors: JSON.stringify(item.authors),
+      abstract: item.abstract,
+      fullText: item.fullText,
+      summary: aiItem.summary,
+      source: item.source,
+      sourceUrl: item.sourceUrl,
+      pdfUrl: item.pdfUrl,
+      keywords: JSON.stringify(aiItem.keywords),
     });
   }
 
-  // Process RSS articles
-  for (const article of selectedRss) {
-    const summary = await aiComplete(aiConfig, SYNTHESIS_SYSTEM, paperSummaryPrompt(article.title, article.abstract));
-    const keywordsJson = await aiComplete(aiConfig, "You extract keywords from papers.", keywordExtractionPrompt(article.title, article.abstract));
-
-    let extractedKeywords: string[] = [];
-    try { extractedKeywords = JSON.parse(keywordsJson); } catch { /* ignore parse errors */ }
-
-    await db.insert(papers).values({
-      digestId: digest.id,
-      title: article.title,
-      authors: JSON.stringify(article.authors),
-      abstract: article.abstract,
-      fullText: article.abstract,
-      summary,
-      source: "rss",
-      sourceUrl: article.sourceUrl,
-      keywords: JSON.stringify(extractedKeywords),
-    });
-  }
-
-  // Generate overall synthesis
-  const allPapers = await db.query.papers.findMany({
-    where: eq(papers.digestId, digest.id),
-  });
-
-  const synthesisContent = await aiComplete(
-    aiConfig,
-    SYNTHESIS_SYSTEM,
-    synthesisPrompt(allPapers.map((p) => ({
-      title: p.title,
-      abstract: p.abstract || "",
-      fullText: p.fullText || "",
-      source: p.source,
-    })))
-  );
-
-  // Extract key concepts from synthesis
-  let keyConcepts: string[] = [];
-  const conceptMatch = synthesisContent.match(/KEY_CONCEPTS:\s*(\[.*?\])/);
-  if (conceptMatch) {
-    try { keyConcepts = JSON.parse(conceptMatch[1]); } catch { /* ignore parse errors */ }
-  }
-  const cleanedSynthesis = synthesisContent.replace(/KEY_CONCEPTS:\s*\[.*?\]/, "").trim();
-
-  await db.update(digests)
-    .set({ synthesisContent: cleanedSynthesis, keyConcepts: JSON.stringify(keyConcepts) })
-    .where(eq(digests.id, digest.id));
-
-  return { ...digest, synthesisContent: cleanedSynthesis, keyConcepts: JSON.stringify(keyConcepts) };
+  return digest;
 }

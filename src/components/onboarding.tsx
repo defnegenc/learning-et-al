@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, type KeyboardEvent } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { KeyRound, Sparkles, X, Loader2, ArrowRight } from "lucide-react";
+import { NoiseOverlay } from "@/components/noise-overlay";
 
-type Provider = "openai" | "anthropic" | "other";
+type Provider = "openai" | "anthropic" | "gemini" | "other";
 
 interface OnboardingProps {
   onComplete: (data: {
@@ -35,9 +32,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [error, setError] = useState("");
 
   const providerDefaults: Record<Provider, { model: string; baseUrl: string; label: string }> = {
-    openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1", label: "OpenAI" },
-    anthropic: { model: "claude-sonnet-4-20250514", baseUrl: "https://api.anthropic.com", label: "Anthropic" },
-    other: { model: "", baseUrl: "", label: "Other" },
+    openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1", label: "OPENAI" },
+    anthropic: { model: "claude-sonnet-4-20250514", baseUrl: "https://api.anthropic.com", label: "ANTHROPIC" },
+    gemini: { model: "gemini-2.5-flash", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", label: "GEMINI" },
+    other: { model: "", baseUrl: "", label: "OTHER" },
   };
 
   function handleProviderChange(p: Provider) {
@@ -81,12 +79,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         }),
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Setup failed");
       }
 
-      const { userId } = await res.json();
+      const { userId } = data;
       onComplete({
         apiKey,
         provider,
@@ -101,176 +99,207 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4 dark:bg-zinc-950">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
+    <div className="relative flex min-h-screen items-center justify-center p-4" style={{ background: "#e8e8e8" }}>
+      <NoiseOverlay />
+
+      <div className="relative z-10 w-full max-w-lg border border-[#1a1a1a] p-6 space-y-5" style={{ borderWidth: "1.5px", background: "#e8e8e8" }}>
+        {/* Header */}
+        <div className="space-y-2">
+          <h2 className="flex items-center gap-2 text-[0.8rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
             {step === 1 ? (
               <>
-                <KeyRound className="size-5 text-primary" />
-                Connect your AI provider
+                <KeyRound className="size-4" />
+                CONNECT_AI_PROVIDER
               </>
             ) : (
               <>
-                <Sparkles className="size-5 text-primary" />
-                What are you interested in?
+                <Sparkles className="size-4" />
+                DEFINE_INTERESTS
               </>
             )}
-          </CardTitle>
-          <CardDescription>
+          </h2>
+          <p className="text-[0.75rem] text-[#555]">
             {step === 1
               ? "Learning et al. uses an LLM to summarize and rank papers. Enter your API key to get started."
               : "Add 3\u201310 short phrases describing your research interests. Press Enter after each one."}
-          </CardDescription>
-        </CardHeader>
+          </p>
+        </div>
 
-        <CardContent className="flex flex-col gap-5">
-          {step === 1 && (
-            <>
-              {/* Provider selector */}
-              <div className="flex gap-1 rounded-lg bg-muted p-1">
-                {(["openai", "anthropic", "other"] as Provider[]).map((p) => (
+        {step === 1 && (
+          <div className="space-y-4">
+            {/* Provider selector */}
+            <div className="flex gap-0">
+              {(["openai", "anthropic", "gemini", "other"] as Provider[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handleProviderChange(p)}
+                  className={`flex-1 border border-[#1a1a1a] px-2 py-1.5 text-[0.6rem] font-bold uppercase tracking-[1px] transition-colors ${
+                    provider === p
+                      ? "bg-[#1a1a1a] text-[#e8e8e8]"
+                      : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
+                  }`}
+                  style={{ borderWidth: "1.5px", marginRight: "-1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+                >
+                  {providerDefaults[p].label}
+                </button>
+              ))}
+            </div>
+
+            {/* API key */}
+            <div className="space-y-1">
+              <label
+                htmlFor="api-key"
+                className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              >
+                API_KEY
+              </label>
+              <input
+                id="api-key"
+                type="password"
+                placeholder="sk-..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleStepOneNext()}
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                style={{ borderWidth: "1.5px" }}
+              />
+            </div>
+
+            {/* Model + Base URL (only for "other") */}
+            {provider === "other" && (
+              <div className="space-y-1">
+                <label
+                  htmlFor="model"
+                  className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                  style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                >
+                  MODEL
+                </label>
+                <input
+                  id="model"
+                  placeholder="e.g. gpt-4o-mini"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                  style={{ borderWidth: "1.5px" }}
+                />
+              </div>
+            )}
+
+            {provider === "other" && (
+              <div className="space-y-1">
+                <label
+                  htmlFor="base-url"
+                  className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                  style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                >
+                  BASE_URL
+                </label>
+                <input
+                  id="base-url"
+                  placeholder="https://api.example.com/v1"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                  style={{ borderWidth: "1.5px" }}
+                />
+              </div>
+            )}
+
+            <button
+              disabled={!apiKey.trim()}
+              onClick={handleStepOneNext}
+              className="w-full border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.7rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+            >
+              CONTINUE
+              <ArrowRight className="size-3" />
+            </button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            {/* Interest input */}
+            <div className="space-y-1">
+              <label
+                htmlFor="interest"
+                className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              >
+                ADD_INTEREST
+              </label>
+              <input
+                id="interest"
+                placeholder='"transformer architectures" then press Enter'
+                value={interestInput}
+                onChange={(e) => setInterestInput(e.target.value)}
+                onKeyDown={handleAddInterest}
+                disabled={submitting}
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none disabled:opacity-50"
+                style={{ borderWidth: "1.5px" }}
+              />
+            </div>
+
+            {/* Interest tags */}
+            {interests.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {interests.map((interest) => (
                   <button
-                    key={p}
-                    onClick={() => handleProviderChange(p)}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      provider === p
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    key={interest}
+                    onClick={() => handleRemoveInterest(interest)}
+                    className="group/interest border border-[#1a1a1a] px-2 py-0.5 text-[0.65rem] uppercase tracking-[1px] text-[#1a1a1a] hover:border-[#ff007f] hover:text-[#ff007f] transition-colors flex items-center gap-1"
+                    style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
                   >
-                    {providerDefaults[p].label}
+                    {interest}
+                    <X className="size-2.5 opacity-0 group-hover/interest:opacity-100 transition-opacity" />
                   </button>
                 ))}
               </div>
+            )}
 
-              {/* API key */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="api-key" className="text-sm font-medium">
-                  API Key
-                </label>
-                <Input
-                  id="api-key"
-                  type="password"
-                  placeholder={`sk-...`}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleStepOneNext()}
-                />
-              </div>
-
-              {/* Model (pre-filled) */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="model" className="text-sm font-medium">
-                  Model
-                </label>
-                <Input
-                  id="model"
-                  placeholder="e.g. gpt-4o-mini"
-                  value={model || providerDefaults[provider].model}
-                  onChange={(e) => setModel(e.target.value)}
-                />
-              </div>
-
-              {/* Base URL (collapsible for "other") */}
-              {provider === "other" && (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="base-url" className="text-sm font-medium">
-                    Base URL
-                  </label>
-                  <Input
-                    id="base-url"
-                    placeholder="https://api.example.com/v1"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                  />
-                </div>
-              )}
-
-              <Button
-                size="lg"
-                disabled={!apiKey.trim()}
-                onClick={handleStepOneNext}
-                className="mt-1 w-full"
+            {interests.length < 3 && (
+              <p
+                className="text-[0.65rem] text-[#555] uppercase tracking-[1px]"
+                style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
-                Continue
-                <ArrowRight className="ml-1 size-4" data-icon="inline-end" />
-              </Button>
-            </>
-          )}
+                ADD AT LEAST {3 - interests.length} MORE {3 - interests.length === 1 ? "INTEREST" : "INTERESTS"} TO CONTINUE.
+              </p>
+            )}
 
-          {step === 2 && (
-            <>
-              {/* Interest input */}
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="interest" className="text-sm font-medium">
-                  Add an interest
-                </label>
-                <Input
-                  id="interest"
-                  placeholder='e.g. "transformer architectures" then press Enter'
-                  value={interestInput}
-                  onChange={(e) => setInterestInput(e.target.value)}
-                  onKeyDown={handleAddInterest}
-                  disabled={submitting}
-                />
-              </div>
+            {error && (
+              <p className="text-[0.75rem] text-[#ff007f]">{error}</p>
+            )}
 
-              {/* Interest badges */}
-              {interests.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {interests.map((interest) => (
-                    <Badge
-                      key={interest}
-                      variant="secondary"
-                      className="group/interest cursor-pointer gap-1 pr-1.5 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => handleRemoveInterest(interest)}
-                    >
-                      {interest}
-                      <X className="size-3 opacity-0 transition-opacity group-hover/interest:opacity-100" />
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {interests.length < 3 && (
-                <p className="text-xs text-muted-foreground">
-                  Add at least {3 - interests.length} more {3 - interests.length === 1 ? "interest" : "interests"} to continue.
-                </p>
-              )}
-
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep(1)}
-                  disabled={submitting}
-                >
-                  Back
-                </Button>
-                <Button
-                  size="lg"
-                  className="flex-1"
-                  disabled={interests.length < 3 || submitting}
-                  onClick={handleSubmit}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
-                      Setting up...
-                    </>
-                  ) : (
-                    "Start exploring"
-                  )}
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep(1)}
+                disabled={submitting}
+                className="border border-[#1a1a1a] px-4 py-2 text-[0.7rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors disabled:opacity-50"
+                style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+              >
+                BACK
+              </button>
+              <button
+                disabled={interests.length < 3 || submitting}
+                onClick={handleSubmit}
+                className="flex-1 border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.7rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" />
+                    SETTING_UP...
+                  </>
+                ) : (
+                  "START_EXPLORING"
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
