@@ -9,6 +9,7 @@ interface Session {
   model: string;
   baseUrl: string;
   isSetUp: boolean;
+  contentMix: number;
 }
 
 const DEFAULT_SESSION: Session = {
@@ -18,6 +19,7 @@ const DEFAULT_SESSION: Session = {
   model: "",
   baseUrl: "",
   isSetUp: false,
+  contentMix: 50,
 };
 
 export function useSession() {
@@ -28,7 +30,8 @@ export function useSession() {
     const stored = localStorage.getItem("pp_session");
     if (stored) {
       try {
-        setSession(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setSession({ ...DEFAULT_SESSION, ...parsed });
       } catch {
         // ignore corrupted data
       }

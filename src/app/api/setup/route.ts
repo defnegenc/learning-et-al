@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 
 export async function POST(req: NextRequest) {
   try {
-    const { interestStrings, timezone } = await req.json();
+    const { interestStrings, timezone, contentMix } = await req.json();
 
     if (!interestStrings || !Array.isArray(interestStrings) || interestStrings.length === 0) {
       return NextResponse.json({ error: "interestStrings is required" }, { status: 400 });
@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     // Create user
     const [user] = await db.insert(users).values({
       timezone: timezone || "America/New_York",
+      contentMix: typeof contentMix === "number" ? contentMix : 50,
     }).returning();
 
     // Insert seed interests

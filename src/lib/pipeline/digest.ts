@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { digests, papers, interests } from "@/lib/db/schema";
+import { digests, papers, interests, users } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
@@ -47,14 +47,37 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   const topKeywords = userInterests.slice(0, 10).map((i) => i.keyword);
   const searchQuery = topKeywords.join(" OR ");
 
+  // Get user's content mix preference
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  });
+  const contentMix = user?.contentMix ?? 50;
+
+  // Determine paper/article counts based on contentMix (total always 6)
+  let arxivCount: number;
+  let rssCount: number;
+  if (contentMix < 50) {
+    // More research: 4-5 arxiv, 1-2 rss
+    arxivCount = contentMix < 25 ? 5 : 4;
+    rssCount = 6 - arxivCount;
+  } else if (contentMix > 50) {
+    // More news: 1-2 arxiv, 4-5 rss
+    rssCount = contentMix > 75 ? 5 : 4;
+    arxivCount = 6 - rssCount;
+  } else {
+    // Balanced: 3 each
+    arxivCount = 3;
+    rssCount = 3;
+  }
+
   // Fetch papers and articles in parallel
   const [arxivPapers, rssArticles] = await Promise.all([
     searchArxiv(searchQuery, 10),
     fetchRssArticles(topKeywords),
   ]);
 
-  const selectedArxiv = arxivPapers.slice(0, 3);
-  const selectedRss = rssArticles.slice(0, 3);
+  const selectedArxiv = arxivPapers.slice(0, arxivCount);
+  const selectedRss = rssArticles.slice(0, rssCount);
 
   // Download PDFs for arXiv papers (parallel, no AI calls)
   const arxivWithText = await Promise.all(

@@ -21,12 +21,33 @@ const SOURCE_COLORS: Record<string, string> = {
   dislike: "#555555",
 };
 
+// Deterministic hash for consistent positioning based on keyword text
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+// Group keywords into semantic clusters by first letter ranges for a rough grouping
+function getClusterIndex(keyword: string): number {
+  const first = keyword.toLowerCase().charCodeAt(0);
+  if (first < 103) return 0; // a-f
+  if (first < 110) return 1; // g-m
+  if (first < 116) return 2; // n-s
+  return 3; // t-z
+}
+
 interface NodePosition {
   x: number;
   y: number;
   keyword: string;
   color: string;
   size: number;
+  weight: number;
 }
 
 export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) {
@@ -34,39 +55,77 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
     if (interests.length === 0) return [];
 
     const maxWeight = Math.max(...interests.map((i) => i.weight ?? 1));
-    const cx = 50;
-    const cy = 45;
-    const layoutRadius = 32;
+    const minWeight = Math.min(...interests.map((i) => i.weight ?? 1));
+    const weightRange = maxWeight - minWeight || 1;
 
-    return interests.slice(0, 12).map((interest, idx, arr): NodePosition => {
-      const angle = (2 * Math.PI * idx) / arr.length - Math.PI / 2;
+    // Define cluster centers in the viewBox (100x90)
+    const clusterCenters = [
+      { x: 25, y: 25 },  // top-left
+      { x: 75, y: 25 },  // top-right
+      { x: 25, y: 65 },  // bottom-left
+      { x: 75, y: 65 },  // bottom-right
+    ];
+
+    return interests.slice(0, 12).map((interest): NodePosition => {
       const w = interest.weight ?? 1;
-      const size = 0.5 + (w / maxWeight) * 0.5;
+      const normalizedWeight = (w - minWeight) / weightRange;
+      // Size scales from 0.5 to 1.0 based on weight
+      const size = 0.5 + normalizedWeight * 0.5;
+
+      // Position based on keyword cluster + deterministic offset from hash
+      const cluster = getClusterIndex(interest.keyword);
+      const center = clusterCenters[cluster];
+      const h = hashString(interest.keyword);
+      // Spread within cluster: heavier nodes closer to center
+      const spreadRadius = 12 * (1 - normalizedWeight * 0.4);
+      const angle = ((h % 360) * Math.PI) / 180;
+      const dist = (h % 100) / 100 * spreadRadius;
+
+      const x = Math.max(12, Math.min(88, center.x + dist * Math.cos(angle)));
+      const y = Math.max(10, Math.min(80, center.y + dist * Math.sin(angle)));
+
       return {
-        x: cx + layoutRadius * Math.cos(angle),
-        y: cy + layoutRadius * Math.sin(angle),
+        x,
+        y,
         keyword: interest.keyword,
         color: SOURCE_COLORS[interest.source] ?? SOURCE_COLORS.dislike,
         size,
+        weight: w,
       };
     });
   }, [interests]);
 
-  // Generate connections between nearby nodes
+  // Generate connections between nodes that share similar keywords (same cluster)
   const connections = useMemo(() => {
-    const conns: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    const conns: { x1: number; y1: number; x2: number; y2: number; opacity: number }[] = [];
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[i].x - nodes[j].x;
-        const dy = nodes[i].y - nodes[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 50) {
+        // Connect nodes in the same cluster (they likely share papers)
+        const clusterI = getClusterIndex(nodes[i].keyword);
+        const clusterJ = getClusterIndex(nodes[j].keyword);
+        if (clusterI === clusterJ) {
           conns.push({
             x1: nodes[i].x,
             y1: nodes[i].y,
             x2: nodes[j].x,
             y2: nodes[j].y,
+            opacity: 0.25,
           });
+        }
+        // Also connect adjacent clusters for cross-links
+        else if (Math.abs(clusterI - clusterJ) === 1) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 35) {
+            conns.push({
+              x1: nodes[i].x,
+              y1: nodes[i].y,
+              x2: nodes[j].x,
+              y2: nodes[j].y,
+              opacity: 0.15,
+            });
+          }
         }
       }
     }
@@ -84,7 +143,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         style={{ borderBottomWidth: "1.5px" }}
       >
         <h3
-          className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
+          className="text-[0.7rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
           KNOWLEDGE_GRAPH // NODE_MAP
@@ -93,7 +152,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
 
       {/* Graph area */}
       <div className="relative" style={{ height: "calc(100% - 30px)" }}>
-        {/* Aura blobs - ONLY place these appear */}
+        {/* Aura blobs - subtle background only */}
         <div
           className="absolute pointer-events-none"
           style={{
@@ -101,8 +160,8 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             height: "180px",
             background: "#38b000",
             borderRadius: "50%",
-            filter: "blur(60px)",
-            opacity: 0.15,
+            filter: "blur(70px)",
+            opacity: 0.1,
             top: "5%",
             left: "8%",
           }}
@@ -114,8 +173,8 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             height: "150px",
             background: "#ff007f",
             borderRadius: "50%",
-            filter: "blur(55px)",
-            opacity: 0.12,
+            filter: "blur(65px)",
+            opacity: 0.08,
             bottom: "8%",
             right: "8%",
           }}
@@ -127,8 +186,8 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             height: "120px",
             background: "#7700ff",
             borderRadius: "50%",
-            filter: "blur(45px)",
-            opacity: 0.1,
+            filter: "blur(50px)",
+            opacity: 0.07,
             top: "45%",
             left: "45%",
             transform: "translate(-50%, -50%)",
@@ -138,7 +197,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         {interests.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <span
-              className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
+              className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
               style={{ fontFamily: '"Courier New", Courier, monospace' }}
             >
               NO_INTERESTS_FOUND
@@ -160,53 +219,60 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
                 y2={conn.y2}
                 stroke="#1a1a1a"
                 strokeWidth="0.15"
-                strokeDasharray="0.8,0.8"
-                opacity="0.3"
+                strokeDasharray="1,1"
+                opacity={conn.opacity}
               />
             ))}
 
             {/* Nodes */}
-            {nodes.map((node) => (
-              <g
-                key={node.keyword}
-                onClick={() => onNodeClick?.(node.keyword)}
-                style={{ cursor: "crosshair" }}
-              >
-                {/* Node dot */}
-                <circle
-                  cx={node.x}
-                  cy={node.y}
-                  r={1.5 * node.size + 1}
-                  fill={node.color}
-                  opacity={0.7}
-                />
-                {/* Node label box */}
-                <rect
-                  x={node.x - 9}
-                  y={node.y + 2}
-                  width={18}
-                  height={4.5}
-                  fill="#f0f0f0"
-                  stroke="#1a1a1a"
-                  strokeWidth="0.15"
-                />
-                {/* Label text */}
-                <text
-                  x={node.x}
-                  y={node.y + 5.2}
-                  textAnchor="middle"
-                  fontSize="1.8"
-                  fontFamily="Courier New, Courier, monospace"
-                  fill="#1a1a1a"
-                  letterSpacing="0.5"
-                  style={{ textTransform: "uppercase" }}
+            {nodes.map((node) => {
+              const labelLen = Math.min(node.keyword.length, 14);
+              const boxWidth = labelLen * 1.4 + 3;
+              const fontSize = 1.6 + node.size * 0.6;
+              const dotRadius = 1.2 * node.size + 0.8;
+
+              return (
+                <g
+                  key={node.keyword}
+                  onClick={() => onNodeClick?.(node.keyword)}
+                  style={{ cursor: "crosshair" }}
                 >
-                  {node.keyword.length > 12
-                    ? node.keyword.slice(0, 11) + "\u2026"
-                    : node.keyword}
-                </text>
-              </g>
-            ))}
+                  {/* Node dot - sized by weight */}
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={dotRadius}
+                    fill={node.color}
+                    opacity={0.7 + node.size * 0.2}
+                  />
+                  {/* Node label box - sized to content */}
+                  <rect
+                    x={node.x - boxWidth / 2}
+                    y={node.y + dotRadius + 0.5}
+                    width={boxWidth}
+                    height={4}
+                    fill="#f0f0f0"
+                    stroke="#1a1a1a"
+                    strokeWidth="0.15"
+                  />
+                  {/* Label text - sized by weight */}
+                  <text
+                    x={node.x}
+                    y={node.y + dotRadius + 3.5}
+                    textAnchor="middle"
+                    fontSize={fontSize}
+                    fontFamily="Courier New, Courier, monospace"
+                    fill="#1a1a1a"
+                    letterSpacing="0.4"
+                    style={{ textTransform: "uppercase" }}
+                  >
+                    {node.keyword.length > 14
+                      ? node.keyword.slice(0, 13) + "\u2026"
+                      : node.keyword}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
         )}
       </div>

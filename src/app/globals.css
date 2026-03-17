@@ -128,11 +128,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-size: 0.85rem;
+    font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 0.95rem;
   }
   html {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
   input, textarea, button, a {
     cursor: crosshair;
@@ -243,7 +243,7 @@
 }
 
 .brutalist-card:hover {
-  transform: translateX(5px);
+  transform: translateY(-2px);
   background-color: #f0f0f0;
 }
 
@@ -254,7 +254,7 @@
 
 /* Uppercase label style */
 .label-brutal {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 2px;
   font-family: "Courier New", Courier, monospace;
@@ -265,7 +265,7 @@
   position: absolute;
   border: 1.5px solid #1a1a1a;
   padding: 4px 8px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 1px;
   background: #e8e8e8;

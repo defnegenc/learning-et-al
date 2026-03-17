@@ -25,9 +25,10 @@ Rules:
 - "keywords" is 3-5 specific research topics per paper
 - "synthesis" MUST follow this format:
   1. Start with a theme line: "Today's theme: [a punchy question or statement that ties the papers together]"
-  2. Then write conversationally, like you're briefing a smart friend over coffee. For example: "Paper 1 digs into X, which is interesting because... Meanwhile, paper 2 takes a completely different angle — they argue that... Oh, and I found this article from [source] that adds a nice wrinkle..."
-  3. Keep it SHORT — 4-6 sentences max after the theme line. No academic jargon. Be opinionated.
-  4. Use markdown bold for paper titles when mentioning them.
+  2. Then write conversationally, like you're briefing a smart friend over coffee.
+  3. YOU MUST MENTION EVERY SINGLE PAPER AND ARTICLE BY NAME using markdown bold. Do not skip any. For research papers (arxiv), say things like "The research paper **Title** finds that..." or "**Title** argues...". For news articles (rss), say things like "An article from RSS, **Title**, adds context by..." or "Meanwhile, **Title** reports that...". Make it clear which items are academic research papers and which are news/blog articles.
+  4. Keep it SHORT — 5-8 sentences max after the theme line. No academic jargon. Be opinionated.
+  5. Use markdown bold for paper/article titles when mentioning them.
 - "keyConcepts" is 5-8 overarching themes across all papers
 
 Papers:

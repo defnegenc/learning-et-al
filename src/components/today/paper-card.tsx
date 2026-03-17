@@ -40,17 +40,17 @@ export function PaperCard({
         transition: "transform 150ms ease, background 150ms ease",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.transform = "translateX(5px)";
+        (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
+        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
       }}
       onClick={() => onSelect(paper)}
     >
       {/* Source label + action buttons */}
       <div className="flex items-start justify-between gap-2">
         <span
-          className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+          className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
           {paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
@@ -81,7 +81,7 @@ export function PaperCard({
 
       {/* Title */}
       <h3
-        className="text-[1rem] font-bold uppercase leading-snug line-clamp-2 text-[#1a1a1a]"
+        className="text-[1.15rem] font-bold uppercase leading-snug line-clamp-2 text-[#1a1a1a]"
         style={{ fontFamily: '"Courier New", Courier, monospace' }}
       >
         {paper.title}
@@ -89,7 +89,7 @@ export function PaperCard({
 
       {/* Summary */}
       {paper.summary && (
-        <p className="text-[0.8rem] text-[#444] line-clamp-3 leading-relaxed">
+        <p className="text-[0.9rem] text-[#444] line-clamp-3 leading-relaxed">
           {paper.summary}
         </p>
       )}
@@ -102,7 +102,7 @@ export function PaperCard({
             return (
               <span
                 key={kw}
-                className="px-1.5 py-0 text-[0.6rem] uppercase tracking-[1px]"
+                className="px-1.5 py-0 text-[0.7rem] uppercase tracking-[1px]"
                 style={{
                   borderWidth: "1px",
                   borderStyle: "solid",

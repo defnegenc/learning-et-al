@@ -13,6 +13,7 @@ interface OnboardingProps {
     model: string;
     baseUrl: string;
     userId: string;
+    contentMix: number;
   }) => void;
 }
 
@@ -28,6 +29,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   // Step 2 state
   const [interests, setInterests] = useState<string[]>([]);
   const [interestInput, setInterestInput] = useState("");
+  const [contentMix, setContentMix] = useState(50);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -76,6 +78,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         body: JSON.stringify({
           interestStrings: interests,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          contentMix,
         }),
       });
 
@@ -91,11 +94,20 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         model: model || providerDefaults[provider].model,
         baseUrl: baseUrl || providerDefaults[provider].baseUrl,
         userId,
+        contentMix,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setSubmitting(false);
     }
+  }
+
+  function getMixLabel() {
+    if (contentMix < 30) return "RESEARCH_HEAVY";
+    if (contentMix < 45) return "RESEARCH_LEANING";
+    if (contentMix <= 55) return "BALANCED";
+    if (contentMix <= 70) return "NEWS_LEANING";
+    return "NEWS_HEAVY";
   }
 
   return (
@@ -105,7 +117,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       <div className="relative z-10 w-full max-w-lg border border-[#1a1a1a] p-6 space-y-5" style={{ borderWidth: "1.5px", background: "#e8e8e8" }}>
         {/* Header */}
         <div className="space-y-2">
-          <h2 className="flex items-center gap-2 text-[0.8rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
+          <h2 className="flex items-center gap-2 text-[0.85rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
             {step === 1 ? (
               <>
                 <KeyRound className="size-4" />
@@ -118,7 +130,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               </>
             )}
           </h2>
-          <p className="text-[0.75rem] text-[#555]">
+          <p className="text-[0.8rem] text-[#555]">
             {step === 1
               ? "Learning et al. uses an LLM to summarize and rank papers. Enter your API key to get started."
               : "Add 3\u201310 short phrases describing your research interests. Press Enter after each one."}
@@ -133,7 +145,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 <button
                   key={p}
                   onClick={() => handleProviderChange(p)}
-                  className={`flex-1 border border-[#1a1a1a] px-2 py-1.5 text-[0.6rem] font-bold uppercase tracking-[1px] transition-colors ${
+                  className={`flex-1 border border-[#1a1a1a] px-2 py-1.5 text-[0.7rem] font-bold uppercase tracking-[1px] transition-colors ${
                     provider === p
                       ? "bg-[#1a1a1a] text-[#e8e8e8]"
                       : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
@@ -149,7 +161,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <div className="space-y-1">
               <label
                 htmlFor="api-key"
-                className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
                 style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
                 API_KEY
@@ -161,7 +173,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleStepOneNext()}
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none"
                 style={{ borderWidth: "1.5px" }}
               />
             </div>
@@ -171,7 +183,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <div className="space-y-1">
                 <label
                   htmlFor="model"
-                  className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                  className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
                   style={{ fontFamily: '"Courier New", Courier, monospace' }}
                 >
                   MODEL
@@ -181,7 +193,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   placeholder="e.g. gpt-4o-mini"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none"
                   style={{ borderWidth: "1.5px" }}
                 />
               </div>
@@ -191,7 +203,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <div className="space-y-1">
                 <label
                   htmlFor="base-url"
-                  className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                  className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
                   style={{ fontFamily: '"Courier New", Courier, monospace' }}
                 >
                   BASE_URL
@@ -201,7 +213,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   placeholder="https://api.example.com/v1"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none"
                   style={{ borderWidth: "1.5px" }}
                 />
               </div>
@@ -210,7 +222,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <button
               disabled={!apiKey.trim()}
               onClick={handleStepOneNext}
-              className="w-full border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.7rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.75rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
             >
               CONTINUE
@@ -225,7 +237,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <div className="space-y-1">
               <label
                 htmlFor="interest"
-                className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+                className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
                 style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
                 ADD_INTEREST
@@ -237,7 +249,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 onChange={(e) => setInterestInput(e.target.value)}
                 onKeyDown={handleAddInterest}
                 disabled={submitting}
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none disabled:opacity-50"
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none disabled:opacity-50"
                 style={{ borderWidth: "1.5px" }}
               />
             </div>
@@ -249,7 +261,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   <button
                     key={interest}
                     onClick={() => handleRemoveInterest(interest)}
-                    className="group/interest border border-[#1a1a1a] px-2 py-0.5 text-[0.65rem] uppercase tracking-[1px] text-[#1a1a1a] hover:border-[#ff007f] hover:text-[#ff007f] transition-colors flex items-center gap-1"
+                    className="group/interest border border-[#1a1a1a] px-2 py-0.5 text-[0.7rem] uppercase tracking-[1px] text-[#1a1a1a] hover:border-[#ff007f] hover:text-[#ff007f] transition-colors flex items-center gap-1"
                     style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
                   >
                     {interest}
@@ -261,22 +273,70 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
             {interests.length < 3 && (
               <p
-                className="text-[0.65rem] text-[#555] uppercase tracking-[1px]"
+                className="text-[0.7rem] text-[#555] uppercase tracking-[1px]"
                 style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
                 ADD AT LEAST {3 - interests.length} MORE {3 - interests.length === 1 ? "INTEREST" : "INTERESTS"} TO CONTINUE.
               </p>
             )}
 
+            {/* Content mix slider */}
+            <div className="space-y-2 border border-[#1a1a1a] p-3" style={{ borderWidth: "1.5px" }}>
+              <div className="flex items-center justify-between">
+                <label
+                  className="text-[0.7rem] uppercase tracking-[2px] text-[#1a1a1a] font-bold"
+                  style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                >
+                  CONTENT_MIX
+                </label>
+                <span
+                  className="text-[0.65rem] uppercase tracking-[1px] text-[#555]"
+                  style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                >
+                  {getMixLabel()}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span
+                  className="text-[0.65rem] uppercase tracking-[1px] text-[#555] whitespace-nowrap"
+                  style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                >
+                  MORE RESEARCH
+                </span>
+                <div className="flex-1 relative">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={contentMix}
+                    onChange={(e) => setContentMix(Number(e.target.value))}
+                    disabled={submitting}
+                    className="w-full h-1 appearance-none bg-[#1a1a1a] outline-none disabled:opacity-50"
+                    style={{
+                      cursor: "crosshair",
+                      accentColor: "#1a1a1a",
+                    }}
+                  />
+                </div>
+                <span
+                  className="text-[0.65rem] uppercase tracking-[1px] text-[#555] whitespace-nowrap"
+                  style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                >
+                  MORE NEWS
+                </span>
+              </div>
+            </div>
+
             {error && (
-              <p className="text-[0.75rem] text-[#ff007f]">{error}</p>
+              <p className="text-[0.8rem] text-[#ff007f]">{error}</p>
             )}
 
             <div className="flex gap-2">
               <button
                 onClick={() => setStep(1)}
                 disabled={submitting}
-                className="border border-[#1a1a1a] px-4 py-2 text-[0.7rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors disabled:opacity-50"
+                className="border border-[#1a1a1a] px-4 py-2 text-[0.75rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors disabled:opacity-50"
                 style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
               >
                 BACK
@@ -284,7 +344,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <button
                 disabled={interests.length < 3 || submitting}
                 onClick={handleSubmit}
-                className="flex-1 border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.7rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.75rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
               >
                 {submitting ? (

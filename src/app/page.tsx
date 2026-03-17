@@ -18,7 +18,7 @@ export default function Home() {
   if (!session.isSetUp) {
     return (
       <Onboarding
-        onComplete={({ apiKey, provider, model, baseUrl, userId }) => {
+        onComplete={({ apiKey, provider, model, baseUrl, userId, contentMix }) => {
           updateSession({
             apiKey,
             provider,
@@ -26,6 +26,7 @@ export default function Home() {
             baseUrl,
             userId,
             isSetUp: true,
+            contentMix,
           });
         }}
       />

@@ -4,6 +4,7 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   timezone: text("timezone").default("America/New_York"),
+  contentMix: integer("content_mix").default(50),
 });
 
 export const interests = sqliteTable("interests", {
