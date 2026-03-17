@@ -259,16 +259,8 @@ export function TodayPage({ session }: TodayPageProps) {
 
       {/* Canvas area (66.66vw) */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Knowledge graph (45%) */}
-        <div className="overflow-hidden" style={{ height: "45%" }}>
-          <KnowledgeGraph
-            interests={interests}
-            onNodeClick={handleConceptClick}
-          />
-        </div>
-
-        {/* Synthesis panel (55%) */}
-        <div className="overflow-y-auto border-t border-[#1a1a1a] p-4" style={{ height: "55%", borderTopWidth: "1.5px" }}>
+        {/* Synthesis panel (top ~40%) */}
+        <div className="overflow-y-auto border-b border-[#1a1a1a]" style={{ height: "40%", borderBottomWidth: "1.5px", padding: "40px" }}>
           {digest.synthesisContent ? (
             <SynthesisBanner
               synthesis={digest.synthesisContent}
@@ -286,6 +278,59 @@ export function TodayPage({ session }: TodayPageProps) {
               </span>
             </div>
           )}
+        </div>
+
+        {/* Visual workspace (bottom ~60%) */}
+        <div className="relative overflow-hidden" style={{ height: "60%" }}>
+          {/* Aura blobs */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              width: "180px",
+              height: "180px",
+              background: "#38b000",
+              borderRadius: "50%",
+              filter: "blur(70px)",
+              opacity: 0.1,
+              top: "5%",
+              left: "8%",
+            }}
+          />
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              width: "150px",
+              height: "150px",
+              background: "#ff007f",
+              borderRadius: "50%",
+              filter: "blur(65px)",
+              opacity: 0.08,
+              bottom: "8%",
+              right: "8%",
+            }}
+          />
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              width: "120px",
+              height: "120px",
+              background: "#7700ff",
+              borderRadius: "50%",
+              filter: "blur(50px)",
+              opacity: 0.07,
+              top: "45%",
+              left: "45%",
+              transform: "translate(-50%, -50%)",
+            }}
+          />
+
+          {/* Node graph - small bordered box, bottom-right */}
+          <div className="absolute" style={{ bottom: "20px", right: "20px" }}>
+            <KnowledgeGraph
+              interests={interests}
+              onNodeClick={handleConceptClick}
+            />
+          </div>
         </div>
       </div>
     </div>

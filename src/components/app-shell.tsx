@@ -36,7 +36,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           {/* Centered title box */}
           <div className="relative z-10 border border-[#1a1a1a] px-6 py-1" style={{ borderWidth: "1.5px", background: "#e8e8e8" }}>
             <h1 className="text-xs font-bold uppercase tracking-[3px] text-[#1a1a1a]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
-              LEARNING ET AL. // DAILY SYNTHESIS
+              LEARNING ET AL.
             </h1>
           </div>
 

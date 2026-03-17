@@ -109,7 +109,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             y1: nodes[i].y,
             x2: nodes[j].x,
             y2: nodes[j].y,
-            opacity: 0.25,
+            opacity: 0.8,
           });
         }
         // Also connect adjacent clusters for cross-links
@@ -123,7 +123,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
               y1: nodes[i].y,
               x2: nodes[j].x,
               y2: nodes[j].y,
-              opacity: 0.15,
+              opacity: 0.8,
             });
           }
         }
@@ -134,8 +134,14 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
 
   return (
     <div
-      className="border border-[#1a1a1a] relative overflow-hidden"
-      style={{ borderWidth: "1.5px", height: "100%", width: "100%", background: "#f0f0f0" }}
+      className="border border-[#1a1a1a] overflow-hidden"
+      style={{
+        borderWidth: "1.5px",
+        width: "320px",
+        height: "240px",
+        background: "rgba(232, 232, 232, 0.9)",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+      }}
     >
       {/* Header */}
       <div
@@ -143,7 +149,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         style={{ borderBottomWidth: "1.5px" }}
       >
         <h3
-          className="text-[0.7rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
+          className="text-[0.55rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
           KNOWLEDGE_GRAPH // NODE_MAP
@@ -152,52 +158,10 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
 
       {/* Graph area */}
       <div className="relative" style={{ height: "calc(100% - 30px)" }}>
-        {/* Aura blobs - subtle background only */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            width: "180px",
-            height: "180px",
-            background: "#38b000",
-            borderRadius: "50%",
-            filter: "blur(70px)",
-            opacity: 0.1,
-            top: "5%",
-            left: "8%",
-          }}
-        />
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            width: "150px",
-            height: "150px",
-            background: "#ff007f",
-            borderRadius: "50%",
-            filter: "blur(65px)",
-            opacity: 0.08,
-            bottom: "8%",
-            right: "8%",
-          }}
-        />
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            width: "120px",
-            height: "120px",
-            background: "#7700ff",
-            borderRadius: "50%",
-            filter: "blur(50px)",
-            opacity: 0.07,
-            top: "45%",
-            left: "45%",
-            transform: "translate(-50%, -50%)",
-          }}
-        />
-
         {interests.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <span
-              className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
+              className="text-[0.55rem] uppercase tracking-[2px] text-[#555]"
               style={{ fontFamily: '"Courier New", Courier, monospace' }}
             >
               NO_INTERESTS_FOUND
@@ -209,7 +173,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             className="w-full h-full"
             preserveAspectRatio="xMidYMid meet"
           >
-            {/* Connection lines - dashed */}
+            {/* Connection lines - solid 1.5px */}
             {connections.map((conn, idx) => (
               <line
                 key={idx}
@@ -218,8 +182,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
                 x2={conn.x2}
                 y2={conn.y2}
                 stroke="#1a1a1a"
-                strokeWidth="0.15"
-                strokeDasharray="1,1"
+                strokeWidth="0.3"
                 opacity={conn.opacity}
               />
             ))}
@@ -228,8 +191,8 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             {nodes.map((node) => {
               const labelLen = Math.min(node.keyword.length, 14);
               const boxWidth = labelLen * 1.4 + 3;
-              const fontSize = 1.6 + node.size * 0.6;
-              const dotRadius = 1.2 * node.size + 0.8;
+              const fontSize = 1.2 + node.size * 0.4;
+              const dotRadius = 1.0 * node.size + 0.6;
 
               return (
                 <g
@@ -250,15 +213,15 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
                     x={node.x - boxWidth / 2}
                     y={node.y + dotRadius + 0.5}
                     width={boxWidth}
-                    height={4}
-                    fill="#f0f0f0"
+                    height={3.5}
+                    fill="rgba(232,232,232,0.9)"
                     stroke="#1a1a1a"
                     strokeWidth="0.15"
                   />
-                  {/* Label text - sized by weight */}
+                  {/* Label text - small 0.55rem equivalent */}
                   <text
                     x={node.x}
-                    y={node.y + dotRadius + 3.5}
+                    y={node.y + dotRadius + 3.2}
                     textAnchor="middle"
                     fontSize={fontSize}
                     fontFamily="Courier New, Courier, monospace"

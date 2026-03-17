@@ -21,6 +21,7 @@ interface PaperCardProps {
 }
 
 const ACCENT_COLORS = ["#38b000", "#ff007f", "#7700ff", "#0077ff", "#ff8800"];
+const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
 
 export function PaperCard({
   paper,
@@ -50,8 +51,14 @@ export function PaperCard({
       {/* Source label + action buttons */}
       <div className="flex items-start justify-between gap-2">
         <span
-          className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
-          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          className="text-[0.6rem] font-bold uppercase tracking-[2px]"
+          style={{
+            fontFamily: '"Courier New", Courier, monospace',
+            padding: "2px 8px",
+            background: "#cce5ff",
+            color: "#1a1a1a",
+            border: "1px solid #1a1a1a",
+          }}
         >
           {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
         </span>
@@ -98,16 +105,16 @@ export function PaperCard({
       {paper.keywords.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-1">
           {paper.keywords.slice(0, 4).map((kw, idx) => {
-            const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
+            const pastel = PASTEL_COLORS[idx % PASTEL_COLORS.length];
             return (
               <span
                 key={kw}
-                className="px-1.5 py-0 text-[0.7rem] uppercase tracking-[1px]"
+                className="text-[0.6rem] uppercase tracking-[1px]"
                 style={{
-                  borderWidth: "1px",
-                  borderStyle: "solid",
-                  borderColor: color,
-                  color: color,
+                  padding: "2px 8px",
+                  border: "1px solid #1a1a1a",
+                  background: pastel,
+                  color: "#1a1a1a",
                   fontFamily: '"Courier New", Courier, monospace',
                 }}
               >

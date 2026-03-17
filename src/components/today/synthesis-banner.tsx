@@ -17,10 +17,10 @@ export function SynthesisBanner({
   activeConcept,
   onConceptClick,
 }: SynthesisBannerProps) {
-  const today = new Date().toISOString().split("T")[0];
+  const digestNumber = new Date().toISOString().split("T")[0].replace(/-/g, "");
 
   return (
-    <div className="relative border border-[#1a1a1a] p-4 space-y-3" style={{ borderWidth: "1.5px" }}>
+    <div className="space-y-3">
       {/* Header with pulsing green status dot */}
       <div className="flex items-center gap-2">
         <span
@@ -35,8 +35,20 @@ export function SynthesisBanner({
           className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
-          DAILY_SYNTHESIS // {today}
+          DAILY_SYNTHESIS_SUMMARY // REPORT_{digestNumber}
         </h3>
+      </div>
+
+      {/* Synthesis text */}
+      <div
+        className="relative z-10 text-[1.1rem] text-[#1a1a1a] prose prose-sm"
+        style={{
+          fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+          maxWidth: "700px",
+          lineHeight: "1.7",
+        }}
+      >
+        <ReactMarkdown>{synthesis}</ReactMarkdown>
       </div>
 
       {/* Key concept tags with accent colors */}
@@ -66,14 +78,6 @@ export function SynthesisBanner({
           })}
         </div>
       )}
-
-      {/* Synthesis text */}
-      <div
-        className="relative z-10 text-[0.95rem] text-[#1a1a1a] leading-[1.6] max-w-[800px] prose prose-sm"
-        style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
-      >
-        <ReactMarkdown>{synthesis}</ReactMarkdown>
-      </div>
 
       {/* Inline pulse keyframe */}
       <style>{`
