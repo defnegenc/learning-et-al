@@ -44,21 +44,25 @@ export function SynthesisBanner({
       </div>
 
       {keyConcepts.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pt-1">
+        <div className="flex flex-wrap gap-1.5 pt-2">
           {keyConcepts.map((concept, idx) => {
-            const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
+            const pastel = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"][idx % 5];
             const isActive = activeConcept === concept;
             return (
               <button
                 key={concept}
                 onClick={() => onConceptClick(concept)}
-                className="px-2 py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors"
                 style={{
-                  border: `1px solid ${color}`,
-                  background: isActive ? color : "transparent",
-                  color: isActive ? "#fff" : color,
-                  fontFamily: '"Courier New", Courier, monospace',
+                  padding: "3px 10px",
+                  background: isActive ? "#1a1a1a" : pastel,
+                  border: "1px solid rgba(26,26,26,0.2)",
+                  color: isActive ? "#e8e8e8" : "#1a1a1a",
+                  fontSize: "0.65rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                   cursor: "crosshair",
+                  transition: "all 0.15s ease",
                 }}
               >
                 {concept}

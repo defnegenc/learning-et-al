@@ -20,7 +20,6 @@ interface PaperCardProps {
   onDislike: (paperId: string) => void;
 }
 
-const ACCENT_COLORS = ["#38b000", "#ff007f", "#7700ff", "#0077ff", "#ff8800"];
 const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
 
 export function PaperCard({
@@ -30,55 +29,49 @@ export function PaperCard({
   onStar,
   onDislike,
 }: PaperCardProps) {
+  const sourceLabel = paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS";
+
   return (
-    <div
-      className={`group relative border border-[#1a1a1a] p-3 space-y-2 transition-all duration-150 ${
-        highlighted ? "bg-[#d8d8d8]" : "bg-[#e8e8e8] hover:bg-[#f0f0f0]"
-      }`}
+    <article
+      className="group relative p-5 space-y-2"
       style={{
-        borderWidth: "1.5px",
+        background: highlighted ? "#f0f0f0" : "#e8e8e8",
+        border: "1.5px solid #1a1a1a",
         cursor: "crosshair",
-        transition: "transform 150ms ease, background 150ms ease",
+        transition: "transform 0.2s ease, background 0.2s ease",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+        (e.currentTarget as HTMLElement).style.background = "#f0f0f0";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+        (e.currentTarget as HTMLElement).style.background = highlighted ? "#f0f0f0" : "#e8e8e8";
       }}
       onClick={() => onSelect(paper)}
     >
-      {/* Source label + action buttons */}
-      <div className="flex items-start justify-between gap-2">
+      {/* Source — plain text, no box */}
+      <div className="flex items-start justify-between">
         <span
-          className="text-[0.6rem] font-bold uppercase tracking-[2px]"
           style={{
-            fontFamily: '"Courier New", Courier, monospace',
-            padding: "2px 8px",
-            background: "#cce5ff",
-            color: "#1a1a1a",
-            border: "1px solid #1a1a1a",
+            fontFamily: "'Courier New', Courier, monospace",
+            fontSize: "0.65rem",
+            color: "#666",
           }}
         >
-          {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
+          {sourceLabel}
         </span>
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
-            className="p-1 hover:text-[#38b000] transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onStar(paper.id);
-            }}
+            className="p-0.5 hover:text-[#38b000] transition-colors"
+            onClick={(e) => { e.stopPropagation(); onStar(paper.id); }}
             style={{ cursor: "crosshair" }}
           >
             <Star className="size-3" />
           </button>
           <button
-            className="p-1 hover:text-[#ff007f] transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDislike(paper.id);
-            }}
+            className="p-0.5 hover:text-[#ff007f] transition-colors"
+            onClick={(e) => { e.stopPropagation(); onDislike(paper.id); }}
             style={{ cursor: "crosshair" }}
           >
             <ThumbsDown className="size-3" />
@@ -87,43 +80,73 @@ export function PaperCard({
       </div>
 
       {/* Title */}
-      <h3
-        className="text-[1.15rem] font-bold uppercase leading-snug line-clamp-2 text-[#1a1a1a]"
-        style={{ fontFamily: '"Courier New", Courier, monospace' }}
+      <h2
+        style={{
+          fontSize: "1.1rem",
+          fontWeight: "bold",
+          textTransform: "uppercase",
+          lineHeight: 1.2,
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        }}
+        className="line-clamp-2"
       >
         {paper.title}
-      </h3>
+      </h2>
+
+      {/* Authors */}
+      {paper.authors.length > 0 && (
+        <p
+          style={{
+            fontSize: "0.75rem",
+            fontStyle: "italic",
+            opacity: 0.8,
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          }}
+        >
+          {paper.authors.join(", ")}
+        </p>
+      )}
 
       {/* Summary */}
       {paper.summary && (
-        <p className="text-[0.9rem] text-[#444] line-clamp-3 leading-relaxed">
+        <p
+          style={{
+            fontSize: "0.8rem",
+            lineHeight: 1.5,
+            color: "#444",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          }}
+        >
           {paper.summary}
         </p>
       )}
 
-      {/* Keywords */}
+      {/* Keywords — pastel boxes */}
       {paper.keywords.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-1">
-          {paper.keywords.slice(0, 4).map((kw, idx) => {
-            const pastel = PASTEL_COLORS[idx % PASTEL_COLORS.length];
-            return (
-              <span
-                key={kw}
-                className="text-[0.6rem] uppercase tracking-[1px]"
-                style={{
-                  padding: "2px 8px",
-                  border: "1px solid #1a1a1a",
-                  background: pastel,
-                  color: "#1a1a1a",
-                  fontFamily: '"Courier New", Courier, monospace',
-                }}
-              >
-                {kw}
-              </span>
-            );
-          })}
+          {paper.keywords.slice(0, 4).map((kw, idx) => (
+            <span
+              key={kw}
+              style={{
+                padding: "2px 8px",
+                background: PASTEL_COLORS[idx % PASTEL_COLORS.length],
+                border: "1px solid rgba(26,26,26,0.2)",
+                color: "#1a1a1a",
+                fontSize: "0.6rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              }}
+            >
+              {kw}
+            </span>
+          ))}
         </div>
       )}
-    </div>
+    </article>
   );
 }
