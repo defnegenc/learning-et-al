@@ -192,26 +192,12 @@ export function TodayPage({ session }: TodayPageProps) {
 
   return (
     <div className="flex h-[calc(100vh-7rem)]">
-      {/* Sidebar - paper cards (33.33vw) */}
+      {/* Sidebar - paper cards */}
       <aside
         className="border-r border-[#1a1a1a] overflow-y-auto shrink-0"
         style={{ width: "33.33vw", borderRightWidth: "1.5px" }}
       >
-        {/* Sidebar header */}
-        <div
-          className="sticky top-0 z-10 border-b border-[#1a1a1a] px-3 py-2"
-          style={{ borderBottomWidth: "1.5px", background: "#e8e8e8" }}
-        >
-          <h2
-            className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
-          >
-            TODAY // {allPapers.length} ITEMS
-          </h2>
-        </div>
-
-        {/* Paper cards list */}
-        <div className="p-2 space-y-2">
+        <div className="p-4 space-y-3">
           {allPapers.map((paper) => (
             <PaperCard
               key={paper.id}
@@ -257,10 +243,10 @@ export function TodayPage({ session }: TodayPageProps) {
         </div>
       </aside>
 
-      {/* Canvas area (66.66vw) */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Synthesis panel (top ~40%) */}
-        <div className="overflow-y-auto border-b border-[#1a1a1a]" style={{ height: "40%", borderBottomWidth: "1.5px", padding: "40px" }}>
+      {/* Canvas area */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* Synthesis */}
+        <div style={{ padding: "40px" }}>
           {digest.synthesisContent ? (
             <SynthesisBanner
               synthesis={digest.synthesisContent}
@@ -269,48 +255,17 @@ export function TodayPage({ session }: TodayPageProps) {
               onConceptClick={handleConceptClick}
             />
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <span
-                className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
-                style={{ fontFamily: '"Courier New", Courier, monospace' }}
-              >
-                NO_SYNTHESIS_AVAILABLE
-              </span>
-            </div>
+            <span
+              className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
+              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            >
+              NO_SYNTHESIS_AVAILABLE
+            </span>
           )}
         </div>
 
-        {/* Visual workspace (bottom ~60%) */}
-        <div className="relative overflow-hidden" style={{ height: "60%" }}>
-          {/* Subtle aura blobs — concentrated near the node graph (bottom-right) */}
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              width: "250px",
-              height: "250px",
-              background: "#7700ff",
-              borderRadius: "50%",
-              filter: "blur(80px)",
-              opacity: 0.06,
-              bottom: "5%",
-              right: "10%",
-            }}
-          />
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              width: "200px",
-              height: "200px",
-              background: "#38b000",
-              borderRadius: "50%",
-              filter: "blur(70px)",
-              opacity: 0.05,
-              bottom: "15%",
-              right: "25%",
-            }}
-          />
-
-          {/* Node graph - small bordered box, bottom-right */}
+        {/* Node graph — bottom-right of remaining space */}
+        <div className="flex-1 relative" style={{ minHeight: "280px" }}>
           <div className="absolute" style={{ bottom: "20px", right: "20px" }}>
             <KnowledgeGraph
               interests={interests}

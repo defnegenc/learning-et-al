@@ -108,7 +108,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
 
   return (
     <div
-      className="border border-[#1a1a1a] overflow-hidden"
+      className="relative border border-[#1a1a1a] overflow-hidden"
       style={{
         borderWidth: "1.5px",
         width: "320px",
@@ -117,6 +117,9 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
       }}
     >
+      {/* Blobs — contained inside this box only */}
+      <div className="absolute pointer-events-none" style={{ width: "140px", height: "140px", background: "#7700ff", borderRadius: "50%", filter: "blur(60px)", opacity: 0.12, top: "-20px", right: "-10px" }} />
+      <div className="absolute pointer-events-none" style={{ width: "120px", height: "120px", background: "#38b000", borderRadius: "50%", filter: "blur(50px)", opacity: 0.1, bottom: "-10px", left: "10px" }} />
       <svg
         viewBox="0 0 100 90"
         className="w-full h-full"

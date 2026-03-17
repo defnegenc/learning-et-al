@@ -17,43 +17,34 @@ export function SynthesisBanner({
   activeConcept,
   onConceptClick,
 }: SynthesisBannerProps) {
-  const digestNumber = new Date().toISOString().split("T")[0].replace(/-/g, "");
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
-    <div className="space-y-3">
-      {/* Header with pulsing green status dot */}
-      <div className="flex items-center gap-2">
-        <span
-          className="inline-block w-2 h-2"
-          style={{
-            background: "#38b000",
-            borderRadius: "50%",
-            animation: "pulse 2s ease-in-out infinite",
-          }}
-        />
-        <h3
-          className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
-          style={{ fontFamily: '"Courier New", Courier, monospace' }}
-        >
-          DAILY_SYNTHESIS_SUMMARY // REPORT_{digestNumber}
-        </h3>
-      </div>
+    <div className="space-y-4">
+      <span
+        className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
+        style={{ fontFamily: '"Courier New", Courier, monospace' }}
+      >
+        {today}
+      </span>
 
-      {/* Synthesis text */}
       <div
-        className="relative z-10 text-[1.1rem] text-[#1a1a1a] prose prose-sm"
+        className="text-[1.05rem] text-[#1a1a1a]"
         style={{
-          fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-          maxWidth: "700px",
+          maxWidth: "680px",
           lineHeight: "1.7",
         }}
       >
         <ReactMarkdown>{synthesis}</ReactMarkdown>
       </div>
 
-      {/* Key concept tags with accent colors */}
       {keyConcepts.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 pt-1">
           {keyConcepts.map((concept, idx) => {
             const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
             const isActive = activeConcept === concept;
@@ -61,11 +52,9 @@ export function SynthesisBanner({
               <button
                 key={concept}
                 onClick={() => onConceptClick(concept)}
-                className="px-2 py-0.5 text-[0.65rem] uppercase tracking-[1px] transition-colors"
+                className="px-2 py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors"
                 style={{
-                  borderWidth: "1.5px",
-                  borderStyle: "solid",
-                  borderColor: isActive ? color : color,
+                  border: `1px solid ${color}`,
                   background: isActive ? color : "transparent",
                   color: isActive ? "#fff" : color,
                   fontFamily: '"Courier New", Courier, monospace',
@@ -78,14 +67,6 @@ export function SynthesisBanner({
           })}
         </div>
       )}
-
-      {/* Inline pulse keyframe */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
     </div>
   );
 }
