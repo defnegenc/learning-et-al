@@ -67,11 +67,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
       {/* Main content */}
       <main className="relative z-10 flex-1">
         {activeTab === "today" && <TodayPage session={session} />}
-        {activeTab === "vault" && (
-          <div className="p-4">
-            <VaultPage session={session} />
-          </div>
-        )}
+        {activeTab === "vault" && <VaultPage session={session} />}
       </main>
 
       {/* Footer */}

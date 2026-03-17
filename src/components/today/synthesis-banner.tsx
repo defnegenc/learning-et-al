@@ -36,7 +36,6 @@ export function SynthesisBanner({
       <div
         className="text-[1.05rem] text-[#1a1a1a]"
         style={{
-          maxWidth: "680px",
           lineHeight: "1.7",
         }}
       >

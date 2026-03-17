@@ -264,14 +264,12 @@ export function TodayPage({ session }: TodayPageProps) {
           )}
         </div>
 
-        {/* Node graph — bottom-right of remaining space */}
-        <div className="flex-1 relative" style={{ minHeight: "280px" }}>
-          <div className="absolute" style={{ bottom: "20px", right: "20px" }}>
-            <KnowledgeGraph
-              interests={interests}
-              onNodeClick={handleConceptClick}
-            />
-          </div>
+        {/* Node graph — below synthesis */}
+        <div style={{ padding: "0 40px 40px 40px", display: "flex", justifyContent: "flex-end" }}>
+          <KnowledgeGraph
+            interests={interests}
+            onNodeClick={handleConceptClick}
+          />
         </div>
       </div>
     </div>

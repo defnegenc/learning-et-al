@@ -14,13 +14,25 @@ interface KnowledgeGraphProps {
   onNodeClick?: (keyword: string) => void;
 }
 
-function hash(str: string): number {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h) + str.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
+const CONTAINER_W = 320;
+const CONTAINER_H = 240;
+
+// Predefined positions as percentages
+const POSITIONS = [
+  { xPct: 15, yPct: 20 },
+  { xPct: 55, yPct: 45 },
+  { xPct: 65, yPct: 15 },
+  { xPct: 25, yPct: 65 },
+  { xPct: 10, yPct: 80 },
+  { xPct: 70, yPct: 78 },
+];
+
+function distance(ax: number, ay: number, bx: number, by: number) {
+  return Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2);
+}
+
+function angleDeg(ax: number, ay: number, bx: number, by: number) {
+  return (Math.atan2(by - ay, bx - ax) * 180) / Math.PI;
 }
 
 export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) {
@@ -28,44 +40,60 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
     const items = interests.slice(0, 6);
     if (items.length === 0) return [];
 
-    // Predefined positions that look good in a 320x240 box
-    // Spread across the space, avoiding edges
-    const positions = [
-      { top: "20%", left: "15%" },
-      { top: "45%", left: "55%" },
-      { top: "15%", left: "65%" },
-      { bottom: "25%", left: "25%" },
-      { top: "65%", left: "10%" },
-      { bottom: "15%", left: "65%" },
-    ];
-
-    return items.map((interest, i) => ({
-      keyword: interest.keyword.length > 18
-        ? interest.keyword.slice(0, 17) + "…"
-        : interest.keyword,
-      fullKeyword: interest.keyword,
-      position: positions[i % positions.length],
-    }));
+    return items.map((interest, i) => {
+      const pos = POSITIONS[i % POSITIONS.length];
+      return {
+        keyword:
+          interest.keyword.length > 18
+            ? interest.keyword.slice(0, 17) + "\u2026"
+            : interest.keyword,
+        fullKeyword: interest.keyword,
+        xPct: pos.xPct,
+        yPct: pos.yPct,
+        cx: (pos.xPct / 100) * CONTAINER_W,
+        cy: (pos.yPct / 100) * CONTAINER_H,
+      };
+    });
   }, [interests]);
 
-  // Predefined connection lines that create a natural-looking graph
-  const lines = useMemo(() => {
+  // Build connections: each node connects to its 1-2 nearest neighbors
+  const connections = useMemo(() => {
     if (nodes.length < 2) return [];
-    const conns = [
-      { top: "24%", left: "28%", width: "100px", rotate: "25deg" },
-      { top: "48%", left: "58%", width: "80px", rotate: "145deg" },
-      { top: "68%", left: "22%", width: "90px", rotate: "-10deg" },
-      { top: "22%", left: "35%", width: "90px", rotate: "-5deg" },
-    ];
-    return conns.slice(0, Math.min(nodes.length - 1, conns.length));
+    const edges = new Set<string>();
+    const result: { ax: number; ay: number; bx: number; by: number }[] = [];
+
+    for (let i = 0; i < nodes.length; i++) {
+      // Sort other nodes by distance
+      const others = nodes
+        .map((n, j) => ({ j, dist: distance(nodes[i].cx, nodes[i].cy, n.cx, n.cy) }))
+        .filter((o) => o.j !== i)
+        .sort((a, b) => a.dist - b.dist);
+
+      // Connect to nearest 1-2
+      const connectCount = Math.min(2, others.length);
+      for (let k = 0; k < connectCount; k++) {
+        const j = others[k].j;
+        const key = [Math.min(i, j), Math.max(i, j)].join("-");
+        if (!edges.has(key)) {
+          edges.add(key);
+          result.push({
+            ax: nodes[i].cx,
+            ay: nodes[i].cy,
+            bx: nodes[j].cx,
+            by: nodes[j].cy,
+          });
+        }
+      }
+    }
+    return result;
   }, [nodes]);
 
   if (interests.length === 0) {
     return (
       <div
         style={{
-          width: "320px",
-          height: "240px",
+          width: `${CONTAINER_W}px`,
+          height: `${CONTAINER_H}px`,
           border: "1.5px solid #1a1a1a",
           background: "rgba(232, 232, 232, 0.9)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
@@ -94,15 +122,15 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
     <div
       style={{
         position: "relative",
-        width: "320px",
-        height: "240px",
+        width: `${CONTAINER_W}px`,
+        height: `${CONTAINER_H}px`,
         border: "1.5px solid #1a1a1a",
         background: "rgba(232, 232, 232, 0.9)",
         boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
         overflow: "hidden",
       }}
     >
-      {/* Blobs — inside this box only */}
+      {/* Blobs */}
       <div
         style={{
           position: "absolute",
@@ -132,23 +160,27 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         }}
       />
 
-      {/* Connection lines */}
-      {lines.map((line, idx) => (
-        <div
-          key={idx}
-          style={{
-            position: "absolute",
-            borderTop: "1.5px solid #1a1a1a",
-            transformOrigin: "0 0",
-            zIndex: 2,
-            opacity: 0.8,
-            top: line.top,
-            left: line.left,
-            width: line.width,
-            transform: `rotate(${line.rotate})`,
-          }}
-        />
-      ))}
+      {/* Connection lines between nodes */}
+      {connections.map((conn, idx) => {
+        const dist = distance(conn.ax, conn.ay, conn.bx, conn.by);
+        const angle = angleDeg(conn.ax, conn.ay, conn.bx, conn.by);
+        return (
+          <div
+            key={`line-${idx}`}
+            style={{
+              position: "absolute",
+              borderTop: "1.5px solid #1a1a1a",
+              transformOrigin: "0 0",
+              zIndex: 2,
+              opacity: 0.8,
+              top: `${conn.ay}px`,
+              left: `${conn.ax}px`,
+              width: `${dist}px`,
+              transform: `rotate(${angle}deg)`,
+            }}
+          />
+        );
+      })}
 
       {/* Keyword nodes */}
       {nodes.map((node) => (
@@ -167,7 +199,9 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             whiteSpace: "nowrap",
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
             cursor: "crosshair",
-            ...node.position,
+            top: `${node.yPct}%`,
+            left: `${node.xPct}%`,
+            transform: "translate(-50%, -50%)",
           }}
         >
           {node.keyword}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star, ThumbsDown } from "lucide-react";
 import { PaperDetail } from "@/components/today/paper-detail";
 import { CompareView } from "./compare-view";
@@ -27,6 +27,7 @@ export function VaultPage({ session }: VaultPageProps) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
 
   const [compareMode, setCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -77,6 +78,21 @@ export function VaultPage({ session }: VaultPageProps) {
   useEffect(() => {
     fetchPapers();
   }, [fetchPapers]);
+
+  // Unique keywords from papers
+  const allKeywords = useMemo(() => {
+    const kws = new Set<string>();
+    papers.forEach((p) => p.keywords.forEach((k) => kws.add(k)));
+    return Array.from(kws).slice(0, 12);
+  }, [papers]);
+
+  // Filter papers by active keyword
+  const filteredPapers = useMemo(() => {
+    if (!activeKeyword) return papers;
+    return papers.filter((p) =>
+      p.keywords.some((k) => k.toLowerCase() === activeKeyword.toLowerCase())
+    );
+  }, [papers, activeKeyword]);
 
   // Toggle card selection in compare mode
   const toggleSelect = (id: string) => {
@@ -166,398 +182,679 @@ export function VaultPage({ session }: VaultPageProps) {
     );
   }
 
+  // Group papers by month for sidebar
+  const now = new Date();
+  const monthLabel = now.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase().replace(" ", "_");
+
   return (
-    <div className="flex gap-0" style={{ minHeight: "calc(100vh - 10rem)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", minHeight: "calc(100vh - 7rem)" }}>
       {/* Main content area */}
-      <div className="flex-1 space-y-4">
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {/* Keyword ribbon */}
+        <div
+          style={{
+            borderBottom: "1.5px solid #1a1a1a",
+            padding: "8px 40px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            onClick={() => setActiveKeyword(null)}
+            style={{
+              padding: "3px 10px",
+              background: activeKeyword === null ? "#1a1a1a" : "transparent",
+              border: "1px solid #1a1a1a",
+              color: activeKeyword === null ? "#e8e8e8" : "#1a1a1a",
+              fontSize: "0.6rem",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+              cursor: "crosshair",
+            }}
+          >
+            All
+          </button>
+          {allKeywords.map((kw) => (
+            <button
+              key={kw}
+              onClick={() => setActiveKeyword(activeKeyword === kw ? null : kw)}
+              style={{
+                padding: "3px 10px",
+                background: activeKeyword === kw ? "#1a1a1a" : "transparent",
+                border: "1px solid #1a1a1a",
+                color: activeKeyword === kw ? "#e8e8e8" : "#1a1a1a",
+                fontSize: "0.6rem",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                cursor: "crosshair",
+              }}
+            >
+              {kw}
+            </button>
+          ))}
+
+          {/* Search input in ribbon */}
+          <div style={{ marginLeft: "auto", position: "relative" }}>
+            <Search
+              style={{
+                position: "absolute",
+                left: "6px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "12px",
+                height: "12px",
+                color: "#555",
+              }}
+            />
+            <input
+              placeholder="SEARCH..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                border: "1.5px solid #1a1a1a",
+                background: "transparent",
+                paddingLeft: "24px",
+                paddingRight: "8px",
+                paddingTop: "3px",
+                paddingBottom: "3px",
+                fontSize: "0.6rem",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                fontFamily: '"Courier New", Courier, monospace',
+                borderRadius: 0,
+                outline: "none",
+                width: "160px",
+              }}
+            />
+          </div>
+        </div>
+
         {/* Grid header */}
-        <div className="flex items-center justify-between">
+        <div
+          style={{
+            padding: "20px 40px 0 40px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <div>
             <h2
-              className="text-sm font-bold uppercase tracking-[3px] text-[#1a1a1a]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              style={{
+                fontSize: "1.2rem",
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "3px",
+                color: "#1a1a1a",
+                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                margin: 0,
+              }}
             >
               REPORT MATRIX
             </h2>
             <span
-              className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              style={{
+                fontSize: "0.65rem",
+                textTransform: "uppercase",
+                letterSpacing: "2px",
+                color: "#1a1a1a",
+                opacity: 0.6,
+                fontFamily: '"Courier New", Courier, monospace',
+              }}
             >
               ACTIVE_REPORTS: {total}
             </span>
           </div>
-        </div>
 
-        {/* Search bar + compare toggle */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 size-3 -translate-y-1/2 text-[#555]" />
-            <input
-              placeholder="SEARCH YOUR VAULT..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full border border-[#1a1a1a] bg-transparent pl-9 pr-3 py-1.5 text-[0.75rem] uppercase tracking-[1px] placeholder:text-[#555] focus:outline-none"
-              style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', borderRadius: 0 }}
-            />
-          </div>
-          <button
-            onClick={() => {
-              if (compareMode) {
-                exitCompareMode();
-              } else {
-                setCompareMode(true);
-              }
-            }}
-            className={`border border-[#1a1a1a] px-3 py-1.5 text-[0.65rem] uppercase tracking-[2px] flex items-center gap-1.5 transition-colors ${
-              compareMode
-                ? "bg-[#1a1a1a] text-[#e8e8e8]"
-                : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
-            }`}
-            style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
-          >
-            <GitCompare className="size-3" />
-            COMPARE
-          </button>
-        </div>
-
-        {/* Compare action bar */}
-        {compareMode && (
-          <div className="flex items-center justify-between border border-[#1a1a1a] px-4 py-2" style={{ borderWidth: "1.5px" }}>
-            <p
-              className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
-            >
-              SELECT 2-3 PAPERS TO COMPARE.{" "}
-              <span className="text-[#1a1a1a] font-bold">
-                {selectedIds.size} SELECTED
-              </span>
-            </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {compareMode && selectedIds.size >= 2 && (
+              <button
+                disabled={comparing}
+                onClick={runCompare}
+                style={{
+                  border: "1.5px solid #1a1a1a",
+                  background: "#1a1a1a",
+                  color: "#e8e8e8",
+                  padding: "4px 12px",
+                  fontSize: "0.65rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  fontFamily: '"Courier New", Courier, monospace',
+                  cursor: "crosshair",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  opacity: comparing ? 0.5 : 1,
+                }}
+              >
+                {comparing ? (
+                  <>
+                    <Loader2 style={{ width: "12px", height: "12px", animation: "spin 1s linear infinite" }} />
+                    COMPARING...
+                  </>
+                ) : (
+                  <>COMPARE {selectedIds.size} ITEMS</>
+                )}
+              </button>
+            )}
             <button
-              disabled={selectedIds.size < 2 || comparing}
-              onClick={runCompare}
-              className="border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-3 py-1 text-[0.65rem] uppercase tracking-[2px] disabled:opacity-50 flex items-center gap-1.5"
-              style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
+              onClick={() => {
+                if (compareMode) {
+                  exitCompareMode();
+                } else {
+                  setCompareMode(true);
+                }
+              }}
+              style={{
+                border: "1.5px solid #1a1a1a",
+                background: compareMode ? "#1a1a1a" : "transparent",
+                color: compareMode ? "#e8e8e8" : "#1a1a1a",
+                padding: "4px 12px",
+                fontSize: "0.65rem",
+                textTransform: "uppercase",
+                letterSpacing: "2px",
+                fontFamily: '"Courier New", Courier, monospace',
+                cursor: "crosshair",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
             >
-              {comparing ? (
-                <>
-                  <Loader2 className="size-3 animate-spin" />
-                  COMPARING...
-                </>
-              ) : (
-                <>COMPARE {selectedIds.size} ITEMS</>
-              )}
+              <GitCompare style={{ width: "12px", height: "12px" }} />
+              {compareMode ? "EXIT COMPARE" : "COMPARE"}
             </button>
           </div>
-        )}
+        </div>
 
-        {/* Loading state */}
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="size-6 animate-spin text-[#555]" />
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!loading && papers.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p
-              className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
-            >
-              {debouncedSearch
-                ? "NO_PAPERS_MATCH_YOUR_SEARCH"
-                : "VAULT_EMPTY. GENERATE_FIRST_DIGEST_FROM_TODAY_TAB."}
-            </p>
-          </div>
-        )}
-
-        {/* Card grid - square aspect ratio */}
-        {!loading && papers.length > 0 && (
+        {/* Compare info bar */}
+        {compareMode && (
           <div
-            className="grid gap-3"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}
+            style={{
+              margin: "12px 40px 0 40px",
+              border: "1.5px solid #1a1a1a",
+              padding: "8px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
           >
-            {papers.map((paper, cardIdx) => {
-              const isSelected = selectedIds.has(paper.id);
-              const accentColor = ACCENT_COLORS[cardIdx % ACCENT_COLORS.length];
-              const repNum = String(cardIdx + 1 + (page - 1) * LIMIT).padStart(3, "0");
-              return (
-                <div
-                  key={paper.id}
-                  className="group relative border border-[#1a1a1a] p-3 flex flex-col justify-between transition-all duration-150"
-                  style={{
-                    borderWidth: isSelected ? "2px" : "1.5px",
-                    borderColor: isSelected ? "#ff007f" : "#1a1a1a",
-                    cursor: "crosshair",
-                    aspectRatio: "1 / 1",
-                    background: "#e8e8e8",
-                    overflow: "hidden",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                    (e.currentTarget as HTMLElement).style.background = "#ffffff";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                    (e.currentTarget as HTMLElement).style.background = "#e8e8e8";
-                  }}
-                  onClick={() => {
-                    if (compareMode) {
-                      toggleSelect(paper.id);
-                    } else {
-                      setSelectedPaper(paper);
-                    }
-                  }}
-                >
-                  {/* Small accent aura blob top-right */}
-                  <div
-                    className="absolute pointer-events-none"
-                    style={{
-                      width: "60px",
-                      height: "60px",
-                      background: accentColor,
-                      borderRadius: "50%",
-                      filter: "blur(25px)",
-                      opacity: 0.15,
-                      top: "-10px",
-                      right: "-10px",
-                    }}
-                  />
+            <span
+              style={{
+                fontSize: "0.65rem",
+                textTransform: "uppercase",
+                letterSpacing: "2px",
+                color: "#555",
+                fontFamily: '"Courier New", Courier, monospace',
+              }}
+            >
+              SELECT 2-3 PAPERS TO COMPARE.{" "}
+              <span style={{ color: "#1a1a1a", fontWeight: "bold" }}>
+                {selectedIds.size} SELECTED
+              </span>
+            </span>
+          </div>
+        )}
 
-                  {/* Top section */}
-                  <div className="space-y-2 relative z-10">
-                    {/* Compare select badge */}
-                    {compareMode && (
-                      <div className="absolute right-0 top-0 z-10">
+        {/* Card grid */}
+        <div
+          style={{
+            flex: 1,
+            background: "#f0f0f0",
+            padding: "40px",
+          }}
+        >
+          {loading && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+              <Loader2 className="size-6 animate-spin" style={{ color: "#555" }} />
+            </div>
+          )}
+
+          {!loading && filteredPapers.length === 0 && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+              <span
+                style={{
+                  fontSize: "0.7rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  color: "#555",
+                  fontFamily: '"Courier New", Courier, monospace',
+                }}
+              >
+                {debouncedSearch
+                  ? "NO_PAPERS_MATCH_YOUR_SEARCH"
+                  : "VAULT_EMPTY. GENERATE_FIRST_DIGEST_FROM_TODAY_TAB."}
+              </span>
+            </div>
+          )}
+
+          {!loading && filteredPapers.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                gap: "20px",
+              }}
+            >
+              {filteredPapers.map((paper, cardIdx) => {
+                const isSelected = selectedIds.has(paper.id);
+                const accentColor = ACCENT_COLORS[cardIdx % ACCENT_COLORS.length];
+                const repNum = String(cardIdx + 1 + (page - 1) * LIMIT).padStart(3, "0");
+                return (
+                  <div
+                    key={paper.id}
+                    className="group"
+                    style={{
+                      aspectRatio: "1 / 1",
+                      border: isSelected ? "2px solid #ff007f" : "1.5px solid #1a1a1a",
+                      background: "#e8e8e8",
+                      padding: "20px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      cursor: "crosshair",
+                      position: "relative",
+                      overflow: "hidden",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                      (e.currentTarget as HTMLElement).style.background = "#ffffff";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLElement).style.background = "#e8e8e8";
+                    }}
+                    onClick={() => {
+                      if (compareMode) {
+                        toggleSelect(paper.id);
+                      } else {
+                        setSelectedPaper(paper);
+                      }
+                    }}
+                  >
+                    {/* Accent aura blob top-right */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        width: "120px",
+                        height: "120px",
+                        background: accentColor,
+                        borderRadius: "50%",
+                        filter: "blur(40px)",
+                        opacity: 0.4,
+                        top: "-20px",
+                        right: "-20px",
+                        pointerEvents: "none",
+                      }}
+                    />
+
+                    {/* Top section */}
+                    <div style={{ position: "relative", zIndex: 2 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span
-                          className="px-2 py-0.5 text-[0.55rem] uppercase tracking-[1px]"
                           style={{
-                            borderWidth: "1px",
-                            borderStyle: "solid",
-                            borderColor: isSelected ? "#ff007f" : "#1a1a1a",
-                            background: isSelected ? "#ff007f" : "transparent",
-                            color: isSelected ? "#fff" : "#1a1a1a",
+                            fontSize: "0.7rem",
+                            fontWeight: "bold",
                             fontFamily: '"Courier New", Courier, monospace',
+                            textTransform: "uppercase",
+                            letterSpacing: "2px",
+                            color: "#1a1a1a",
                           }}
                         >
-                          {isSelected ? "SELECTED" : "SELECT"}
+                          REP_{repNum}
                         </span>
+                        <span
+                          style={{
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            background: "#38b000",
+                            display: "inline-block",
+                          }}
+                        />
                       </div>
-                    )}
 
-                    {/* Report number */}
-                    <span
-                      className="text-[0.6rem] uppercase tracking-[2px] text-[#555]"
-                      style={{ fontFamily: '"Courier New", Courier, monospace' }}
-                    >
-                      REP_{repNum}
-                    </span>
+                      {/* Compare badge */}
+                      {compareMode && (
+                        <div style={{ marginTop: "8px" }}>
+                          <span
+                            style={{
+                              padding: "2px 8px",
+                              fontSize: "0.55rem",
+                              textTransform: "uppercase",
+                              letterSpacing: "1px",
+                              border: `1px solid ${isSelected ? "#ff007f" : "#1a1a1a"}`,
+                              background: isSelected ? "#ff007f" : "transparent",
+                              color: isSelected ? "#fff" : "#1a1a1a",
+                              fontFamily: '"Courier New", Courier, monospace',
+                            }}
+                          >
+                            {isSelected ? "SELECTED" : "SELECT"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Category / Source tag */}
-                    <div>
+                    {/* Bottom section */}
+                    <div style={{ position: "relative", zIndex: 2 }}>
+                      {/* Category tag */}
                       <span
-                        className="inline-block px-1.5 py-0 text-[0.55rem] uppercase tracking-[1px]"
                         style={{
-                          borderWidth: "1px",
-                          borderStyle: "solid",
-                          borderColor: accentColor,
-                          color: accentColor,
+                          fontSize: "0.55rem",
+                          textTransform: "uppercase",
+                          letterSpacing: "1px",
+                          opacity: 0.6,
                           fontFamily: '"Courier New", Courier, monospace',
+                          display: "block",
+                          marginBottom: "6px",
                         }}
                       >
                         {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"}
+                        {paper.keywords.length > 0 ? ` / ${paper.keywords[0]}` : ""}
                       </span>
+
+                      {/* Title */}
+                      <h3
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 800,
+                          textTransform: "uppercase",
+                          lineHeight: 1.2,
+                          color: "#1a1a1a",
+                          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                          margin: 0,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {paper.title}
+                      </h3>
+
+                      {/* Hover actions */}
+                      {!compareMode && (
+                        <div className="opacity-0 transition-opacity group-hover:opacity-100" style={{ display: "flex", gap: "4px", marginTop: "8px" }}>
+                          <button
+                            style={{ padding: "2px", cursor: "crosshair", background: "none", border: "none", color: "#1a1a1a" }}
+                            className="hover:text-[#38b000]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFeedback(paper.id, "star");
+                            }}
+                          >
+                            <Star style={{ width: "12px", height: "12px" }} />
+                          </button>
+                          <button
+                            style={{ padding: "2px", cursor: "crosshair", background: "none", border: "none", color: "#1a1a1a" }}
+                            className="hover:text-[#ff007f]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFeedback(paper.id, "dislike");
+                            }}
+                          >
+                            <ThumbsDown style={{ width: "12px", height: "12px" }} />
+                          </button>
+                        </div>
+                      )}
                     </div>
-
-                    {/* Title */}
-                    <h3
-                      className="text-[0.8rem] font-bold uppercase leading-snug line-clamp-3 text-[#1a1a1a]"
-                      style={{ fontFamily: '"Courier New", Courier, monospace' }}
-                    >
-                      {paper.title}
-                    </h3>
-
-                    {/* Summary */}
-                    {paper.summary && (
-                      <p className="text-[0.7rem] text-[#444] line-clamp-2 leading-relaxed">
-                        {paper.summary}
-                      </p>
-                    )}
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Bottom section */}
-                  <div className="relative z-10 space-y-2">
-                    {/* Keywords */}
-                    {paper.keywords.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {paper.keywords.slice(0, 3).map((kw, kwIdx) => {
-                          const kwColor = ACCENT_COLORS[kwIdx % ACCENT_COLORS.length];
-                          return (
-                            <span
-                              key={kw}
-                              className="px-1.5 py-0 text-[0.55rem] uppercase tracking-[1px]"
-                              style={{
-                                borderWidth: "1px",
-                                borderStyle: "solid",
-                                borderColor: kwColor,
-                                color: kwColor,
-                                fontFamily: '"Courier New", Courier, monospace',
-                              }}
-                            >
-                              {kw}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Hover actions */}
-                    {!compareMode && (
-                      <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button
-                          className="p-1 hover:text-[#38b000] transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFeedback(paper.id, "star");
-                          }}
-                          style={{ cursor: "crosshair" }}
-                        >
-                          <Star className="size-3" />
-                        </button>
-                        <button
-                          className="p-1 hover:text-[#ff007f] transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFeedback(paper.id, "dislike");
-                          }}
-                          style={{ cursor: "crosshair" }}
-                        >
-                          <ThumbsDown className="size-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-4 pt-2 pb-4">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="border border-[#1a1a1a] px-3 py-1 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors disabled:opacity-30 flex items-center gap-1"
-              style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
+          {/* Pagination */}
+          {!loading && totalPages > 1 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "16px",
+                paddingTop: "24px",
+              }}
             >
-              <ChevronLeft className="size-3" />
-              PREV
-            </button>
-            <span
-              className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
-            >
-              PAGE {page} OF {totalPages}
-            </span>
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="border border-[#1a1a1a] px-3 py-1 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors disabled:opacity-30 flex items-center gap-1"
-              style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', cursor: "crosshair" }}
-            >
-              NEXT
-              <ChevronRight className="size-3" />
-            </button>
-          </div>
-        )}
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+                style={{
+                  border: "1.5px solid #1a1a1a",
+                  background: "transparent",
+                  padding: "4px 12px",
+                  fontSize: "0.65rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  fontFamily: '"Courier New", Courier, monospace',
+                  cursor: "crosshair",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  opacity: page <= 1 ? 0.3 : 1,
+                  color: "#1a1a1a",
+                }}
+              >
+                <ChevronLeft style={{ width: "12px", height: "12px" }} />
+                PREV
+              </button>
+              <span
+                style={{
+                  fontSize: "0.65rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  color: "#555",
+                  fontFamily: '"Courier New", Courier, monospace',
+                }}
+              >
+                PAGE {page} OF {totalPages}
+              </span>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                style={{
+                  border: "1.5px solid #1a1a1a",
+                  background: "transparent",
+                  padding: "4px 12px",
+                  fontSize: "0.65rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  fontFamily: '"Courier New", Courier, monospace',
+                  cursor: "crosshair",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  opacity: page >= totalPages ? 0.3 : 1,
+                  color: "#1a1a1a",
+                }}
+              >
+                NEXT
+                <ChevronRight style={{ width: "12px", height: "12px" }} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right sidebar */}
       <aside
-        className="shrink-0 border-l border-[#1a1a1a] overflow-y-auto hidden lg:block"
-        style={{ width: "300px", borderLeftWidth: "1.5px" }}
+        style={{
+          borderLeft: "1.5px solid #1a1a1a",
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
-        {/* Archive Timeline */}
-        <div className="border-b border-[#1a1a1a] px-4 py-2" style={{ borderBottomWidth: "1.5px" }}>
+        {/* Archive Timeline header */}
+        <div
+          style={{
+            borderBottom: "1.5px solid #1a1a1a",
+            padding: "8px 16px",
+          }}
+        >
           <h3
-            className="text-[0.6rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{
+              fontSize: "0.6rem",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+              color: "#1a1a1a",
+              fontFamily: '"Courier New", Courier, monospace',
+              margin: 0,
+            }}
           >
             ARCHIVE_TIMELINE
           </h3>
         </div>
-        <div className="px-4 py-3 space-y-3">
+
+        {/* Archive items */}
+        <div style={{ padding: "12px 16px", flex: 1 }}>
           {!loading && papers.length > 0 ? (
-            (() => {
-              // Group papers by a simple date label
-              const today = new Date().toISOString().split("T")[0];
-              return (
-                <div className="space-y-1">
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {/* Month group */}
+              <span
+                style={{
+                  fontSize: "0.55rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  color: "#555",
+                  fontFamily: '"Courier New", Courier, monospace',
+                }}
+              >
+                {monthLabel}_CYCLE
+              </span>
+              {papers.slice(0, 8).map((p, i) => (
+                <div
+                  key={p.id}
+                  onClick={() => setSelectedPaper(p)}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    padding: "4px 6px",
+                    cursor: "crosshair",
+                    transition: "background 0.1s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(255,0,127,0.08)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                  }}
+                >
                   <span
-                    className="text-[0.55rem] uppercase tracking-[2px] text-[#555]"
-                    style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                    style={{
+                      fontSize: "0.55rem",
+                      color: "#555",
+                      flexShrink: 0,
+                      marginTop: "1px",
+                      fontFamily: '"Courier New", Courier, monospace',
+                    }}
                   >
-                    {today}
+                    {String(i + 1).padStart(2, "0")}
                   </span>
-                  {papers.slice(0, 8).map((p, i) => (
-                    <div
-                      key={p.id}
-                      className="flex items-start gap-2 py-1 hover:bg-[#d8d8d8] px-1 transition-colors"
-                      style={{ cursor: "crosshair" }}
-                      onClick={() => setSelectedPaper(p)}
-                    >
-                      <span
-                        className="text-[0.55rem] text-[#555] shrink-0 mt-0.5"
-                        style={{ fontFamily: '"Courier New", Courier, monospace' }}
-                      >
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span className="text-[0.6rem] text-[#1a1a1a] line-clamp-1 uppercase font-medium">
-                        {p.title}
-                      </span>
-                    </div>
-                  ))}
+                  <span
+                    style={{
+                      fontSize: "0.6rem",
+                      color: "#1a1a1a",
+                      textTransform: "uppercase",
+                      fontWeight: 500,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                    }}
+                  >
+                    {p.title}
+                  </span>
                 </div>
-              );
-            })()
+              ))}
+
+              {papers.length > 8 && (
+                <span
+                  style={{
+                    fontSize: "0.5rem",
+                    color: "#888",
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    fontFamily: '"Courier New", Courier, monospace',
+                    paddingLeft: "6px",
+                  }}
+                >
+                  + {papers.length - 8} MORE
+                </span>
+              )}
+            </div>
           ) : (
             <span
-              className="text-[0.55rem] uppercase tracking-[2px] text-[#555]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              style={{
+                fontSize: "0.55rem",
+                textTransform: "uppercase",
+                letterSpacing: "2px",
+                color: "#555",
+                fontFamily: '"Courier New", Courier, monospace',
+              }}
             >
               NO_ENTRIES
             </span>
           )}
         </div>
 
-        {/* System Logs */}
-        <div className="border-t border-[#1a1a1a] px-4 py-2" style={{ borderTopWidth: "1.5px" }}>
+        {/* System Logs header */}
+        <div
+          style={{
+            borderTop: "1.5px solid #1a1a1a",
+            padding: "8px 16px",
+          }}
+        >
           <h3
-            className="text-[0.6rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{
+              fontSize: "0.6rem",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+              color: "#1a1a1a",
+              fontFamily: '"Courier New", Courier, monospace',
+              margin: 0,
+            }}
           >
             SYSTEM_LOGS
           </h3>
         </div>
-        <div className="px-4 py-3 space-y-1">
+
+        {/* System log entries */}
+        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
           <p
-            className="text-[0.55rem] text-[#555]"
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{
+              fontSize: "0.55rem",
+              color: "#555",
+              fontFamily: '"Courier New", Courier, monospace',
+              margin: 0,
+            }}
           >
             [{new Date().toLocaleTimeString("en-US", { hour12: false })}] VAULT_LOADED // {total} RECORDS
           </p>
           <p
-            className="text-[0.55rem] text-[#555]"
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{
+              fontSize: "0.55rem",
+              color: "#555",
+              fontFamily: '"Courier New", Courier, monospace',
+              margin: 0,
+            }}
           >
             [{new Date().toLocaleTimeString("en-US", { hour12: false })}] PAGE_{page}_OF_{totalPages} // LIMIT_{LIMIT}
           </p>
           {compareMode && (
             <p
-              className="text-[0.55rem] text-[#ff007f]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              style={{
+                fontSize: "0.55rem",
+                color: "#ff007f",
+                fontFamily: '"Courier New", Courier, monospace',
+                margin: 0,
+              }}
             >
               [ACTIVE] COMPARE_MODE // {selectedIds.size} SELECTED
             </p>
