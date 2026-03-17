@@ -14,123 +14,97 @@ interface KnowledgeGraphProps {
   onNodeClick?: (keyword: string) => void;
 }
 
-const SOURCE_COLORS: Record<string, string> = {
-  seed: "#7700ff",
-  star: "#ffcc00",
-  engagement: "#38b000",
-  dislike: "#555555",
-};
-
-// Deterministic hash for consistent positioning based on keyword text
-function hashString(str: string): number {
-  let hash = 0;
+// Deterministic position from keyword string
+function hash(str: string): number {
+  let h = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0;
   }
-  return Math.abs(hash);
-}
-
-// Group keywords into semantic clusters by first letter ranges for a rough grouping
-function getClusterIndex(keyword: string): number {
-  const first = keyword.toLowerCase().charCodeAt(0);
-  if (first < 103) return 0; // a-f
-  if (first < 110) return 1; // g-m
-  if (first < 116) return 2; // n-s
-  return 3; // t-z
-}
-
-interface NodePosition {
-  x: number;
-  y: number;
-  keyword: string;
-  color: string;
-  size: number;
-  weight: number;
+  return Math.abs(h);
 }
 
 export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) {
   const nodes = useMemo(() => {
-    if (interests.length === 0) return [];
+    const items = interests.slice(0, 8);
+    if (items.length === 0) return [];
 
-    const maxWeight = Math.max(...interests.map((i) => i.weight ?? 1));
-    const minWeight = Math.min(...interests.map((i) => i.weight ?? 1));
-    const weightRange = maxWeight - minWeight || 1;
+    // Spread nodes evenly across the space with deterministic offsets
+    return items.map((interest, i) => {
+      const cols = Math.ceil(Math.sqrt(items.length));
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      const totalRows = Math.ceil(items.length / cols);
 
-    // Define cluster centers in the viewBox (100x90)
-    const clusterCenters = [
-      { x: 25, y: 25 },  // top-left
-      { x: 75, y: 25 },  // top-right
-      { x: 25, y: 65 },  // bottom-left
-      { x: 75, y: 65 },  // bottom-right
-    ];
+      // Base grid position (15-85% range)
+      const baseX = 15 + (col / Math.max(cols - 1, 1)) * 70;
+      const baseY = 15 + (row / Math.max(totalRows - 1, 1)) * 60;
 
-    return interests.slice(0, 12).map((interest): NodePosition => {
-      const w = interest.weight ?? 1;
-      const normalizedWeight = (w - minWeight) / weightRange;
-      // Size scales from 0.5 to 1.0 based on weight
-      const size = 0.5 + normalizedWeight * 0.5;
-
-      // Position based on keyword cluster + deterministic offset from hash
-      const cluster = getClusterIndex(interest.keyword);
-      const center = clusterCenters[cluster];
-      const h = hashString(interest.keyword);
-      // Spread within cluster: heavier nodes closer to center
-      const spreadRadius = 12 * (1 - normalizedWeight * 0.4);
-      const angle = ((h % 360) * Math.PI) / 180;
-      const dist = (h % 100) / 100 * spreadRadius;
-
-      const x = Math.max(12, Math.min(88, center.x + dist * Math.cos(angle)));
-      const y = Math.max(10, Math.min(80, center.y + dist * Math.sin(angle)));
+      // Small deterministic offset so it doesn't look like a rigid grid
+      const h = hash(interest.keyword);
+      const offsetX = ((h % 20) - 10) * 0.8;
+      const offsetY = (((h >> 4) % 20) - 10) * 0.6;
 
       return {
-        x,
-        y,
+        x: Math.max(12, Math.min(88, baseX + offsetX)),
+        y: Math.max(12, Math.min(78, baseY + offsetY)),
         keyword: interest.keyword,
-        color: SOURCE_COLORS[interest.source] ?? SOURCE_COLORS.dislike,
-        size,
-        weight: w,
       };
     });
   }, [interests]);
 
-  // Generate connections between nodes that share similar keywords (same cluster)
+  // Connect every node to its nearest 1-2 neighbors
   const connections = useMemo(() => {
-    const conns: { x1: number; y1: number; x2: number; y2: number; opacity: number }[] = [];
+    const conns: { x1: number; y1: number; x2: number; y2: number }[] = [];
     for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        // Connect nodes in the same cluster (they likely share papers)
-        const clusterI = getClusterIndex(nodes[i].keyword);
-        const clusterJ = getClusterIndex(nodes[j].keyword);
-        if (clusterI === clusterJ) {
-          conns.push({
-            x1: nodes[i].x,
-            y1: nodes[i].y,
-            x2: nodes[j].x,
-            y2: nodes[j].y,
-            opacity: 0.8,
-          });
+      // Find nearest neighbor
+      let minDist = Infinity;
+      let nearest = -1;
+      for (let j = 0; j < nodes.length; j++) {
+        if (i === j) continue;
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = j;
         }
-        // Also connect adjacent clusters for cross-links
-        else if (Math.abs(clusterI - clusterJ) === 1) {
-          const dx = nodes[i].x - nodes[j].x;
-          const dy = nodes[i].y - nodes[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 35) {
-            conns.push({
-              x1: nodes[i].x,
-              y1: nodes[i].y,
-              x2: nodes[j].x,
-              y2: nodes[j].y,
-              opacity: 0.8,
-            });
-          }
-        }
+      }
+      if (nearest >= 0 && nearest > i) {
+        conns.push({
+          x1: nodes[i].x,
+          y1: nodes[i].y,
+          x2: nodes[nearest].x,
+          y2: nodes[nearest].y,
+        });
       }
     }
     return conns;
   }, [nodes]);
+
+  if (interests.length === 0) {
+    return (
+      <div
+        className="border border-[#1a1a1a] overflow-hidden"
+        style={{
+          borderWidth: "1.5px",
+          width: "320px",
+          height: "240px",
+          background: "rgba(232, 232, 232, 0.9)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+        }}
+      >
+        <div className="flex items-center justify-center h-full">
+          <span
+            className="text-[0.55rem] uppercase tracking-[2px] text-[#555]"
+            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          >
+            NO_DATA
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -140,105 +114,66 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         width: "320px",
         height: "240px",
         background: "rgba(232, 232, 232, 0.9)",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
       }}
     >
-      {/* Header */}
-      <div
-        className="border-b border-[#1a1a1a] px-3 py-1.5"
-        style={{ borderBottomWidth: "1.5px" }}
+      <svg
+        viewBox="0 0 100 90"
+        className="w-full h-full"
+        preserveAspectRatio="xMidYMid meet"
       >
-        <h3
-          className="text-[0.55rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
-          style={{ fontFamily: '"Courier New", Courier, monospace' }}
-        >
-          KNOWLEDGE_GRAPH // NODE_MAP
-        </h3>
-      </div>
+        {/* Connection lines */}
+        {connections.map((conn, idx) => (
+          <line
+            key={idx}
+            x1={conn.x1}
+            y1={conn.y1}
+            x2={conn.x2}
+            y2={conn.y2}
+            stroke="#1a1a1a"
+            strokeWidth="0.3"
+            opacity={0.8}
+          />
+        ))}
 
-      {/* Graph area */}
-      <div className="relative" style={{ height: "calc(100% - 30px)" }}>
-        {interests.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <span
-              className="text-[0.55rem] uppercase tracking-[2px] text-[#555]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+        {/* Keyword nodes — just a bordered label, nothing else */}
+        {nodes.map((node) => {
+          const label = node.keyword.length > 16
+            ? node.keyword.slice(0, 15) + "\u2026"
+            : node.keyword;
+          const boxW = label.length * 1.3 + 3;
+
+          return (
+            <g
+              key={node.keyword}
+              onClick={() => onNodeClick?.(node.keyword)}
+              style={{ cursor: "crosshair" }}
             >
-              NO_INTERESTS_FOUND
-            </span>
-          </div>
-        ) : (
-          <svg
-            viewBox="0 0 100 90"
-            className="w-full h-full"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {/* Connection lines - solid 1.5px */}
-            {connections.map((conn, idx) => (
-              <line
-                key={idx}
-                x1={conn.x1}
-                y1={conn.y1}
-                x2={conn.x2}
-                y2={conn.y2}
+              <rect
+                x={node.x - boxW / 2}
+                y={node.y - 1.8}
+                width={boxW}
+                height={3.6}
+                fill="#e8e8e8"
                 stroke="#1a1a1a"
-                strokeWidth="0.3"
-                opacity={conn.opacity}
+                strokeWidth="0.15"
               />
-            ))}
-
-            {/* Nodes */}
-            {nodes.map((node) => {
-              const labelLen = Math.min(node.keyword.length, 14);
-              const boxWidth = labelLen * 1.4 + 3;
-              const fontSize = 1.2 + node.size * 0.4;
-              const dotRadius = 1.0 * node.size + 0.6;
-
-              return (
-                <g
-                  key={node.keyword}
-                  onClick={() => onNodeClick?.(node.keyword)}
-                  style={{ cursor: "crosshair" }}
-                >
-                  {/* Node dot - sized by weight */}
-                  <circle
-                    cx={node.x}
-                    cy={node.y}
-                    r={dotRadius}
-                    fill={node.color}
-                    opacity={0.7 + node.size * 0.2}
-                  />
-                  {/* Node label box - sized to content */}
-                  <rect
-                    x={node.x - boxWidth / 2}
-                    y={node.y + dotRadius + 0.5}
-                    width={boxWidth}
-                    height={3.5}
-                    fill="rgba(232,232,232,0.9)"
-                    stroke="#1a1a1a"
-                    strokeWidth="0.15"
-                  />
-                  {/* Label text - small 0.55rem equivalent */}
-                  <text
-                    x={node.x}
-                    y={node.y + dotRadius + 3.2}
-                    textAnchor="middle"
-                    fontSize={fontSize}
-                    fontFamily="Courier New, Courier, monospace"
-                    fill="#1a1a1a"
-                    letterSpacing="0.4"
-                    style={{ textTransform: "uppercase" }}
-                  >
-                    {node.keyword.length > 14
-                      ? node.keyword.slice(0, 13) + "\u2026"
-                      : node.keyword}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        )}
-      </div>
+              <text
+                x={node.x}
+                y={node.y + 0.8}
+                textAnchor="middle"
+                fontSize={1.4}
+                fontFamily="Courier New, Courier, monospace"
+                fill="#1a1a1a"
+                letterSpacing="0.3"
+                style={{ textTransform: "uppercase" }}
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }

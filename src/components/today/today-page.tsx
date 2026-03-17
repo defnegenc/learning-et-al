@@ -282,45 +282,31 @@ export function TodayPage({ session }: TodayPageProps) {
 
         {/* Visual workspace (bottom ~60%) */}
         <div className="relative overflow-hidden" style={{ height: "60%" }}>
-          {/* Aura blobs */}
+          {/* Subtle aura blobs — concentrated near the node graph (bottom-right) */}
           <div
             className="absolute pointer-events-none"
             style={{
-              width: "180px",
-              height: "180px",
+              width: "250px",
+              height: "250px",
+              background: "#7700ff",
+              borderRadius: "50%",
+              filter: "blur(80px)",
+              opacity: 0.06,
+              bottom: "5%",
+              right: "10%",
+            }}
+          />
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              width: "200px",
+              height: "200px",
               background: "#38b000",
               borderRadius: "50%",
               filter: "blur(70px)",
-              opacity: 0.1,
-              top: "5%",
-              left: "8%",
-            }}
-          />
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              width: "150px",
-              height: "150px",
-              background: "#ff007f",
-              borderRadius: "50%",
-              filter: "blur(65px)",
-              opacity: 0.08,
-              bottom: "8%",
-              right: "8%",
-            }}
-          />
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              width: "120px",
-              height: "120px",
-              background: "#7700ff",
-              borderRadius: "50%",
-              filter: "blur(50px)",
-              opacity: 0.07,
-              top: "45%",
-              left: "45%",
-              transform: "translate(-50%, -50%)",
+              opacity: 0.05,
+              bottom: "15%",
+              right: "25%",
             }}
           />
 
