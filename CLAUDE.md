@@ -5,6 +5,9 @@ Your AI research companion — a research paper recommendation and synthesis sys
 
 ## Design Principles
 - **Act as a UX expert** when designing flows — intuitive, minimal friction, delightful interactions
+- **Brutalist research archive aesthetic**: thin 1.5px borders, no rounded corners, uppercase mono labels, crosshair cursor, #e8e8e8 bg, accent colors only in tags (acid-green, acid-pink, acid-purple, acid-blue, acid-orange)
+- **Aura blobs only in knowledge graph** — everything else clean and readable
+- **Synthesis tone is conversational** — like briefing a smart friend over coffee, not academic. Theme line + 4-6 casual sentences. Opinionated.
 - MVP first, iterate fast
 - Localhost for now, plan for deployment later
 
@@ -36,6 +39,10 @@ Your AI research companion — a research paper recommendation and synthesis sys
 | 2026-03-16 | Gemini as first-class provider | Done |
 | 2026-03-16 | Settings dialog (change API key/provider anytime) | Done |
 | 2026-03-16 | Fixed PDF parsing (swapped pdf-parse for unpdf) | Done |
+| 2026-03-16 | Single AI call digest pipeline (was 7 calls, now 1) | Done |
+| 2026-03-16 | Conversational synthesis tone with theme line | Done |
+| 2026-03-16 | Brutalist research archive UI restyle | Done |
+| 2026-03-16 | Vault archive grid with 1:1 cards and sidebar | Done |
 
 ## Not Yet Implemented
 - Cron scheduler (5am auto-generation) — currently manual "Generate" button only

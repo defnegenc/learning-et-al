@@ -5,6 +5,12 @@ import { KeyRound, Sparkles, X, Loader2, ArrowRight } from "lucide-react";
 import { NoiseOverlay } from "@/components/noise-overlay";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
+type ExpertiseLevel = "beginner" | "intermediate" | "expert";
+
+interface InterestWithLevel {
+  keyword: string;
+  level: ExpertiseLevel;
+}
 
 interface OnboardingProps {
   onComplete: (data: {
@@ -27,7 +33,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [baseUrl, setBaseUrl] = useState("");
 
   // Step 2 state
-  const [interests, setInterests] = useState<string[]>([]);
+  const [interests, setInterests] = useState<InterestWithLevel[]>([]);
   const [interestInput, setInterestInput] = useState("");
   const [contentMix, setContentMix] = useState(50);
   const [submitting, setSubmitting] = useState(false);
@@ -55,15 +61,19 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     if (e.key === "Enter" && interestInput.trim()) {
       e.preventDefault();
       const value = interestInput.trim().toLowerCase();
-      if (!interests.includes(value) && interests.length < 10) {
-        setInterests([...interests, value]);
+      if (!interests.some((i) => i.keyword === value) && interests.length < 10) {
+        setInterests([...interests, { keyword: value, level: "intermediate" }]);
       }
       setInterestInput("");
     }
   }
 
-  function handleRemoveInterest(interest: string) {
-    setInterests(interests.filter((i) => i !== interest));
+  function handleRemoveInterest(keyword: string) {
+    setInterests(interests.filter((i) => i.keyword !== keyword));
+  }
+
+  function handleSetLevel(keyword: string, level: ExpertiseLevel) {
+    setInterests(interests.map((i) => i.keyword === keyword ? { ...i, level } : i));
   }
 
   async function handleSubmit() {
@@ -76,7 +86,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          interestStrings: interests,
+          interests: interests.map((i) => ({ keyword: i.keyword, level: i.level })),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           contentMix,
         }),
@@ -254,19 +264,46 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               />
             </div>
 
-            {/* Interest tags */}
+            {/* Interest cards with expertise level */}
             {interests.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
                 {interests.map((interest) => (
-                  <button
-                    key={interest}
-                    onClick={() => handleRemoveInterest(interest)}
-                    className="group/interest border border-[#1a1a1a] px-2 py-0.5 text-[0.7rem] uppercase tracking-[1px] text-[#1a1a1a] hover:border-[#ff007f] hover:text-[#ff007f] transition-colors flex items-center gap-1"
-                    style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+                  <div
+                    key={interest.keyword}
+                    className="border border-[#1a1a1a] p-2"
+                    style={{ borderWidth: "1.5px" }}
                   >
-                    {interest}
-                    <X className="size-2.5 opacity-0 group-hover/interest:opacity-100 transition-opacity" />
-                  </button>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span
+                        className="text-[0.7rem] uppercase tracking-[1px] text-[#1a1a1a] font-bold"
+                        style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                      >
+                        {interest.keyword}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveInterest(interest.keyword)}
+                        className="text-[#555] hover:text-[#ff007f] transition-colors"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                    <div className="flex gap-0">
+                      {(["beginner", "intermediate", "expert"] as ExpertiseLevel[]).map((lvl) => (
+                        <button
+                          key={lvl}
+                          onClick={() => handleSetLevel(interest.keyword, lvl)}
+                          className={`flex-1 border border-[#1a1a1a] px-1 py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors ${
+                            interest.level === lvl
+                              ? "bg-[#1a1a1a] text-[#e8e8e8]"
+                              : "text-[#555] hover:bg-[#d8d8d8]"
+                          }`}
+                          style={{ borderWidth: "1px", marginRight: "-1px", fontFamily: '"Courier New", Courier, monospace' }}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

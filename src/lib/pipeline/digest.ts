@@ -5,12 +5,22 @@ import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { downloadAndParsePdf } from "@/lib/fetchers/pdf";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
-import { digestPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
+import { digestPrompt, searchPlanPrompt, SYNTHESIS_SYSTEM, SEARCH_PLAN_SYSTEM } from "@/lib/ai/prompts";
 
 interface DigestAIResponse {
   items: { index: number; summary: string; keywords: string[] }[];
   synthesis: string;
   keyConcepts: string[];
+}
+
+interface SearchPlan {
+  searches: {
+    interest: string;
+    level: string;
+    foundationalQuery: string;
+    recentQuery: string;
+    newsKeywords: string[];
+  }[];
 }
 
 export async function generateDigest(userId: string, aiConfig: AIConfig, force?: boolean) {
@@ -28,7 +38,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     await db.delete(digests).where(eq(digests.id, existing.id));
   }
 
-  // Get user's weighted interests
+  // Get user's weighted interests (with levels)
   const userInterests = await db.query.interests.findMany({
     where: eq(interests.userId, userId),
     orderBy: desc(interests.weight),
@@ -44,8 +54,10 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     interest.weight = decayedWeight;
   }
 
-  const topKeywords = userInterests.slice(0, 10).map((i) => i.keyword);
-  const searchQuery = topKeywords.join(" OR ");
+  const topInterests = userInterests.slice(0, 10).map((i) => ({
+    keyword: i.keyword,
+    level: i.level ?? "intermediate",
+  }));
 
   // Get user's content mix preference
   const user = await db.query.users.findFirst({
@@ -53,61 +65,149 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   });
   const contentMix = user?.contentMix ?? 50;
 
-  // Determine paper/article counts based on contentMix (total always 6)
-  let arxivCount: number;
-  let rssCount: number;
-  if (contentMix < 50) {
-    // More research: 4-5 arxiv, 1-2 rss
-    arxivCount = contentMix < 25 ? 5 : 4;
-    rssCount = 6 - arxivCount;
-  } else if (contentMix > 50) {
-    // More news: 1-2 arxiv, 4-5 rss
-    rssCount = contentMix > 75 ? 5 : 4;
-    arxivCount = 6 - rssCount;
-  } else {
-    // Balanced: 3 each
-    arxivCount = 3;
-    rssCount = 3;
+  // === AI CALL 1: Search planning ===
+  const planResponse = await aiComplete(aiConfig, SEARCH_PLAN_SYSTEM, searchPlanPrompt(topInterests));
+
+  let searchPlan: SearchPlan;
+  try {
+    const cleaned = planResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    searchPlan = JSON.parse(cleaned);
+  } catch {
+    // Fallback: build a basic plan from interests
+    searchPlan = {
+      searches: topInterests.map((i) => ({
+        interest: i.keyword,
+        level: i.level,
+        foundationalQuery: `${i.keyword} survey`,
+        recentQuery: i.keyword,
+        newsKeywords: [i.keyword],
+      })),
+    };
   }
 
-  // Fetch papers and articles in parallel
-  const [arxivPapers, rssArticles] = await Promise.all([
-    searchArxiv(searchQuery, 10),
-    fetchRssArticles(topKeywords),
-  ]);
+  // Determine how many items per category based on contentMix (total ~6)
+  const totalItems = 6;
+  let maxFoundational: number;
+  let maxRecent: number;
+  let maxNews: number;
+  if (contentMix < 50) {
+    // More research
+    maxFoundational = contentMix < 25 ? 3 : 2;
+    maxRecent = contentMix < 25 ? 2 : 2;
+    maxNews = totalItems - maxFoundational - maxRecent;
+  } else if (contentMix > 50) {
+    // More news
+    maxNews = contentMix > 75 ? 3 : 2;
+    maxRecent = 2;
+    maxFoundational = totalItems - maxNews - maxRecent;
+  } else {
+    // Balanced
+    maxFoundational = 2;
+    maxRecent = 2;
+    maxNews = 2;
+  }
 
-  const selectedArxiv = arxivPapers.slice(0, arxivCount);
-  const selectedRss = rssArticles.slice(0, rssCount);
+  // Execute searches based on the plan
+  type TaggedItem = {
+    title: string;
+    authors: string[];
+    abstract: string;
+    sourceUrl: string;
+    pdfUrl?: string;
+    fullText?: string;
+    source: "arxiv" | "rss";
+    category: "foundational" | "recent" | "news";
+  };
 
-  // Download PDFs for arXiv papers (parallel, no AI calls)
-  const arxivWithText = await Promise.all(
-    selectedArxiv.map(async (paper) => ({
-      ...paper,
-      fullText: paper.pdfUrl ? await downloadAndParsePdf(paper.pdfUrl) : paper.abstract,
-    }))
-  );
+  const foundationalItems: TaggedItem[] = [];
+  const recentItems: TaggedItem[] = [];
+  const newsItems: TaggedItem[] = [];
 
-  // Build the list of all items for the single AI call
-  const allItems = [
-    ...arxivWithText.map((p) => ({ title: p.title, abstract: p.abstract, source: "arxiv" as const, fullText: p.fullText, authors: p.authors, sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl })),
-    ...selectedRss.map((a) => ({ title: a.title, abstract: a.abstract, source: "rss" as const, fullText: a.abstract, authors: a.authors, sourceUrl: a.sourceUrl, pdfUrl: undefined })),
-  ];
+  // Search for each interest in parallel
+  const searchPromises = searchPlan.searches.map(async (search) => {
+    const [foundational, recent, news] = await Promise.all([
+      searchArxiv(search.foundationalQuery, 3),
+      searchArxiv(search.recentQuery, 3),
+      fetchRssArticles(search.newsKeywords, 3),
+    ]);
 
-  if (allItems.length === 0) {
+    return { search, foundational, recent, news };
+  });
+
+  const searchResults = await Promise.all(searchPromises);
+
+  for (const result of searchResults) {
+    for (const paper of result.foundational) {
+      foundationalItems.push({
+        ...paper,
+        source: "arxiv",
+        category: "foundational",
+      });
+    }
+    for (const paper of result.recent) {
+      recentItems.push({
+        ...paper,
+        source: "arxiv",
+        category: "recent",
+      });
+    }
+    for (const article of result.news) {
+      newsItems.push({
+        ...article,
+        pdfUrl: undefined,
+        source: "rss",
+        category: "news",
+      });
+    }
+  }
+
+  // Deduplicate by title (same paper may appear in foundational and recent)
+  const seenTitles = new Set<string>();
+  function dedup(items: TaggedItem[]): TaggedItem[] {
+    return items.filter((item) => {
+      const key = item.title.toLowerCase().trim();
+      if (seenTitles.has(key)) return false;
+      seenTitles.add(key);
+      return true;
+    });
+  }
+
+  const selectedFoundational = dedup(foundationalItems).slice(0, maxFoundational);
+  const selectedRecent = dedup(recentItems).slice(0, maxRecent);
+  const selectedNews = dedup(newsItems).slice(0, maxNews);
+
+  const allSelected = [...selectedFoundational, ...selectedRecent, ...selectedNews];
+
+  if (allSelected.length === 0) {
     throw new Error("No papers or articles found for your interests. Try broader interest terms.");
   }
 
-  // === ONE AI CALL for everything ===
-  const aiResponse = await aiComplete(aiConfig, SYNTHESIS_SYSTEM, digestPrompt(allItems));
+  // Download PDFs for arXiv papers (parallel)
+  const allItems = await Promise.all(
+    allSelected.map(async (item) => ({
+      ...item,
+      fullText: item.pdfUrl ? await downloadAndParsePdf(item.pdfUrl) : item.abstract,
+    }))
+  );
+
+  // === AI CALL 2: Digest synthesis ===
+  const aiResponse = await aiComplete(
+    aiConfig,
+    SYNTHESIS_SYSTEM,
+    digestPrompt(allItems.map((p) => ({
+      title: p.title,
+      abstract: p.abstract,
+      source: p.source,
+      category: p.category,
+    })))
+  );
 
   // Parse the JSON response
   let parsed: DigestAIResponse;
   try {
-    // Strip markdown code fences if present
     const cleaned = aiResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     parsed = JSON.parse(cleaned);
   } catch {
-    // Fallback: use the raw response as synthesis, no per-paper summaries
     parsed = {
       items: allItems.map((_, i) => ({ index: i + 1, summary: "", keywords: [] })),
       synthesis: aiResponse,
@@ -123,7 +223,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     keyConcepts: JSON.stringify(parsed.keyConcepts || []),
   }).returning();
 
-  // Insert papers with AI-generated summaries and keywords
+  // Insert papers with AI-generated summaries, keywords, and category
   for (let i = 0; i < allItems.length; i++) {
     const item = allItems[i];
     const aiItem = parsed.items.find((x) => x.index === i + 1) || { summary: "", keywords: [] };
@@ -139,6 +239,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
       sourceUrl: item.sourceUrl,
       pdfUrl: item.pdfUrl,
       keywords: JSON.stringify(aiItem.keywords),
+      category: item.category,
     });
   }
 

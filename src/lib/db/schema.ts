@@ -13,6 +13,7 @@ export const interests = sqliteTable("interests", {
   keyword: text("keyword").notNull(),
   weight: real("weight").default(1.0),
   source: text("source", { enum: ["seed", "star", "engagement", "dislike"] }).notNull(),
+  level: text("level", { enum: ["beginner", "intermediate", "expert"] }).default("intermediate"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
@@ -38,6 +39,7 @@ export const papers = sqliteTable("papers", {
   sourceUrl: text("source_url"),
   pdfUrl: text("pdf_url"),
   keywords: text("keywords"),
+  category: text("category", { enum: ["foundational", "recent", "news"] }),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

@@ -21,12 +21,12 @@ A personal research assistant that finds, synthesizes, and contrasts research pa
 - **3 research papers** (arXiv) + **3 news articles** (RSS: TechCrunch, Ars Technica, etc.)
 - Papers selected to show **contrasting perspectives** on user's interests
 - Full PDF downloaded and parsed — text stored in DB
-- AI synthesis pre-computed:
-  - Summary of each paper/article
-  - How they contrast with each other
-  - Key perspectives highlighted
-  - **Key concepts extracted as clickable tags** — displayed in the synthesis banner, clicking filters/highlights related cards
-- **UI**: Card thumbnails with pagination, click to expand
+- AI synthesis pre-computed in a **single API call** (all summaries, keywords, synthesis at once):
+  - Summary of each paper/article (2-3 sentences)
+  - Keywords per paper (3-5 topics)
+  - **Conversational synthesis**: starts with a theme line ("Today's theme: can agents think for themselves?"), then 4-6 casual sentences briefing the user like a smart friend. Opinionated, not academic.
+  - **Key concepts extracted as clickable tags** — rectangular bordered tags using accent colors, clicking filters/highlights related cards
+- **UI**: Brutalist research archive aesthetic — sidebar (33%) with paper cards, canvas area (66%) with knowledge graph (45%) and synthesis panel (55%)
 
 ### 3. Paper/Article Detail View
 - Full AI synthesis displayed

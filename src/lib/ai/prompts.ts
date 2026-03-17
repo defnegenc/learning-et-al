@@ -1,8 +1,37 @@
 export const SYNTHESIS_SYSTEM = `You are a research synthesis expert. You analyze academic papers and news articles, highlighting contrasting perspectives, key findings, and connections between them. Be concise but insightful.`;
 
-export function digestPrompt(items: { title: string; abstract: string; source: string }[]) {
+export const SEARCH_PLAN_SYSTEM = `You are a research planning assistant. You help users find the most relevant academic papers and news based on their interests and expertise level. Always return valid JSON.`;
+
+export function searchPlanPrompt(interests: { keyword: string; level: string }[]) {
+  return `Given these research interests and expertise levels, suggest specific search queries.
+
+Interests:
+${interests.map(i => `- "${i.keyword}" (level: ${i.level})`).join('\n')}
+
+Return a JSON object (no markdown fences, just raw JSON):
+{
+  "searches": [
+    {
+      "interest": "the interest keyword",
+      "level": "beginner|intermediate|expert",
+      "foundationalQuery": "search query for a well-known foundational paper on this topic",
+      "recentQuery": "search query for cutting-edge recent research on this topic",
+      "newsKeywords": ["keyword1", "keyword2"]
+    }
+  ]
+}
+
+Rules:
+- For BEGINNER level: foundationalQuery should find introductory/survey papers
+- For INTERMEDIATE: foundationalQuery should find seminal papers in the specific area
+- For EXPERT: foundationalQuery should find niche/advanced papers, recentQuery should find frontier work
+- newsKeywords should be 2-3 terms that would match relevant industry/startup news
+- Return one entry per interest`;
+}
+
+export function digestPrompt(items: { title: string; abstract: string; source: string; category?: string }[]) {
   const listing = items.map((p, i) =>
-    `[${i + 1}] "${p.title}" (${p.source})\n${p.abstract.slice(0, 2000)}`
+    `[${i + 1}] "${p.title}" (${p.source}${p.category ? `, ${p.category}` : ''})\n${p.abstract.slice(0, 2000)}`
   ).join("\n\n");
 
   return `Here are ${items.length} papers/articles. Produce a JSON response with this EXACT structure (no markdown fences, just raw JSON):
@@ -24,11 +53,17 @@ Rules:
 - "summary" is 2-3 sentences about the key contribution
 - "keywords" is 3-5 specific research topics per paper
 - "synthesis" MUST follow this format:
-  1. Start with a theme line: "Today's theme: [a punchy question or statement that ties the papers together]"
-  2. Then write conversationally, like you're briefing a smart friend over coffee.
-  3. YOU MUST MENTION EVERY SINGLE PAPER AND ARTICLE BY NAME using markdown bold. Do not skip any. For research papers (arxiv), say things like "The research paper **Title** finds that..." or "**Title** argues...". For news articles (rss), say things like "An article from RSS, **Title**, adds context by..." or "Meanwhile, **Title** reports that...". Make it clear which items are academic research papers and which are news/blog articles.
-  4. Keep it SHORT — 5-8 sentences max after the theme line. No academic jargon. Be opinionated.
-  5. Use markdown bold for paper/article titles when mentioning them.
+  Today's thread: [punchy theme connecting all items]
+
+  \`FOUNDATIONAL\` **[Paper Title]** — [one line about why it matters]
+  \`RECENT\` **[Paper Title]** — [one line about the new finding]
+  \`NEWS\` **[Article Title]** — [one line about the real-world connection]
+
+  [1-2 sentences connecting them: the through-line, what it means, your opinion]
+
+  Tag each item with its category (FOUNDATIONAL, RECENT, or NEWS) as shown above.
+  Keep it SHORT — the synthesis should be a quick scan, not an essay.
+  Use markdown bold for paper/article titles when mentioning them.
 - "keyConcepts" is 5-8 overarching themes across all papers
 
 Papers:

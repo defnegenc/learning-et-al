@@ -5,10 +5,21 @@ import { cookies } from "next/headers";
 
 export async function POST(req: NextRequest) {
   try {
-    const { interestStrings, timezone, contentMix } = await req.json();
+    const body = await req.json();
+    const { timezone, contentMix } = body;
 
-    if (!interestStrings || !Array.isArray(interestStrings) || interestStrings.length === 0) {
-      return NextResponse.json({ error: "interestStrings is required" }, { status: 400 });
+    // Support both old format (interestStrings: string[]) and new format (interests: {keyword, level}[])
+    let interestItems: { keyword: string; level: string }[];
+    if (body.interests && Array.isArray(body.interests)) {
+      interestItems = body.interests;
+    } else if (body.interestStrings && Array.isArray(body.interestStrings)) {
+      interestItems = body.interestStrings.map((s: string) => ({ keyword: s, level: "intermediate" }));
+    } else {
+      return NextResponse.json({ error: "interests is required" }, { status: 400 });
+    }
+
+    if (interestItems.length === 0) {
+      return NextResponse.json({ error: "At least one interest is required" }, { status: 400 });
     }
 
     // Create user
@@ -17,13 +28,15 @@ export async function POST(req: NextRequest) {
       contentMix: typeof contentMix === "number" ? contentMix : 50,
     }).returning();
 
-    // Insert seed interests
-    for (const keyword of interestStrings) {
+    // Insert seed interests with level
+    for (const item of interestItems) {
+      const level = ["beginner", "intermediate", "expert"].includes(item.level) ? item.level : "intermediate";
       await db.insert(interests).values({
         userId: user.id,
-        keyword: keyword.trim(),
+        keyword: item.keyword.trim(),
         weight: 1.0,
         source: "seed",
+        level: level as "beginner" | "intermediate" | "expert",
       });
     }
 
