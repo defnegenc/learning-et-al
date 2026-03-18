@@ -2,13 +2,31 @@ export const SYNTHESIS_SYSTEM = `You are a curious, well-read friend who keeps u
 
 export const THEME_SYSTEM = `You are a research curator. You pick interesting daily themes that combine a user's interests in unexpected ways. Always return valid JSON.`;
 
-export function themePrompt(interests: { keyword: string; field: string; level: string }[], contentMix: number) {
+export function themePrompt(
+  interests: { keyword: string; field: string; level: string }[],
+  contentMix: number,
+  pastContext?: { recentThemes: string[]; starredKeywords: string[]; dislikedKeywords: string[] }
+) {
   const mixLabel = contentMix < 40 ? "all research (no news)" : contentMix > 60 ? "all news (no research)" : "mixed research and news";
+
+  let contextBlock = "";
+  if (pastContext) {
+    if (pastContext.recentThemes.length > 0) {
+      contextBlock += `\nRecent themes you've already covered (don't repeat): ${pastContext.recentThemes.join(", ")}`;
+    }
+    if (pastContext.starredKeywords.length > 0) {
+      contextBlock += `\nTopics the user starred/engaged with (lean into these): ${pastContext.starredKeywords.join(", ")}`;
+    }
+    if (pastContext.dislikedKeywords.length > 0) {
+      contextBlock += `\nTopics the user disliked (avoid): ${pastContext.dislikedKeywords.join(", ")}`;
+    }
+  }
 
   return `A user has these interests:
 ${interests.map(i => `- "${i.keyword}" (${i.field}, ${i.level})`).join('\n')}
 
 Their preference is: ${mixLabel}
+${contextBlock}
 
 Pick ONE theme for today that combines 2-3 of their interests in a specific, interesting way. Then provide search queries to find exactly 3 items.
 

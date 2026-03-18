@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { PaperCard, type PaperItem } from "./paper-card";
 import { PaperDetail } from "./paper-detail";
@@ -129,6 +129,32 @@ export function TodayPage({ session }: TodayPageProps) {
       (paper.summary ?? "").toLowerCase().includes(conceptLower)
     );
   };
+
+  // Filter interests to only those that appear in today's paper keywords
+  const graphInterests = useMemo(() => {
+    const paperKeywords = new Set<string>();
+    papers.forEach((p) =>
+      p.keywords.forEach((k) => paperKeywords.add(k.toLowerCase()))
+    );
+
+    const matched = interests.filter((i) =>
+      paperKeywords.has(i.keyword.toLowerCase())
+    );
+
+    // If fewer than 3 matches, pad with top-weighted interests
+    if (matched.length < 3) {
+      const matchedIds = new Set(matched.map((m) => m.id));
+      const remaining = interests
+        .filter((i) => !matchedIds.has(i.id))
+        .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
+      for (const interest of remaining) {
+        if (matched.length >= 3) break;
+        matched.push(interest);
+      }
+    }
+
+    return matched;
+  }, [papers, interests]);
 
   if (loading) {
     return (
@@ -267,7 +293,7 @@ export function TodayPage({ session }: TodayPageProps) {
         {/* Node graph — below synthesis */}
         <div style={{ padding: "0 40px 40px 40px", display: "flex", justifyContent: "flex-end" }}>
           <KnowledgeGraph
-            interests={interests}
+            interests={graphInterests}
             onNodeClick={handleConceptClick}
           />
         </div>

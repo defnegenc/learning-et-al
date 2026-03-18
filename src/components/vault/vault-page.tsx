@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star, ThumbsDown } from "lucide-react";
 import { PaperDetail } from "@/components/today/paper-detail";
 import { CompareView } from "./compare-view";
+import { KeywordTag } from "@/components/keyword-tag";
 import type { PaperItem } from "@/components/today/paper-card";
 
 interface VaultPageProps {
@@ -539,20 +540,11 @@ export function VaultPage({ session }: VaultPageProps) {
                       {paper.keywords.length > 0 && (
                         <div style={{ display: "flex", gap: "4px", marginBottom: "6px", flexWrap: "wrap" }}>
                           {paper.keywords.slice(0, 2).map((kw, ki) => (
-                            <span
+                            <KeywordTag
                               key={kw}
-                              style={{
-                                fontSize: "0.5rem",
-                                padding: "1px 6px",
-                                background: ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"][ki % 5],
-                                border: "1px solid rgba(26,26,26,0.15)",
-                                color: "#1a1a1a",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                              }}
-                            >
-                              {kw}
-                            </span>
+                              keyword={kw}
+                              color={["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"][ki % 5]}
+                            />
                           ))}
                         </div>
                       )}

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { digests, papers, interests, users } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { digests, papers, interests, users, feedback } from "@/lib/db/schema";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
@@ -64,8 +64,50 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   const contentMix = user?.contentMix ?? 50;
 
+  // === Gather past engagement context ===
+  const recentDigests = await db.query.digests.findMany({
+    where: eq(digests.userId, userId),
+    orderBy: desc(digests.createdAt),
+    limit: 7,
+  });
+  const recentThemes = recentDigests
+    .map(d => d.synthesisContent?.split("\n")[0]?.replace(/^Today's thread:\s*/i, "").trim())
+    .filter((t): t is string => !!t);
+
+  // Get all feedback for this user's papers
+  const userFeedback = await db.query.feedback.findMany({
+    where: eq(feedback.userId, userId),
+  });
+
+  const starredPaperIds = userFeedback.filter(f => f.type === "star").map(f => f.paperId);
+  const dislikedPaperIds = userFeedback.filter(f => f.type === "dislike").map(f => f.paperId);
+
+  const extractKeywordsFromPaperIds = async (paperIds: string[]): Promise<string[]> => {
+    if (paperIds.length === 0) return [];
+    const matchedPapers = await db.query.papers.findMany({
+      where: inArray(papers.id, paperIds),
+    });
+    const kws = new Set<string>();
+    for (const p of matchedPapers) {
+      try {
+        const parsed = JSON.parse(p.keywords ?? "[]");
+        if (Array.isArray(parsed)) parsed.forEach((k: string) => kws.add(k));
+      } catch { /* ignore */ }
+    }
+    return Array.from(kws);
+  };
+
+  const starredKeywords = await extractKeywordsFromPaperIds(starredPaperIds);
+  const dislikedKeywords = await extractKeywordsFromPaperIds(dislikedPaperIds);
+
+  const pastContext = {
+    recentThemes,
+    starredKeywords,
+    dislikedKeywords,
+  };
+
   // === AI CALL 1: Pick today's theme and search queries ===
-  const themeResponse = await aiComplete(aiConfig, THEME_SYSTEM, themePrompt(topInterests, contentMix));
+  const themeResponse = await aiComplete(aiConfig, THEME_SYSTEM, themePrompt(topInterests, contentMix, pastContext));
 
   let themePlan: ThemeResponse;
   try {

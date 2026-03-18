@@ -1,6 +1,7 @@
 "use client";
 
 import { Star, ThumbsDown } from "lucide-react";
+import { KeywordTag } from "@/components/keyword-tag";
 
 export interface PaperItem {
   id: string;
@@ -129,21 +130,11 @@ export function PaperCard({
       {paper.keywords.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-1">
           {paper.keywords.slice(0, 4).map((kw, idx) => (
-            <span
+            <KeywordTag
               key={kw}
-              style={{
-                padding: "2px 8px",
-                background: PASTEL_COLORS[idx % PASTEL_COLORS.length],
-                border: "1px solid rgba(26,26,26,0.2)",
-                color: "#1a1a1a",
-                fontSize: "0.6rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-              }}
-            >
-              {kw}
-            </span>
+              keyword={kw}
+              color={PASTEL_COLORS[idx % PASTEL_COLORS.length]}
+            />
           ))}
         </div>
       )}
