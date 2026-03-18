@@ -120,7 +120,7 @@ export function SynthesisBanner({
       {/* Synthesis body */}
       <div
         className="text-[0.95rem] md:text-[1rem] text-[#333]"
-        style={{ lineHeight: "1.75", maxWidth: "720px" }}
+        style={{ lineHeight: "1.75" }}
       >
         <ReactMarkdown
           components={{
@@ -155,19 +155,41 @@ export function SynthesisBanner({
         </ReactMarkdown>
       </div>
 
-      {/* Key concept tags */}
+      {/* Key concept tags — prominent, clickable */}
       {keyConcepts.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2 pt-2">
           {keyConcepts.map((concept, idx) => {
             const isActive = activeConcept === concept;
+            const pastel = PASTEL_COLORS[idx % 5];
             return (
-              <KeywordTag
+              <button
                 key={concept}
-                keyword={concept}
-                color={isActive ? "#1a1a1a" : PASTEL_COLORS[idx % 5]}
-                textColor={isActive ? "#fff" : "#1a1a1a"}
                 onClick={() => onConceptClick(concept)}
-              />
+                style={{
+                  padding: "5px 14px",
+                  background: isActive ? "#1a1a1a" : pastel,
+                  border: `1.5px solid ${isActive ? "#1a1a1a" : "rgba(26,26,26,0.15)"}`,
+                  color: isActive ? "#fff" : "#1a1a1a",
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    (e.target as HTMLElement).style.borderColor = "#1a1a1a";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    (e.target as HTMLElement).style.borderColor = "rgba(26,26,26,0.15)";
+                  }
+                }}
+              >
+                {concept}
+              </button>
             );
           })}
         </div>
