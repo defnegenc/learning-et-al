@@ -44,3 +44,4 @@ next-env.d.ts
 paper-processor.db
 paper-processor.db-wal
 paper-processor.db-shm
+.env.local
