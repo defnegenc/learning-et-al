@@ -103,7 +103,16 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     await db.update(interests).set({ weight: decayed, updatedAt: new Date() }).where(eq(interests.id, interest.id));
   }
 
-  const topInterests = userInterests.slice(0, 5).map(i => i.keyword);
+  // Deduplicate interests by keyword (keep highest weight)
+  const seen = new Map<string, string>();
+  const deduped = userInterests.filter(i => {
+    const key = i.keyword.toLowerCase().trim();
+    if (key.length <= 2) return false; // skip single words like "ai"
+    if (seen.has(key)) return false;
+    seen.set(key, i.keyword);
+    return true;
+  });
+  const topInterests = deduped.slice(0, 5).map(i => i.keyword);
   if (topInterests.length === 0) throw new Error("No interests found. Add some first.");
 
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
