@@ -58,3 +58,18 @@ The algorithm should work like a curious human researcher browsing for a friend.
 - Each subsequent search is informed by what was already found.
 - Every item is validated for relevance before inclusion.
 - The synthesis honestly says "this one's a stretch" if it is — but ideally it shouldn't be.
+
+## Synthesis tone
+- Like a great newsletter (Stratechery, Benedict Evans). Not academic, not sloppy.
+- Tell a story with tension: paper A posits X, paper B challenges it, the news shows what's actually happening.
+- End with a provocative question the reader can't easily answer.
+- NO filler phrases: "so basically", "what's wild is", "the interesting part is", "demonstrates", "reveals"
+- Be specific. Say what the paper FOUND, not that it "explored" something.
+- 4-6 sentences. That's it.
+
+## Theme generation
+- The theme should be a QUESTION or TENSION, not a topic label.
+- "Can AI agents actually understand what you want to buy?" not "AI recommendation systems"
+- The AI derives the theme from the anchor paper, framing it as the most interesting conflict or open question.
+- The second search query should find work that CHALLENGES or CONTRASTS with the anchor.
+- The news search should find something concrete: a startup, lawsuit, product launch, failure.
