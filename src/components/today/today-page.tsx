@@ -249,18 +249,10 @@ export function TodayPage({ session }: TodayPageProps) {
 
       {/* Sidebar - paper cards */}
       <aside
-        className="border-b md:border-b-0 md:border-r border-[#1a1a1a] overflow-y-auto shrink-0 w-full md:w-[33.33vw]"
-        style={{ borderRightWidth: undefined, borderBottomWidth: undefined }}
+        className="overflow-y-auto shrink-0 w-full md:w-[33.33vw]"
+        style={{ borderRight: "1.5px solid #1a1a1a" }}
       >
-        <style>{`
-          @media (min-width: 768px) {
-            .today-sidebar { border-right-width: 1.5px !important; border-bottom-width: 0 !important; }
-          }
-          @media (max-width: 767px) {
-            .today-sidebar { border-bottom-width: 1.5px !important; border-right-width: 0 !important; }
-          }
-        `}</style>
-        <div className="today-sidebar p-4 space-y-3">
+        <div className="p-4 space-y-3">
           {allPapers.map((paper) => (
             <PaperCard
               key={paper.id}
