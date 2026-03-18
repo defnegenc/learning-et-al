@@ -14,9 +14,10 @@ const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
 
 export function CompareView({ content, papers, onBack }: CompareViewProps) {
   return (
-    <div style={{ padding: "40px", maxWidth: "800px" }}>
+    <div className="px-4 py-6 md:px-10 md:py-10 max-w-[800px]">
       <button
         onClick={onBack}
+        className="min-h-[44px] md:min-h-0 flex items-center"
         style={{
           fontFamily: "'Courier New', Courier, monospace",
           fontSize: "0.7rem",
@@ -26,9 +27,8 @@ export function CompareView({ content, papers, onBack }: CompareViewProps) {
           background: "none",
           border: "none",
           padding: 0,
-          cursor: "crosshair",
           marginBottom: "24px",
-          display: "block",
+          display: "flex",
         }}
         onMouseEnter={(e) => { (e.target as HTMLElement).style.color = "#ff007f"; }}
         onMouseLeave={(e) => { (e.target as HTMLElement).style.color = "#1a1a1a"; }}
@@ -53,7 +53,7 @@ export function CompareView({ content, papers, onBack }: CompareViewProps) {
         {papers.map((paper, idx) => (
           <KeywordTag
             key={paper.id}
-            keyword={paper.title.length > 40 ? paper.title.slice(0, 39) + "…" : paper.title}
+            keyword={paper.title.length > 40 ? paper.title.slice(0, 39) + "\u2026" : paper.title}
             color={PASTEL_COLORS[idx % PASTEL_COLORS.length]}
           />
         ))}

@@ -28,9 +28,9 @@ export function AppShell({ session, updateSession }: AppShellProps) {
       <NoiseOverlay />
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-[#1a1a1a] flex items-center justify-between px-5 h-11" style={{ borderBottomWidth: "1.5px", background: "white" }}>
+      <header className="sticky top-0 z-40 border-b border-[#1a1a1a] flex items-center justify-between px-3 md:px-5 h-11" style={{ borderBottomWidth: "1.5px", background: "white" }}>
         <h1
-          className="text-[0.7rem] font-bold uppercase tracking-[3px] text-[#1a1a1a]"
+          className="text-[0.6rem] md:text-[0.7rem] font-bold uppercase tracking-[2px] md:tracking-[3px] text-[#1a1a1a]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
           LEARNING ET AL.
@@ -39,7 +39,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <div className="flex items-center gap-0">
           <button
             onClick={() => setActiveTab("today")}
-            className={`px-4 py-1 text-[0.6rem] font-bold uppercase tracking-[2px] transition-colors ${
+            className={`px-3 md:px-4 py-1 text-[0.6rem] font-bold uppercase tracking-[1px] md:tracking-[2px] transition-colors ${
               activeTab === "today"
                 ? "bg-[#1a1a1a] text-[#e8e8e8]"
                 : "text-[#888] hover:text-[#1a1a1a]"
@@ -50,7 +50,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           </button>
           <button
             onClick={() => setActiveTab("vault")}
-            className={`px-4 py-1 text-[0.6rem] font-bold uppercase tracking-[2px] transition-colors ${
+            className={`px-3 md:px-4 py-1 text-[0.6rem] font-bold uppercase tracking-[1px] md:tracking-[2px] transition-colors ${
               activeTab === "vault"
                 ? "bg-[#1a1a1a] text-[#e8e8e8]"
                 : "text-[#888] hover:text-[#1a1a1a]"

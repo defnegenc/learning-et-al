@@ -14,9 +14,6 @@ interface KnowledgeGraphProps {
   onNodeClick?: (keyword: string) => void;
 }
 
-const CONTAINER_W = 320;
-const CONTAINER_H = 240;
-
 // Predefined positions as percentages
 const POSITIONS = [
   { xPct: 15, yPct: 20 },
@@ -36,6 +33,7 @@ function angleDeg(ax: number, ay: number, bx: number, by: number) {
 }
 
 export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) {
+  // Use percentage-based positions for responsive layout
   const nodes = useMemo(() => {
     const items = interests.slice(0, 6);
     if (items.length === 0) return [];
@@ -50,50 +48,15 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         fullKeyword: interest.keyword,
         xPct: pos.xPct,
         yPct: pos.yPct,
-        cx: (pos.xPct / 100) * CONTAINER_W,
-        cy: (pos.yPct / 100) * CONTAINER_H,
       };
     });
   }, [interests]);
 
-  // Build connections: each node connects to its 1-2 nearest neighbors
-  const connections = useMemo(() => {
-    if (nodes.length < 2) return [];
-    const edges = new Set<string>();
-    const result: { ax: number; ay: number; bx: number; by: number }[] = [];
-
-    for (let i = 0; i < nodes.length; i++) {
-      // Sort other nodes by distance
-      const others = nodes
-        .map((n, j) => ({ j, dist: distance(nodes[i].cx, nodes[i].cy, n.cx, n.cy) }))
-        .filter((o) => o.j !== i)
-        .sort((a, b) => a.dist - b.dist);
-
-      // Connect to nearest 1-2
-      const connectCount = Math.min(2, others.length);
-      for (let k = 0; k < connectCount; k++) {
-        const j = others[k].j;
-        const key = [Math.min(i, j), Math.max(i, j)].join("-");
-        if (!edges.has(key)) {
-          edges.add(key);
-          result.push({
-            ax: nodes[i].cx,
-            ay: nodes[i].cy,
-            bx: nodes[j].cx,
-            by: nodes[j].cy,
-          });
-        }
-      }
-    }
-    return result;
-  }, [nodes]);
-
   if (interests.length === 0) {
     return (
       <div
+        className="w-full md:w-[320px] h-[180px] md:h-[240px]"
         style={{
-          width: `${CONTAINER_W}px`,
-          height: `${CONTAINER_H}px`,
           border: "1.5px solid #1a1a1a",
           background: "rgba(245, 245, 245, 0.95)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
@@ -120,10 +83,9 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
 
   return (
     <div
+      className="w-full md:w-[320px] h-[180px] md:h-[240px]"
       style={{
         position: "relative",
-        width: `${CONTAINER_W}px`,
-        height: `${CONTAINER_H}px`,
         border: "1.5px solid #1a1a1a",
         background: "rgba(245, 245, 245, 0.95)",
         boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
@@ -160,27 +122,57 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         }}
       />
 
-      {/* Connection lines between nodes */}
-      {connections.map((conn, idx) => {
-        const dist = distance(conn.ax, conn.ay, conn.bx, conn.by);
-        const angle = angleDeg(conn.ax, conn.ay, conn.bx, conn.by);
-        return (
-          <div
-            key={`line-${idx}`}
-            style={{
-              position: "absolute",
-              borderTop: "1.5px solid #1a1a1a",
-              transformOrigin: "0 0",
-              zIndex: 2,
-              opacity: 0.8,
-              top: `${conn.ay}px`,
-              left: `${conn.ax}px`,
-              width: `${dist}px`,
-              transform: `rotate(${angle}deg)`,
-            }}
-          />
-        );
-      })}
+      {/* Connection lines using SVG for responsive sizing */}
+      <svg
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: 2,
+          pointerEvents: "none",
+        }}
+      >
+        {nodes.length >= 2 && (() => {
+          const edges = new Set<string>();
+          const lines: { ax: number; ay: number; bx: number; by: number }[] = [];
+          for (let i = 0; i < nodes.length; i++) {
+            const others = nodes
+              .map((n, j) => ({
+                j,
+                dist: distance(nodes[i].xPct, nodes[i].yPct, n.xPct, n.yPct),
+              }))
+              .filter((o) => o.j !== i)
+              .sort((a, b) => a.dist - b.dist);
+            const connectCount = Math.min(2, others.length);
+            for (let k = 0; k < connectCount; k++) {
+              const j = others[k].j;
+              const key = [Math.min(i, j), Math.max(i, j)].join("-");
+              if (!edges.has(key)) {
+                edges.add(key);
+                lines.push({
+                  ax: nodes[i].xPct,
+                  ay: nodes[i].yPct,
+                  bx: nodes[j].xPct,
+                  by: nodes[j].yPct,
+                });
+              }
+            }
+          }
+          return lines.map((conn, idx) => (
+            <line
+              key={`line-${idx}`}
+              x1={`${conn.ax}%`}
+              y1={`${conn.ay}%`}
+              x2={`${conn.bx}%`}
+              y2={`${conn.by}%`}
+              stroke="#1a1a1a"
+              strokeWidth="1.5"
+              opacity="0.8"
+            />
+          ));
+        })()}
+      </svg>
 
       {/* Keyword nodes */}
       {nodes.map((node) => (
@@ -198,7 +190,6 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             zIndex: 5,
             whiteSpace: "nowrap",
             fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            cursor: "crosshair",
             top: `${node.yPct}%`,
             left: `${node.xPct}%`,
             transform: "translate(-50%, -50%)",

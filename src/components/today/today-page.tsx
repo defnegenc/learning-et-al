@@ -166,7 +166,7 @@ export function TodayPage({ session }: TodayPageProps) {
 
   if (!digest) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
+      <div className="flex flex-col items-center justify-center py-20 gap-4 px-4">
         <p
           className="text-[0.75rem] uppercase tracking-[2px] text-[#666]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
@@ -217,13 +217,40 @@ export function TodayPage({ session }: TodayPageProps) {
   const allPapers = papers;
 
   return (
-    <div className="flex h-[calc(100vh-2.75rem)]">
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-2.75rem)]">
+      {/* Synthesis - shown first on mobile, inside canvas on desktop */}
+      <div className="block md:hidden p-4">
+        {digest.synthesisContent ? (
+          <SynthesisBanner
+            synthesis={digest.synthesisContent}
+            keyConcepts={digest.keyConcepts}
+            activeConcept={activeConcept}
+            onConceptClick={handleConceptClick}
+          />
+        ) : (
+          <span
+            className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
+            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          >
+            No synthesis available
+          </span>
+        )}
+      </div>
+
       {/* Sidebar - paper cards */}
       <aside
-        className="border-r border-[#1a1a1a] overflow-y-auto shrink-0"
-        style={{ width: "33.33vw", borderRightWidth: "1.5px" }}
+        className="border-b md:border-b-0 md:border-r border-[#1a1a1a] overflow-y-auto shrink-0 w-full md:w-[33.33vw]"
+        style={{ borderRightWidth: undefined, borderBottomWidth: undefined }}
       >
-        <div className="p-4 space-y-3">
+        <style>{`
+          @media (min-width: 768px) {
+            .today-sidebar { border-right-width: 1.5px !important; border-bottom-width: 0 !important; }
+          }
+          @media (max-width: 767px) {
+            .today-sidebar { border-bottom-width: 1.5px !important; border-right-width: 0 !important; }
+          }
+        `}</style>
+        <div className="today-sidebar p-4 space-y-3">
           {allPapers.map((paper) => (
             <PaperCard
               key={paper.id}
@@ -269,8 +296,8 @@ export function TodayPage({ session }: TodayPageProps) {
         </div>
       </aside>
 
-      {/* Canvas area */}
-      <div className="flex-1 flex flex-col overflow-y-auto">
+      {/* Canvas area - hidden on mobile (synthesis shown above, graph below) */}
+      <div className="hidden md:flex flex-1 flex-col overflow-y-auto">
         {/* Synthesis */}
         <div style={{ padding: "40px" }}>
           {digest.synthesisContent ? (
@@ -297,6 +324,14 @@ export function TodayPage({ session }: TodayPageProps) {
             onNodeClick={handleConceptClick}
           />
         </div>
+      </div>
+
+      {/* Knowledge graph on mobile - at the bottom */}
+      <div className="block md:hidden p-4">
+        <KnowledgeGraph
+          interests={graphInterests}
+          onNodeClick={handleConceptClick}
+        />
       </div>
     </div>
   );

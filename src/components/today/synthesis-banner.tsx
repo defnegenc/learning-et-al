@@ -35,7 +35,7 @@ export function SynthesisBanner({
       </span>
 
       <div
-        className="text-[1.05rem] text-[#1a1a1a]"
+        className="text-[0.95rem] md:text-[1.05rem] text-[#1a1a1a]"
         style={{
           lineHeight: "1.7",
         }}

@@ -17,6 +17,11 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [isInterest, setIsInterest] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   // Check if keyword is already in interests on mount
   useEffect(() => {
@@ -61,6 +66,7 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
   };
 
   const bg = color || PASTEL_COLORS[0];
+  const showAddButton = !isInterest && (hovered || isTouchDevice);
 
   return (
     <span
@@ -69,7 +75,7 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
         display: "inline-flex",
         alignItems: "center",
         padding: "2px 8px",
-        paddingRight: !isInterest ? "18px" : "8px",
+        paddingRight: !isInterest ? "22px" : "8px",
         background: bg,
         border: "1px solid rgba(26,26,26,0.2)",
         color: textColor || "#1a1a1a",
@@ -77,14 +83,14 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
         textTransform: "uppercase",
         letterSpacing: "0.5px",
         fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-        cursor: onClick ? "crosshair" : "default",
+        cursor: onClick ? "pointer" : "default",
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {keyword}
-      {!isInterest && hovered && (
+      {showAddButton && (
         <button
           onClick={handleAdd}
           style={{
@@ -94,13 +100,14 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
             transform: "translateY(-50%)",
             background: "none",
             border: "none",
-            padding: "0",
-            cursor: "crosshair",
+            padding: "4px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "#1a1a1a",
             opacity: 0.7,
+            minWidth: "20px",
+            minHeight: "20px",
           }}
         >
           <Plus style={{ width: "10px", height: "10px" }} />

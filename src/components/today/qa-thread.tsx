@@ -112,7 +112,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
               <div
                 key={pair.id}
                 className="border border-[#1a1a1a] transition-colors hover:bg-[#f0f0f0]"
-                style={{ borderWidth: "1.5px", cursor: "crosshair" }}
+                style={{ borderWidth: "1.5px" }}
                 onClick={() => toggleExpand(pair.id)}
               >
                 <div className="p-3 space-y-2">
@@ -144,7 +144,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
       )}
 
       {/* Question input */}
-      <div className="flex gap-2">
+      <div className="flex flex-col md:flex-row gap-2">
         <div className="relative flex-1">
           <textarea
             placeholder="ASK A QUESTION ABOUT THIS PAPER..."
@@ -158,7 +158,6 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
               resize: "none",
               fontFamily: '"Courier New", Courier, monospace',
               borderRadius: 0,
-              cursor: "crosshair",
             }}
           />
           {loading && (
@@ -170,11 +169,10 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
         <button
           onClick={handleSubmit}
           disabled={loading || !question.trim()}
-          className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50 self-start"
+          className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50 self-stretch md:self-start min-h-[44px] md:min-h-0"
           style={{
             borderWidth: "1.5px",
             fontFamily: '"Courier New", Courier, monospace',
-            cursor: "crosshair",
           }}
         >
           ASK

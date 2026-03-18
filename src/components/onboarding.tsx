@@ -139,10 +139,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-4" style={{ background: "white" }}>
+    <div className="relative flex min-h-screen items-center justify-center p-3 md:p-4" style={{ background: "white" }}>
       <NoiseOverlay />
 
-      <div className="relative z-10 w-full max-w-lg border border-[#1a1a1a] p-6 space-y-5" style={{ borderWidth: "1.5px", background: "white" }}>
+      <div className="relative z-10 w-full max-w-lg border border-[#1a1a1a] p-4 md:p-6 space-y-5" style={{ borderWidth: "1.5px", background: "white" }}>
         {/* Header */}
         <div className="space-y-2">
           <h2 className="flex items-center gap-2 text-[0.85rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
@@ -168,12 +168,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         {step === 1 && (
           <div className="space-y-4">
             {/* Provider selector */}
-            <div className="flex gap-0">
+            <div className="flex gap-0 flex-wrap md:flex-nowrap">
               {(["openai", "anthropic", "gemini", "other"] as Provider[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => handleProviderChange(p)}
-                  className={`flex-1 border border-[#1a1a1a] px-2 py-1.5 text-[0.7rem] font-bold uppercase tracking-[1px] transition-colors ${
+                  className={`flex-1 border border-[#1a1a1a] px-2 py-2 md:py-1.5 text-[0.7rem] font-bold uppercase tracking-[1px] transition-colors min-h-[44px] md:min-h-0 ${
                     provider === p
                       ? "bg-[#1a1a1a] text-[#e8e8e8]"
                       : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
@@ -305,12 +305,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                         <X className="size-3" />
                       </button>
                     </div>
-                    <div className="flex flex-wrap gap-1 mb-1.5">
+                    <div className="flex flex-wrap gap-1.5 md:gap-1 mb-1.5">
                       {FIELDS.map((f) => (
                         <button
                           key={f.value}
                           onClick={() => handleSetField(interest.keyword, f.value)}
-                          className={`border border-[#1a1a1a] px-1.5 py-0.5 text-[0.55rem] uppercase tracking-[0.5px] transition-colors ${
+                          className={`border border-[#1a1a1a] px-2 md:px-1.5 py-1 md:py-0.5 text-[0.55rem] uppercase tracking-[0.5px] transition-colors min-h-[32px] md:min-h-0 ${
                             interest.field === f.value
                               ? "bg-[#1a1a1a] text-[#e8e8e8]"
                               : "text-[#666] hover:bg-[#d8d8d8]"
@@ -326,7 +326,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                         <button
                           key={lvl}
                           onClick={() => handleSetLevel(interest.keyword, lvl)}
-                          className={`flex-1 border border-[#1a1a1a] px-1 py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors ${
+                          className={`flex-1 border border-[#1a1a1a] px-1 py-1 md:py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors min-h-[36px] md:min-h-0 ${
                             interest.level === lvl
                               ? "bg-[#1a1a1a] text-[#e8e8e8]"
                               : "text-[#666] hover:bg-[#d8d8d8]"

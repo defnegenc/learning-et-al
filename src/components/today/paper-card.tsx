@@ -34,11 +34,10 @@ export function PaperCard({
 
   return (
     <article
-      className="group relative p-5 space-y-2"
+      className="group relative p-4 md:p-5 space-y-2"
       style={{
         background: highlighted ? "#f0f0f0" : "#e8e8e8",
         border: "1.5px solid #1a1a1a",
-        cursor: "crosshair",
         transition: "transform 0.2s ease, background 0.2s ease",
       }}
       onMouseEnter={(e) => {
@@ -62,20 +61,19 @@ export function PaperCard({
         >
           {sourceLabel}
         </span>
-        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        {/* Always visible on mobile, hover on desktop */}
+        <div className="flex gap-1 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
           <button
-            className="p-0.5 hover:text-[#38b000] transition-colors"
+            className="p-1.5 md:p-0.5 hover:text-[#38b000] transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
             onClick={(e) => { e.stopPropagation(); onStar(paper.id); }}
-            style={{ cursor: "crosshair" }}
           >
-            <Star className="size-3" />
+            <Star className="size-4 md:size-3" />
           </button>
           <button
-            className="p-0.5 hover:text-[#ff007f] transition-colors"
+            className="p-1.5 md:p-0.5 hover:text-[#ff007f] transition-colors min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
             onClick={(e) => { e.stopPropagation(); onDislike(paper.id); }}
-            style={{ cursor: "crosshair" }}
           >
-            <ThumbsDown className="size-3" />
+            <ThumbsDown className="size-4 md:size-3" />
           </button>
         </div>
       </div>

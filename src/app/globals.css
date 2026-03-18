@@ -137,6 +137,13 @@
   input, textarea, button, a {
     cursor: crosshair;
   }
+
+  /* Mobile: use default cursor instead of crosshair */
+  @media (max-width: 767px) {
+    *, input, textarea, button, a {
+      cursor: default;
+    }
+  }
 }
 
 /* Noise overlay */

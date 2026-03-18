@@ -236,58 +236,66 @@ export function VaultPage({ session }: VaultPageProps) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", minHeight: "calc(100vh - 2.75rem)" }}>
+    <div className="flex flex-col md:grid md:min-h-[calc(100vh-2.75rem)]" style={{ gridTemplateColumns: "1fr 300px" }}>
       {/* Main content area */}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {/* Keyword ribbon */}
         <div
+          className="overflow-x-auto md:overflow-x-visible"
           style={{
             borderBottom: "1.5px solid #1a1a1a",
-            padding: "8px 40px",
+            padding: "8px 16px",
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            flexWrap: "wrap",
+            flexWrap: "nowrap",
           }}
         >
-          <button
-            onClick={() => setActiveKeyword(null)}
-            style={{
-              padding: "3px 10px",
-              background: activeKeyword === null ? "#1a1a1a" : "transparent",
-              border: "1px solid #1a1a1a",
-              color: activeKeyword === null ? "#e8e8e8" : "#1a1a1a",
-              fontSize: "0.6rem",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-              cursor: "crosshair",
-            }}
-          >
-            All
-          </button>
-          {allKeywords.map((kw) => (
+          <style>{`
+            @media (min-width: 768px) {
+              .vault-keyword-ribbon { flex-wrap: wrap !important; padding-left: 40px !important; padding-right: 40px !important; }
+            }
+          `}</style>
+          <div className="vault-keyword-ribbon flex items-center gap-2 flex-nowrap md:flex-wrap min-w-0">
             <button
-              key={kw}
-              onClick={() => setActiveKeyword(activeKeyword === kw ? null : kw)}
+              onClick={() => setActiveKeyword(null)}
+              className="shrink-0"
               style={{
                 padding: "3px 10px",
-                background: activeKeyword === kw ? "#1a1a1a" : "transparent",
+                background: activeKeyword === null ? "#1a1a1a" : "transparent",
                 border: "1px solid #1a1a1a",
-                color: activeKeyword === kw ? "#e8e8e8" : "#1a1a1a",
+                color: activeKeyword === null ? "#e8e8e8" : "#1a1a1a",
                 fontSize: "0.6rem",
                 textTransform: "uppercase",
                 letterSpacing: "1px",
                 fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-                cursor: "crosshair",
               }}
             >
-              {kw}
+              All
             </button>
-          ))}
+            {allKeywords.map((kw) => (
+              <button
+                key={kw}
+                onClick={() => setActiveKeyword(activeKeyword === kw ? null : kw)}
+                className="shrink-0"
+                style={{
+                  padding: "3px 10px",
+                  background: activeKeyword === kw ? "#1a1a1a" : "transparent",
+                  border: "1px solid #1a1a1a",
+                  color: activeKeyword === kw ? "#e8e8e8" : "#1a1a1a",
+                  fontSize: "0.6rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "1px",
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                }}
+              >
+                {kw}
+              </button>
+            ))}
+          </div>
 
           {/* Search input in ribbon */}
-          <div style={{ marginLeft: "auto", position: "relative" }}>
+          <div className="shrink-0 md:ml-auto relative">
             <Search
               style={{
                 position: "absolute",
@@ -303,6 +311,7 @@ export function VaultPage({ session }: VaultPageProps) {
               placeholder="SEARCH..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              className="w-[120px] md:w-[160px]"
               style={{
                 border: "1.5px solid #1a1a1a",
                 background: "transparent",
@@ -316,7 +325,6 @@ export function VaultPage({ session }: VaultPageProps) {
                 fontFamily: '"Courier New", Courier, monospace',
                 borderRadius: 0,
                 outline: "none",
-                width: "160px",
               }}
             />
           </div>
@@ -324,11 +332,13 @@ export function VaultPage({ session }: VaultPageProps) {
 
         {/* Grid header */}
         <div
+          className="px-4 md:px-10 pt-5"
           style={{
-            padding: "20px 40px 0 40px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "8px",
           }}
         >
           <div>
@@ -356,11 +366,12 @@ export function VaultPage({ session }: VaultPageProps) {
             </span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             {compareMode && selectedIds.size >= 2 && (
               <button
                 disabled={comparing}
                 onClick={runCompare}
+                className="min-h-[44px] md:min-h-0"
                 style={{
                   border: "1.5px solid #1a1a1a",
                   background: "#1a1a1a",
@@ -370,7 +381,6 @@ export function VaultPage({ session }: VaultPageProps) {
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   fontFamily: '"Courier New", Courier, monospace',
-                  cursor: "crosshair",
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
@@ -395,6 +405,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   setCompareMode(true);
                 }
               }}
+              className="min-h-[44px] md:min-h-0"
               style={{
                 border: "1.5px solid #1a1a1a",
                 background: compareMode ? "#1a1a1a" : "transparent",
@@ -404,7 +415,6 @@ export function VaultPage({ session }: VaultPageProps) {
                 textTransform: "uppercase",
                 letterSpacing: "2px",
                 fontFamily: '"Courier New", Courier, monospace',
-                cursor: "crosshair",
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
@@ -419,8 +429,8 @@ export function VaultPage({ session }: VaultPageProps) {
         {/* Compare info bar */}
         {compareMode && (
           <div
+            className="mx-4 md:mx-10 mt-3"
             style={{
-              margin: "12px 40px 0 40px",
               border: "1.5px solid #1a1a1a",
               padding: "8px 16px",
               display: "flex",
@@ -447,10 +457,9 @@ export function VaultPage({ session }: VaultPageProps) {
 
         {/* Card grid */}
         <div
+          className="flex-1 p-4 md:p-10"
           style={{
-            flex: 1,
             background: "white",
-            padding: "40px",
           }}
         >
           {loading && (
@@ -481,9 +490,9 @@ export function VaultPage({ session }: VaultPageProps) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
                 gap: "20px",
               }}
+              className="grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
             >
               {filteredPapers.map((paper, cardIdx) => {
                 const isSelected = selectedIds.has(paper.id);
@@ -497,11 +506,10 @@ export function VaultPage({ session }: VaultPageProps) {
                       aspectRatio: "1 / 1",
                       border: isSelected ? "2px solid #ff007f" : "1.5px solid #1a1a1a",
                       background: "#e8e8e8",
-                      padding: "20px",
+                      padding: "16px",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
-                      cursor: "crosshair",
                       position: "relative",
                       overflow: "hidden",
                       transition: "all 0.15s ease",
@@ -599,8 +607,8 @@ export function VaultPage({ session }: VaultPageProps) {
 
                       {/* Title */}
                       <h3
+                        className="text-sm md:text-base"
                         style={{
-                          fontSize: "1rem",
                           fontWeight: 800,
                           textTransform: "uppercase",
                           lineHeight: 1.2,
@@ -616,12 +624,12 @@ export function VaultPage({ session }: VaultPageProps) {
                         {paper.title}
                       </h3>
 
-                      {/* Hover actions */}
+                      {/* Hover actions - always visible on mobile */}
                       {!compareMode && (
-                        <div className="opacity-0 transition-opacity group-hover:opacity-100" style={{ display: "flex", gap: "4px", marginTop: "8px" }}>
+                        <div className="md:opacity-0 md:transition-opacity md:group-hover:opacity-100" style={{ display: "flex", gap: "4px", marginTop: "8px" }}>
                           <button
-                            style={{ padding: "2px", cursor: "crosshair", background: "none", border: "none", color: "#1a1a1a" }}
-                            className="hover:text-[#38b000]"
+                            style={{ padding: "2px", background: "none", border: "none", color: "#1a1a1a" }}
+                            className="hover:text-[#38b000] min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleFeedback(paper.id, "star");
@@ -630,8 +638,8 @@ export function VaultPage({ session }: VaultPageProps) {
                             <Star style={{ width: "12px", height: "12px" }} />
                           </button>
                           <button
-                            style={{ padding: "2px", cursor: "crosshair", background: "none", border: "none", color: "#1a1a1a" }}
-                            className="hover:text-[#ff007f]"
+                            style={{ padding: "2px", background: "none", border: "none", color: "#1a1a1a" }}
+                            className="hover:text-[#ff007f] min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleFeedback(paper.id, "dislike");
@@ -662,6 +670,7 @@ export function VaultPage({ session }: VaultPageProps) {
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
+                className="min-h-[44px] md:min-h-0"
                 style={{
                   border: "1.5px solid #1a1a1a",
                   background: "transparent",
@@ -670,7 +679,6 @@ export function VaultPage({ session }: VaultPageProps) {
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   fontFamily: '"Courier New", Courier, monospace',
-                  cursor: "crosshair",
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
@@ -695,6 +703,7 @@ export function VaultPage({ session }: VaultPageProps) {
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
+                className="min-h-[44px] md:min-h-0"
                 style={{
                   border: "1.5px solid #1a1a1a",
                   background: "transparent",
@@ -703,7 +712,6 @@ export function VaultPage({ session }: VaultPageProps) {
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   fontFamily: '"Courier New", Courier, monospace',
-                  cursor: "crosshair",
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
@@ -719,128 +727,127 @@ export function VaultPage({ session }: VaultPageProps) {
         </div>
       </div>
 
-      {/* Right sidebar */}
+      {/* Right sidebar - below main content on mobile */}
       <aside
+        className="border-t md:border-t-0 md:border-l border-[#1a1a1a]"
         style={{
-          borderLeft: "1.5px solid #1a1a1a",
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
         }}
       >
-        {/* Past Themes header */}
-        <div
-          style={{
-            borderBottom: "1.5px solid #1a1a1a",
-            padding: "8px 16px",
-          }}
-        >
-          <h3
+        <style>{`
+          @media (min-width: 768px) {
+            .vault-sidebar { border-left-width: 1.5px !important; border-top-width: 0 !important; }
+          }
+          @media (max-width: 767px) {
+            .vault-sidebar { border-top-width: 1.5px !important; border-left-width: 0 !important; }
+          }
+        `}</style>
+        <div className="vault-sidebar flex flex-col h-full">
+          {/* Past Themes header */}
+          <div
             style={{
-              fontSize: "0.6rem",
-              fontWeight: "bold",
-              textTransform: "uppercase",
-              letterSpacing: "2px",
-              color: "#1a1a1a",
-              fontFamily: '"Courier New", Courier, monospace',
-              margin: 0,
+              borderBottom: "1.5px solid #1a1a1a",
+              padding: "8px 16px",
             }}
           >
-            Past Themes
-          </h3>
-        </div>
-
-        {/* Theme list */}
-        <div style={{ padding: "12px 16px", flex: 1 }}>
-          {pastThemes.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {pastThemes.map((theme) => (
-                <div
-                  key={theme.id}
-                  onClick={() => handleThemeClick(theme.id)}
-                  style={{
-                    padding: "6px 8px",
-                    cursor: "crosshair",
-                    transition: "background 0.1s ease",
-                    background: activeDigestId === theme.id ? "rgba(255,0,127,0.1)" : "transparent",
-                    borderLeft: activeDigestId === theme.id ? "2px solid #ff007f" : "2px solid transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (activeDigestId !== theme.id) {
-                      (e.currentTarget as HTMLElement).style.background = "rgba(255,0,127,0.05)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (activeDigestId !== theme.id) {
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.55rem",
-                      color: "#666",
-                      fontFamily: '"Courier New", Courier, monospace',
-                      display: "block",
-                      marginBottom: "2px",
-                    }}
-                  >
-                    {theme.date}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "0.6rem",
-                      color: "#1a1a1a",
-                      fontWeight: 500,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      lineHeight: 1.3,
-                      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-                    }}
-                  >
-                    {theme.theme}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <span
+            <h3
               style={{
-                fontSize: "0.55rem",
+                fontSize: "0.6rem",
+                fontWeight: "bold",
                 textTransform: "uppercase",
                 letterSpacing: "2px",
-                color: "#666",
+                color: "#1a1a1a",
                 fontFamily: '"Courier New", Courier, monospace',
+                margin: 0,
               }}
             >
-              No past themes yet
-            </span>
-          )}
-        </div>
+              Past Themes
+            </h3>
+          </div>
 
-        {/* Stats footer */}
-        <div
-          style={{
-            borderTop: "1.5px solid #1a1a1a",
-            padding: "12px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "4px",
-          }}
-        >
-          <p
+          {/* Theme list */}
+          <div style={{ padding: "12px 16px", flex: 1 }}>
+            {pastThemes.length > 0 ? (
+              <div className="flex flex-row md:flex-col gap-2 md:gap-1.5 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
+                {pastThemes.map((theme) => (
+                  <div
+                    key={theme.id}
+                    onClick={() => handleThemeClick(theme.id)}
+                    className="shrink-0 md:shrink"
+                    style={{
+                      padding: "6px 8px",
+                      transition: "background 0.1s ease",
+                      background: activeDigestId === theme.id ? "rgba(255,0,127,0.1)" : "transparent",
+                      borderLeft: activeDigestId === theme.id ? "2px solid #ff007f" : "2px solid transparent",
+                      minWidth: "140px",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeDigestId !== theme.id) {
+                        (e.currentTarget as HTMLElement).style.background = "rgba(255,0,127,0.05)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeDigestId !== theme.id) {
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.55rem",
+                        color: "#666",
+                        fontFamily: '"Courier New", Courier, monospace',
+                        display: "block",
+                        marginBottom: "2px",
+                      }}
+                    >
+                      {theme.date}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.6rem",
+                        color: "#1a1a1a",
+                        fontWeight: 500,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        lineHeight: 1.3,
+                        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                      }}
+                    >
+                      {theme.theme}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span
+                style={{
+                  fontSize: "0.55rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  color: "#666",
+                  fontFamily: '"Courier New", Courier, monospace',
+                }}
+              >
+                No past themes yet
+              </span>
+            )}
+          </div>
+
+          {/* Stats footer */}
+          <div
             style={{
-              fontSize: "0.6rem",
-              color: "#666",
-              fontFamily: '"Courier New", Courier, monospace',
-              margin: 0,
+              borderTop: "1.5px solid #1a1a1a",
+              padding: "12px 16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
             }}
           >
-            {total} papers saved
-          </p>
-          {totalPages > 1 && (
             <p
               style={{
                 fontSize: "0.6rem",
@@ -849,9 +856,21 @@ export function VaultPage({ session }: VaultPageProps) {
                 margin: 0,
               }}
             >
-              Page {page} of {totalPages}
+              {total} papers saved
             </p>
-          )}
+            {totalPages > 1 && (
+              <p
+                style={{
+                  fontSize: "0.6rem",
+                  color: "#666",
+                  fontFamily: '"Courier New", Courier, monospace',
+                  margin: 0,
+                }}
+              >
+                Page {page} of {totalPages}
+              </p>
+            )}
+          </div>
         </div>
       </aside>
     </div>
