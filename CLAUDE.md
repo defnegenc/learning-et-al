@@ -8,6 +8,7 @@ Your AI research companion — a research paper recommendation and synthesis sys
 - **Brutalist research archive aesthetic**: thin 1.5px borders, no rounded corners, uppercase mono labels, crosshair cursor, #e8e8e8 bg, accent colors only in tags (acid-green, acid-pink, acid-purple, acid-blue, acid-orange)
 - **Aura blobs only in knowledge graph** — everything else clean and readable
 - **Synthesis tone is conversational** — like briefing a smart friend over coffee, not academic. Theme line + 4-6 casual sentences. Opinionated.
+- **Algorithm**: ALWAYS reference `docs/algorithm.md` before modifying the digest pipeline. Search first, theme second. Validate every item for relevance. Never include a paper just to fill a slot.
 - MVP first, iterate fast
 - Localhost for now, plan for deployment later
 
