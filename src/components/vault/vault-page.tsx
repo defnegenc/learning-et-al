@@ -201,6 +201,7 @@ export function VaultPage({ session }: VaultPageProps) {
       <CompareView
         content={comparisonResult.content}
         papers={comparisonResult.papers}
+        session={session}
         onBack={() => {
           setComparisonResult(null);
           exitCompareMode();

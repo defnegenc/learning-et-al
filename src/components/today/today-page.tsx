@@ -226,6 +226,9 @@ export function TodayPage({ session }: TodayPageProps) {
             keyConcepts={digest.keyConcepts}
             activeConcept={activeConcept}
             onConceptClick={handleConceptClick}
+            papers={allPapers}
+            onSelectPaper={setSelectedPaper}
+            session={session}
           />
         ) : (
           <span
