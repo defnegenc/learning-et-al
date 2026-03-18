@@ -2,9 +2,29 @@ import { db } from "@/lib/db";
 import { digests, papers, interests, users, feedback } from "@/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
+import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { digestPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
+
+// Search papers with S2 first, fall back to arXiv
+async function searchPapers(query: string, maxResults: number, sort: "citationCount" | "publicationDate") {
+  console.log(`[Digest] Trying S2: "${query}"`);
+  const s2Results = await searchSemanticScholar(query, maxResults, sort);
+  if (s2Results.length > 0) return s2Results.map(p => ({ ...p, pdfUrl: p.pdfUrl || "" }));
+
+  console.log(`[Digest] S2 empty, falling back to arXiv: "${query}"`);
+  const arxivResults = await searchArxiv(query, maxResults);
+  return arxivResults.map(p => ({
+    title: p.title,
+    authors: p.authors,
+    abstract: p.abstract,
+    sourceUrl: p.sourceUrl,
+    pdfUrl: p.pdfUrl,
+    citationCount: 0,
+    year: new Date().getFullYear(),
+  }));
+}
 
 interface DigestAIResponse {
   items: { index: number; summary: string; keywords: string[] }[];
@@ -91,7 +111,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     // RESEARCH or MIXED: start with Semantic Scholar
     // Step 1a: Find a foundational paper (high citations)
     console.log(`[Digest] Searching S2 for foundational: "${focusInterest}"`);
-    const foundational = await searchSemanticScholar(focusInterest, 5, "citationCount");
+    const foundational = await searchPapers(focusInterest, 5, "citationCount");
     await delay(500);
 
     if (foundational.length > 0) {
@@ -102,7 +122,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
       // Step 1b: Use keywords from the foundational paper to find a recent paper
       const recentQuery = `${focusInterest} ${best.title.split(" ").slice(0, 3).join(" ")}`;
       console.log(`[Digest] Searching S2 for recent: "${recentQuery}"`);
-      const recent = await searchSemanticScholar(recentQuery, 5, "publicationDate");
+      const recent = await searchPapers(recentQuery, 5, "publicationDate");
       await delay(500);
 
       const recentPaper = recent.find(p => p.title.toLowerCase() !== best.title.toLowerCase());
@@ -119,7 +139,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
         ? `${focusInterest} critique OR limitations OR alternative`
         : focusInterest;
       console.log(`[Digest] Searching S2 for contrast: "${contrastQuery}"`);
-      const contrast = await searchSemanticScholar(contrastQuery, 5, "citationCount");
+      const contrast = await searchPapers(contrastQuery, 5, "citationCount");
       const seen = new Set(items.map(i => i.title.toLowerCase()));
       const contrastPaper = contrast.find(p => !seen.has(p.title.toLowerCase()));
       if (contrastPaper) {
@@ -143,8 +163,10 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   }
 
   if (items.length === 0) {
-    throw new Error(`Couldn't find papers about "${focusInterest}". Try different interest terms.`);
+    throw new Error(`Couldn't find papers about "${focusInterest}". This can happen if search APIs are rate-limited. Try again in a minute, or try different interest terms.`);
   }
+
+  console.log(`[Digest] Found ${items.length} item(s). That's fine, proceeding with synthesis.`);
 
   console.log(`[Digest] ${items.length} items found. Running synthesis...`);
 
