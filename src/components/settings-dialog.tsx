@@ -93,7 +93,7 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
           <DialogTitle className="text-[0.75rem] font-bold uppercase tracking-[2px]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
             SETTINGS
           </DialogTitle>
-          <DialogDescription className="text-[0.7rem] text-[#555]">
+          <DialogDescription className="text-[0.7rem] text-[#666]">
             Update your AI provider and API key.
           </DialogDescription>
         </DialogHeader>
@@ -118,7 +118,7 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
           </div>
 
           <div className="space-y-1">
-            <label className="text-[0.6rem] uppercase tracking-[2px] text-[#555]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
+            <label className="text-[0.6rem] uppercase tracking-[2px] text-[#666]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
               API_KEY
             </label>
             <input
@@ -126,21 +126,21 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setTestResult(null); }}
               placeholder="sk-..."
-              className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+              className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
               style={{ borderWidth: "1.5px" }}
             />
           </div>
 
           {provider === "other" && (
             <div className="space-y-1">
-              <label className="text-[0.6rem] uppercase tracking-[2px] text-[#555]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
+              <label className="text-[0.6rem] uppercase tracking-[2px] text-[#666]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
                 MODEL
               </label>
               <input
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 placeholder="e.g. gpt-4o-mini"
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
                 style={{ borderWidth: "1.5px" }}
               />
             </div>
@@ -148,14 +148,14 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
 
           {provider === "other" && (
             <div className="space-y-1">
-              <label className="text-[0.6rem] uppercase tracking-[2px] text-[#555]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
+              <label className="text-[0.6rem] uppercase tracking-[2px] text-[#666]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
                 BASE_URL
               </label>
               <input
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
                 placeholder="https://api.example.com/v1"
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#555] focus:outline-none"
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
                 style={{ borderWidth: "1.5px" }}
               />
             </div>

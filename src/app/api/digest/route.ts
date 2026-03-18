@@ -12,6 +12,22 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const date = url.searchParams.get("date");
+    const all = url.searchParams.get("all");
+
+    // Return all digests (for theme history)
+    if (all === "true") {
+      const allDigests = await db.query.digests.findMany({
+        where: eq(digests.userId, userId),
+        orderBy: desc(digests.createdAt),
+      });
+
+      return NextResponse.json({
+        digests: allDigests.map((d) => ({
+          ...d,
+          keyConcepts: d.keyConcepts ? JSON.parse(d.keyConcepts) : [],
+        })),
+      });
+    }
 
     let digest;
     if (date) {

@@ -102,7 +102,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
 
       {fetching ? (
         <div className="flex items-center justify-center py-6">
-          <Loader2 className="size-4 animate-spin text-[#555]" />
+          <Loader2 className="size-4 animate-spin text-[#666]" />
         </div>
       ) : (
         <div className="space-y-2">
@@ -118,9 +118,9 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
                 <div className="p-3 space-y-2">
                   <div className="flex items-start gap-2">
                     {expanded ? (
-                      <ChevronDown className="size-3 mt-0.5 shrink-0 text-[#555]" />
+                      <ChevronDown className="size-3 mt-0.5 shrink-0 text-[#666]" />
                     ) : (
-                      <ChevronRight className="size-3 mt-0.5 shrink-0 text-[#555]" />
+                      <ChevronRight className="size-3 mt-0.5 shrink-0 text-[#666]" />
                     )}
                     <p
                       className="text-[0.8rem] font-bold text-[#1a1a1a] uppercase"
@@ -131,7 +131,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
                   </div>
                   {expanded && (
                     <div className="ml-5 border-t border-[#1a1a1a] pt-2" style={{ borderTopWidth: "1px" }}>
-                      <p className="text-[0.8rem] text-[#555] whitespace-pre-wrap leading-relaxed">
+                      <p className="text-[0.8rem] text-[#666] whitespace-pre-wrap leading-relaxed">
                         {pair.answer}
                       </p>
                     </div>
@@ -152,7 +152,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={loading}
-            className="w-full border border-[#1a1a1a] bg-transparent px-3 py-2 text-[0.8rem] placeholder:text-[#555] placeholder:uppercase placeholder:tracking-[1px] focus:outline-none disabled:opacity-50 min-h-10"
+            className="w-full border border-[#1a1a1a] bg-transparent px-3 py-2 text-[0.8rem] placeholder:text-[#666] placeholder:uppercase placeholder:tracking-[1px] focus:outline-none disabled:opacity-50 min-h-10"
             style={{
               borderWidth: "1.5px",
               resize: "none",
@@ -163,7 +163,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
           />
           {loading && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <Loader2 className="size-3 animate-spin text-[#555]" />
+              <Loader2 className="size-3 animate-spin text-[#666]" />
             </div>
           )}
         </div>

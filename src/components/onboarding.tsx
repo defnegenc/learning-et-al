@@ -139,10 +139,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-4" style={{ background: "#e8e8e8" }}>
+    <div className="relative flex min-h-screen items-center justify-center p-4" style={{ background: "white" }}>
       <NoiseOverlay />
 
-      <div className="relative z-10 w-full max-w-lg border border-[#1a1a1a] p-6 space-y-5" style={{ borderWidth: "1.5px", background: "#e8e8e8" }}>
+      <div className="relative z-10 w-full max-w-lg border border-[#1a1a1a] p-6 space-y-5" style={{ borderWidth: "1.5px", background: "white" }}>
         {/* Header */}
         <div className="space-y-2">
           <h2 className="flex items-center gap-2 text-[0.85rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]" style={{ fontFamily: '"Courier New", Courier, monospace' }}>
@@ -158,7 +158,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               </>
             )}
           </h2>
-          <p className="text-[0.8rem] text-[#555]">
+          <p className="text-[0.8rem] text-[#666]">
             {step === 1
               ? "Learning et al. uses an LLM to summarize and rank papers. Enter your API key to get started."
               : "Add 3\u201310 short phrases describing your research interests. Press Enter after each one."}
@@ -189,7 +189,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <div className="space-y-1">
               <label
                 htmlFor="api-key"
-                className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
+                className="text-[0.7rem] uppercase tracking-[2px] text-[#666]"
                 style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
                 API_KEY
@@ -201,7 +201,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleStepOneNext()}
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none"
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
                 style={{ borderWidth: "1.5px" }}
               />
             </div>
@@ -211,7 +211,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <div className="space-y-1">
                 <label
                   htmlFor="model"
-                  className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
+                  className="text-[0.7rem] uppercase tracking-[2px] text-[#666]"
                   style={{ fontFamily: '"Courier New", Courier, monospace' }}
                 >
                   MODEL
@@ -221,7 +221,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   placeholder="e.g. gpt-4o-mini"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none"
+                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
                   style={{ borderWidth: "1.5px" }}
                 />
               </div>
@@ -231,7 +231,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <div className="space-y-1">
                 <label
                   htmlFor="base-url"
-                  className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
+                  className="text-[0.7rem] uppercase tracking-[2px] text-[#666]"
                   style={{ fontFamily: '"Courier New", Courier, monospace' }}
                 >
                   BASE_URL
@@ -241,7 +241,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   placeholder="https://api.example.com/v1"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none"
+                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
                   style={{ borderWidth: "1.5px" }}
                 />
               </div>
@@ -265,7 +265,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <div className="space-y-1">
               <label
                 htmlFor="interest"
-                className="text-[0.7rem] uppercase tracking-[2px] text-[#555]"
+                className="text-[0.7rem] uppercase tracking-[2px] text-[#666]"
                 style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
                 ADD_INTEREST
@@ -277,7 +277,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 onChange={(e) => setInterestInput(e.target.value)}
                 onKeyDown={handleAddInterest}
                 disabled={submitting}
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#555] focus:outline-none disabled:opacity-50"
+                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none disabled:opacity-50"
                 style={{ borderWidth: "1.5px" }}
               />
             </div>
@@ -300,7 +300,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                       </span>
                       <button
                         onClick={() => handleRemoveInterest(interest.keyword)}
-                        className="text-[#555] hover:text-[#ff007f] transition-colors"
+                        className="text-[#666] hover:text-[#ff007f] transition-colors"
                       >
                         <X className="size-3" />
                       </button>
@@ -313,7 +313,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                           className={`border border-[#1a1a1a] px-1.5 py-0.5 text-[0.55rem] uppercase tracking-[0.5px] transition-colors ${
                             interest.field === f.value
                               ? "bg-[#1a1a1a] text-[#e8e8e8]"
-                              : "text-[#555] hover:bg-[#d8d8d8]"
+                              : "text-[#666] hover:bg-[#d8d8d8]"
                           }`}
                           style={{ borderWidth: "1px", fontFamily: '"Courier New", Courier, monospace' }}
                         >
@@ -329,7 +329,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                           className={`flex-1 border border-[#1a1a1a] px-1 py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors ${
                             interest.level === lvl
                               ? "bg-[#1a1a1a] text-[#e8e8e8]"
-                              : "text-[#555] hover:bg-[#d8d8d8]"
+                              : "text-[#666] hover:bg-[#d8d8d8]"
                           }`}
                           style={{ borderWidth: "1px", marginRight: "-1px", fontFamily: '"Courier New", Courier, monospace' }}
                         >
@@ -344,7 +344,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
             {interests.length < 3 && (
               <p
-                className="text-[0.7rem] text-[#555] uppercase tracking-[1px]"
+                className="text-[0.7rem] text-[#666] uppercase tracking-[1px]"
                 style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
                 ADD AT LEAST {3 - interests.length} MORE {3 - interests.length === 1 ? "INTEREST" : "INTERESTS"} TO CONTINUE.
@@ -361,7 +361,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   CONTENT_MIX
                 </label>
                 <span
-                  className="text-[0.65rem] uppercase tracking-[1px] text-[#555]"
+                  className="text-[0.65rem] uppercase tracking-[1px] text-[#666]"
                   style={{ fontFamily: '"Courier New", Courier, monospace' }}
                 >
                   {getMixLabel()}
@@ -369,7 +369,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               </div>
               <div className="flex items-center gap-3">
                 <span
-                  className="text-[0.65rem] uppercase tracking-[1px] text-[#555] whitespace-nowrap"
+                  className="text-[0.65rem] uppercase tracking-[1px] text-[#666] whitespace-nowrap"
                   style={{ fontFamily: '"Courier New", Courier, monospace' }}
                 >
                   MORE RESEARCH
@@ -391,7 +391,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   />
                 </div>
                 <span
-                  className="text-[0.65rem] uppercase tracking-[1px] text-[#555] whitespace-nowrap"
+                  className="text-[0.65rem] uppercase tracking-[1px] text-[#666] whitespace-nowrap"
                   style={{ fontFamily: '"Courier New", Courier, monospace' }}
                 >
                   MORE NEWS

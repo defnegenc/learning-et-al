@@ -159,7 +159,7 @@ export function TodayPage({ session }: TodayPageProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-[#555]" />
+        <Loader2 className="size-6 animate-spin text-[#666]" />
       </div>
     );
   }
@@ -168,10 +168,10 @@ export function TodayPage({ session }: TodayPageProps) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <p
-          className="text-[0.75rem] uppercase tracking-[2px] text-[#555]"
+          className="text-[0.75rem] uppercase tracking-[2px] text-[#666]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
-          NO_DIGEST_FOUND_FOR_TODAY
+          No digest found for today
         </p>
         {generateError && (
           <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">
@@ -192,7 +192,7 @@ export function TodayPage({ session }: TodayPageProps) {
           ) : (
             <span className="flex items-center gap-2">
               <RefreshCw className="size-3" />
-              {generateError ? "TRY_AGAIN" : "GENERATE_TODAYS_DIGEST"}
+              {generateError ? "Try again" : "Generate today's digest"}
             </span>
           )}
         </button>
@@ -217,7 +217,7 @@ export function TodayPage({ session }: TodayPageProps) {
   const allPapers = papers;
 
   return (
-    <div className="flex h-[calc(100vh-7rem)]">
+    <div className="flex h-[calc(100vh-2.75rem)]">
       {/* Sidebar - paper cards */}
       <aside
         className="border-r border-[#1a1a1a] overflow-y-auto shrink-0"
@@ -238,10 +238,10 @@ export function TodayPage({ session }: TodayPageProps) {
           {allPapers.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-8">
               <p
-                className="text-[0.65rem] uppercase tracking-[2px] text-[#555]"
+                className="text-[0.65rem] uppercase tracking-[2px] text-[#666]"
                 style={{ fontFamily: '"Courier New", Courier, monospace' }}
               >
-                NO_PAPERS_FOUND
+                No papers found
               </p>
               {generateError && (
                 <p className="text-[0.7rem] text-[#ff007f] max-w-md text-center">
@@ -260,7 +260,7 @@ export function TodayPage({ session }: TodayPageProps) {
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <RefreshCw className="size-3" /> REGENERATE_DIGEST
+                    <RefreshCw className="size-3" /> Regenerate digest
                   </span>
                 )}
               </button>
@@ -285,7 +285,7 @@ export function TodayPage({ session }: TodayPageProps) {
               className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
               style={{ fontFamily: '"Courier New", Courier, monospace' }}
             >
-              NO_SYNTHESIS_AVAILABLE
+              No synthesis available
             </span>
           )}
         </div>

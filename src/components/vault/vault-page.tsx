@@ -21,6 +21,13 @@ interface VaultPageProps {
 const LIMIT = 12;
 const ACCENT_COLORS = ["#38b000", "#ff007f", "#7700ff", "#0077ff", "#ff8800"];
 
+interface DigestTheme {
+  id: string;
+  date: string;
+  theme: string;
+  synthesisContent: string | null;
+}
+
 export function VaultPage({ session }: VaultPageProps) {
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -29,6 +36,9 @@ export function VaultPage({ session }: VaultPageProps) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
+  const [pastThemes, setPastThemes] = useState<DigestTheme[]>([]);
+  const [activeDigestId, setActiveDigestId] = useState<string | null>(null);
+  const [digestPapers, setDigestPapers] = useState<PaperItem[] | null>(null);
 
   const [compareMode, setCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -80,6 +90,47 @@ export function VaultPage({ session }: VaultPageProps) {
     fetchPapers();
   }, [fetchPapers]);
 
+  // Fetch past themes
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/digest?all=true");
+        if (!res.ok) return;
+        const data = await res.json();
+        const themes: DigestTheme[] = (data.digests ?? []).map((d: { id: string; date: string; synthesisContent: string | null }) => {
+          const firstLine = d.synthesisContent?.split("\n").find((l: string) => l.trim()) ?? "Untitled digest";
+          // Strip markdown heading markers
+          const theme = firstLine.replace(/^#+\s*/, "").trim();
+          return { id: d.id, date: d.date, theme, synthesisContent: d.synthesisContent };
+        });
+        setPastThemes(themes);
+      } catch (err) {
+        console.error("Failed to fetch past themes:", err);
+      }
+    })();
+  }, []);
+
+  // Fetch papers for a specific digest
+  const handleThemeClick = async (digestId: string) => {
+    if (activeDigestId === digestId) {
+      setActiveDigestId(null);
+      setDigestPapers(null);
+      return;
+    }
+    setActiveDigestId(digestId);
+    try {
+      const theme = pastThemes.find((t) => t.id === digestId);
+      if (!theme) return;
+      const res = await fetch(`/api/digest?date=${theme.date}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setDigestPapers(data.papers ?? []);
+    } catch (err) {
+      console.error("Failed to fetch digest papers:", err);
+      setDigestPapers(null);
+    }
+  };
+
   // Unique keywords from papers
   const allKeywords = useMemo(() => {
     const kws = new Set<string>();
@@ -87,13 +138,14 @@ export function VaultPage({ session }: VaultPageProps) {
     return Array.from(kws).slice(0, 12);
   }, [papers]);
 
-  // Filter papers by active keyword
+  // Filter papers by active keyword or active digest
   const filteredPapers = useMemo(() => {
-    if (!activeKeyword) return papers;
-    return papers.filter((p) =>
+    const base = activeDigestId && digestPapers ? digestPapers : papers;
+    if (!activeKeyword) return base;
+    return base.filter((p) =>
       p.keywords.some((k) => k.toLowerCase() === activeKeyword.toLowerCase())
     );
-  }, [papers, activeKeyword]);
+  }, [papers, activeKeyword, activeDigestId, digestPapers]);
 
   // Toggle card selection in compare mode
   const toggleSelect = (id: string) => {
@@ -183,12 +235,8 @@ export function VaultPage({ session }: VaultPageProps) {
     );
   }
 
-  // Group papers by month for sidebar
-  const now = new Date();
-  const monthLabel = now.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase().replace(" ", "_");
-
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", minHeight: "calc(100vh - 7rem)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", minHeight: "calc(100vh - 2.75rem)" }}>
       {/* Main content area */}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {/* Keyword ribbon */}
@@ -248,7 +296,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 transform: "translateY(-50%)",
                 width: "12px",
                 height: "12px",
-                color: "#555",
+                color: "#666",
               }}
             />
             <input
@@ -385,7 +433,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 fontSize: "0.65rem",
                 textTransform: "uppercase",
                 letterSpacing: "2px",
-                color: "#555",
+                color: "#666",
                 fontFamily: '"Courier New", Courier, monospace',
               }}
             >
@@ -401,13 +449,13 @@ export function VaultPage({ session }: VaultPageProps) {
         <div
           style={{
             flex: 1,
-            background: "#f0f0f0",
+            background: "white",
             padding: "40px",
           }}
         >
           {loading && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
-              <Loader2 className="size-6 animate-spin" style={{ color: "#555" }} />
+              <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
             </div>
           )}
 
@@ -418,7 +466,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   fontSize: "0.7rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
-                  color: "#555",
+                  color: "#666",
                   fontFamily: '"Courier New", Courier, monospace',
                 }}
               >
@@ -638,7 +686,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   fontSize: "0.65rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
-                  color: "#555",
+                  color: "#666",
                   fontFamily: '"Courier New", Courier, monospace',
                 }}
               >
@@ -680,7 +728,7 @@ export function VaultPage({ session }: VaultPageProps) {
           flexDirection: "column",
         }}
       >
-        {/* Archive Timeline header */}
+        {/* Past Themes header */}
         <div
           style={{
             borderBottom: "1.5px solid #1a1a1a",
@@ -698,87 +746,64 @@ export function VaultPage({ session }: VaultPageProps) {
               margin: 0,
             }}
           >
-            Recent Papers
+            Past Themes
           </h3>
         </div>
 
-        {/* Archive items */}
+        {/* Theme list */}
         <div style={{ padding: "12px 16px", flex: 1 }}>
-          {!loading && papers.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {/* Month group */}
-              <span
-                style={{
-                  fontSize: "0.55rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  color: "#555",
-                  fontFamily: '"Courier New", Courier, monospace',
-                }}
-              >
-                {monthLabel}
-              </span>
-              {papers.slice(0, 8).map((p, i) => (
+          {pastThemes.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              {pastThemes.map((theme) => (
                 <div
-                  key={p.id}
-                  onClick={() => setSelectedPaper(p)}
+                  key={theme.id}
+                  onClick={() => handleThemeClick(theme.id)}
                   style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "8px",
-                    padding: "4px 6px",
+                    padding: "6px 8px",
                     cursor: "crosshair",
                     transition: "background 0.1s ease",
+                    background: activeDigestId === theme.id ? "rgba(255,0,127,0.1)" : "transparent",
+                    borderLeft: activeDigestId === theme.id ? "2px solid #ff007f" : "2px solid transparent",
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,0,127,0.08)";
+                    if (activeDigestId !== theme.id) {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(255,0,127,0.05)";
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                    if (activeDigestId !== theme.id) {
+                      (e.currentTarget as HTMLElement).style.background = "transparent";
+                    }
                   }}
                 >
                   <span
                     style={{
                       fontSize: "0.55rem",
-                      color: "#555",
-                      flexShrink: 0,
-                      marginTop: "1px",
+                      color: "#666",
                       fontFamily: '"Courier New", Courier, monospace',
+                      display: "block",
+                      marginBottom: "2px",
                     }}
                   >
-                    {String(i + 1).padStart(2, "0")}
+                    {theme.date}
                   </span>
                   <span
                     style={{
                       fontSize: "0.6rem",
                       color: "#1a1a1a",
-                      textTransform: "uppercase",
                       fontWeight: 500,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
                       overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      lineHeight: 1.3,
                       fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                     }}
                   >
-                    {p.title}
+                    {theme.theme}
                   </span>
                 </div>
               ))}
-
-              {papers.length > 8 && (
-                <span
-                  style={{
-                    fontSize: "0.5rem",
-                    color: "#888",
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    fontFamily: '"Courier New", Courier, monospace',
-                    paddingLeft: "6px",
-                  }}
-                >
-                  + {papers.length - 8} MORE
-                </span>
-              )}
             </div>
           ) : (
             <span
@@ -786,69 +811,45 @@ export function VaultPage({ session }: VaultPageProps) {
                 fontSize: "0.55rem",
                 textTransform: "uppercase",
                 letterSpacing: "2px",
-                color: "#555",
+                color: "#666",
                 fontFamily: '"Courier New", Courier, monospace',
               }}
             >
-              No papers yet
+              No past themes yet
             </span>
           )}
         </div>
 
-        {/* System Logs header */}
+        {/* Stats footer */}
         <div
           style={{
             borderTop: "1.5px solid #1a1a1a",
-            padding: "8px 16px",
+            padding: "12px 16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
           }}
         >
-          <h3
+          <p
             style={{
               fontSize: "0.6rem",
-              fontWeight: "bold",
-              textTransform: "uppercase",
-              letterSpacing: "2px",
-              color: "#1a1a1a",
+              color: "#666",
               fontFamily: '"Courier New", Courier, monospace',
               margin: 0,
             }}
           >
-            Activity
-          </h3>
-        </div>
-
-        {/* System log entries */}
-        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
-          <p
-            style={{
-              fontSize: "0.55rem",
-              color: "#555",
-              fontFamily: '"Courier New", Courier, monospace',
-              margin: 0,
-            }}
-          >
-            {total} papers in vault
+            {total} papers saved
           </p>
-          <p
-            style={{
-              fontSize: "0.55rem",
-              color: "#555",
-              fontFamily: '"Courier New", Courier, monospace',
-              margin: 0,
-            }}
-          >
-            Page {page} of {totalPages}
-          </p>
-          {compareMode && (
+          {totalPages > 1 && (
             <p
               style={{
-                fontSize: "0.55rem",
-                color: "#ff007f",
+                fontSize: "0.6rem",
+                color: "#666",
                 fontFamily: '"Courier New", Courier, monospace',
                 margin: 0,
               }}
             >
-              Comparing {selectedIds.size} papers
+              Page {page} of {totalPages}
             </p>
           )}
         </div>

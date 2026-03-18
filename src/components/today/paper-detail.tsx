@@ -86,7 +86,7 @@ export function PaperDetail({
 
       {/* Source label */}
       <span
-        className="inline-block border border-[#1a1a1a] px-2 py-0.5 text-[0.6rem] uppercase tracking-[2px] text-[#555]"
+        className="inline-block border border-[#1a1a1a] px-2 py-0.5 text-[0.6rem] uppercase tracking-[2px] text-[#666]"
         style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
       >
         {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
@@ -102,7 +102,7 @@ export function PaperDetail({
 
       {/* Authors */}
       {paper.authors.length > 0 && (
-        <p className="text-[0.75rem] italic text-[#555]">
+        <p className="text-[0.75rem] italic text-[#666]">
           {paper.authors.join(", ")}
         </p>
       )}
@@ -151,7 +151,7 @@ export function PaperDetail({
             placeholder="WHY DIDN'T YOU LIKE THIS?"
             value={dislikeReason}
             onChange={(e) => setDislikeReason(e.target.value)}
-            className="flex-1 border border-[#1a1a1a] bg-transparent px-2 py-1 text-[0.75rem] placeholder:text-[#555] focus:outline-none"
+            className="flex-1 border border-[#1a1a1a] bg-transparent px-2 py-1 text-[0.75rem] placeholder:text-[#666] focus:outline-none"
             style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', borderRadius: 0 }}
             autoFocus
             onKeyDown={(e) => {
@@ -168,7 +168,7 @@ export function PaperDetail({
         </div>
       )}
       {dislikeState === "submitting" && (
-        <div className="flex items-center gap-2 text-[0.75rem] text-[#555]">
+        <div className="flex items-center gap-2 text-[0.75rem] text-[#666]">
           <Loader2 className="size-3 animate-spin" />
           <span
             className="text-[0.65rem] uppercase tracking-[2px]"
@@ -180,7 +180,7 @@ export function PaperDetail({
       )}
       {dislikeState === "done" && (
         <p
-          className="text-[0.7rem] text-[#555]"
+          className="text-[0.7rem] text-[#666]"
           style={{ fontFamily: '"Courier New", Courier, monospace' }}
         >
           FEEDBACK_RECORDED. THANK_YOU.

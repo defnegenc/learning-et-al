@@ -9,7 +9,7 @@ export default function Home() {
 
   if (!loaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: "#e8e8e8" }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "white" }}>
         <div className="size-6 animate-spin border-[1.5px] border-[#1a1a1a] border-t-transparent" />
       </div>
     );

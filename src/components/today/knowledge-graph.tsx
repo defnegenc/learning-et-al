@@ -95,7 +95,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
           width: `${CONTAINER_W}px`,
           height: `${CONTAINER_H}px`,
           border: "1.5px solid #1a1a1a",
-          background: "rgba(232, 232, 232, 0.9)",
+          background: "rgba(245, 245, 245, 0.95)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           display: "flex",
           alignItems: "center",
@@ -112,7 +112,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             fontFamily: "'Courier New', Courier, monospace",
           }}
         >
-          NO_DATA
+          No data
         </span>
       </div>
     );
@@ -125,7 +125,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
         width: `${CONTAINER_W}px`,
         height: `${CONTAINER_H}px`,
         border: "1.5px solid #1a1a1a",
-        background: "rgba(232, 232, 232, 0.9)",
+        background: "rgba(245, 245, 245, 0.95)",
         boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
         overflow: "hidden",
       }}
@@ -189,7 +189,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
           onClick={() => onNodeClick?.(node.fullKeyword)}
           style={{
             position: "absolute",
-            background: "#e8e8e8",
+            background: "#f5f5f5",
             border: "1px solid #1a1a1a",
             padding: "2px 8px",
             fontSize: "0.55rem",
