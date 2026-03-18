@@ -34,14 +34,15 @@ export function AppShell({ session, updateSession }: AppShellProps) {
       >
         <h1
           style={{
-            fontSize: "1.1rem",
+            fontSize: "1rem",
             fontWeight: 700,
-            letterSpacing: "0.5px",
+            letterSpacing: "3px",
+            textTransform: "uppercase",
             color: "#1a1a1a",
-            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontFamily: "var(--font-mono), monospace",
           }}
         >
-          Learning et al.
+          LEARNING ET AL.
         </h1>
 
         <div className="flex items-center gap-1">
