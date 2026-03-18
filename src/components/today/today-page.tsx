@@ -130,16 +130,15 @@ export function TodayPage({ session }: TodayPageProps) {
     );
   };
 
-  // Filter interests to only those that appear in today's paper keywords
+  // Show user's interests that connect to today's papers (partial match)
   const graphInterests = useMemo(() => {
-    const paperKeywords = new Set<string>();
-    papers.forEach((p) =>
-      p.keywords.forEach((k) => paperKeywords.add(k.toLowerCase()))
-    );
+    const paperText = papers.map(p => `${p.title} ${p.keywords.join(" ")} ${p.summary || ""}`).join(" ").toLowerCase();
 
-    const matched = interests.filter((i) =>
-      paperKeywords.has(i.keyword.toLowerCase())
-    );
+    // Include any user interest where any word appears in today's paper content
+    const matched = interests.filter((i) => {
+      const words = i.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      return words.some(w => paperText.includes(w));
+    });
 
     // If fewer than 3 matches, pad with top-weighted interests
     if (matched.length < 3) {

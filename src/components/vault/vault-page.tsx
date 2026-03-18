@@ -559,15 +559,10 @@ export function VaultPage({ session }: VaultPageProps) {
                         >
                           {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "arxiv" : "news"}
                         </span>
-                        <span
-                          style={{
-                            width: "8px",
-                            height: "8px",
-                            borderRadius: "50%",
-                            background: "#38b000",
-                            display: "inline-block",
-                          }}
-                        />
+                        {/* source label */}
+                        <span style={{ fontSize: "0.55rem", color: "#999", fontFamily: "var(--font-mono), monospace" }}>
+                          {paper.source === "semantic_scholar" ? "S2" : paper.source === "rss" ? "NEWS" : "ARXIV"}
+                        </span>
                       </div>
 
                       {/* Compare badge */}

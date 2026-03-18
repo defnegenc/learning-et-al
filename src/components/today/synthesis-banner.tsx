@@ -118,8 +118,12 @@ export function SynthesisBanner({
     <div className="space-y-5">
       {/* Date */}
       <span
-        className="text-[0.6rem] uppercase tracking-[2px] text-[#999] block"
-        style={{ fontFamily: "var(--font-mono), monospace" }}
+        style={{
+          fontSize: "0.8rem",
+          color: "#999",
+          display: "block",
+          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        }}
       >
         {today}
       </span>
