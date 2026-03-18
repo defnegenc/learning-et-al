@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { KeywordTag } from "@/components/keyword-tag";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Check } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
 interface SynthesisBannerProps {
@@ -13,6 +13,7 @@ interface SynthesisBannerProps {
   onConceptClick: (concept: string) => void;
   papers?: PaperItem[];
   onSelectPaper?: (paper: PaperItem) => void;
+  onAddInterest?: (keyword: string) => void;
   session?: {
     apiKey: string;
     provider: string;
@@ -30,11 +31,32 @@ export function SynthesisBanner({
   onConceptClick,
   papers = [],
   onSelectPaper,
+  onAddInterest,
   session,
 }: SynthesisBannerProps) {
   const [digDeeperAnswer, setDigDeeperAnswer] = useState<string | null>(null);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
+  const [addedConcepts, setAddedConcepts] = useState<Set<string>>(new Set());
+  const [addingConcept, setAddingConcept] = useState<string | null>(null);
+
+  const handleAddConcept = useCallback(async (concept: string) => {
+    if (addedConcepts.has(concept) || addingConcept) return;
+    setAddingConcept(concept);
+    try {
+      const res = await fetch("/api/interests/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: concept }),
+      });
+      const data = await res.json();
+      if (data.added) {
+        setAddedConcepts(prev => new Set([...prev, concept]));
+        onAddInterest?.(concept);
+      }
+    } catch { /* silent */ }
+    setAddingConcept(null);
+  }, [addedConcepts, addingConcept, onAddInterest]);
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -155,18 +177,23 @@ export function SynthesisBanner({
         </ReactMarkdown>
       </div>
 
-      {/* Key concept tags — prominent, clickable */}
+      {/* Key concept tags — clickable to filter, "+" to add to interests */}
       {keyConcepts.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2">
           {keyConcepts.map((concept, idx) => {
             const isActive = activeConcept === concept;
+            const isAdded = addedConcepts.has(concept);
+            const isAdding = addingConcept === concept;
             const pastel = PASTEL_COLORS[idx % 5];
             return (
-              <button
+              <span
                 key={concept}
-                onClick={() => onConceptClick(concept)}
+                className="group/tag"
                 style={{
-                  padding: "5px 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 10px 5px 14px",
                   background: isActive ? "#1a1a1a" : pastel,
                   border: `1.5px solid ${isActive ? "#1a1a1a" : "rgba(26,26,26,0.15)"}`,
                   color: isActive ? "#fff" : "#1a1a1a",
@@ -177,19 +204,33 @@ export function SynthesisBanner({
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                 }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.target as HTMLElement).style.borderColor = "#1a1a1a";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.target as HTMLElement).style.borderColor = "rgba(26,26,26,0.15)";
-                  }
-                }}
               >
-                {concept}
-              </button>
+                <span onClick={() => onConceptClick(concept)}>{concept}</span>
+                {isAdded ? (
+                  <Check style={{ width: "12px", height: "12px", color: "#38b000", flexShrink: 0 }} />
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAddConcept(concept); }}
+                    className="opacity-40 group-hover/tag:opacity-100 transition-opacity"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: "2px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      color: isActive ? "#fff" : "#1a1a1a",
+                    }}
+                    title="Add to interests"
+                  >
+                    {isAdding ? (
+                      <Loader2 style={{ width: "12px", height: "12px", animation: "spin 1s linear infinite" }} />
+                    ) : (
+                      <Plus style={{ width: "12px", height: "12px" }} />
+                    )}
+                  </button>
+                )}
+              </span>
             );
           })}
         </div>

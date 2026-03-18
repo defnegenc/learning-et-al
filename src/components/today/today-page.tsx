@@ -228,6 +228,7 @@ export function TodayPage({ session }: TodayPageProps) {
             onConceptClick={handleConceptClick}
             papers={allPapers}
             onSelectPaper={setSelectedPaper}
+            onAddInterest={() => fetchInterests()}
             session={session}
           />
         ) : (
