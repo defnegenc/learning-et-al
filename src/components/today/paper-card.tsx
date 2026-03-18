@@ -36,19 +36,17 @@ export function PaperCard({
 
   return (
     <article
-      className="group relative p-6 space-y-2"
+      className="group relative p-6 space-y-3"
       style={{
-        background: highlighted ? "white" : "#f9fafb",
+        background: "white",
         borderBottom: "4px solid #1a1a1a",
         transition: "transform 0.2s ease, background 0.2s ease",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-        (e.currentTarget as HTMLElement).style.background = "white";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-        (e.currentTarget as HTMLElement).style.background = highlighted ? "white" : "#f9fafb";
       }}
       onClick={() => onSelect(paper)}
     >
@@ -119,7 +117,7 @@ export function PaperCard({
             lineHeight: 1.5,
             color: "#374151",
             display: "-webkit-box",
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 5,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             fontFamily: "var(--font-inter), sans-serif",

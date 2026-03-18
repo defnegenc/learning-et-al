@@ -95,13 +95,27 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
     });
   }, [uniqueInterests, connections]);
 
-  // Edges between active nodes
+  // Edges — connect each node to its nearest neighbor
   const edges = useMemo(() => {
-    const active = nodes.filter(n => n.active);
+    if (nodes.length < 2) return [];
     const result: { x1: number; y1: number; x2: number; y2: number }[] = [];
-    for (let i = 0; i < active.length; i++) {
-      for (let j = i + 1; j < active.length; j++) {
-        result.push({ x1: active[i].x, y1: active[i].y, x2: active[j].x, y2: active[j].y });
+    const used = new Set<string>();
+    for (let i = 0; i < nodes.length; i++) {
+      let minDist = Infinity;
+      let nearest = -1;
+      for (let j = 0; j < nodes.length; j++) {
+        if (i === j) continue;
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < minDist) { minDist = d; nearest = j; }
+      }
+      if (nearest >= 0) {
+        const key = [Math.min(i, nearest), Math.max(i, nearest)].join("-");
+        if (!used.has(key)) {
+          used.add(key);
+          result.push({ x1: nodes[i].x, y1: nodes[i].y, x2: nodes[nearest].x, y2: nodes[nearest].y });
+        }
       }
     }
     return result;
@@ -142,9 +156,9 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
       }}
     >
       {/* Blobs — subtle behind the dot grid */}
-      <div style={{ position: "absolute", width: "160px", height: "160px", background: "#7700ff", borderRadius: "50%", filter: "blur(70px)", opacity: 0.06, top: "-30px", right: "-20px", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", width: "130px", height: "130px", background: "#38b000", borderRadius: "50%", filter: "blur(55px)", opacity: 0.05, bottom: "-20px", left: "5px", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", width: "100px", height: "100px", background: "#ff007f", borderRadius: "50%", filter: "blur(50px)", opacity: 0.04, top: "40%", left: "40%", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: "180px", height: "180px", background: "#7700ff", borderRadius: "50%", filter: "blur(70px)", opacity: 0.15, top: "-30px", right: "-20px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: "150px", height: "150px", background: "#38b000", borderRadius: "50%", filter: "blur(55px)", opacity: 0.12, bottom: "-20px", left: "5px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: "120px", height: "120px", background: "#ff007f", borderRadius: "50%", filter: "blur(50px)", opacity: 0.08, top: "40%", left: "40%", pointerEvents: "none" }} />
 
       {/* Edges — curved dashed SVG paths */}
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1, pointerEvents: "none" }}>

@@ -249,8 +249,8 @@ export function TodayPage({ session }: TodayPageProps) {
 
       {/* Sidebar - paper cards */}
       <aside
-        className="overflow-y-auto shrink-0 w-full md:w-[33.33vw]"
-        style={{ borderRight: "1.5px solid #1a1a1a" }}
+        className="overflow-y-auto shrink-0 w-full md:w-[380px]"
+        style={{ borderRight: "4px solid #1a1a1a" }}
       >
         <div className="p-4 space-y-3">
           {allPapers.map((paper) => (
