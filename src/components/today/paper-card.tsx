@@ -12,6 +12,8 @@ export interface PaperItem {
   keywords: string[];
   authors: string[];
   year?: number | null;
+  abstract?: string | null;
+  category?: "foundational" | "recent" | "news" | null;
 }
 
 interface PaperCardProps {

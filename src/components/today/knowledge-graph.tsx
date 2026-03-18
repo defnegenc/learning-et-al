@@ -253,7 +253,6 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
                       padding: "2px 6px",
                       background: PASTEL_COLORS[ti % 5],
                       border: "2px solid #1a1a1a",
-                      boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
                       fontSize: "0.5rem",
                       fontWeight: 700,
                       textTransform: "uppercase",
