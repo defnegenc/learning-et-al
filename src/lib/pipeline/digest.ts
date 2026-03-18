@@ -4,6 +4,7 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
+import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { digestPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
 
@@ -223,27 +224,55 @@ Return JSON only:
       }
     }
   } else {
-    // Mixed or all news: try to find a genuinely relevant news article
-    const newsTerms = newsKeywords.split(/\s+/).slice(0, 3);
-    console.log(`[Digest] Step 5: Searching news for: ${newsTerms.join(", ")}`);
-    const news = await fetchRssArticles(newsTerms, 10);
+    // Mixed or all news: web search for a relevant article
+    const searchQuery = `${newsKeywords} ${focusInterest} 2025 2026`;
+    console.log(`[Digest] Step 5: Web searching for: "${searchQuery}"`);
+    const webResults = await webSearch(searchQuery, 5);
+
     let foundNews = false;
-    for (const article of news) {
-      if (isNewsRelevant(article, themeWords, focusInterest)) {
+    for (const result of webResults) {
+      // Web search results are already targeted — just basic validation
+      const text = `${result.title} ${result.snippet}`.toLowerCase();
+      const interestWords = focusInterest.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
+      const matches = interestWords.filter(w => text.includes(w));
+
+      if (matches.length >= 1) {
         items.push({
-          ...article, pdfUrl: undefined, source: "rss", category: "news",
+          title: result.title,
+          authors: [result.source],
+          abstract: result.snippet,
+          sourceUrl: result.link,
+          pdfUrl: undefined,
+          source: "rss", // reusing "rss" type for news articles
+          category: "news",
         });
-        console.log(`[Digest] News (validated): "${article.title}"`);
+        console.log(`[Digest] Web news (validated): "${result.title}" from ${result.source}`);
         foundNews = true;
         break;
       } else {
-        console.log(`[Digest] News rejected (irrelevant): "${article.title}"`);
+        console.log(`[Digest] Web news rejected: "${result.title}"`);
       }
     }
-    // If no relevant news found, find a third paper instead — better than garbage news
+
+    // If web search found nothing, try RSS as fallback
     if (!foundNews) {
-      console.log(`[Digest] No relevant news found. Finding a third paper instead.`);
-      const thirdQuery = `${focusInterest} applications OR deployment OR industry`;
+      console.log(`[Digest] Web search empty, trying RSS...`);
+      const newsTerms = newsKeywords.split(/\s+/).slice(0, 3);
+      const rss = await fetchRssArticles(newsTerms, 10);
+      for (const article of rss) {
+        if (isNewsRelevant(article, themeWords, focusInterest)) {
+          items.push({ ...article, pdfUrl: undefined, source: "rss", category: "news" });
+          console.log(`[Digest] RSS news (validated): "${article.title}"`);
+          foundNews = true;
+          break;
+        }
+      }
+    }
+
+    // If STILL nothing, find a third paper — better than garbage
+    if (!foundNews) {
+      console.log(`[Digest] No relevant news at all. Finding a third paper.`);
+      const thirdQuery = `${focusInterest} applications deployment industry`;
       await delay(500);
       const thirdResults = await searchPapers(thirdQuery, 5, "citationCount");
       for (const paper of thirdResults) {
@@ -254,7 +283,7 @@ Return JSON only:
             sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
             source: paper.source, category: "news",
           });
-          console.log(`[Digest] Third paper (instead of news): "${paper.title}"`);
+          console.log(`[Digest] Third paper (no news found): "${paper.title}"`);
           break;
         }
       }
