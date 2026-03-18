@@ -26,6 +26,7 @@ type TaggedItem = {
   pdfUrl?: string;
   source: "semantic_scholar" | "rss" | "arxiv";
   category: "foundational" | "recent" | "news";
+  year?: number;
 };
 
 // Search with S2 first, fall back to arXiv
@@ -138,7 +139,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   items.push({
     title: anchor.title, authors: anchor.authors, abstract: anchor.abstract,
     sourceUrl: anchor.sourceUrl, pdfUrl: anchor.pdfUrl || undefined,
-    source: anchor.source, category: "foundational",
+    source: anchor.source, category: "foundational", year: anchor.year,
   });
   console.log(`[Digest] Anchor: "${anchor.title}" (${anchor.citationCount} citations)`);
 
@@ -211,22 +212,28 @@ Return JSON only:
     }
   }
 
-  // Step 5: Find third item — news or contrasting paper
-  if (contentMix < 40) {
-    // All research: find a contrasting paper
-    const contrastQuery = `${focusInterest} critique OR alternative OR comparison`;
-    console.log(`[Digest] Step 5: Searching for contrast: "${contrastQuery}"`);
-    await delay(500);
-    const contrastResults = await searchPapers(contrastQuery, 5, "citationCount");
-    for (const paper of contrastResults) {
-      if (seenTitles.has(paper.title.toLowerCase())) continue;
-      if (isRelevant(paper, themeWords)) {
+  // Step 5: Find third item — always try multiple strategies until we have 3
+  if (contentMix < 15) {
+    // All research: try several queries for a third paper
+    const thirdQueries = [
+      `${focusInterest} user study evaluation`,
+      `${focusInterest} framework system`,
+      focusInterest,
+    ];
+    for (const q of thirdQueries) {
+      if (items.length >= 3) break;
+      console.log(`[Digest] Step 5: Trying third paper query: "${q}"`);
+      await delay(500);
+      const results = await searchPapers(q, 5, "publicationDate");
+      for (const paper of results) {
+        if (seenTitles.has(paper.title.toLowerCase())) continue;
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
           source: paper.source, category: "news",
         });
-        console.log(`[Digest] Contrast (validated): "${paper.title}"`);
+        seenTitles.add(paper.title.toLowerCase());
+        console.log(`[Digest] Third paper found: "${paper.title}"`);
         break;
       }
     }
@@ -295,6 +302,25 @@ Return JSON only:
     }
   }
 
+  // Final guarantee: if we still don't have 3, find more papers with a broad search
+  if (items.length < 3) {
+    console.log(`[Digest] Only ${items.length} items. Trying broad search for more...`);
+    await delay(500);
+    const broadResults = await searchPapers(focusInterest, 10, "publicationDate");
+    for (const paper of broadResults) {
+      if (items.length >= 3) break;
+      if (seenTitles.has(paper.title.toLowerCase())) continue;
+      items.push({
+        title: paper.title, authors: paper.authors, abstract: paper.abstract,
+        sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
+        source: paper.source, category: items.length === 2 ? "news" : "recent",
+        year: paper.year,
+      });
+      seenTitles.add(paper.title.toLowerCase());
+      console.log(`[Digest] Broad fill: "${paper.title}"`);
+    }
+  }
+
   console.log(`[Digest] ${items.length} items ready. Synthesizing...`);
 
   // Step 6: Synthesize
@@ -335,6 +361,7 @@ Return JSON only:
       sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
       keywords: JSON.stringify(aiItem.keywords),
       category: item.category,
+      year: item.year,
     });
   }
 

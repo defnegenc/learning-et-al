@@ -17,6 +17,12 @@ Here are 3 items. Produce JSON (no markdown fences):
   "keyConcepts": ["concept1", "concept2", "concept3", "concept4", "concept5"]
 }
 
+KEYWORD RULES:
+- Each paper's keywords should be 3 DISTINCT terms, not variations of the same concept
+- BAD: ["co-creative systems", "co-creation", "creative collaboration"] — these are the same thing
+- GOOD: ["co-creative AI", "design agency", "human-AI handoff"] — each is a different angle
+- keyConcepts should be 5 themes that SPAN all papers, not repeat per-paper keywords
+
 SYNTHESIS — write it as an engaging narrative that makes the reader THINK:
 
 Line 1: "Today's thread: ${theme}"

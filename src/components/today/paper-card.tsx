@@ -11,6 +11,7 @@ export interface PaperItem {
   sourceUrl: string | null;
   keywords: string[];
   authors: string[];
+  year?: number | null;
 }
 
 interface PaperCardProps {
@@ -30,7 +31,8 @@ export function PaperCard({
   onStar,
   onDislike,
 }: PaperCardProps) {
-  const sourceLabel = paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS";
+  const typeLabel = paper.source === "rss" ? "NEWS" : "PAPER";
+  const yearLabel = paper.year ? ` · ${paper.year}` : "";
 
   return (
     <article
@@ -59,7 +61,7 @@ export function PaperCard({
             color: "#666",
           }}
         >
-          {sourceLabel}
+          {typeLabel}{yearLabel}
         </span>
         {/* Always visible on mobile, hover on desktop */}
         <div className="flex gap-1 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">

@@ -41,6 +41,7 @@ export const papers = sqliteTable("papers", {
   pdfUrl: text("pdf_url"),
   keywords: text("keywords"),
   category: text("category", { enum: ["foundational", "recent", "news"] }),
+  year: integer("year"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

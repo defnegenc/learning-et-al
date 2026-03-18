@@ -79,10 +79,10 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
       const col = i % cols;
       const totalRows = Math.ceil(uniqueInterests.length / cols);
 
-      const baseX = 18 + (col / Math.max(cols - 1, 1)) * 64;
-      const baseY = 18 + (row / Math.max(totalRows - 1, 1)) * 60;
-      const ox = ((h % 8) - 4) * 0.8;
-      const oy = (((h >> 3) % 8) - 4) * 0.6;
+      const baseX = 20 + (col / Math.max(cols - 1, 1)) * 55;
+      const baseY = 20 + (row / Math.max(totalRows - 1, 1)) * 50;
+      const ox = ((h % 6) - 3) * 0.5;
+      const oy = (((h >> 3) % 6) - 3) * 0.4;
 
       return {
         keyword: interest.keyword,
@@ -167,11 +167,11 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
             <span
               style={{
                 display: "inline-block",
-                padding: "3px 8px",
+                padding: "4px 10px",
                 background: isHovered ? "#1a1a1a" : node.active ? "white" : "rgba(245,245,245,0.8)",
                 color: isHovered ? "white" : node.active ? "#1a1a1a" : "#bbb",
-                border: `1px solid ${node.active ? "#1a1a1a" : "rgba(26,26,26,0.15)"}`,
-                fontSize: "0.5rem",
+                border: `1.5px solid ${node.active ? "#1a1a1a" : "rgba(26,26,26,0.15)"}`,
+                fontSize: "0.55rem",
                 fontWeight: node.active ? 600 : 400,
                 textTransform: "uppercase",
                 letterSpacing: "0.5px",

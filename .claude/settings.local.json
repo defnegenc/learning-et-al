@@ -15,7 +15,8 @@
       "Bash(lsof:*)",
       "WebSearch",
       "Bash(kill:*)",
-      "Bash(find src:*)"
+      "Bash(find src:*)",
+      "Bash(source:*)"
     ]
   }
 }
