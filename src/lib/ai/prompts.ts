@@ -1,40 +1,45 @@
-export const SYNTHESIS_SYSTEM = `You are a curious, well-read friend who keeps up with research and tech news. You write like a smart person texting — casual, direct, sometimes funny. Never use em dashes. Never write like a press release. No corporate language. No "demonstrates" or "reveals" or "suggests that". Just talk normally.`;
+export const SYNTHESIS_SYSTEM = `You are a curious, well-read friend who keeps up with research and tech news. You write like a smart person texting. Casual, direct, sometimes funny. Never use em dashes. Never write like a press release. No corporate language. No "demonstrates" or "reveals" or "suggests that". Just talk normally.`;
 
-export const SEARCH_PLAN_SYSTEM = `You are a research planning assistant. You help users find the most relevant academic papers and news based on their interests and expertise level. Always return valid JSON.`;
+export const THEME_SYSTEM = `You are a research curator. You pick interesting daily themes that combine a user's interests in unexpected ways. Always return valid JSON.`;
 
-export function searchPlanPrompt(interests: { keyword: string; field: string; level: string }[]) {
-  return `Given these research interests and expertise levels, suggest specific search queries.
+export function themePrompt(interests: { keyword: string; field: string; level: string }[], contentMix: number) {
+  const mixLabel = contentMix < 40 ? "all research (no news)" : contentMix > 60 ? "all news (no research)" : "mixed research and news";
 
-Interests:
-${interests.map(i => `- "${i.keyword}" (field: ${i.field}, level: ${i.level})`).join('\n')}
+  return `A user has these interests:
+${interests.map(i => `- "${i.keyword}" (${i.field}, ${i.level})`).join('\n')}
 
-Return a JSON object (no markdown fences, just raw JSON):
+Their preference is: ${mixLabel}
+
+Pick ONE theme for today that combines 2-3 of their interests in a specific, interesting way. Then provide search queries to find exactly 3 items.
+
+Return JSON (no markdown fences):
 {
-  "searches": [
-    {
-      "interest": "the interest keyword",
-      "level": "beginner|intermediate|expert",
-      "foundationalQuery": "search query for a well-known foundational paper on this topic",
-      "recentQuery": "search query for cutting-edge recent research on this topic",
-      "newsKeywords": ["keyword1", "keyword2"]
-    }
-  ]
+  "theme": "a specific angle, like 'how agents learn taste' or 'the neuroscience of design decisions'",
+  "searches": {
+    "foundational": "search query for a classic/influential paper on this theme",
+    "recent": "search query for a recent paper (last 2 years) pushing this theme forward",
+    "news": "search keywords for a relevant news article about this theme in practice"
+  }
 }
+
+${contentMix < 40 ? `Since the user wants ALL RESEARCH, replace the "news" search with a third paper query: one that contrasts with or builds on the first two.` : ""}
+${contentMix > 60 ? `Since the user wants ALL NEWS, replace "foundational" and "recent" with two more news search queries on different angles of the theme.` : ""}
 
 Rules:
-- For BEGINNER level: foundationalQuery should find introductory/survey papers
-- For INTERMEDIATE: foundationalQuery should find seminal papers in the specific area
-- For EXPERT: foundationalQuery should find niche/advanced papers, recentQuery should find frontier work
-- newsKeywords should be 2-3 terms that would match relevant industry/startup news
-- Return one entry per interest`;
+- The theme should be SPECIFIC, not broad. "AI agents" is too broad. "Can AI agents develop genuine preferences?" is specific.
+- For beginner users, pick accessible foundational papers (surveys, landmark studies).
+- For expert users, pick niche, cutting-edge work.
+- The three items should tell a STORY together: a foundation, a new development, and a real-world connection.`;
 }
 
-export function digestPrompt(items: { title: string; abstract: string; source: string; category?: string }[]) {
+export function digestPrompt(items: { title: string; abstract: string; source: string; category?: string }[], theme: string) {
   const listing = items.map((p, i) =>
-    `[${i + 1}] "${p.title}" (${p.source}${p.category ? `, ${p.category}` : ''})\n${p.abstract.slice(0, 2000)}`
+    `[${i + 1}] "${p.title}" (${p.source}, ${p.category || "unknown"})\n${p.abstract.slice(0, 2000)}`
   ).join("\n\n");
 
-  return `Here are ${items.length} papers/articles. Produce a JSON response with this EXACT structure (no markdown fences, just raw JSON):
+  return `Today's theme is: "${theme}"
+
+Here are the 3 items found for this theme. Produce a JSON response (no markdown fences, just raw JSON):
 
 {
   "items": [
@@ -44,35 +49,24 @@ export function digestPrompt(items: { title: string; abstract: string; source: s
       "keywords": ["keyword1", "keyword2", "keyword3"]
     }
   ],
-  "synthesis": "The synthesis text - see rules below",
+  "synthesis": "see format below",
   "keyConcepts": ["concept1", "concept2", "concept3", "concept4", "concept5"]
 }
 
-Rules:
-- "items" array must have one entry per paper, matching the index
-- "summary" is 2-3 sentences about the key contribution
-- "keywords" is 3-5 specific research topics per paper
-- "synthesis" MUST follow this format exactly:
+SYNTHESIS FORMAT — this is a short story, not a list:
 
-  Line 1: "Today's thread: [a question or observation that ties everything together]"
+Start with: "Today's thread: ${theme}"
 
-  Then for each item, one line each:
-  \`TAG\` **Title** // your one-line take
+Then write 3-5 sentences that WEAVE the three items into a narrative. Mention each by name in bold (**Title**). Tell me WHY these three things matter together. What's the story arc? The foundational paper set the stage, the recent work is pushing it forward, and the news shows where it's landing in the real world.
 
-  Where TAG is FOUNDATIONAL, RECENT, or NEWS.
+Write it like you're telling me about your reading over coffee. Use "so basically," and "the interesting part is" and "what I didn't expect was" — that kind of energy.
 
-  Then 1-2 closing sentences with your actual opinion. What's interesting? What's the tension? What surprised you?
-
-  TONE RULES (critical):
-  - Write like you're telling a friend about cool stuff you read today
-  - NO em dashes (—). Use periods, commas, or "and" instead.
-  - NO words like: demonstrates, reveals, highlights, suggests, indicates, showcases, underscores
-  - NO phrases like: "the gap between X and Y", "early stages of", "democratization of"
-  - Use "this paper" or "they found" not "this paper demonstrates"
-  - Be specific, not vague. Say what the paper actually did.
-  - The // separator replaces em dashes. Keep each take to ~10 words.
-  - ALL CAPS titles are ugly. Use normal title case in bold.
-- "keyConcepts" is 5-8 overarching themes across all papers
+HARD RULES:
+- NO em dashes (—). Use periods, commas, "and", or "but".
+- NO: demonstrates, reveals, highlights, suggests, indicates, showcases, underscores, bridges, navigates
+- NO: "the gap between", "early stages of", "democratization of", "landscape of"
+- Use normal title case for paper names, not ALL CAPS
+- Keep it to 3-5 sentences after the theme line. That's it.
 
 Papers:
 
@@ -93,10 +87,7 @@ export function comparisonPrompt(papers: { title: string; fullText: string }[]) 
     `## Item ${i + 1}: ${p.title}\n\n${p.fullText.slice(0, 8000)}`
   ).join("\n\n---\n\n");
 
-  return `Compare and contrast these ${papers.length} items. Highlight:
-1. Where they AGREE
-2. Where they DISAGREE or offer different perspectives
-3. Complementary insights — what does combining them reveal?
+  return `Compare and contrast these ${papers.length} items. Write conversationally, like you're explaining to a smart friend. No em dashes. Be specific about what each paper actually found.
 
 ${texts}`;
 }
