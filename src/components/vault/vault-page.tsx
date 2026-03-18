@@ -100,7 +100,7 @@ export function VaultPage({ session }: VaultPageProps) {
         const themes: DigestTheme[] = (data.digests ?? []).map((d: { id: string; date: string; synthesisContent: string | null }) => {
           const firstLine = d.synthesisContent?.split("\n").find((l: string) => l.trim()) ?? "Untitled digest";
           // Strip markdown heading markers
-          const theme = firstLine.replace(/^#+\s*/, "").trim();
+          const theme = firstLine.replace(/^#+\s*/, "").replace(/^Today['']s thread:\s*/i, "").trim();
           return { id: d.id, date: d.date, theme, synthesisContent: d.synthesisContent };
         });
         setPastThemes(themes);
@@ -312,15 +312,15 @@ export function VaultPage({ session }: VaultPageProps) {
               placeholder="SEARCH..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-[120px] md:w-[160px]"
+              className="w-[160px] md:w-[200px]"
               style={{
                 border: "1.5px solid #1a1a1a",
                 background: "transparent",
-                paddingLeft: "24px",
-                paddingRight: "8px",
-                paddingTop: "3px",
-                paddingBottom: "3px",
-                fontSize: "0.6rem",
+                paddingLeft: "28px",
+                paddingRight: "12px",
+                paddingTop: "6px",
+                paddingBottom: "6px",
+                fontSize: "0.75rem",
                 textTransform: "uppercase",
                 letterSpacing: "1px",
                 fontFamily: 'var(--font-mono), monospace',
@@ -482,7 +482,7 @@ export function VaultPage({ session }: VaultPageProps) {
               >
                 {debouncedSearch
                   ? "No papers match your search"
-                  : "Your vault is empty. Generate your first digest from the Today tab."}
+                  : "Your vault is empty. Papers appear here after you generate a digest from the Today tab."}
               </span>
             </div>
           )}
@@ -557,11 +557,7 @@ export function VaultPage({ session }: VaultPageProps) {
                             color: "#888",
                           }}
                         >
-                          {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "arxiv" : "news"}
-                        </span>
-                        {/* source label */}
-                        <span style={{ fontSize: "0.55rem", color: "#999", fontFamily: "var(--font-mono), monospace" }}>
-                          {paper.source === "semantic_scholar" ? "S2" : paper.source === "rss" ? "NEWS" : "ARXIV"}
+                          {paper.source === "rss" ? "NEWS" : "PAPER"}{paper.year ? ` · ${paper.year}` : ""}
                         </span>
                       </div>
 
@@ -792,7 +788,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   >
                     <span
                       style={{
-                        fontSize: "0.55rem",
+                        fontSize: "0.65rem",
                         color: "#666",
                         fontFamily: 'var(--font-mono), monospace',
                         display: "block",
@@ -803,7 +799,7 @@ export function VaultPage({ session }: VaultPageProps) {
                     </span>
                     <span
                       style={{
-                        fontSize: "0.6rem",
+                        fontSize: "0.75rem",
                         color: "#1a1a1a",
                         fontWeight: 500,
                         display: "-webkit-box",
