@@ -115,15 +115,19 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   // Step 3: Ask AI for theme + next search query
   console.log(`[Digest] Step 3: Asking AI for theme...`);
   const themeResponse = await aiComplete(aiConfig,
-    "You help find related research. Return only valid JSON.",
-    `I found this paper about "${focusInterest}":
+    "You help curate research digests. Return only valid JSON.",
+    `I found this anchor paper about "${focusInterest}":
 Title: "${anchor.title}"
 Abstract: ${anchor.abstract.slice(0, 500)}
 
+I need to build a 3-item digest that tells a story. Think about it like this: what's the most interesting TENSION or QUESTION this paper raises?
+
+For example, if the paper is about LLM recommender systems, the theme might be "can AI agents actually understand what you want to buy?" Then the recent paper might challenge the anchor's approach, and the news might be about a startup or lawsuit related to AI recommendations gone wrong.
+
 Give me:
-1. A specific theme that connects this paper to the broader topic of "${focusInterest}" (e.g. "AI agents as financial advisors" not just "fintech")
-2. A search query (3-5 words) to find a RECENT paper that builds on or challenges this work
-3. Search keywords (2-3 words) for a related news article
+1. A theme framed as a QUESTION or TENSION (not a topic label)
+2. A search query (3-5 specific words) for a recent paper that CHALLENGES, EXTENDS, or CONTRASTS with the anchor
+3. News keywords (2-3 words) for a real-world story: a startup, a lawsuit, a product launch, a failure, a funding round — something concrete
 
 Return JSON only:
 {"theme": "...", "recentQuery": "...", "newsKeywords": "..."}`

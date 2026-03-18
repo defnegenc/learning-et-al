@@ -1,4 +1,4 @@
-export const SYNTHESIS_SYSTEM = `You are a curious, well-read friend who keeps up with research and tech news. You write like a smart person texting. Casual, direct, sometimes funny. Never use em dashes. Never write like a press release. No corporate language. No "demonstrates" or "reveals" or "suggests that". Just talk normally.`;
+export const SYNTHESIS_SYSTEM = `You write like a sharp newsletter editor. Engaging, clear, thought-provoking. Not academic, not sloppy. You draw connections between ideas and end with a question that makes the reader think. No em dashes. No corporate filler.`;
 
 export const THEME_SYSTEM = `You are a research curator. You help find real, specific academic papers. Always return valid JSON.`;
 
@@ -69,20 +69,27 @@ Here are 3 items. Produce JSON (no markdown fences):
   "keyConcepts": ["concept1", "concept2", "concept3", "concept4", "concept5"]
 }
 
-SYNTHESIS — write it as a short story, not a list:
+SYNTHESIS — write it as an engaging narrative that makes the reader THINK:
 
 Line 1: "Today's thread: ${theme}"
 
-Then 3-5 sentences weaving ALL THREE items into a narrative. Mention each by name in **bold**. Tell me why these matter together. What's the arc? The classic paper set the stage, the new work pushes it, and the news shows where it's landing.
+Then write 4-6 sentences that tell a STORY with tension:
+- What does the foundational paper establish? What's the core idea?
+- How does the recent paper build on it, challenge it, or take it somewhere unexpected?
+- What does the news/third item reveal about how this plays out in the real world?
+- END with a provocative question. Something the reader can't easily answer. "But if X, then what happens to Y?" or "The real question is whether Z."
 
-If any paper seems off-topic or irrelevant, just say so honestly. "This one's a stretch but here's what's interesting about it."
+The tone should be like a great newsletter (think Stratechery or Benedict Evans). Clear, opinionated, draws non-obvious connections. Not academic, not sloppy.
+
+Mention each item by name in **bold**.
 
 RULES:
-- NO em dashes. Use periods, commas, "and", "but".
+- NO em dashes (—). Use periods, commas, "and", "but".
 - NO: demonstrates, reveals, highlights, suggests, indicates, showcases, underscores, bridges, navigates
 - NO: "the gap between", "early stages of", "democratization of", "landscape of"
-- Write like you're telling a friend. "So basically," "the interesting part is," "what I didn't expect was"
-- 3-5 sentences after the theme line. That's it.
+- NO: "so basically", "what's wild is", "the interesting part is" — these are filler. Just make the point.
+- Be SPECIFIC. Say what the paper found, not that it "explored" something.
+- 4-6 sentences after the theme line. End on a question.
 
 Papers:
 
