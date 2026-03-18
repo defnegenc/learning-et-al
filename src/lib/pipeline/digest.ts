@@ -43,18 +43,40 @@ async function searchPapers(query: string, max: number, sort: "citationCount" | 
   }));
 }
 
-// Check if a paper is relevant to a theme by keyword overlap
+const STOP_WORDS = new Set([
+  "with", "from", "that", "this", "based", "using", "their", "about", "been",
+  "have", "will", "what", "when", "where", "which", "there", "these", "those",
+  "into", "over", "under", "more", "most", "than", "then", "also", "just",
+  "only", "very", "each", "every", "some", "such", "through", "between",
+  "after", "before", "other", "first", "could", "would", "should", "does",
+  "make", "like", "well", "back", "even", "still", "many", "much", "good",
+  "long", "high", "real", "work", "used", "find", "here", "take", "come",
+  "made", "know", "time", "year", "your", "them", "they", "were",
+  "said", "says", "news", "report", "article", "paper", "study",
+]);
+
+// Check if a paper is relevant — need 3+ non-trivial word matches
 function isRelevant(paper: { title: string; abstract: string }, themeWords: string[]): boolean {
   const text = `${paper.title} ${paper.abstract}`.toLowerCase();
   const matches = themeWords.filter(w => text.includes(w));
-  return matches.length >= 2;
+  return matches.length >= 3;
+}
+
+// Stricter check for news — must match domain-specific terms from the interest, not just generic words
+function isNewsRelevant(article: { title: string; abstract: string }, themeWords: string[], focusInterest: string): boolean {
+  const text = `${article.title} ${article.abstract}`.toLowerCase();
+  const interestWords = focusInterest.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
+  const interestMatches = interestWords.filter(w => text.includes(w));
+  if (interestMatches.length < 2) return false;
+  const themeMatches = themeWords.filter(w => text.includes(w));
+  return themeMatches.length >= 2;
 }
 
 function extractThemeWords(focusInterest: string, anchorTitle: string): string[] {
   const words = `${focusInterest} ${anchorTitle}`.toLowerCase()
     .split(/\s+/)
     .filter(w => w.length > 3)
-    .filter(w => !["with", "from", "that", "this", "based", "using", "their", "about", "been"].includes(w));
+    .filter(w => !STOP_WORDS.has(w));
   return [...new Set(words)];
 }
 
@@ -201,26 +223,41 @@ Return JSON only:
       }
     }
   } else {
-    // Mixed or all news: find a relevant news article
+    // Mixed or all news: try to find a genuinely relevant news article
     const newsTerms = newsKeywords.split(/\s+/).slice(0, 3);
     console.log(`[Digest] Step 5: Searching news for: ${newsTerms.join(", ")}`);
     const news = await fetchRssArticles(newsTerms, 10);
-    // Validate: does the news article relate to the theme?
+    let foundNews = false;
     for (const article of news) {
-      if (isRelevant(article, themeWords)) {
+      if (isNewsRelevant(article, themeWords, focusInterest)) {
         items.push({
           ...article, pdfUrl: undefined, source: "rss", category: "news",
         });
         console.log(`[Digest] News (validated): "${article.title}"`);
+        foundNews = true;
         break;
+      } else {
+        console.log(`[Digest] News rejected (irrelevant): "${article.title}"`);
       }
     }
-    // Fallback: take first news if none validated
-    if (items.length < 3 && news.length > 0 && !items.some(i => i.source === "rss")) {
-      items.push({
-        ...news[0], pdfUrl: undefined, source: "rss", category: "news",
-      });
-      console.log(`[Digest] News (fallback): "${news[0].title}"`);
+    // If no relevant news found, find a third paper instead — better than garbage news
+    if (!foundNews) {
+      console.log(`[Digest] No relevant news found. Finding a third paper instead.`);
+      const thirdQuery = `${focusInterest} applications OR deployment OR industry`;
+      await delay(500);
+      const thirdResults = await searchPapers(thirdQuery, 5, "citationCount");
+      for (const paper of thirdResults) {
+        if (seenTitles.has(paper.title.toLowerCase())) continue;
+        if (isRelevant(paper, themeWords)) {
+          items.push({
+            title: paper.title, authors: paper.authors, abstract: paper.abstract,
+            sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
+            source: paper.source, category: "news",
+          });
+          console.log(`[Digest] Third paper (instead of news): "${paper.title}"`);
+          break;
+        }
+      }
     }
   }
 
