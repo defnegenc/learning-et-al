@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { digests, papers, interests, users, feedback } from "@/lib/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { digests, papers, interests, users } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
@@ -195,8 +195,6 @@ Return JSON only:
       seenTitles.add(paper.title.toLowerCase());
       console.log(`[Digest] Recent (validated): "${paper.title}"`);
       break;
-    } else {
-      console.log(`[Digest] Skipping irrelevant: "${paper.title}"`);
     }
   }
   // If no validated result, take the first non-duplicate anyway (better than nothing)
@@ -258,8 +256,6 @@ Return JSON only:
         console.log(`[Digest] Web news (validated): "${result.title}" from ${result.source}`);
         foundNews = true;
         break;
-      } else {
-        console.log(`[Digest] Web news rejected: "${result.title}"`);
       }
     }
 

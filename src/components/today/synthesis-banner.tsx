@@ -170,7 +170,6 @@ export function SynthesisBanner({
         <ReactMarkdown
           components={{
             strong: ({ children }) => {
-              // Check if this bold text matches a paper title
               const text = String(children);
               const matchedPaper = papers.find(
                 p => p.title.toLowerCase().includes(text.toLowerCase()) ||
@@ -178,21 +177,47 @@ export function SynthesisBanner({
               );
               if (matchedPaper && onSelectPaper) {
                 return (
-                  <strong
+                  <span
                     style={{
+                      display: "inline-block",
+                      background: "white",
+                      border: "1.5px solid #1a1a1a",
+                      padding: "2px 6px",
+                      fontFamily: "var(--font-mono), monospace",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "1px",
                       cursor: "pointer",
-                      borderBottom: "1px solid #1a1a1a",
-                      paddingBottom: "1px",
+                      transition: "all 0.15s ease",
+                      verticalAlign: "baseline",
                     }}
                     onClick={() => onSelectPaper(matchedPaper)}
-                    onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = "#ff007f"; (e.target as HTMLElement).style.color = "#ff007f"; }}
-                    onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = "#1a1a1a"; (e.target as HTMLElement).style.color = "inherit"; }}
+                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "#1a1a1a"; (e.target as HTMLElement).style.color = "#fff"; }}
+                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "white"; (e.target as HTMLElement).style.color = "#1a1a1a"; }}
                   >
                     {children}
-                  </strong>
+                  </span>
                 );
               }
-              return <strong>{children}</strong>;
+              return (
+                <span
+                  style={{
+                    display: "inline-block",
+                    background: "white",
+                    border: "1.5px solid #1a1a1a",
+                    padding: "2px 6px",
+                    fontFamily: "var(--font-mono), monospace",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    verticalAlign: "baseline",
+                  }}
+                >
+                  {children}
+                </span>
+              );
             },
           }}
         >

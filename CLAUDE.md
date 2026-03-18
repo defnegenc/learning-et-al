@@ -7,13 +7,14 @@ Your AI research companion — a research paper recommendation and synthesis sys
 - **Act as a UX expert** when designing flows — intuitive, minimal friction, delightful interactions
 - **Brutalist research archive aesthetic**: thin 1.5px borders, no rounded corners, uppercase mono labels, crosshair cursor, #e8e8e8 bg, accent colors only in tags (acid-green, acid-pink, acid-purple, acid-blue, acid-orange)
 - **Aura blobs only in knowledge graph** — everything else clean and readable
-- **Synthesis tone is conversational** — like briefing a smart friend over coffee, not academic. Theme line + 4-6 casual sentences. Opinionated.
+- **Synthesis must go deep, not just describe.** Find the tension between papers. Paper A says X works. Paper B found X breaks when Y. That matters because Z. End with a genuinely hard question.
 - **Algorithm**: ALWAYS reference `docs/algorithm.md` before modifying the digest pipeline. Search first, theme second. Validate every item for relevance. Never include a paper just to fill a slot.
+- **Never include news that isn't genuinely related to the research topic.** Better to have 2 good items than 3 with one garbage article. Fall back to a third paper if news search fails.
 - MVP first, iterate fast
 - Localhost for now, plan for deployment later
 
 ## Tech Decisions
-- Paper source: arXiv API + RSS feeds (TechCrunch etc.) for MVP, News API as P2
+- Paper source: Semantic Scholar + arXiv APIs. News via Serper (Google) / DuckDuckGo web search, with RSS as fallback.
 - Tech stack: Next.js, SQLite (Drizzle ORM), Tailwind + shadcn/ui
 - Daily digest: Auto-generated at 5am user's local time
 - Feedback: Users can dislike a paper with optional reason, no control over recommendations
@@ -44,11 +45,16 @@ Your AI research companion — a research paper recommendation and synthesis sys
 | 2026-03-16 | Conversational synthesis tone with theme line | Done |
 | 2026-03-16 | Brutalist research archive UI restyle | Done |
 | 2026-03-16 | Vault archive grid with 1:1 cards and sidebar | Done |
+| 2026-03-17 | Deep cleanup: remove dead code, unused CSS, unused prompts | Done |
+| 2026-03-17 | Synthesis prompt rewritten for depth (tension, not description) | Done |
+| 2026-03-17 | Paper names in synthesis styled as inline tags (mono, uppercase, bordered) | Done |
+| 2026-03-17 | Web search (Serper/DDG) replacing RSS as primary news source | Done |
+| 2026-03-17 | Fall-back-to-third-paper strategy when no relevant news found | Done |
+| 2026-03-17 | News validation: must match domain-specific interest terms | Done |
 
 ## Not Yet Implemented
 - Cron scheduler (5am auto-generation) — currently manual "Generate" button only
 - Google login (P2)
-- News API integration (P2)
 
 ## Mistakes Log
 | Date | Mistake | Lesson |
