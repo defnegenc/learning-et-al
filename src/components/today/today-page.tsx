@@ -155,6 +155,13 @@ export function TodayPage({ session }: TodayPageProps) {
     return matched;
   }, [papers, interests]);
 
+  // Extract paper keywords for the graph
+  const paperKeywordsForGraph = useMemo(() => {
+    return papers.flatMap(p =>
+      p.keywords.map(kw => ({ keyword: kw, paperId: p.id, paperTitle: p.title }))
+    );
+  }, [papers]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -324,6 +331,7 @@ export function TodayPage({ session }: TodayPageProps) {
         <div style={{ padding: "0 40px 40px 40px", display: "flex", justifyContent: "flex-end" }}>
           <KnowledgeGraph
             interests={graphInterests}
+            paperKeywords={paperKeywordsForGraph}
             onNodeClick={handleConceptClick}
           />
         </div>

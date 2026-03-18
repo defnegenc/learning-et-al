@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { KeywordTag } from "@/components/keyword-tag";
 import { Loader2, Plus, Check } from "lucide-react";
@@ -77,16 +77,35 @@ export function SynthesisBanner({
   }
   const bodyText = bodyLines.join("\n\n");
 
-  // Generate pre-made dig deeper prompts from the papers
-  const digDeeperPrompts = papers.length > 0 ? [
-    papers.length >= 2
-      ? `How does **${papers[0].title}** compare to **${papers[papers.length > 1 ? 1 : 0].title}**?`
-      : null,
-    `What are the limitations of the approach in **${papers[0].title}**?`,
-    papers.length >= 3 && papers[2].source === "rss"
-      ? `What does the ${papers[2].title.split(" ").slice(0, 5).join(" ")} story mean for this research?`
-      : null,
-  ].filter(Boolean) as string[] : [];
+  // Smart dig deeper prompts — based on the actual papers and theme
+  const digDeeperPrompts = useMemo(() => {
+    if (papers.length === 0) return [];
+    const p0 = papers[0];
+    const p1 = papers.length > 1 ? papers[1] : null;
+    const p2 = papers.length > 2 ? papers[2] : null;
+    const prompts: string[] = [];
+
+    // Cross-pollination
+    if (p0 && p1) {
+      prompts.push(`What if ${p0.title.split(" ").slice(0, 4).join(" ")}'s approach was applied to ${p1.title.split(" ").slice(0, 4).join(" ")}'s problem?`);
+    }
+    // Practical implications
+    prompts.push(`Who's actually building on this research right now? Any startups or products?`);
+    // History / context
+    if (p0) {
+      prompts.push(`What came before ${p0.title.split(" ").slice(0, 5).join(" ")}? What made it possible?`);
+    }
+    // Challenge / critique
+    if (p1) {
+      prompts.push(`What are the strongest criticisms of this line of research?`);
+    }
+    // News connection
+    if (p2 && p2.source === "rss") {
+      prompts.push(`How does the ${p2.title.split(" ").slice(0, 5).join(" ")} story change the picture here?`);
+    }
+
+    return prompts.slice(0, 3);
+  }, [papers]);
 
   const handleDigDeeper = async (question: string) => {
     if (!session || digDeeperLoading) return;

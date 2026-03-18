@@ -9,18 +9,20 @@ interface Interest {
   source: "seed" | "star" | "engagement" | "dislike";
 }
 
+interface PaperKeyword {
+  keyword: string;
+  paperId: string;
+  paperTitle: string;
+}
+
 interface KnowledgeGraphProps {
   interests: Interest[];
+  paperKeywords?: PaperKeyword[];
   onNodeClick?: (keyword: string) => void;
 }
 
 const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
 
-function distance(ax: number, ay: number, bx: number, by: number) {
-  return Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2);
-}
-
-// Deterministic spread based on keyword hash
 function hash(str: string): number {
   let h = 0;
   for (let i = 0; i < str.length; i++) {
@@ -30,63 +32,129 @@ function hash(str: string): number {
   return Math.abs(h);
 }
 
-export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) {
+interface GraphNode {
+  id: string;
+  keyword: string;
+  x: number;
+  y: number;
+  type: "interest" | "paper";
+  active: boolean; // interest that connects to today's papers
+  color: string;
+}
+
+interface GraphEdge {
+  from: string;
+  to: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: KnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [dragging, setDragging] = useState(false);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
-  const nodes = useMemo(() => {
-    const items = interests.slice(0, 12);
-    if (items.length === 0) return [];
+  // Build nodes: interests on left, paper keywords on right
+  const { nodes, edges } = useMemo(() => {
+    const allNodes: GraphNode[] = [];
+    const allEdges: GraphEdge[] = [];
 
-    // Spread nodes in a wider space for panning
-    return items.map((interest, i) => {
+    // Deduplicate interests
+    const seenInterests = new Set<string>();
+    const uniqueInterests = interests.filter(i => {
+      const key = i.keyword.toLowerCase();
+      if (seenInterests.has(key)) return false;
+      seenInterests.add(key);
+      return true;
+    }).slice(0, 7);
+
+    // Deduplicate paper keywords
+    const seenPaperKw = new Set<string>();
+    const uniquePaperKw = paperKeywords.filter(pk => {
+      const key = pk.keyword.toLowerCase();
+      if (seenPaperKw.has(key) || seenInterests.has(key)) return false;
+      seenPaperKw.add(key);
+      return true;
+    }).slice(0, 6);
+
+    // Check which interests connect to today's papers
+    const paperText = paperKeywords.map(pk => pk.keyword.toLowerCase()).join(" ");
+
+    // Place interest nodes on the left side (15-40% x)
+    uniqueInterests.forEach((interest, i) => {
       const h = hash(interest.keyword);
-      // Distribute in a 200x150 virtual space
-      const cols = Math.ceil(Math.sqrt(items.length));
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const totalRows = Math.ceil(items.length / cols);
+      const ySpacing = 85 / Math.max(uniqueInterests.length - 1, 1);
+      const y = 8 + i * ySpacing;
+      const x = 10 + ((h % 20));
+      const words = interest.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const active = words.some(w => paperText.includes(w));
 
-      const baseX = 15 + (col / Math.max(cols - 1, 1)) * 70;
-      const baseY = 15 + (row / Math.max(totalRows - 1, 1)) * 60;
-      const offsetX = ((h % 16) - 8) * 0.6;
-      const offsetY = (((h >> 3) % 16) - 8) * 0.5;
-
-      return {
-        keyword: interest.keyword.length > 20 ? interest.keyword.slice(0, 19) + "\u2026" : interest.keyword,
-        fullKeyword: interest.keyword,
-        x: Math.max(8, Math.min(92, baseX + offsetX)),
-        y: Math.max(8, Math.min(88, baseY + offsetY)),
-        color: PASTEL_COLORS[i % 5],
-        isNew: interest.source === "star",
-      };
+      allNodes.push({
+        id: `int-${interest.keyword}`,
+        keyword: interest.keyword.length > 16 ? interest.keyword.slice(0, 15) + "…" : interest.keyword,
+        x: Math.max(5, Math.min(35, x)),
+        y: Math.max(8, Math.min(90, y)),
+        type: "interest",
+        active,
+        color: active ? "#1a1a1a" : "#ccc",
+      });
     });
-  }, [interests]);
 
-  // Connect each node to 1-2 nearest neighbors
-  const connections = useMemo(() => {
-    if (nodes.length < 2) return [];
-    const edges = new Set<string>();
-    const result: { x1: number; y1: number; x2: number; y2: number }[] = [];
-    for (let i = 0; i < nodes.length; i++) {
-      const sorted = nodes
-        .map((n, j) => ({ j, d: distance(nodes[i].x, nodes[i].y, n.x, n.y) }))
-        .filter(o => o.j !== i)
-        .sort((a, b) => a.d - b.d);
-      for (let k = 0; k < Math.min(2, sorted.length); k++) {
-        const j = sorted[k].j;
-        const key = [Math.min(i, j), Math.max(i, j)].join("-");
-        if (!edges.has(key)) {
-          edges.add(key);
-          result.push({ x1: nodes[i].x, y1: nodes[i].y, x2: nodes[j].x, y2: nodes[j].y });
+    // Place paper keyword nodes on the right side (55-90% x)
+    uniquePaperKw.forEach((pk, i) => {
+      const h = hash(pk.keyword);
+      const ySpacing = 85 / Math.max(uniquePaperKw.length - 1, 1);
+      const y = 8 + i * ySpacing;
+      const x = 58 + ((h % 25));
+
+      allNodes.push({
+        id: `pk-${pk.keyword}`,
+        keyword: pk.keyword.length > 16 ? pk.keyword.slice(0, 15) + "…" : pk.keyword,
+        x: Math.max(55, Math.min(92, x)),
+        y: Math.max(8, Math.min(90, y)),
+        type: "paper",
+        active: true,
+        color: PASTEL_COLORS[i % 5],
+      });
+    });
+
+    // Draw edges: connect paper keywords to interests that share words
+    for (const intNode of allNodes.filter(n => n.type === "interest")) {
+      const intWords = intNode.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      for (const pkNode of allNodes.filter(n => n.type === "paper")) {
+        const pkWords = pkNode.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        const overlap = intWords.some(w => pkWords.some(pw => pw.includes(w) || w.includes(pw)));
+        if (overlap) {
+          allEdges.push({
+            from: intNode.id,
+            to: pkNode.id,
+            x1: intNode.x, y1: intNode.y,
+            x2: pkNode.x, y2: pkNode.y,
+          });
         }
       }
     }
-    return result;
-  }, [nodes]);
+
+    // If no cross-connections, connect nearest interest to nearest paper keyword
+    if (allEdges.length === 0 && allNodes.some(n => n.type === "interest") && allNodes.some(n => n.type === "paper")) {
+      const ints = allNodes.filter(n => n.type === "interest");
+      const pks = allNodes.filter(n => n.type === "paper");
+      if (ints.length > 0 && pks.length > 0) {
+        allEdges.push({
+          from: ints[0].id, to: pks[0].id,
+          x1: ints[0].x, y1: ints[0].y,
+          x2: pks[0].x, y2: pks[0].y,
+        });
+      }
+    }
+
+    return { nodes: allNodes, edges: allEdges };
+  }, [interests, paperKeywords]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setDragging(true);
@@ -95,9 +163,10 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragging) return;
-    const dx = e.clientX - dragStart.current.x;
-    const dy = e.clientY - dragStart.current.y;
-    setPan({ x: dragStart.current.panX + dx, y: dragStart.current.panY + dy });
+    setPan({
+      x: dragStart.current.panX + (e.clientX - dragStart.current.x),
+      y: dragStart.current.panY + (e.clientY - dragStart.current.y),
+    });
   }, [dragging]);
 
   const handleMouseUp = useCallback(() => setDragging(false), []);
@@ -107,15 +176,18 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
     setZoom(z => Math.max(0.5, Math.min(2.5, z - e.deltaY * 0.002)));
   }, []);
 
-  if (interests.length === 0) {
+  // Highlight connected edges when hovering a node
+  const connectedEdges = hoveredNode
+    ? new Set(edges.filter(e => e.from === hoveredNode || e.to === hoveredNode).map((_, i) => i))
+    : null;
+
+  if (nodes.length === 0) {
     return (
       <div
-        className="w-full md:w-[320px] h-[180px] md:h-[240px]"
+        className="w-full md:w-[360px] h-[200px] md:h-[260px]"
         style={{ border: "1.5px solid #1a1a1a", background: "rgba(245,245,245,0.95)", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}
       >
-        <span style={{ fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "1px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
-          No data
-        </span>
+        <span style={{ fontSize: "0.65rem", color: "#999" }}>No data yet</span>
       </div>
     );
   }
@@ -123,12 +195,12 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
   return (
     <div
       ref={containerRef}
-      className="w-full md:w-[320px] h-[180px] md:h-[240px]"
+      className="w-full md:w-[360px] h-[200px] md:h-[260px]"
       style={{
         position: "relative",
         border: "1.5px solid #1a1a1a",
-        background: "rgba(245,245,245,0.95)",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+        background: "rgba(250,250,250,0.97)",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
         overflow: "hidden",
         cursor: dragging ? "grabbing" : "grab",
       }}
@@ -138,11 +210,22 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
     >
-      {/* Blobs */}
-      <div style={{ position: "absolute", width: "140px", height: "140px", background: "#7700ff", borderRadius: "50%", filter: "blur(60px)", opacity: 0.15, top: "-20px", right: "-10px", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", width: "120px", height: "120px", background: "#38b000", borderRadius: "50%", filter: "blur(50px)", opacity: 0.12, bottom: "-10px", left: "10px", pointerEvents: "none" }} />
+      {/* Column labels */}
+      <div style={{ position: "absolute", top: "4px", left: "8px", zIndex: 10, pointerEvents: "none" }}>
+        <span style={{ fontSize: "0.45rem", color: "#bbb", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace" }}>
+          Your interests
+        </span>
+      </div>
+      <div style={{ position: "absolute", top: "4px", right: "8px", zIndex: 10, pointerEvents: "none" }}>
+        <span style={{ fontSize: "0.45rem", color: "#bbb", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace" }}>
+          Today's topics
+        </span>
+      </div>
 
-      {/* Pannable/zoomable content */}
+      {/* Center divider line */}
+      <div style={{ position: "absolute", left: "47%", top: "16px", bottom: "4px", width: "1px", background: "rgba(0,0,0,0.06)", zIndex: 1 }} />
+
+      {/* Pannable content */}
       <div
         style={{
           position: "absolute",
@@ -152,57 +235,73 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
           transition: dragging ? "none" : "transform 0.1s ease-out",
         }}
       >
-        {/* Connection lines */}
+        {/* Edges */}
         <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2, pointerEvents: "none" }}>
-          {connections.map((c, i) => (
-            <line key={i} x1={`${c.x1}%`} y1={`${c.y1}%`} x2={`${c.x2}%`} y2={`${c.y2}%`} stroke="#1a1a1a" strokeWidth="1" opacity="0.6" />
+          {edges.map((edge, i) => (
+            <line
+              key={i}
+              x1={`${edge.x1}%`} y1={`${edge.y1}%`}
+              x2={`${edge.x2}%`} y2={`${edge.y2}%`}
+              stroke={connectedEdges?.has(i) ? "#1a1a1a" : "rgba(26,26,26,0.15)"}
+              strokeWidth={connectedEdges?.has(i) ? "1.5" : "0.8"}
+              strokeDasharray={connectedEdges?.has(i) ? "none" : "3,3"}
+            />
           ))}
         </svg>
 
         {/* Nodes */}
-        {nodes.map((node) => (
-          <div
-            key={node.fullKeyword}
-            onClick={(e) => { e.stopPropagation(); onNodeClick?.(node.fullKeyword); }}
-            style={{
-              position: "absolute",
-              background: node.isNew ? node.color : "#f5f5f5",
-              border: `1px solid ${node.isNew ? "#1a1a1a" : "rgba(26,26,26,0.6)"}`,
-              padding: "3px 8px",
-              fontSize: "0.5rem",
-              fontWeight: node.isNew ? 600 : 400,
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              zIndex: 5,
-              whiteSpace: "nowrap",
-              fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-              top: `${node.y}%`,
-              left: `${node.x}%`,
-              transform: "translate(-50%, -50%)",
-              cursor: "pointer",
-              transition: "background 0.15s ease",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#1a1a1a"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = node.isNew ? node.color : "#f5f5f5"; (e.currentTarget as HTMLElement).style.color = "#1a1a1a"; }}
-          >
-            {node.keyword}
-          </div>
-        ))}
+        {nodes.map((node) => {
+          const isHovered = hoveredNode === node.id;
+          const isConnectedToHovered = hoveredNode && edges.some(
+            e => (e.from === hoveredNode && e.to === node.id) || (e.to === hoveredNode && e.from === node.id)
+          );
+          const dimmed = hoveredNode && !isHovered && !isConnectedToHovered;
+
+          return (
+            <div
+              key={node.id}
+              onMouseEnter={() => setHoveredNode(node.id)}
+              onMouseLeave={() => setHoveredNode(null)}
+              onClick={(e) => { e.stopPropagation(); onNodeClick?.(node.keyword); }}
+              style={{
+                position: "absolute",
+                top: `${node.y}%`,
+                left: `${node.x}%`,
+                transform: "translate(-50%, -50%)",
+                zIndex: isHovered ? 10 : 5,
+                cursor: "pointer",
+                transition: "opacity 0.15s ease, transform 0.1s ease",
+                opacity: dimmed ? 0.3 : 1,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: node.type === "paper" ? "3px 8px" : "2px 7px",
+                  background: node.type === "paper"
+                    ? (isHovered ? "#1a1a1a" : node.color)
+                    : (node.active
+                      ? (isHovered ? "#1a1a1a" : "white")
+                      : (isHovered ? "#1a1a1a" : "#f5f5f5")),
+                  color: isHovered ? "white" : "#1a1a1a",
+                  border: `1px solid ${node.active || node.type === "paper" ? "#1a1a1a" : "rgba(26,26,26,0.25)"}`,
+                  fontSize: node.type === "paper" ? "0.5rem" : "0.48rem",
+                  fontWeight: node.active || node.type === "paper" ? 600 : 400,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  whiteSpace: "nowrap",
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                }}
+              >
+                {node.keyword}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Zoom hint */}
-      <span
-        style={{
-          position: "absolute",
-          bottom: "4px",
-          right: "6px",
-          fontSize: "0.45rem",
-          color: "#bbb",
-          fontFamily: "var(--font-mono), monospace",
-          zIndex: 10,
-          pointerEvents: "none",
-        }}
-      >
+      {/* Hint */}
+      <span style={{ position: "absolute", bottom: "3px", right: "6px", fontSize: "0.4rem", color: "#ccc", fontFamily: "var(--font-mono), monospace", zIndex: 10, pointerEvents: "none" }}>
         scroll to zoom / drag to pan
       </span>
     </div>
