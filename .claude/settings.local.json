@@ -14,7 +14,8 @@
       "Bash(curl:*)",
       "Bash(lsof:*)",
       "WebSearch",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(find src:*)"
     ]
   }
 }

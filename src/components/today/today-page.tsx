@@ -169,7 +169,7 @@ export function TodayPage({ session }: TodayPageProps) {
       <div className="flex flex-col items-center justify-center py-20 gap-4 px-4">
         <p
           className="text-[0.75rem] uppercase tracking-[2px] text-[#666]"
-          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          style={{ fontFamily: 'var(--font-mono), monospace' }}
         >
           No digest found for today
         </p>
@@ -182,7 +182,7 @@ export function TodayPage({ session }: TodayPageProps) {
           onClick={() => handleGenerate(true)}
           disabled={generating}
           className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
-          style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+          style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
         >
           {generating ? (
             <span className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export function TodayPage({ session }: TodayPageProps) {
         ) : (
           <span
             className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{ fontFamily: 'var(--font-mono), monospace' }}
           >
             No synthesis available
           </span>
@@ -266,7 +266,7 @@ export function TodayPage({ session }: TodayPageProps) {
             <div className="flex flex-col items-center gap-3 py-8">
               <p
                 className="text-[0.65rem] uppercase tracking-[2px] text-[#666]"
-                style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                style={{ fontFamily: 'var(--font-mono), monospace' }}
               >
                 No papers found
               </p>
@@ -279,7 +279,7 @@ export function TodayPage({ session }: TodayPageProps) {
                 onClick={() => handleGenerate(true)}
                 disabled={generating}
                 className="border border-[#1a1a1a] px-3 py-1 text-[0.6rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
-                style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+                style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
               >
                 {generating ? (
                   <span className="flex items-center gap-2">
@@ -310,7 +310,7 @@ export function TodayPage({ session }: TodayPageProps) {
           ) : (
             <span
               className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              style={{ fontFamily: 'var(--font-mono), monospace' }}
             >
               No synthesis available
             </span>

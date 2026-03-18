@@ -4,16 +4,7 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
-import { themePrompt, digestPrompt, SYNTHESIS_SYSTEM, THEME_SYSTEM } from "@/lib/ai/prompts";
-
-interface ThemeResponse {
-  theme: string;
-  searches: {
-    foundational: string;
-    recent: string;
-    news: string;
-  };
-}
+import { digestPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
 
 interface DigestAIResponse {
   items: { index: number; summary: string; keywords: string[] }[];
@@ -23,21 +14,29 @@ interface DigestAIResponse {
 
 function delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
+type TaggedItem = {
+  title: string;
+  authors: string[];
+  abstract: string;
+  sourceUrl: string;
+  pdfUrl?: string;
+  source: "semantic_scholar" | "rss";
+  category: "foundational" | "recent" | "news";
+};
+
 export async function generateDigest(userId: string, aiConfig: AIConfig, force?: boolean) {
   const today = new Date().toISOString().split("T")[0];
 
-  // Check if digest already exists
   const existing = await db.query.digests.findFirst({
     where: and(eq(digests.userId, userId), eq(digests.date, today)),
   });
   if (existing && !force) return existing;
-
   if (existing && force) {
     await db.delete(papers).where(eq(papers.digestId, existing.id));
     await db.delete(digests).where(eq(digests.id, existing.id));
   }
 
-  // Get user interests with levels and fields
+  // Get user interests
   const userInterests = await db.query.interests.findMany({
     where: eq(interests.userId, userId),
     orderBy: desc(interests.weight),
@@ -47,24 +46,15 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   for (const interest of userInterests) {
     const decayed = (interest.weight ?? 1.0) * 0.95;
     await db.update(interests).set({ weight: decayed, updatedAt: new Date() }).where(eq(interests.id, interest.id));
-    interest.weight = decayed;
   }
 
-  const topInterests = userInterests.slice(0, 5).map((i) => ({
-    keyword: i.keyword,
-    field: i.field ?? "Computer Science",
-    level: i.level ?? "intermediate",
-  }));
+  const topInterests = userInterests.slice(0, 5).map(i => i.keyword);
+  if (topInterests.length === 0) throw new Error("No interests found. Add some first.");
 
-  if (topInterests.length === 0) {
-    throw new Error("No interests found. Add some interests first.");
-  }
-
-  // Get content mix
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   const contentMix = user?.contentMix ?? 50;
 
-  // === Gather past engagement context ===
+  // Get past themes to avoid repeats
   const recentDigests = await db.query.digests.findMany({
     where: eq(digests.userId, userId),
     orderBy: desc(digests.createdAt),
@@ -74,151 +64,97 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     .map(d => d.synthesisContent?.split("\n")[0]?.replace(/^Today's thread:\s*/i, "").trim())
     .filter((t): t is string => !!t);
 
-  // Get all feedback for this user's papers
-  const userFeedback = await db.query.feedback.findMany({
-    where: eq(feedback.userId, userId),
-  });
+  // Pick ONE interest to focus on today (rotate through them)
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const focusInterest = topInterests[dayOfYear % topInterests.length];
 
-  const starredPaperIds = userFeedback.filter(f => f.type === "star").map(f => f.paperId);
-  const dislikedPaperIds = userFeedback.filter(f => f.type === "dislike").map(f => f.paperId);
+  console.log(`[Digest] Focus interest: "${focusInterest}"`);
 
-  const extractKeywordsFromPaperIds = async (paperIds: string[]): Promise<string[]> => {
-    if (paperIds.length === 0) return [];
-    const matchedPapers = await db.query.papers.findMany({
-      where: inArray(papers.id, paperIds),
-    });
-    const kws = new Set<string>();
-    for (const p of matchedPapers) {
-      try {
-        const parsed = JSON.parse(p.keywords ?? "[]");
-        if (Array.isArray(parsed)) parsed.forEach((k: string) => kws.add(k));
-      } catch { /* ignore */ }
-    }
-    return Array.from(kws);
-  };
-
-  const starredKeywords = await extractKeywordsFromPaperIds(starredPaperIds);
-  const dislikedKeywords = await extractKeywordsFromPaperIds(dislikedPaperIds);
-
-  const pastContext = {
-    recentThemes,
-    starredKeywords,
-    dislikedKeywords,
-  };
-
-  // === AI CALL 1: Pick today's theme and search queries ===
-  const themeResponse = await aiComplete(aiConfig, THEME_SYSTEM, themePrompt(topInterests, contentMix, pastContext));
-
-  let themePlan: ThemeResponse;
-  try {
-    const cleaned = themeResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    themePlan = JSON.parse(cleaned);
-  } catch {
-    // Fallback: use first interest as theme
-    const kw = topInterests[0].keyword;
-    themePlan = {
-      theme: kw,
-      searches: {
-        foundational: `${kw} survey`,
-        recent: `${kw} 2024 2025`,
-        news: kw,
-      },
-    };
-  }
-
-  // === SEARCH: Find exactly 3 items ===
-  type TaggedItem = {
-    title: string;
-    authors: string[];
-    abstract: string;
-    sourceUrl: string;
-    pdfUrl?: string;
-    source: "semantic_scholar" | "rss";
-    category: "foundational" | "recent" | "news";
-  };
-
+  // === STEP 1: Start with a search, see what exists ===
   const items: TaggedItem[] = [];
+  let theme = focusInterest;
 
   if (contentMix > 60) {
-    // ALL NEWS mode: 3 news articles
-    const news1 = await fetchRssArticles([themePlan.searches.foundational], 3);
-    await delay(300);
-    const news2 = await fetchRssArticles([themePlan.searches.recent], 3);
-    await delay(300);
-    const news3 = await fetchRssArticles([themePlan.searches.news], 3);
-
-    const allNews = [...news1, ...news2, ...news3];
+    // ALL NEWS: search RSS 3 times with variations
+    const news = await fetchRssArticles([focusInterest], 10);
     const seen = new Set<string>();
-    for (const article of allNews) {
+    for (const article of news) {
       if (items.length >= 3) break;
-      const key = article.title.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      items.push({
-        ...article,
-        pdfUrl: undefined,
-        source: "rss",
-        category: items.length === 0 ? "foundational" : items.length === 1 ? "recent" : "news",
-      });
+      if (seen.has(article.title.toLowerCase())) continue;
+      seen.add(article.title.toLowerCase());
+      items.push({ ...article, pdfUrl: undefined, source: "rss", category: items.length === 0 ? "foundational" : items.length === 1 ? "recent" : "news" });
     }
-  } else if (contentMix < 40) {
-    // ALL RESEARCH mode: 3 papers (foundational, recent, contrasting)
-    const foundational = await searchSemanticScholar(themePlan.searches.foundational, 3, "citationCount");
-    await delay(500);
-    const recent = await searchSemanticScholar(themePlan.searches.recent, 3, "publicationDate");
-    await delay(500);
-    const contrast = await searchSemanticScholar(themePlan.searches.news, 3, "citationCount"); // news field repurposed as contrast query
-
-    const seen = new Set<string>();
-    for (const paper of foundational) {
-      if (items.length >= 1) break;
-      seen.add(paper.title.toLowerCase());
-      items.push({ ...paper, pdfUrl: paper.pdfUrl || undefined, source: "semantic_scholar", category: "foundational" });
-    }
-    for (const paper of recent) {
-      if (items.length >= 2) break;
-      if (seen.has(paper.title.toLowerCase())) continue;
-      seen.add(paper.title.toLowerCase());
-      items.push({ ...paper, pdfUrl: paper.pdfUrl || undefined, source: "semantic_scholar", category: "recent" });
-    }
-    for (const paper of contrast) {
-      if (items.length >= 3) break;
-      if (seen.has(paper.title.toLowerCase())) continue;
-      items.push({ ...paper, pdfUrl: paper.pdfUrl || undefined, source: "semantic_scholar", category: "news" }); // labeled "news" but it's a contrast paper
+    if (items.length > 0) {
+      theme = `${focusInterest} in the news`;
     }
   } else {
-    // MIXED mode: 1 foundational, 1 recent, 1 news
-    const foundational = await searchSemanticScholar(themePlan.searches.foundational, 3, "citationCount");
+    // RESEARCH or MIXED: start with Semantic Scholar
+    // Step 1a: Find a foundational paper (high citations)
+    console.log(`[Digest] Searching S2 for foundational: "${focusInterest}"`);
+    const foundational = await searchSemanticScholar(focusInterest, 5, "citationCount");
     await delay(500);
-    const recent = await searchSemanticScholar(themePlan.searches.recent, 3, "publicationDate");
-    await delay(300);
-    const news = await fetchRssArticles(themePlan.searches.news.split(" ").slice(0, 3), 5);
 
     if (foundational.length > 0) {
-      const p = foundational[0];
-      items.push({ ...p, pdfUrl: p.pdfUrl || undefined, source: "semantic_scholar", category: "foundational" });
+      const best = foundational[0];
+      items.push({ ...best, pdfUrl: best.pdfUrl || undefined, source: "semantic_scholar", category: "foundational" });
+      console.log(`[Digest] Found foundational: "${best.title}" (${best.citationCount} citations)`);
+
+      // Step 1b: Use keywords from the foundational paper to find a recent paper
+      const recentQuery = `${focusInterest} ${best.title.split(" ").slice(0, 3).join(" ")}`;
+      console.log(`[Digest] Searching S2 for recent: "${recentQuery}"`);
+      const recent = await searchSemanticScholar(recentQuery, 5, "publicationDate");
+      await delay(500);
+
+      const recentPaper = recent.find(p => p.title.toLowerCase() !== best.title.toLowerCase());
+      if (recentPaper) {
+        items.push({ ...recentPaper, pdfUrl: recentPaper.pdfUrl || undefined, source: "semantic_scholar", category: "recent" });
+        console.log(`[Digest] Found recent: "${recentPaper.title}"`);
+      }
     }
-    if (recent.length > 0) {
-      const seen = items.map(i => i.title.toLowerCase());
-      const p = recent.find(r => !seen.includes(r.title.toLowerCase())) || recent[0];
-      items.push({ ...p, pdfUrl: p.pdfUrl || undefined, source: "semantic_scholar", category: "recent" });
+
+    // Step 1c: Find news OR a third paper
+    if (contentMix < 40) {
+      // All research: find a contrasting paper
+      const contrastQuery = foundational.length > 0
+        ? `${focusInterest} critique OR limitations OR alternative`
+        : focusInterest;
+      console.log(`[Digest] Searching S2 for contrast: "${contrastQuery}"`);
+      const contrast = await searchSemanticScholar(contrastQuery, 5, "citationCount");
+      const seen = new Set(items.map(i => i.title.toLowerCase()));
+      const contrastPaper = contrast.find(p => !seen.has(p.title.toLowerCase()));
+      if (contrastPaper) {
+        items.push({ ...contrastPaper, pdfUrl: contrastPaper.pdfUrl || undefined, source: "semantic_scholar", category: "news" });
+        console.log(`[Digest] Found contrast: "${contrastPaper.title}"`);
+      }
+    } else {
+      // Mixed: find related news
+      console.log(`[Digest] Searching RSS for: "${focusInterest}"`);
+      const news = await fetchRssArticles([focusInterest], 5);
+      if (news.length > 0) {
+        items.push({ ...news[0], pdfUrl: undefined, source: "rss", category: "news" });
+        console.log(`[Digest] Found news: "${news[0].title}"`);
+      }
     }
-    if (news.length > 0) {
-      items.push({ ...news[0], pdfUrl: undefined, source: "rss", category: "news" });
+
+    // Build theme from what we actually found
+    if (items.length >= 2) {
+      theme = `${focusInterest}: from "${items[0].title.split(" ").slice(0, 5).join(" ")}..." to today`;
     }
   }
 
   if (items.length === 0) {
-    throw new Error("Couldn't find any papers or articles for today's theme. Try regenerating.");
+    throw new Error(`Couldn't find papers about "${focusInterest}". Try different interest terms.`);
   }
 
-  // === AI CALL 2: Synthesize the 3 items ===
+  console.log(`[Digest] ${items.length} items found. Running synthesis...`);
+
+  // === STEP 2: AI synthesizes what we actually found ===
   const aiResponse = await aiComplete(
     aiConfig,
     SYNTHESIS_SYSTEM,
     digestPrompt(
-      items.map((p) => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category })),
-      themePlan.theme
+      items.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category })),
+      theme
     )
   );
 
@@ -242,11 +178,9 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     keyConcepts: JSON.stringify(parsed.keyConcepts || []),
   }).returning();
 
-  // Insert exactly 3 papers
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    const aiItem = parsed.items.find((x) => x.index === i + 1) || { summary: "", keywords: [] };
-
+    const aiItem = parsed.items.find(x => x.index === i + 1) || { summary: "", keywords: [] };
     await db.insert(papers).values({
       digestId: digest.id,
       title: item.title,

@@ -256,7 +256,7 @@
 
 /* Mono font helper */
 .font-mono-brutal {
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-mono), monospace;
 }
 
 /* Uppercase label style */
@@ -264,7 +264,7 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 2px;
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-mono), monospace;
 }
 
 /* Knowledge graph node */
@@ -277,5 +277,5 @@
   letter-spacing: 1px;
   background: #e8e8e8;
   white-space: nowrap;
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--font-mono), monospace;
 }

@@ -79,7 +79,7 @@ export function PaperDetail({
       <button
         onClick={onBack}
         className="text-[0.7rem] uppercase tracking-[2px] text-[#1a1a1a] hover:text-[#ff007f] transition-colors min-h-[44px] md:min-h-0 flex items-center"
-        style={{ fontFamily: '"Courier New", Courier, monospace', background: "none", border: "none", padding: 0 }}
+        style={{ fontFamily: 'var(--font-mono), monospace', background: "none", border: "none", padding: 0 }}
       >
         &larr; BACK
       </button>
@@ -87,7 +87,7 @@ export function PaperDetail({
       {/* Source label */}
       <span
         className="inline-block border border-[#1a1a1a] px-2 py-0.5 text-[0.6rem] uppercase tracking-[2px] text-[#666]"
-        style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+        style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
       >
         {paper.source === "semantic_scholar" ? "S2" : paper.source === "arxiv" ? "ARXIV" : "RSS"} // {new Date().getFullYear()}
       </span>
@@ -95,7 +95,7 @@ export function PaperDetail({
       {/* Title */}
       <h1
         className="text-lg md:text-xl font-bold uppercase leading-tight text-[#1a1a1a]"
-        style={{ fontFamily: '"Courier New", Courier, monospace', letterSpacing: "1px" }}
+        style={{ fontFamily: 'var(--font-mono), monospace', letterSpacing: "1px" }}
       >
         {paper.title}
       </h1>
@@ -116,7 +116,7 @@ export function PaperDetail({
               ? "bg-[#1a1a1a] text-[#e8e8e8]"
               : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
           }`}
-          style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+          style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
         >
           <Star className={`size-3 ${starred ? "fill-current" : ""}`} />
           {starred ? "STARRED" : "STAR"}
@@ -126,7 +126,7 @@ export function PaperDetail({
           onClick={handleDislikeClick}
           disabled={dislikeState !== "idle"}
           className="border border-[#1a1a1a] px-3 py-2 md:py-1 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors flex items-center gap-1.5 disabled:opacity-50 min-h-[44px] md:min-h-0"
-          style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+          style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
         >
           <ThumbsDown className="size-3" />
           DISLIKE
@@ -136,7 +136,7 @@ export function PaperDetail({
           <button
             onClick={() => window.open(paper.sourceUrl!, "_blank", "noopener,noreferrer")}
             className="border border-[#1a1a1a] px-3 py-2 md:py-1 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors flex items-center gap-1.5 min-h-[44px] md:min-h-0"
-            style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+            style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
           >
             <ExternalLink className="size-3" />
             OPEN_SOURCE
@@ -152,7 +152,7 @@ export function PaperDetail({
             value={dislikeReason}
             onChange={(e) => setDislikeReason(e.target.value)}
             className="flex-1 border border-[#1a1a1a] bg-transparent px-2 py-2 md:py-1 text-[0.75rem] placeholder:text-[#666] focus:outline-none"
-            style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace', borderRadius: 0 }}
+            style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace', borderRadius: 0 }}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") handleDislikeSubmit();
@@ -161,7 +161,7 @@ export function PaperDetail({
           <button
             onClick={handleDislikeSubmit}
             className="border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-3 py-2 md:py-1 text-[0.65rem] uppercase tracking-[2px] min-h-[44px] md:min-h-0"
-            style={{ borderWidth: "1.5px", fontFamily: '"Courier New", Courier, monospace' }}
+            style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
           >
             SUBMIT
           </button>
@@ -172,7 +172,7 @@ export function PaperDetail({
           <Loader2 className="size-3 animate-spin" />
           <span
             className="text-[0.65rem] uppercase tracking-[2px]"
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{ fontFamily: 'var(--font-mono), monospace' }}
           >
             SUBMITTING...
           </span>
@@ -181,7 +181,7 @@ export function PaperDetail({
       {dislikeState === "done" && (
         <p
           className="text-[0.7rem] text-[#666]"
-          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          style={{ fontFamily: 'var(--font-mono), monospace' }}
         >
           FEEDBACK_RECORDED. THANK_YOU.
         </p>
@@ -201,7 +201,7 @@ export function PaperDetail({
                   borderStyle: "solid",
                   borderColor: color,
                   color: color,
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                 }}
               >
                 {kw}
@@ -220,7 +220,7 @@ export function PaperDetail({
           <section className="space-y-2">
             <h2
               className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
-              style={{ fontFamily: '"Courier New", Courier, monospace' }}
+              style={{ fontFamily: 'var(--font-mono), monospace' }}
             >
               AI_SUMMARY
             </h2>

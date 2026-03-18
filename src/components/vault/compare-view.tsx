@@ -19,7 +19,7 @@ export function CompareView({ content, papers, onBack }: CompareViewProps) {
         onClick={onBack}
         className="min-h-[44px] md:min-h-0 flex items-center"
         style={{
-          fontFamily: "'Courier New', Courier, monospace",
+          fontFamily: "var(--font-mono), monospace",
           fontSize: "0.7rem",
           textTransform: "uppercase",
           letterSpacing: "2px",

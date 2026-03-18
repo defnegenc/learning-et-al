@@ -322,7 +322,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 fontSize: "0.6rem",
                 textTransform: "uppercase",
                 letterSpacing: "1px",
-                fontFamily: '"Courier New", Courier, monospace',
+                fontFamily: 'var(--font-mono), monospace',
                 borderRadius: 0,
                 outline: "none",
               }}
@@ -359,7 +359,7 @@ export function VaultPage({ session }: VaultPageProps) {
               style={{
                 fontSize: "0.65rem",
                 color: "#888",
-                fontFamily: '"Courier New", Courier, monospace',
+                fontFamily: 'var(--font-mono), monospace',
               }}
             >
               {total} papers saved
@@ -380,7 +380,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   fontSize: "0.65rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
@@ -414,7 +414,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 fontSize: "0.65rem",
                 textTransform: "uppercase",
                 letterSpacing: "2px",
-                fontFamily: '"Courier New", Courier, monospace',
+                fontFamily: 'var(--font-mono), monospace',
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
@@ -444,7 +444,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 textTransform: "uppercase",
                 letterSpacing: "2px",
                 color: "#666",
-                fontFamily: '"Courier New", Courier, monospace',
+                fontFamily: 'var(--font-mono), monospace',
               }}
             >
               SELECT 2-3 PAPERS TO COMPARE.{" "}
@@ -476,7 +476,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   color: "#666",
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                 }}
               >
                 {debouncedSearch
@@ -552,7 +552,7 @@ export function VaultPage({ session }: VaultPageProps) {
                         <span
                           style={{
                             fontSize: "0.6rem",
-                            fontFamily: '"Courier New", Courier, monospace',
+                            fontFamily: 'var(--font-mono), monospace',
                             color: "#888",
                           }}
                         >
@@ -581,7 +581,7 @@ export function VaultPage({ session }: VaultPageProps) {
                               border: `1px solid ${isSelected ? "#ff007f" : "#1a1a1a"}`,
                               background: isSelected ? "#ff007f" : "transparent",
                               color: isSelected ? "#fff" : "#1a1a1a",
-                              fontFamily: '"Courier New", Courier, monospace',
+                              fontFamily: 'var(--font-mono), monospace',
                             }}
                           >
                             {isSelected ? "SELECTED" : "SELECT"}
@@ -678,7 +678,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   fontSize: "0.65rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
@@ -695,7 +695,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   color: "#666",
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                 }}
               >
                 PAGE {page} OF {totalPages}
@@ -711,7 +711,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   fontSize: "0.65rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
@@ -759,7 +759,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 textTransform: "uppercase",
                 letterSpacing: "2px",
                 color: "#1a1a1a",
-                fontFamily: '"Courier New", Courier, monospace',
+                fontFamily: 'var(--font-mono), monospace',
                 margin: 0,
               }}
             >
@@ -798,7 +798,7 @@ export function VaultPage({ session }: VaultPageProps) {
                       style={{
                         fontSize: "0.55rem",
                         color: "#666",
-                        fontFamily: '"Courier New", Courier, monospace',
+                        fontFamily: 'var(--font-mono), monospace',
                         display: "block",
                         marginBottom: "2px",
                       }}
@@ -830,7 +830,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   color: "#666",
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                 }}
               >
                 No past themes yet
@@ -852,7 +852,7 @@ export function VaultPage({ session }: VaultPageProps) {
               style={{
                 fontSize: "0.6rem",
                 color: "#666",
-                fontFamily: '"Courier New", Courier, monospace',
+                fontFamily: 'var(--font-mono), monospace',
                 margin: 0,
               }}
             >
@@ -863,7 +863,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 style={{
                   fontSize: "0.6rem",
                   color: "#666",
-                  fontFamily: '"Courier New", Courier, monospace',
+                  fontFamily: 'var(--font-mono), monospace',
                   margin: 0,
                 }}
               >

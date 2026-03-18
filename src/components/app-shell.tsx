@@ -31,7 +31,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
       <header className="sticky top-0 z-40 border-b border-[#1a1a1a] flex items-center justify-between px-3 md:px-5 h-11" style={{ borderBottomWidth: "1.5px", background: "white" }}>
         <h1
           className="text-[0.6rem] md:text-[0.7rem] font-bold uppercase tracking-[2px] md:tracking-[3px] text-[#1a1a1a]"
-          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          style={{ fontFamily: 'var(--font-mono), monospace' }}
         >
           LEARNING ET AL.
         </h1>
@@ -44,7 +44,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
                 ? "bg-[#1a1a1a] text-[#e8e8e8]"
                 : "text-[#888] hover:text-[#1a1a1a]"
             }`}
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{ fontFamily: 'var(--font-mono), monospace' }}
           >
             TODAY
           </button>
@@ -55,7 +55,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
                 ? "bg-[#1a1a1a] text-[#e8e8e8]"
                 : "text-[#888] hover:text-[#1a1a1a]"
             }`}
-            style={{ fontFamily: '"Courier New", Courier, monospace' }}
+            style={{ fontFamily: 'var(--font-mono), monospace' }}
           >
             VAULT
           </button>

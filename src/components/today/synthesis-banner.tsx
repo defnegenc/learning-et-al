@@ -29,7 +29,7 @@ export function SynthesisBanner({
     <div className="space-y-4">
       <span
         className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
-        style={{ fontFamily: '"Courier New", Courier, monospace' }}
+        style={{ fontFamily: 'var(--font-mono), monospace' }}
       >
         {today}
       </span>

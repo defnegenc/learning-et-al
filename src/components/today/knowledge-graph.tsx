@@ -72,7 +72,7 @@ export function KnowledgeGraph({ interests, onNodeClick }: KnowledgeGraphProps) 
             textTransform: "uppercase",
             letterSpacing: "1px",
             color: "#888",
-            fontFamily: "'Courier New', Courier, monospace",
+            fontFamily: "var(--font-mono), monospace",
           }}
         >
           No data

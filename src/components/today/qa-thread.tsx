@@ -94,7 +94,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
       <div className="flex items-center gap-2">
         <h3
           className="text-[0.65rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
-          style={{ fontFamily: '"Courier New", Courier, monospace' }}
+          style={{ fontFamily: 'var(--font-mono), monospace' }}
         >
           Q&amp;A // {pairs.length} THREADS
         </h3>
@@ -124,7 +124,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
                     )}
                     <p
                       className="text-[0.8rem] font-bold text-[#1a1a1a] uppercase"
-                      style={{ fontFamily: '"Courier New", Courier, monospace', letterSpacing: "0.5px" }}
+                      style={{ fontFamily: 'var(--font-mono), monospace', letterSpacing: "0.5px" }}
                     >
                       {pair.question}
                     </p>
@@ -156,7 +156,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
             style={{
               borderWidth: "1.5px",
               resize: "none",
-              fontFamily: '"Courier New", Courier, monospace',
+              fontFamily: 'var(--font-mono), monospace',
               borderRadius: 0,
             }}
           />
@@ -172,7 +172,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
           className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50 self-stretch md:self-start min-h-[44px] md:min-h-0"
           style={{
             borderWidth: "1.5px",
-            fontFamily: '"Courier New", Courier, monospace',
+            fontFamily: 'var(--font-mono), monospace',
           }}
         >
           ASK

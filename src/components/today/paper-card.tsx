@@ -54,7 +54,7 @@ export function PaperCard({
       <div className="flex items-start justify-between">
         <span
           style={{
-            fontFamily: "'Courier New', Courier, monospace",
+            fontFamily: "var(--font-mono), monospace",
             fontSize: "0.65rem",
             color: "#666",
           }}
