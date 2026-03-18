@@ -48,35 +48,25 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <div className="flex items-center gap-1">
           <button
             onClick={() => setActiveTab("today")}
-            style={{
-              padding: "8px 16px",
-              fontSize: "0.85rem",
-              fontWeight: activeTab === "today" ? 700 : 400,
-              color: activeTab === "today" ? "#1a1a1a" : "#999",
-              background: activeTab === "today" ? "#f0f0f0" : "transparent",
-              border: "none",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              letterSpacing: "0.3px",
-            }}
+            className={`px-4 py-1 text-[0.8rem] font-bold uppercase tracking-[2px] transition-colors ${
+              activeTab === "today"
+                ? "bg-[#1a1a1a] text-white"
+                : "text-[#888] hover:text-[#1a1a1a]"
+            }`}
+            style={{ fontFamily: "var(--font-mono), monospace", border: "none", cursor: "pointer" }}
           >
-            Today
+            TODAY
           </button>
           <button
             onClick={() => setActiveTab("vault")}
-            style={{
-              padding: "8px 16px",
-              fontSize: "0.85rem",
-              fontWeight: activeTab === "vault" ? 700 : 400,
-              color: activeTab === "vault" ? "#1a1a1a" : "#999",
-              background: activeTab === "vault" ? "#f0f0f0" : "transparent",
-              border: "none",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              letterSpacing: "0.3px",
-            }}
+            className={`px-4 py-1 text-[0.8rem] font-bold uppercase tracking-[2px] transition-colors ${
+              activeTab === "vault"
+                ? "bg-[#1a1a1a] text-white"
+                : "text-[#888] hover:text-[#1a1a1a]"
+            }`}
+            style={{ fontFamily: "var(--font-mono), monospace", border: "none", cursor: "pointer" }}
           >
-            Vault
+            VAULT
           </button>
         </div>
 
