@@ -90,7 +90,10 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
       </DialogTrigger>
       <DialogContent className="w-[calc(100vw-2rem)] md:w-full max-w-lg mx-auto">
         <DialogHeader>
-          <DialogTitle className="text-[0.75rem] font-bold uppercase tracking-[2px]" style={{ fontFamily: 'var(--font-mono), monospace' }}>
+          <DialogTitle
+            className="text-[0.85rem] font-bold uppercase tracking-[2px]"
+            style={{ fontFamily: "var(--font-display), sans-serif" }}
+          >
             SETTINGS
           </DialogTitle>
           <DialogDescription className="text-[0.7rem] text-[#666]">
@@ -105,12 +108,17 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
               <button
                 key={p}
                 onClick={() => handleProviderChange(p)}
-                className={`flex-1 border border-[#1a1a1a] px-2 py-2 md:py-1.5 text-[0.55rem] font-bold uppercase tracking-[1px] transition-colors min-h-[44px] md:min-h-0 ${
+                className={`flex-1 px-2 py-2 md:py-1.5 text-[0.55rem] font-bold uppercase tracking-[1px] transition-colors min-h-[44px] md:min-h-0 ${
                   provider === p
-                    ? "bg-[#1a1a1a] text-[#e8e8e8]"
-                    : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
+                    ? "bg-[#1a1a1a] text-white"
+                    : "text-[#1a1a1a] hover:bg-gray-100"
                 }`}
-                style={{ borderWidth: "1.5px", marginRight: "-1.5px", fontFamily: 'var(--font-mono), monospace' }}
+                style={{
+                  border: "2px solid #1a1a1a",
+                  marginRight: "-2px",
+                  fontFamily: 'var(--font-mono), monospace',
+                  boxShadow: provider === p ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
+                }}
               >
                 {providerDefaults[p].label}
               </button>
@@ -126,8 +134,8 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setTestResult(null); }}
               placeholder="sk-..."
-              className="w-full border border-[#1a1a1a] bg-transparent px-3 py-2 md:py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
-              style={{ borderWidth: "1.5px" }}
+              className="w-full bg-transparent px-3 py-2 md:py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
+              style={{ border: "2px solid #1a1a1a" }}
             />
           </div>
 
@@ -140,8 +148,8 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 placeholder="e.g. gpt-4o-mini"
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-2 md:py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
-                style={{ borderWidth: "1.5px" }}
+                className="w-full bg-transparent px-3 py-2 md:py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
+                style={{ border: "2px solid #1a1a1a" }}
               />
             </div>
           )}
@@ -155,8 +163,8 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
                 placeholder="https://api.example.com/v1"
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-2 md:py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
-                style={{ borderWidth: "1.5px" }}
+                className="w-full bg-transparent px-3 py-2 md:py-1.5 text-[0.8rem] placeholder:text-[#666] focus:outline-none"
+                style={{ border: "2px solid #1a1a1a" }}
               />
             </div>
           )}
@@ -165,8 +173,8 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
           <button
             onClick={handleTest}
             disabled={testing || !apiKey.trim()}
-            className="border border-[#1a1a1a] px-3 py-2 md:py-1.5 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors disabled:opacity-50 flex items-center gap-1.5 w-fit min-h-[44px] md:min-h-0"
-            style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
+            className="px-3 py-2 md:py-1.5 text-[0.65rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-gray-100 transition-colors disabled:opacity-50 flex items-center gap-1.5 w-fit min-h-[44px] md:min-h-0"
+            style={{ border: "2px solid #1a1a1a", fontFamily: 'var(--font-mono), monospace', boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)" }}
           >
             {testing ? <><Loader2 className="size-3 animate-spin" /> TESTING...</> : "TEST_CONNECTION"}
           </button>
@@ -188,8 +196,8 @@ export function SettingsDialog({ session, updateSession }: SettingsDialogProps) 
           <button
             onClick={handleSave}
             disabled={!apiKey.trim()}
-            className="border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 md:py-1.5 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 min-h-[44px] md:min-h-0"
-            style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
+            className="bg-[#1a1a1a] text-white px-4 py-2 md:py-1.5 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 min-h-[44px] md:min-h-0"
+            style={{ border: "2px solid #1a1a1a", fontFamily: 'var(--font-mono), monospace', boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}
           >
             SAVE
           </button>

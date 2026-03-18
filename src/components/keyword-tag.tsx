@@ -10,7 +10,7 @@ interface KeywordTagProps {
   onClick?: () => void;
 }
 
-const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
+const PASTEL_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
 
 export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagProps) {
   const [hovered, setHovered] = useState(false);
@@ -74,15 +74,17 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
         position: "relative",
         display: "inline-flex",
         alignItems: "center",
-        padding: "2px 8px",
-        paddingRight: !isInterest ? "22px" : "8px",
+        padding: "3px 10px",
+        paddingRight: !isInterest ? "24px" : "10px",
         background: bg,
-        border: "1px solid rgba(26,26,26,0.2)",
+        border: "2px solid #1a1a1a",
+        boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
         color: textColor || "#1a1a1a",
-        fontSize: "0.6rem",
+        fontSize: "10px",
+        fontWeight: 700,
         textTransform: "uppercase",
         letterSpacing: "0.5px",
-        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        fontFamily: "var(--font-mono), monospace",
         cursor: onClick ? "pointer" : "default",
       }}
       onClick={onClick}
@@ -95,7 +97,7 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
           onClick={handleAdd}
           style={{
             position: "absolute",
-            right: "1px",
+            right: "2px",
             top: "50%",
             transform: "translateY(-50%)",
             background: "none",
@@ -117,7 +119,7 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
         <span
           style={{
             position: "absolute",
-            right: "1px",
+            right: "2px",
             top: "50%",
             transform: "translateY(-50%)",
             display: "flex",

@@ -22,7 +22,7 @@ interface SynthesisBannerProps {
   };
 }
 
-const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
+const PASTEL_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
 
 export function SynthesisBanner({
   synthesis,
@@ -138,24 +138,27 @@ export function SynthesisBanner({
       {/* Date */}
       <span
         style={{
-          fontSize: "0.8rem",
-          color: "#999",
+          fontSize: "0.875rem",
+          color: "#6b7280",
           display: "block",
-          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontFamily: "var(--font-mono), monospace",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
         }}
       >
         {today}
       </span>
 
-      {/* Thread title — large and separate */}
+      {/* Thread title — large and impactful */}
       {threadTitle && (
         <h2
           style={{
-            fontSize: "1.4rem",
-            fontWeight: 700,
-            lineHeight: 1.3,
+            fontSize: "clamp(1.875rem, 4vw, 2.25rem)",
+            fontWeight: 800,
+            lineHeight: 1.15,
             color: "#1a1a1a",
-            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontFamily: "var(--font-display), sans-serif",
+            letterSpacing: "-0.02em",
           }}
         >
           {threadTitle}
@@ -164,8 +167,8 @@ export function SynthesisBanner({
 
       {/* Synthesis body */}
       <div
-        className="text-[0.95rem] md:text-[1rem] text-[#333]"
-        style={{ lineHeight: "1.75" }}
+        className="text-[0.95rem] md:text-[1.125rem] text-gray-800"
+        style={{ lineHeight: "2", fontFamily: "var(--font-inter), sans-serif" }}
       >
         <ReactMarkdown
           components={{
@@ -181,11 +184,12 @@ export function SynthesisBanner({
                     style={{
                       display: "inline-block",
                       background: "white",
-                      border: "1.5px solid #1a1a1a",
-                      padding: "2px 6px",
+                      border: "2px solid #1a1a1a",
+                      boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
+                      padding: "2px 8px",
                       fontFamily: "var(--font-mono), monospace",
                       fontSize: "0.75rem",
-                      fontWeight: 600,
+                      fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: "1px",
                       cursor: "pointer",
@@ -205,11 +209,12 @@ export function SynthesisBanner({
                   style={{
                     display: "inline-block",
                     background: "white",
-                    border: "1.5px solid #1a1a1a",
-                    padding: "2px 6px",
+                    border: "2px solid #1a1a1a",
+                    boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
+                    padding: "2px 8px",
                     fontFamily: "var(--font-mono), monospace",
                     fontSize: "0.75rem",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "1px",
                     verticalAlign: "baseline",
@@ -243,14 +248,16 @@ export function SynthesisBanner({
                   gap: "6px",
                   padding: "5px 10px 5px 14px",
                   background: isActive ? "#1a1a1a" : pastel,
-                  border: `1.5px solid ${isActive ? "#1a1a1a" : "rgba(26,26,26,0.15)"}`,
+                  border: `2px solid #1a1a1a`,
+                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
                   color: isActive ? "#fff" : "#1a1a1a",
-                  fontSize: "0.7rem",
-                  fontWeight: 600,
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
+                  fontFamily: "var(--font-mono), monospace",
                 }}
               >
                 <span onClick={() => onConceptClick(concept)}>{concept}</span>
@@ -288,7 +295,7 @@ export function SynthesisBanner({
       {papers.length > 0 && session && (
         <div
           style={{
-            borderTop: "1px solid rgba(26,26,26,0.1)",
+            borderTop: "2px solid #1a1a1a",
             paddingTop: "20px",
             marginTop: "8px",
           }}
@@ -308,19 +315,20 @@ export function SynthesisBanner({
                 onClick={() => handleDigDeeper(prompt)}
                 disabled={digDeeperLoading}
                 style={{
-                  padding: "6px 12px",
-                  border: "1px solid rgba(26,26,26,0.15)",
+                  padding: "8px 14px",
+                  border: "2px solid #1a1a1a",
                   background: "white",
                   color: "#333",
                   fontSize: "0.75rem",
                   lineHeight: 1.4,
                   textAlign: "left",
                   cursor: "pointer",
-                  transition: "border-color 0.15s",
+                  transition: "all 0.15s",
                   maxWidth: "300px",
+                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
                 }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.borderColor = "#1a1a1a"; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.borderColor = "rgba(26,26,26,0.15)"; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translate(-1px, -1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "3px 3px 0px 0px rgba(0,0,0,1)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translate(0, 0)"; (e.currentTarget as HTMLElement).style.boxShadow = "2px 2px 0px 0px rgba(0,0,0,1)"; }}
               >
                 {prompt.replace(/\*\*/g, "")}
               </button>
@@ -341,8 +349,8 @@ export function SynthesisBanner({
               placeholder="Ask something about today's digest..."
               style={{
                 flex: 1,
-                border: "1px solid rgba(26,26,26,0.15)",
-                padding: "6px 10px",
+                border: "2px solid #1a1a1a",
+                padding: "8px 12px",
                 fontSize: "0.8rem",
                 background: "white",
                 outline: "none",
@@ -357,14 +365,15 @@ export function SynthesisBanner({
               }}
               disabled={!customQuestion.trim() || digDeeperLoading}
               style={{
-                padding: "6px 14px",
-                border: "1.5px solid #1a1a1a",
+                padding: "8px 14px",
+                border: "2px solid #1a1a1a",
                 background: "#1a1a1a",
                 color: "white",
                 fontSize: "0.7rem",
                 textTransform: "uppercase",
                 letterSpacing: "1px",
                 fontFamily: "var(--font-mono), monospace",
+                boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
                 opacity: !customQuestion.trim() || digDeeperLoading ? 0.4 : 1,
               }}
             >
@@ -384,12 +393,13 @@ export function SynthesisBanner({
               style={{
                 marginTop: "12px",
                 padding: "16px",
-                border: "1px solid rgba(26,26,26,0.1)",
-                background: "#fafafa",
+                border: "2px solid #1a1a1a",
+                background: "#f9fafb",
                 fontSize: "0.9rem",
                 lineHeight: 1.7,
                 color: "#333",
                 maxWidth: "720px",
+                boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
               }}
             >
               <ReactMarkdown>{digDeeperAnswer}</ReactMarkdown>

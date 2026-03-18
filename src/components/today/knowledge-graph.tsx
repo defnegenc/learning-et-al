@@ -21,7 +21,7 @@ interface KnowledgeGraphProps {
   onNodeClick?: (keyword: string) => void;
 }
 
-const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
+const PASTEL_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
 
 function hash(str: string): number {
   let h = 0;
@@ -86,7 +86,7 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
 
       return {
         keyword: interest.keyword,
-        label: interest.keyword.length > 16 ? interest.keyword.slice(0, 15) + "…" : interest.keyword,
+        label: interest.keyword.length > 16 ? interest.keyword.slice(0, 15) + "\u2026" : interest.keyword,
         x: Math.max(10, Math.min(90, baseX + ox)),
         y: Math.max(12, Math.min(85, baseY + oy)),
         active: connections.has(interest.keyword),
@@ -107,16 +107,23 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
     return result;
   }, [nodes]);
 
-  // What to show on hover
-  const hoveredPaperTopics = hoveredNode ? (connections.get(hoveredNode) || []) : [];
-
   if (nodes.length === 0) {
     return (
       <div
         className="w-full md:w-[360px] h-[200px] md:h-[260px]"
-        style={{ border: "1.5px solid #1a1a1a", background: "rgba(245,245,245,0.95)", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}
+        style={{
+          border: "4px solid #1a1a1a",
+          background: "white",
+          backgroundImage: "radial-gradient(#e5e7eb 1px, transparent 1px)",
+          backgroundSize: "16px 16px",
+          boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
       >
-        <span style={{ fontSize: "0.65rem", color: "#ccc" }}>No data yet</span>
+        <span style={{ fontSize: "0.65rem", color: "#ccc", fontFamily: "var(--font-mono), monospace" }}>No data yet</span>
       </div>
     );
   }
@@ -126,27 +133,47 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
       className="w-full md:w-[360px] h-[200px] md:h-[260px]"
       style={{
         position: "relative",
-        border: "1.5px solid #1a1a1a",
-        background: "rgba(245,245,245,0.95)",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+        border: "4px solid #1a1a1a",
+        background: "white",
+        backgroundImage: "radial-gradient(#e5e7eb 1px, transparent 1px)",
+        backgroundSize: "16px 16px",
+        boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
         overflow: "hidden",
       }}
     >
-      {/* Blobs */}
-      <div style={{ position: "absolute", width: "160px", height: "160px", background: "#7700ff", borderRadius: "50%", filter: "blur(70px)", opacity: 0.12, top: "-30px", right: "-20px", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", width: "130px", height: "130px", background: "#38b000", borderRadius: "50%", filter: "blur(55px)", opacity: 0.1, bottom: "-20px", left: "5px", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", width: "100px", height: "100px", background: "#ff007f", borderRadius: "50%", filter: "blur(50px)", opacity: 0.07, top: "40%", left: "40%", pointerEvents: "none" }} />
+      {/* Blobs — subtle behind the dot grid */}
+      <div style={{ position: "absolute", width: "160px", height: "160px", background: "#7700ff", borderRadius: "50%", filter: "blur(70px)", opacity: 0.06, top: "-30px", right: "-20px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: "130px", height: "130px", background: "#38b000", borderRadius: "50%", filter: "blur(55px)", opacity: 0.05, bottom: "-20px", left: "5px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: "100px", height: "100px", background: "#ff007f", borderRadius: "50%", filter: "blur(50px)", opacity: 0.04, top: "40%", left: "40%", pointerEvents: "none" }} />
 
-      {/* Edges */}
+      {/* Edges — curved dashed SVG paths */}
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1, pointerEvents: "none" }}>
-        {edges.map((e, i) => (
-          <line key={i} x1={`${e.x1}%`} y1={`${e.y1}%`} x2={`${e.x2}%`} y2={`${e.y2}%`}
-            stroke="rgba(26,26,26,0.12)" strokeWidth="0.8" />
-        ))}
+        {edges.map((e, i) => {
+          // Calculate curved path using a quadratic bezier
+          const midX = (e.x1 + e.x2) / 2;
+          const midY = (e.y1 + e.y2) / 2;
+          // Offset the control point perpendicular to the line
+          const dx = e.x2 - e.x1;
+          const dy = e.y2 - e.y1;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          const curvature = len * 0.15;
+          const cpX = midX + (dy / len) * curvature;
+          const cpY = midY - (dx / len) * curvature;
+          return (
+            <path
+              key={i}
+              d={`M ${e.x1}% ${e.y1}% Q ${cpX}% ${cpY}% ${e.x2}% ${e.y2}%`}
+              stroke="rgba(26,26,26,0.2)"
+              strokeWidth="1.5"
+              strokeDasharray="4 4"
+              fill="none"
+            />
+          );
+        })}
       </svg>
 
       {/* Interest nodes */}
-      {nodes.map((node, i) => {
+      {nodes.map((node) => {
         const isHovered = hoveredNode === node.keyword;
         return (
           <div
@@ -158,9 +185,10 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
               position: "absolute",
               top: `${node.y}%`,
               left: `${node.x}%`,
-              transform: "translate(-50%, -50%)",
+              transform: isHovered ? "translate(-50%, -50%) translateY(-3px)" : "translate(-50%, -50%)",
               zIndex: isHovered ? 20 : 5,
               cursor: "pointer",
+              transition: "all 0.15s ease",
             }}
           >
             {/* Interest label */}
@@ -168,16 +196,21 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
               style={{
                 display: "inline-block",
                 padding: "4px 10px",
-                background: isHovered ? "#1a1a1a" : node.active ? "white" : "rgba(245,245,245,0.8)",
+                background: isHovered ? "#1a1a1a" : node.active ? "white" : "white",
                 color: isHovered ? "white" : node.active ? "#1a1a1a" : "#bbb",
-                border: `1.5px solid ${node.active ? "#1a1a1a" : "rgba(26,26,26,0.15)"}`,
-                fontSize: "0.55rem",
-                fontWeight: node.active ? 600 : 400,
+                border: `2px solid ${node.active ? "#1a1a1a" : "rgba(26,26,26,0.2)"}`,
+                boxShadow: isHovered
+                  ? "4px 4px 0px 0px rgba(0,0,0,1)"
+                  : node.active
+                    ? "2px 2px 0px 0px rgba(0,0,0,1)"
+                    : "none",
+                fontSize: "0.6rem",
+                fontWeight: node.active ? 700 : 400,
                 textTransform: "uppercase",
                 letterSpacing: "0.5px",
                 whiteSpace: "nowrap",
                 fontFamily: "var(--font-mono), monospace",
-                transition: "all 0.12s ease",
+                transition: "all 0.15s ease",
               }}
             >
               {node.label}
@@ -205,16 +238,18 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
                       display: "inline-block",
                       padding: "2px 6px",
                       background: PASTEL_COLORS[ti % 5],
-                      border: "1px solid rgba(26,26,26,0.2)",
-                      fontSize: "0.45rem",
-                      fontWeight: 500,
+                      border: "2px solid #1a1a1a",
+                      boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
+                      fontSize: "0.5rem",
+                      fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: "0.3px",
                       whiteSpace: "nowrap",
                       color: "#1a1a1a",
+                      fontFamily: "var(--font-mono), monospace",
                     }}
                   >
-                    {topic.length > 20 ? topic.slice(0, 19) + "…" : topic}
+                    {topic.length > 20 ? topic.slice(0, 19) + "\u2026" : topic}
                   </span>
                 ))}
               </div>
@@ -222,6 +257,9 @@ export function KnowledgeGraph({ interests, paperKeywords = [], onNodeClick }: K
           </div>
         );
       })}
+
+      {/* Bottom bar */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "2px", background: "#1a1a1a" }} />
     </div>
   );
 }

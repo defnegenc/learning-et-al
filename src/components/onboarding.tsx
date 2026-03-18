@@ -142,23 +142,29 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     <div className="relative flex min-h-screen items-center justify-center p-3 md:p-4" style={{ background: "white" }}>
       <NoiseOverlay />
 
-      <div className="relative z-10 w-full max-w-lg border border-[#1a1a1a] p-4 md:p-6 space-y-5" style={{ borderWidth: "1.5px", background: "white" }}>
+      <div
+        className="relative z-10 w-full max-w-lg p-4 md:p-6 space-y-5"
+        style={{ border: "4px solid #1a1a1a", background: "white", boxShadow: "8px 8px 0px 0px rgba(0,0,0,1)" }}
+      >
         {/* Header */}
         <div className="space-y-2">
-          <h2 className="flex items-center gap-2 text-[0.85rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]" style={{ fontFamily: 'var(--font-mono), monospace' }}>
+          <h2
+            className="flex items-center gap-2 text-[0.95rem] font-bold uppercase tracking-[2px] text-[#1a1a1a]"
+            style={{ fontFamily: "var(--font-display), sans-serif" }}
+          >
             {step === 1 ? (
               <>
                 <KeyRound className="size-4" />
-                CONNECT_AI_PROVIDER
+                CONNECT AI PROVIDER
               </>
             ) : (
               <>
                 <Sparkles className="size-4" />
-                DEFINE_INTERESTS
+                DEFINE INTERESTS
               </>
             )}
           </h2>
-          <p className="text-[0.8rem] text-[#666]">
+          <p className="text-[0.8rem] text-[#666]" style={{ fontFamily: "var(--font-inter), sans-serif" }}>
             {step === 1
               ? "Learning et al. uses an LLM to summarize and rank papers. Enter your API key to get started."
               : "Add 3\u201310 short phrases describing your research interests. Press Enter after each one."}
@@ -173,12 +179,17 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 <button
                   key={p}
                   onClick={() => handleProviderChange(p)}
-                  className={`flex-1 border border-[#1a1a1a] px-2 py-2 md:py-1.5 text-[0.7rem] font-bold uppercase tracking-[1px] transition-colors min-h-[44px] md:min-h-0 ${
+                  className={`flex-1 px-2 py-2 md:py-1.5 text-[0.7rem] font-bold uppercase tracking-[1px] transition-colors min-h-[44px] md:min-h-0 ${
                     provider === p
-                      ? "bg-[#1a1a1a] text-[#e8e8e8]"
-                      : "text-[#1a1a1a] hover:bg-[#d8d8d8]"
+                      ? "bg-[#1a1a1a] text-white"
+                      : "text-[#1a1a1a] hover:bg-gray-100"
                   }`}
-                  style={{ borderWidth: "1.5px", marginRight: "-1.5px", fontFamily: 'var(--font-mono), monospace' }}
+                  style={{
+                    border: "2px solid #1a1a1a",
+                    marginRight: "-2px",
+                    fontFamily: 'var(--font-mono), monospace',
+                    boxShadow: provider === p ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
+                  }}
                 >
                   {providerDefaults[p].label}
                 </button>
@@ -201,8 +212,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleStepOneNext()}
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
-                style={{ borderWidth: "1.5px" }}
+                className="w-full bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
+                style={{ border: "2px solid #1a1a1a" }}
               />
             </div>
 
@@ -221,8 +232,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   placeholder="e.g. gpt-4o-mini"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
-                  style={{ borderWidth: "1.5px" }}
+                  className="w-full bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
+                  style={{ border: "2px solid #1a1a1a" }}
                 />
               </div>
             )}
@@ -241,8 +252,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   placeholder="https://api.example.com/v1"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
-                  style={{ borderWidth: "1.5px" }}
+                  className="w-full bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none"
+                  style={{ border: "2px solid #1a1a1a" }}
                 />
               </div>
             )}
@@ -250,8 +261,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <button
               disabled={!apiKey.trim()}
               onClick={handleStepOneNext}
-              className="w-full border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.75rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
+              className="w-full bg-[#1a1a1a] text-white px-4 py-2 text-[0.75rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ border: "2px solid #1a1a1a", fontFamily: 'var(--font-mono), monospace', boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}
             >
               CONTINUE
               <ArrowRight className="size-3" />
@@ -277,8 +288,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 onChange={(e) => setInterestInput(e.target.value)}
                 onKeyDown={handleAddInterest}
                 disabled={submitting}
-                className="w-full border border-[#1a1a1a] bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none disabled:opacity-50"
-                style={{ borderWidth: "1.5px" }}
+                className="w-full bg-transparent px-3 py-1.5 text-[0.9rem] placeholder:text-[#666] focus:outline-none disabled:opacity-50"
+                style={{ border: "2px solid #1a1a1a" }}
               />
             </div>
 
@@ -288,8 +299,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 {interests.map((interest) => (
                   <div
                     key={interest.keyword}
-                    className="border border-[#1a1a1a] p-2"
-                    style={{ borderWidth: "1.5px" }}
+                    className="p-2"
+                    style={{ border: "2px solid #1a1a1a", boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)" }}
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <span
@@ -310,12 +321,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                         <button
                           key={f.value}
                           onClick={() => handleSetField(interest.keyword, f.value)}
-                          className={`border border-[#1a1a1a] px-2 md:px-1.5 py-1 md:py-0.5 text-[0.55rem] uppercase tracking-[0.5px] transition-colors min-h-[32px] md:min-h-0 ${
+                          className={`px-2 md:px-1.5 py-1 md:py-0.5 text-[0.55rem] uppercase tracking-[0.5px] transition-colors min-h-[32px] md:min-h-0 ${
                             interest.field === f.value
-                              ? "bg-[#1a1a1a] text-[#e8e8e8]"
-                              : "text-[#666] hover:bg-[#d8d8d8]"
+                              ? "bg-[#1a1a1a] text-white"
+                              : "text-[#666] hover:bg-gray-100"
                           }`}
-                          style={{ borderWidth: "1px", fontFamily: 'var(--font-mono), monospace' }}
+                          style={{ border: "2px solid #1a1a1a", fontFamily: 'var(--font-mono), monospace' }}
                         >
                           {f.label}
                         </button>
@@ -326,12 +337,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                         <button
                           key={lvl}
                           onClick={() => handleSetLevel(interest.keyword, lvl)}
-                          className={`flex-1 border border-[#1a1a1a] px-1 py-1 md:py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors min-h-[36px] md:min-h-0 ${
+                          className={`flex-1 px-1 py-1 md:py-0.5 text-[0.6rem] uppercase tracking-[1px] transition-colors min-h-[36px] md:min-h-0 ${
                             interest.level === lvl
-                              ? "bg-[#1a1a1a] text-[#e8e8e8]"
-                              : "text-[#666] hover:bg-[#d8d8d8]"
+                              ? "bg-[#1a1a1a] text-white"
+                              : "text-[#666] hover:bg-gray-100"
                           }`}
-                          style={{ borderWidth: "1px", marginRight: "-1px", fontFamily: 'var(--font-mono), monospace' }}
+                          style={{ border: "2px solid #1a1a1a", marginRight: "-2px", fontFamily: 'var(--font-mono), monospace' }}
                         >
                           {lvl}
                         </button>
@@ -352,7 +363,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             )}
 
             {/* Content mix slider */}
-            <div className="space-y-2 border border-[#1a1a1a] p-3" style={{ borderWidth: "1.5px" }}>
+            <div className="space-y-2 p-3" style={{ border: "2px solid #1a1a1a", boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)" }}>
               <div className="flex items-center justify-between">
                 <label
                   className="text-[0.7rem] uppercase tracking-[2px] text-[#1a1a1a] font-bold"
@@ -407,16 +418,16 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <button
                 onClick={() => setStep(1)}
                 disabled={submitting}
-                className="border border-[#1a1a1a] px-4 py-2 text-[0.75rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-[#d8d8d8] transition-colors disabled:opacity-50"
-                style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
+                className="px-4 py-2 text-[0.75rem] uppercase tracking-[2px] text-[#1a1a1a] hover:bg-gray-100 transition-colors disabled:opacity-50"
+                style={{ border: "2px solid #1a1a1a", fontFamily: 'var(--font-mono), monospace', boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)" }}
               >
                 BACK
               </button>
               <button
                 disabled={interests.length < 3 || submitting}
                 onClick={handleSubmit}
-                className="flex-1 border border-[#1a1a1a] bg-[#1a1a1a] text-[#e8e8e8] px-4 py-2 text-[0.75rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
+                className="flex-1 bg-[#1a1a1a] text-white px-4 py-2 text-[0.75rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ border: "2px solid #1a1a1a", fontFamily: 'var(--font-mono), monospace', boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}
               >
                 {submitting ? (
                   <>

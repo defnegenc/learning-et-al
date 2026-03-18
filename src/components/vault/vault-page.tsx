@@ -19,7 +19,7 @@ interface VaultPageProps {
 }
 
 const LIMIT = 12;
-const ACCENT_COLORS = ["#38b000", "#ff007f", "#7700ff", "#0077ff", "#ff8800"];
+const ACCENT_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
 
 interface DigestTheme {
   id: string;
@@ -244,7 +244,7 @@ export function VaultPage({ session }: VaultPageProps) {
         <div
           className="overflow-x-auto md:overflow-x-visible"
           style={{
-            borderBottom: "1.5px solid #1a1a1a",
+            borderBottom: "4px solid #1a1a1a",
             padding: "8px 16px",
             display: "flex",
             alignItems: "center",
@@ -262,14 +262,16 @@ export function VaultPage({ session }: VaultPageProps) {
               onClick={() => setActiveKeyword(null)}
               className="shrink-0"
               style={{
-                padding: "3px 10px",
+                padding: "4px 12px",
                 background: activeKeyword === null ? "#1a1a1a" : "transparent",
-                border: "1px solid #1a1a1a",
-                color: activeKeyword === null ? "#e8e8e8" : "#1a1a1a",
-                fontSize: "0.6rem",
+                border: "2px solid #1a1a1a",
+                boxShadow: activeKeyword === null ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
+                color: activeKeyword === null ? "white" : "#1a1a1a",
+                fontSize: "0.65rem",
+                fontWeight: 700,
                 textTransform: "uppercase",
                 letterSpacing: "1px",
-                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                fontFamily: "var(--font-mono), monospace",
               }}
             >
               All
@@ -280,14 +282,16 @@ export function VaultPage({ session }: VaultPageProps) {
                 onClick={() => setActiveKeyword(activeKeyword === kw ? null : kw)}
                 className="shrink-0"
                 style={{
-                  padding: "3px 10px",
+                  padding: "4px 12px",
                   background: activeKeyword === kw ? "#1a1a1a" : "transparent",
-                  border: "1px solid #1a1a1a",
-                  color: activeKeyword === kw ? "#e8e8e8" : "#1a1a1a",
-                  fontSize: "0.6rem",
+                  border: "2px solid #1a1a1a",
+                  boxShadow: activeKeyword === kw ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
+                  color: activeKeyword === kw ? "white" : "#1a1a1a",
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "1px",
-                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                  fontFamily: "var(--font-mono), monospace",
                 }}
               >
                 {kw}
@@ -300,7 +304,7 @@ export function VaultPage({ session }: VaultPageProps) {
             <Search
               style={{
                 position: "absolute",
-                left: "6px",
+                left: "8px",
                 top: "50%",
                 transform: "translateY(-50%)",
                 width: "12px",
@@ -314,7 +318,7 @@ export function VaultPage({ session }: VaultPageProps) {
               onChange={(e) => setSearch(e.target.value)}
               className="w-[160px] md:w-[200px]"
               style={{
-                border: "1.5px solid #1a1a1a",
+                border: "2px solid #1a1a1a",
                 background: "transparent",
                 paddingLeft: "28px",
                 paddingRight: "12px",
@@ -345,12 +349,12 @@ export function VaultPage({ session }: VaultPageProps) {
           <div>
             <h2
               style={{
-                fontSize: "1.2rem",
+                fontSize: "1.3rem",
                 fontWeight: 800,
                 textTransform: "uppercase",
                 letterSpacing: "1px",
                 color: "#1a1a1a",
-                fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                fontFamily: "var(--font-display), sans-serif",
                 margin: 0,
               }}
             >
@@ -374,10 +378,10 @@ export function VaultPage({ session }: VaultPageProps) {
                 onClick={runCompare}
                 className="min-h-[44px] md:min-h-0"
                 style={{
-                  border: "1.5px solid #1a1a1a",
+                  border: "2px solid #1a1a1a",
                   background: "#1a1a1a",
-                  color: "#e8e8e8",
-                  padding: "4px 12px",
+                  color: "white",
+                  padding: "6px 14px",
                   fontSize: "0.65rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
@@ -385,6 +389,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
+                  boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
                   opacity: comparing ? 0.5 : 1,
                 }}
               >
@@ -408,10 +413,10 @@ export function VaultPage({ session }: VaultPageProps) {
               }}
               className="min-h-[44px] md:min-h-0"
               style={{
-                border: "1.5px solid #1a1a1a",
+                border: "2px solid #1a1a1a",
                 background: compareMode ? "#1a1a1a" : "transparent",
-                color: compareMode ? "#e8e8e8" : "#1a1a1a",
-                padding: "4px 12px",
+                color: compareMode ? "white" : "#1a1a1a",
+                padding: "6px 14px",
                 fontSize: "0.65rem",
                 textTransform: "uppercase",
                 letterSpacing: "2px",
@@ -419,6 +424,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
+                boxShadow: compareMode ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
               }}
             >
               <GitCompare style={{ width: "12px", height: "12px" }} />
@@ -432,11 +438,12 @@ export function VaultPage({ session }: VaultPageProps) {
           <div
             className="mx-4 md:mx-10 mt-3"
             style={{
-              border: "1.5px solid #1a1a1a",
+              border: "2px solid #1a1a1a",
               padding: "8px 16px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
             }}
           >
             <span
@@ -498,15 +505,14 @@ export function VaultPage({ session }: VaultPageProps) {
               {filteredPapers.map((paper, cardIdx) => {
                 const isSelected = selectedIds.has(paper.id);
                 const accentColor = ACCENT_COLORS[cardIdx % ACCENT_COLORS.length];
-                const repNum = String(cardIdx + 1 + (page - 1) * LIMIT).padStart(3, "0");
                 return (
                   <div
                     key={paper.id}
                     className="group"
                     style={{
                       aspectRatio: "1 / 1",
-                      border: isSelected ? "2px solid #ff007f" : "1.5px solid #1a1a1a",
-                      background: "#e8e8e8",
+                      border: isSelected ? "4px solid #ff007f" : "2px solid #1a1a1a",
+                      background: "white",
                       padding: "16px",
                       display: "flex",
                       flexDirection: "column",
@@ -514,14 +520,15 @@ export function VaultPage({ session }: VaultPageProps) {
                       position: "relative",
                       overflow: "hidden",
                       transition: "all 0.15s ease",
+                      boxShadow: isSelected ? "4px 4px 0px 0px rgba(255,0,127,1)" : "4px 4px 0px 0px rgba(0,0,0,1)",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                      (e.currentTarget as HTMLElement).style.background = "#ffffff";
+                      (e.currentTarget as HTMLElement).style.transform = "translate(-2px, -2px)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = isSelected ? "6px 6px 0px 0px rgba(255,0,127,1)" : "6px 6px 0px 0px rgba(0,0,0,1)";
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                      (e.currentTarget as HTMLElement).style.background = "#e8e8e8";
+                      (e.currentTarget as HTMLElement).style.transform = "translate(0, 0)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = isSelected ? "4px 4px 0px 0px rgba(255,0,127,1)" : "4px 4px 0px 0px rgba(0,0,0,1)";
                     }}
                     onClick={() => {
                       if (compareMode) {
@@ -531,7 +538,7 @@ export function VaultPage({ session }: VaultPageProps) {
                       }
                     }}
                   >
-                    {/* Accent aura blob top-right */}
+                    {/* Accent aura blob top-right — subtle */}
                     <div
                       style={{
                         position: "absolute",
@@ -540,7 +547,7 @@ export function VaultPage({ session }: VaultPageProps) {
                         background: accentColor,
                         borderRadius: "50%",
                         filter: "blur(40px)",
-                        opacity: 0.4,
+                        opacity: 0.3,
                         top: "-20px",
                         right: "-20px",
                         pointerEvents: "none",
@@ -552,12 +559,15 @@ export function VaultPage({ session }: VaultPageProps) {
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <span
                           style={{
-                            fontSize: "0.6rem",
+                            fontSize: "0.65rem",
                             fontFamily: 'var(--font-mono), monospace',
-                            color: "#888",
+                            fontWeight: 700,
+                            color: "#666",
+                            border: "1px solid #d1d5db",
+                            padding: "2px 6px",
                           }}
                         >
-                          {paper.source === "rss" ? "NEWS" : "PAPER"}{paper.year ? ` · ${paper.year}` : ""}
+                          {paper.source === "rss" ? "NEWS" : "PAPER"}{paper.year ? ` \u00b7 ${paper.year}` : ""}
                         </span>
                       </div>
 
@@ -566,14 +576,16 @@ export function VaultPage({ session }: VaultPageProps) {
                         <div style={{ marginTop: "8px" }}>
                           <span
                             style={{
-                              padding: "2px 8px",
-                              fontSize: "0.55rem",
+                              padding: "3px 10px",
+                              fontSize: "0.6rem",
+                              fontWeight: 700,
                               textTransform: "uppercase",
                               letterSpacing: "1px",
-                              border: `1px solid ${isSelected ? "#ff007f" : "#1a1a1a"}`,
+                              border: `2px solid ${isSelected ? "#ff007f" : "#1a1a1a"}`,
                               background: isSelected ? "#ff007f" : "transparent",
                               color: isSelected ? "#fff" : "#1a1a1a",
                               fontFamily: 'var(--font-mono), monospace',
+                              boxShadow: isSelected ? "2px 2px 0px 0px rgba(255,0,127,1)" : "none",
                             }}
                           >
                             {isSelected ? "SELECTED" : "SELECT"}
@@ -591,7 +603,7 @@ export function VaultPage({ session }: VaultPageProps) {
                             <KeywordTag
                               key={kw}
                               keyword={kw}
-                              color={["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"][ki % 5]}
+                              color={ACCENT_COLORS[ki % ACCENT_COLORS.length]}
                             />
                           ))}
                         </div>
@@ -599,13 +611,13 @@ export function VaultPage({ session }: VaultPageProps) {
 
                       {/* Title */}
                       <h3
-                        className="text-sm md:text-base"
+                        className="text-sm md:text-base group-hover:underline"
                         style={{
                           fontWeight: 800,
                           textTransform: "uppercase",
                           lineHeight: 1.2,
                           color: "#1a1a1a",
-                          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                          fontFamily: "var(--font-display), sans-serif",
                           margin: 0,
                           display: "-webkit-box",
                           WebkitLineClamp: 3,
@@ -664,18 +676,20 @@ export function VaultPage({ session }: VaultPageProps) {
                 onClick={() => setPage((p) => p - 1)}
                 className="min-h-[44px] md:min-h-0"
                 style={{
-                  border: "1.5px solid #1a1a1a",
+                  border: "2px solid #1a1a1a",
                   background: "transparent",
-                  padding: "4px 12px",
+                  padding: "6px 14px",
                   fontSize: "0.65rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   fontFamily: 'var(--font-mono), monospace',
+                  fontWeight: 700,
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
                   opacity: page <= 1 ? 0.3 : 1,
                   color: "#1a1a1a",
+                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
                 }}
               >
                 <ChevronLeft style={{ width: "12px", height: "12px" }} />
@@ -688,6 +702,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   letterSpacing: "2px",
                   color: "#666",
                   fontFamily: 'var(--font-mono), monospace',
+                  fontWeight: 700,
                 }}
               >
                 PAGE {page} OF {totalPages}
@@ -697,18 +712,20 @@ export function VaultPage({ session }: VaultPageProps) {
                 onClick={() => setPage((p) => p + 1)}
                 className="min-h-[44px] md:min-h-0"
                 style={{
-                  border: "1.5px solid #1a1a1a",
+                  border: "2px solid #1a1a1a",
                   background: "transparent",
-                  padding: "4px 12px",
+                  padding: "6px 14px",
                   fontSize: "0.65rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   fontFamily: 'var(--font-mono), monospace',
+                  fontWeight: 700,
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
                   opacity: page >= totalPages ? 0.3 : 1,
                   color: "#1a1a1a",
+                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
                 }}
               >
                 NEXT
@@ -726,28 +743,29 @@ export function VaultPage({ session }: VaultPageProps) {
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
+          background: "#f9fafb",
         }}
       >
         <style>{`
           @media (min-width: 768px) {
-            .vault-sidebar { border-left-width: 1.5px !important; border-top-width: 0 !important; }
+            .vault-sidebar { border-left-width: 4px !important; border-top-width: 0 !important; }
           }
           @media (max-width: 767px) {
-            .vault-sidebar { border-top-width: 1.5px !important; border-left-width: 0 !important; }
+            .vault-sidebar { border-top-width: 4px !important; border-left-width: 0 !important; }
           }
         `}</style>
         <div className="vault-sidebar flex flex-col h-full">
           {/* Past Themes header */}
           <div
             style={{
-              borderBottom: "1.5px solid #1a1a1a",
-              padding: "8px 16px",
+              borderBottom: "4px solid #1a1a1a",
+              padding: "10px 16px",
             }}
           >
             <h3
               style={{
-                fontSize: "0.6rem",
-                fontWeight: "bold",
+                fontSize: "0.7rem",
+                fontWeight: 700,
                 textTransform: "uppercase",
                 letterSpacing: "2px",
                 color: "#1a1a1a",
@@ -772,7 +790,7 @@ export function VaultPage({ session }: VaultPageProps) {
                       padding: "6px 8px",
                       transition: "background 0.1s ease",
                       background: activeDigestId === theme.id ? "rgba(255,0,127,0.1)" : "transparent",
-                      borderLeft: activeDigestId === theme.id ? "2px solid #ff007f" : "2px solid transparent",
+                      borderLeft: activeDigestId === theme.id ? "4px solid #ff007f" : "4px solid transparent",
                       minWidth: "140px",
                     }}
                     onMouseEnter={(e) => {
@@ -799,15 +817,15 @@ export function VaultPage({ session }: VaultPageProps) {
                     </span>
                     <span
                       style={{
-                        fontSize: "0.75rem",
+                        fontSize: "0.8rem",
                         color: "#1a1a1a",
-                        fontWeight: 500,
+                        fontWeight: 600,
                         display: "-webkit-box",
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: "vertical",
                         overflow: "hidden",
                         lineHeight: 1.3,
-                        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                        fontFamily: "var(--font-display), sans-serif",
                       }}
                     >
                       {theme.theme}
@@ -818,7 +836,7 @@ export function VaultPage({ session }: VaultPageProps) {
             ) : (
               <span
                 style={{
-                  fontSize: "0.55rem",
+                  fontSize: "0.6rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
                   color: "#666",
@@ -833,7 +851,7 @@ export function VaultPage({ session }: VaultPageProps) {
           {/* Stats footer */}
           <div
             style={{
-              borderTop: "1.5px solid #1a1a1a",
+              borderTop: "4px solid #1a1a1a",
               padding: "12px 16px",
               display: "flex",
               flexDirection: "column",

@@ -22,7 +22,7 @@ interface PaperCardProps {
   onDislike: (paperId: string) => void;
 }
 
-const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
+const PASTEL_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
 
 export function PaperCard({
   paper,
@@ -32,33 +32,36 @@ export function PaperCard({
   onDislike,
 }: PaperCardProps) {
   const typeLabel = paper.source === "rss" ? "NEWS" : "PAPER";
-  const yearLabel = paper.year ? ` · ${paper.year}` : "";
+  const yearLabel = paper.year ? ` \u00b7 ${paper.year}` : "";
 
   return (
     <article
-      className="group relative p-4 md:p-5 space-y-2"
+      className="group relative p-6 space-y-2"
       style={{
-        background: highlighted ? "#f0f0f0" : "#e8e8e8",
-        border: "1.5px solid #1a1a1a",
+        background: highlighted ? "white" : "#f9fafb",
+        borderBottom: "4px solid #1a1a1a",
         transition: "transform 0.2s ease, background 0.2s ease",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-        (e.currentTarget as HTMLElement).style.background = "#f0f0f0";
+        (e.currentTarget as HTMLElement).style.background = "white";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-        (e.currentTarget as HTMLElement).style.background = highlighted ? "#f0f0f0" : "#e8e8e8";
+        (e.currentTarget as HTMLElement).style.background = highlighted ? "white" : "#f9fafb";
       }}
       onClick={() => onSelect(paper)}
     >
-      {/* Source — plain text, no box */}
+      {/* Source label */}
       <div className="flex items-start justify-between">
         <span
           style={{
             fontFamily: "var(--font-mono), monospace",
-            fontSize: "0.65rem",
+            fontSize: "0.7rem",
             color: "#666",
+            border: "1px solid #d1d5db",
+            padding: "2px 6px",
+            display: "inline-block",
           }}
         >
           {typeLabel}{yearLabel}
@@ -83,13 +86,13 @@ export function PaperCard({
       {/* Title */}
       <h2
         style={{
-          fontSize: "1.1rem",
+          fontSize: "1.15rem",
           fontWeight: "bold",
           textTransform: "uppercase",
           lineHeight: 1.2,
-          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontFamily: "var(--font-display), sans-serif",
         }}
-        className="line-clamp-2"
+        className="line-clamp-2 group-hover:underline"
       >
         {paper.title}
       </h2>
@@ -98,10 +101,10 @@ export function PaperCard({
       {paper.authors.length > 0 && (
         <p
           style={{
-            fontSize: "0.75rem",
+            fontSize: "11px",
             fontStyle: "italic",
-            opacity: 0.8,
-            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            color: "#4b5563",
+            fontFamily: "var(--font-mono), monospace",
           }}
         >
           {paper.authors.join(", ")}
@@ -112,23 +115,23 @@ export function PaperCard({
       {paper.summary && (
         <p
           style={{
-            fontSize: "0.8rem",
+            fontSize: "0.875rem",
             lineHeight: 1.5,
-            color: "#444",
+            color: "#374151",
             display: "-webkit-box",
             WebkitLineClamp: 3,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
-            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontFamily: "var(--font-inter), sans-serif",
           }}
         >
           {paper.summary}
         </p>
       )}
 
-      {/* Keywords — pastel boxes */}
+      {/* Keywords — pastel boxes with brutal shadows */}
       {paper.keywords.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-1">
+        <div className="flex flex-wrap gap-1.5 pt-1">
           {paper.keywords.slice(0, 4).map((kw, idx) => (
             <KeywordTag
               key={kw}

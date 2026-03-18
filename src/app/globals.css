@@ -53,19 +53,19 @@
 }
 
 :root {
-  --background: #e8e8e8;
+  --background: #ffffff;
   --foreground: #1a1a1a;
-  --card: #e8e8e8;
+  --card: #ffffff;
   --card-foreground: #1a1a1a;
-  --popover: #e8e8e8;
+  --popover: #ffffff;
   --popover-foreground: #1a1a1a;
   --primary: #1a1a1a;
-  --primary-foreground: #e8e8e8;
-  --secondary: #d8d8d8;
+  --primary-foreground: #ffffff;
+  --secondary: #f9fafb;
   --secondary-foreground: #1a1a1a;
-  --muted: #d8d8d8;
+  --muted: #f9fafb;
   --muted-foreground: #555555;
-  --accent: #d8d8d8;
+  --accent: #f9fafb;
   --accent-foreground: #1a1a1a;
   --destructive: #ff007f;
   --border: #1a1a1a;
@@ -77,30 +77,30 @@
   --chart-4: #ff5500;
   --chart-5: #7700ff;
   --radius: 0px;
-  --sidebar: #e8e8e8;
+  --sidebar: #f9fafb;
   --sidebar-foreground: #1a1a1a;
   --sidebar-primary: #1a1a1a;
-  --sidebar-primary-foreground: #e8e8e8;
-  --sidebar-accent: #d8d8d8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f9fafb;
   --sidebar-accent-foreground: #1a1a1a;
   --sidebar-border: #1a1a1a;
   --sidebar-ring: #1a1a1a;
 }
 
 .dark {
-  --background: #e8e8e8;
+  --background: #ffffff;
   --foreground: #1a1a1a;
-  --card: #e8e8e8;
+  --card: #ffffff;
   --card-foreground: #1a1a1a;
-  --popover: #e8e8e8;
+  --popover: #ffffff;
   --popover-foreground: #1a1a1a;
   --primary: #1a1a1a;
-  --primary-foreground: #e8e8e8;
-  --secondary: #d8d8d8;
+  --primary-foreground: #ffffff;
+  --secondary: #f9fafb;
   --secondary-foreground: #1a1a1a;
-  --muted: #d8d8d8;
+  --muted: #f9fafb;
   --muted-foreground: #555555;
-  --accent: #d8d8d8;
+  --accent: #f9fafb;
   --accent-foreground: #1a1a1a;
   --destructive: #ff007f;
   --border: #1a1a1a;
@@ -111,11 +111,11 @@
   --chart-3: #ffcc00;
   --chart-4: #ff5500;
   --chart-5: #7700ff;
-  --sidebar: #e8e8e8;
+  --sidebar: #f9fafb;
   --sidebar-foreground: #1a1a1a;
   --sidebar-primary: #1a1a1a;
-  --sidebar-primary-foreground: #e8e8e8;
-  --sidebar-accent: #d8d8d8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f9fafb;
   --sidebar-accent-foreground: #1a1a1a;
   --sidebar-border: #1a1a1a;
   --sidebar-ring: #1a1a1a;
@@ -146,24 +146,37 @@
   }
 }
 
+/* Selection styles */
+::selection {
+  background: #1a1a1a;
+  color: #ffffff;
+}
 
-/* Custom scrollbar */
+/* Neo-underline utility */
+.neo-underline {
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+
+/* Custom scrollbar — brutal style */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f9fafb;
+  border-left: 2px solid #1a1a1a;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #1a1a1a;
   border-radius: 0;
+  border: 2px solid #1a1a1a;
 }
 
 * {
-  scrollbar-width: thin;
-  scrollbar-color: #1a1a1a transparent;
+  scrollbar-width: auto;
+  scrollbar-color: #1a1a1a #f9fafb;
 }
-
