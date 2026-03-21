@@ -8,15 +8,14 @@ export const users = sqliteTable("users", {
   email: text("email"),
   name: text("name"),
   image: text("image"),
-  emailVerified: integer("email_verified", { mode: "timestamp" }),
+  emailVerified: integer("emailVerified", { mode: "timestamp" }),
 });
 
 export const accounts = sqliteTable("accounts", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   provider: text("provider").notNull(),
-  providerAccountId: text("provider_account_id").notNull(),
+  providerAccountId: text("providerAccountId").notNull(),
   refresh_token: text("refresh_token"),
   access_token: text("access_token"),
   expires_at: integer("expires_at"),
@@ -27,8 +26,8 @@ export const accounts = sqliteTable("accounts", {
 });
 
 export const sessions = sqliteTable("sessions", {
-  sessionToken: text("session_token").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionToken: text("sessionToken").primaryKey(),
+  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   expires: integer("expires", { mode: "timestamp" }).notNull(),
 });
 

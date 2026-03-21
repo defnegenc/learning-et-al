@@ -95,14 +95,20 @@ LLM sees the actual papers found and revises the central question to better thre
 
 LLM generates a JSON response containing: summaries, key findings, synthesis narrative, keyConcepts.
 
-- **Conversational tone** ("Today I found..."). Contractions, casual transitions.
-- Paper names in **bold**. Paragraph breaks between papers.
-- Must include ALL papers/items in the digest.
+**Structure: 3 lenses on the central question, NOT paper-by-paper.**
+
+Each paragraph centers on a FACET of the question, not on a single paper:
+1. **The Mechanism** — what's actually happening under the hood? Pull in paper(s) that explain the "how."
+2. **The Evidence** — what proof exists? Show where papers agree, disagree, or complement each other. Numbers and results go here.
+3. **The Implication** — so what? What does this mean for the real world? What hard question remains?
+
+Papers are woven across paragraphs (a paper can appear in multiple paragraphs, multiple papers in one paragraph). Every paper must appear at least once in bold. The synthesis should find **tension** (papers that push in different directions) or **complement** (papers that fill different gaps in the same puzzle).
+
+- **Conversational tone**. Contractions, casual transitions.
+- Paper names in **bold** (short version before the colon).
 - Key findings must be **RESULTS, not methodology** ("They found X" not "They used method Y").
-- Each item framed as a different **lens** on the central question, not a sequential story.
 - Ends with a specific "where to go deeper" pointer.
 - Define jargon immediately when first used. Hard words become keyConcepts with hover definitions.
-- ALWAYS mention the year each paper was published.
 - **Banned words**: demonstrates, reveals, nuanced, multifaceted, elicits, "the question of whether".
 - NO em dashes, NO filler phrases ("so basically", "what's wild is").
 
@@ -165,6 +171,8 @@ At the start of each generation, paper titles from the last 30 days of digests a
 2. **Single-word interests**: "robotics" or "cooking" alone produce a weaker theme than cross-domain combos. The LLM handles this by finding surprising angles within the single domain.
 3. **SIM_ONTOPIC threshold**: 0.25 is relatively loose (all-MiniLM-L6-v2 scores). If theme is very abstract ("Can AI be fashionable?"), many tangentially related papers may pass. The synthesis prompt compensates by framing papers as lenses rather than direct answers.
 4. **News validation**: Embedding similarity is better than keyword matching but short snippets may still produce false positives. The listicle filter helps catch the worst offenders.
+5. **Academic papers in news slots**: Web search can surface journal articles (e.g. from frontiersin.org, nature.com) that get mislabeled as "news." The pipeline needs source-type detection for academic domains so these items are correctly labeled as papers.
+6. **Sequential synthesis structure**: The synthesis prompt forces a linear A→B→C narrative ("First up... What's striking... Meanwhile...") rather than true lens-based framing where each paragraph centers on the central question and uses papers as evidence. This makes inter-paper connections feel weak, especially for the third item which gets the shortest instruction.
 
 ---
 
@@ -189,11 +197,12 @@ At the start of each generation, paper titles from the last 30 days of digests a
 - **"Paper A" / "Paper B" labels in synthesis**: AI kept using them instead of actual titles
 - **Letting AI decide whether to revise theme** ("changed: true/false"): it always said false. Now we always revise.
 - **Pink (#ff007f) as highlight color**: felt out of place with the brutalist aesthetic. Switched to neutral black.
+- **Per-item sequential synthesis paragraphs**: "Para 1 about paper A, Para 2 about paper B relates to A, Para 3 about C adds something" creates a chain, not lenses. The third item always feels like an afterthought. Need to restructure around the question, not around items in order.
 
 ---
 
 ## Top 3 Ideas to Improve (rolling)
 
-1. **Forward citation lookup**: find papers that cite the same foundational work but disagree with each other. Would create real intellectual tension.
-2. **SPECTER2 embeddings**: purpose-built for academic paper similarity (~110MB model). Would improve paper scoring over general-purpose MiniLM.
+1. **Academic domain detection in news slots**: Detect when a web search result is actually from an academic publisher (frontiersin.org, nature.com, sciencedirect.com, springer.com, wiley.com, etc.) and reclassify it as a paper instead of news. This is a concrete bug — the current pipeline mislabels journal articles as news.
+2. **Forward citation lookup**: Find papers that cite the same foundational work but disagree with each other. Would create real intellectual tension in synthesis.
 3. **User digest feedback loop**: after reading a digest, user rates it 1-5. Use this to fine-tune interest weights and theme quality over time.
