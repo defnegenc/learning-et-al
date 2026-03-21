@@ -116,7 +116,10 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             onRefreshDigest={() => refreshDigestRef.current?.()}
           />
           <button
-            onClick={() => signOut()}
+            onClick={() => {
+              localStorage.removeItem("pp_session");
+              signOut({ callbackUrl: "/" });
+            }}
             title="Sign out"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
             className="hover:text-[#1a1a1a] transition-colors"
