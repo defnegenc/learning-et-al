@@ -206,7 +206,12 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   console.log(`[Digest] Cross-digest dedup (last 30 days + current): ${seenPaperTitles.size} previously seen`);
 
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  const contentMix = user?.contentMix ?? 50;
+  const contentMix = user?.contentMix ?? 33;
+  // Map contentMix (0-100) to paper/news counts:
+  // 0-20: 3 papers, 0 news | 21-50: 2 papers, 1 news | 51-80: 1 paper, 2 news | 81-100: 0 papers, 3 news
+  const targetPapers = contentMix <= 20 ? 3 : contentMix <= 50 ? 2 : contentMix <= 80 ? 1 : 0;
+  const targetNews = 3 - targetPapers;
+  console.log(`[Digest] Content mix: ${contentMix} → ${targetPapers} papers, ${targetNews} news`);
 
   // ─── Step 1: Generate today's central question ──────────────────────────────
   // The LLM picks 1-3 interests and frames a catchy "wow factor" question.
@@ -341,7 +346,7 @@ Return JSON only (no markdown):
   const seenTitles = new Set<string>(seenPaperTitles);
 
   for (const { p, score } of qualified) {
-    if (items.length >= 2) break;
+    if (items.length >= targetPapers) break;
     if (seenTitles.has(p.title.toLowerCase())) continue;
     items.push({
       title: p.title, authors: p.authors, abstract: p.abstract,
@@ -362,53 +367,28 @@ Return JSON only (no markdown):
     .split(/\s+/)
     .filter(w => w.length > 3 && !STOP_WORDS.has(w));
 
-  // ─── Step 4: Find third item ─────────────────────────────────────────────────
-  if (contentMix < 15) {
-    // All-research mode: find a third paper
-    const thirdQuery = searchQueries[2] || searchQueries[0];
-    console.log(`[Digest] Step 4 (all-research): third paper query: "${thirdQuery}"`);
-    await delay(500);
-    const thirdResults = await searchPapers(thirdQuery, 8, "citationCount", focusField);
-    for (const p of thirdResults) {
-      if (seenTitles.has(p.title.toLowerCase())) continue;
-      const sim = cosineSimilarity(themeEmb, await embedText(paperText(p)));
-      if (sim > SIM_ONTOPIC) {
-        items.push({
-          title: p.title, authors: p.authors, abstract: p.abstract,
-          sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl || undefined,
-          source: p.source, category: "news", year: p.year,
-        });
-        seenTitles.add(p.title.toLowerCase());
-        console.log(`[Digest] Third paper (research): "${p.title}" (sim ${sim.toFixed(2)})`);
-        break;
-      }
-    }
-  } else {
-    // Mixed/news mode: web search first
-    const newsSearchTerms = `${newsQuery} ${focusInterest} 2025 2026`;
-    console.log(`[Digest] Step 4: web search: "${newsSearchTerms}"`);
-    const webResults = await webSearch(newsSearchTerms, 5);
+  // ─── Step 4: Fill remaining slots (news and/or papers) ───────────────────────
+  const newsNeeded = targetNews - items.filter(i => i.source === "rss").length;
+  const papersNeeded = 3 - items.length - newsNeeded;
 
-    // Score news results by embedding similarity to the central question.
-    // Keyword matching alone is too weak — an article mentioning "AI" and "agents"
-    // might be about customer service bots, not the theme "Can AI agents invest?"
-    let foundNews = false;
+  // Find news items if needed
+  if (newsNeeded > 0) {
+    const newsSearchTerms = `${newsQuery} ${focusInterest} 2025 2026`;
+    console.log(`[Digest] Step 4: finding ${newsNeeded} news via web search: "${newsSearchTerms}"`);
+    const webResults = await webSearch(newsSearchTerms, newsNeeded * 3);
+
     const newsTexts = webResults.map(r => `${r.title}. ${r.snippet}`);
     const newsEmbs = newsTexts.length > 0 ? await embedBatch(newsTexts) : [];
-
-    // Score and sort by theme similarity
     const scoredNews = webResults
       .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, newsEmbs[i]) }))
       .filter(({ result }) => !isListicle(result.title, result.source))
       .filter(({ result }) => !seenTitles.has(result.title.toLowerCase()))
       .sort((a, b) => b.sim - a.sim);
 
+    let newsFound = 0;
     for (const { result, sim } of scoredNews) {
-      if (sim < 0.15) {
-        console.log(`[Digest] Web news REJECTED (low theme sim ${sim.toFixed(2)}): "${result.title}"`);
-        continue;
-      }
-      console.log(`[Digest] Fetching article text (theme sim ${sim.toFixed(2)}): ${result.link}`);
+      if (newsFound >= newsNeeded) break;
+      if (sim < 0.15) continue;
       const articleText = await fetchArticleText(result.link);
       const abstract = articleText.length > 200 ? articleText : result.snippet;
       items.push({
@@ -416,47 +396,51 @@ Return JSON only (no markdown):
         abstract, sourceUrl: result.link,
         source: "rss", category: "news", year: new Date().getFullYear(),
       });
-      console.log(`[Digest] Web news accepted: "${result.title}"`);
-      foundNews = true;
-      break;
+      seenTitles.add(result.title.toLowerCase());
+      console.log(`[Digest] News ${newsFound + 1}/${newsNeeded}: "${result.title}" (sim ${sim.toFixed(2)})`);
+      newsFound++;
     }
 
-    if (!foundNews) {
-      console.log(`[Digest] Web search empty, trying RSS...`);
+    // RSS fallback for remaining news slots
+    if (newsFound < newsNeeded) {
       const newsTerms = newsQuery.split(/\s+/).slice(0, 3);
       const rss = await fetchRssArticles(newsTerms, 10);
       for (const article of rss) {
+        if (newsFound >= newsNeeded) break;
         if (seenTitles.has(article.title.toLowerCase())) continue;
         if (isNewsRelevant(article, themeWords, focusInterest)) {
           const articleText = await fetchArticleText(article.sourceUrl);
           const abstract = articleText.length > 200 ? articleText : article.abstract;
           items.push({ ...article, abstract, source: "rss", category: "news", year: new Date().getFullYear() });
-          console.log(`[Digest] RSS news: "${article.title}"`);
-          foundNews = true;
-          break;
+          seenTitles.add(article.title.toLowerCase());
+          newsFound++;
         }
       }
     }
 
-    if (!foundNews) {
-      console.log(`[Digest] No news found, finding third paper...`);
-      await delay(500);
-      const thirdResults = await searchPapers(
-        `${focusInterest} applications deployment industry`, 8, "citationCount", focusField
-      );
-      for (const paper of thirdResults) {
-        if (seenTitles.has(paper.title.toLowerCase())) continue;
-        const sim = cosineSimilarity(themeEmb, await embedText(paperText(paper)));
-        if (sim > SIM_ONTOPIC) {
-          items.push({
-            title: paper.title, authors: paper.authors, abstract: paper.abstract,
-            sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
-            source: paper.source, category: "news",
-          });
-          seenTitles.add(paper.title.toLowerCase());
-          console.log(`[Digest] Third paper (no news): "${paper.title}" (sim ${sim.toFixed(2)})`);
-          break;
-        }
+    console.log(`[Digest] Found ${newsFound}/${newsNeeded} news items`);
+  }
+
+  // Fill remaining slots with papers
+  if (items.length < 3) {
+    const remaining = 3 - items.length;
+    console.log(`[Digest] Filling ${remaining} remaining slot(s) with papers...`);
+    await delay(500);
+    const fillQuery = searchQueries[2] || `${focusInterest} applications`;
+    const fillResults = await searchPapers(fillQuery, 8, "citationCount", focusField);
+    for (const paper of fillResults) {
+      if (items.length >= 3) break;
+      if (seenTitles.has(paper.title.toLowerCase())) continue;
+      const sim = cosineSimilarity(themeEmb, await embedText(paperText(paper)));
+      if (sim > SIM_ONTOPIC) {
+        items.push({
+          title: paper.title, authors: paper.authors, abstract: paper.abstract,
+          sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
+          source: paper.source, category: items.length < targetPapers ? "recent" : "news",
+          year: paper.year,
+        });
+        seenTitles.add(paper.title.toLowerCase());
+        console.log(`[Digest] Fill paper: "${paper.title}" (sim ${sim.toFixed(2)})`);
       }
     }
   }
