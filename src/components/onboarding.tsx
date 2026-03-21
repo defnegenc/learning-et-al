@@ -30,7 +30,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
   // Step 2
   const [interests, setInterests] = useState<InterestEntry[]>([]);
-  const [contentMix, setContentMix] = useState(50);
+  const [contentMix, setContentMix] = useState(33);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -79,11 +79,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   }
 
   function getMixLabel() {
-    if (contentMix < 30) return "Research heavy";
-    if (contentMix < 45) return "Research leaning";
-    if (contentMix <= 55) return "Balanced";
-    if (contentMix <= 70) return "News leaning";
-    return "News heavy";
+    if (contentMix <= 20) return "3 research papers";
+    if (contentMix <= 50) return "2 papers, 1 news — recommended";
+    if (contentMix <= 80) return "1 paper, 2 news";
+    return "3 news articles";
   }
 
   return (
@@ -256,7 +255,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   className="text-[0.6rem] uppercase tracking-[1px] text-[#999] whitespace-nowrap"
                   style={{ fontFamily: "var(--font-mono), monospace" }}
                 >
-                  Research
+                  Just research
                 </span>
                 <input
                   type="range"
@@ -272,7 +271,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   className="text-[0.6rem] uppercase tracking-[1px] text-[#999] whitespace-nowrap"
                   style={{ fontFamily: "var(--font-mono), monospace" }}
                 >
-                  News
+                  Just news
                 </span>
               </div>
             </div>
