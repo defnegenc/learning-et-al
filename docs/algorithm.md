@@ -172,7 +172,7 @@ At the start of each generation, paper titles from the last 30 days of digests a
 3. **SIM_ONTOPIC threshold**: 0.25 is relatively loose (all-MiniLM-L6-v2 scores). If theme is very abstract ("Can AI be fashionable?"), many tangentially related papers may pass. The synthesis prompt compensates by framing papers as lenses rather than direct answers.
 4. **News validation**: Embedding similarity is better than keyword matching but short snippets may still produce false positives. The listicle filter helps catch the worst offenders.
 5. **Academic papers in news slots**: Web search can surface journal articles (e.g. from frontiersin.org, nature.com) that get mislabeled as "news." The pipeline needs source-type detection for academic domains so these items are correctly labeled as papers.
-6. **Sequential synthesis structure**: The synthesis prompt forces a linear A→B→C narrative ("First up... What's striking... Meanwhile...") rather than true lens-based framing where each paragraph centers on the central question and uses papers as evidence. This makes inter-paper connections feel weak, especially for the third item which gets the shortest instruction.
+6. **Sequential synthesis structure** (FIXED): Was forcing a linear A→B→C narrative. Now uses lens-based structure: Mechanism → Evidence → Implication, with papers woven across paragraphs.
 
 ---
 
