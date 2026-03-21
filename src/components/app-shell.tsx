@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
@@ -118,9 +117,8 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <button
             onClick={() => {
               localStorage.removeItem("pp_session");
-              signOut({ redirect: false }).catch(() => {}).finally(() => {
-                window.location.href = "/";
-              });
+              fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
+              window.location.href = "/";
             }}
             title="Sign out"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
