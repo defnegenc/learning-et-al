@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { papers, feedback, interests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { getAuthUser } from "@/lib/get-user";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -38,27 +39,25 @@ export async function POST(
 
     // Update interest weights based on paper keywords
     const paperKeywords: string[] = paper.keywords ? JSON.parse(paper.keywords) : [];
-    const weightDelta = type === "star" ? 0.5 : -0.2;
+    // Small weight changes — engagement should nudge, not dominate
+    const weightDelta = type === "star" ? 0.1 : -0.05;
     const source = type === "star" ? "star" : "dislike";
 
+    // Only boost EXISTING interests — don't create new ones from paper keywords.
+    // Creating new interests from engagement caused random topics (like "emoji communication")
+    // to pollute the user's feed when they were never intentionally selected.
     for (const keyword of paperKeywords) {
       const existing = await db.query.interests.findFirst({
         where: and(eq(interests.userId, userId), eq(interests.keyword, keyword)),
       });
 
       if (existing) {
-        const newWeight = Math.max(0, (existing.weight || 1.0) + weightDelta);
+        const newWeight = Math.min(3.0, Math.max(0, (existing.weight || 1.0) + weightDelta));
         await db.update(interests)
           .set({ weight: newWeight, updatedAt: new Date() })
           .where(eq(interests.id, existing.id));
-      } else {
-        await db.insert(interests).values({
-          userId,
-          keyword,
-          weight: Math.max(0, 1.0 + weightDelta),
-          source,
-        });
       }
+      // Don't create new interests — the user picks their interests in settings
     }
 
     return NextResponse.json({ feedback: fb });

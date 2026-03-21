@@ -16,7 +16,21 @@
       "WebSearch",
       "Bash(kill:*)",
       "Bash(find src:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(sed:*)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(sqlite3:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx next:*)",
+      "Bash(npm list:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(for f:*)",
+      "Bash(npx auth:*)",
+      "Bash(openssl rand:*)",
+      "Bash(turso db:*)",
+      "Bash(gh auth:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

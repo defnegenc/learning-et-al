@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star, ThumbsDown } from "lucide-react";
+import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { PaperDetail } from "@/components/today/paper-detail";
 import { CompareView } from "./compare-view";
-import { KeywordTag } from "@/components/keyword-tag";
-import type { PaperItem } from "@/components/today/paper-card";
+import { PaperCard, type PaperItem } from "@/components/today/paper-card";
 
 interface VaultPageProps {
   session: {
@@ -19,12 +18,21 @@ interface VaultPageProps {
 }
 
 const LIMIT = 12;
-const ACCENT_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
+const PASTEL_COLORS = ["#fef3c7", "#bae6fd", "#d8b4fe", "#fed7aa", "#a5f3fc"];
+
+interface Interest {
+  id: string;
+  keyword: string;
+  field: string;
+  weight: number | null;
+  source: string;
+}
 
 interface DigestTheme {
   id: string;
   date: string;
   theme: string;
+  starred: boolean;
   synthesisContent: string | null;
 }
 
@@ -35,10 +43,14 @@ export function VaultPage({ session }: VaultPageProps) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
   const [pastThemes, setPastThemes] = useState<DigestTheme[]>([]);
   const [activeDigestId, setActiveDigestId] = useState<string | null>(null);
+  const [starFilter, setStarFilter] = useState(false);
   const [digestPapers, setDigestPapers] = useState<PaperItem[] | null>(null);
+
+  const [interests, setInterests] = useState<Interest[]>([]);
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<"all" | "papers" | "news">("all");
 
   const [compareMode, setCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -71,6 +83,7 @@ export function VaultPage({ session }: VaultPageProps) {
         limit: String(LIMIT),
       });
       if (debouncedSearch) params.set("search", debouncedSearch);
+      if (sourceFilter !== "all") params.set("source", sourceFilter);
 
       const res = await fetch(`/api/vault?${params}`);
       if (!res.ok) throw new Error("Failed to fetch vault");
@@ -84,11 +97,25 @@ export function VaultPage({ session }: VaultPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, sourceFilter]);
 
   useEffect(() => {
     fetchPapers();
   }, [fetchPapers]);
+
+  // Fetch interests for field-based filtering
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/interests");
+        if (!res.ok) return;
+        const data = await res.json();
+        setInterests(data.interests ?? []);
+      } catch (err) {
+        console.error("Failed to fetch interests:", err);
+      }
+    })();
+  }, []);
 
   // Fetch past themes
   useEffect(() => {
@@ -97,11 +124,18 @@ export function VaultPage({ session }: VaultPageProps) {
         const res = await fetch("/api/digest?all=true");
         if (!res.ok) return;
         const data = await res.json();
-        const themes: DigestTheme[] = (data.digests ?? []).map((d: { id: string; date: string; synthesisContent: string | null }) => {
-          const firstLine = d.synthesisContent?.split("\n").find((l: string) => l.trim()) ?? "Untitled digest";
-          // Strip markdown heading markers
-          const theme = firstLine.replace(/^#+\s*/, "").replace(/^Today['']s thread:\s*/i, "").trim();
-          return { id: d.id, date: d.date, theme, synthesisContent: d.synthesisContent };
+        const themes: DigestTheme[] = (data.digests ?? []).map((d: { id: string; date: string; theme?: string; starred?: boolean; synthesisContent: string | null }) => {
+          let displayTheme = d.theme || "";
+          if (!displayTheme && d.synthesisContent) {
+            const firstLine = d.synthesisContent.split("\n").find((l: string) => l.trim()) ?? "";
+            displayTheme = firstLine
+              .replace(/^#+\s*/, "")
+              .replace(/\*\*/g, "")
+              .replace(/^Today[^.!?]*[.!?]\s*/i, "")
+              .trim()
+              .slice(0, 80);
+          }
+          return { id: d.id, date: d.date, theme: displayTheme || "Untitled digest", starred: !!d.starred, synthesisContent: d.synthesisContent };
         });
         setPastThemes(themes);
       } catch (err) {
@@ -110,7 +144,7 @@ export function VaultPage({ session }: VaultPageProps) {
     })();
   }, []);
 
-  // Fetch papers for a specific digest
+  // Fetch papers for a specific digest by ID
   const handleThemeClick = async (digestId: string) => {
     if (activeDigestId === digestId) {
       setActiveDigestId(null);
@@ -119,9 +153,7 @@ export function VaultPage({ session }: VaultPageProps) {
     }
     setActiveDigestId(digestId);
     try {
-      const theme = pastThemes.find((t) => t.id === digestId);
-      if (!theme) return;
-      const res = await fetch(`/api/digest?date=${theme.date}`);
+      const res = await fetch(`/api/digest?id=${digestId}`);
       if (!res.ok) return;
       const data = await res.json();
       setDigestPapers(data.papers ?? []);
@@ -131,21 +163,52 @@ export function VaultPage({ session }: VaultPageProps) {
     }
   };
 
-  // Unique keywords from papers
-  const allKeywords = useMemo(() => {
-    const kws = new Set<string>();
-    papers.forEach((p) => p.keywords.forEach((k) => kws.add(k)));
-    return Array.from(kws).slice(0, 12);
-  }, [papers]);
+  // Group interests by field for top-level tabs
+  const fieldGroups = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const i of interests) {
+      if (i.source === "dislike") continue;
+      const field = i.field || "Other";
+      // Shorten field name for display
+      const shortField = field
+        .replace("Computer Science", "CS")
+        .replace("Biology", "Bio")
+        .replace("Medicine", "Med")
+        .replace("Physics", "Physics")
+        .replace("Mathematics", "Math")
+        .replace("Social Sciences", "Social Sci")
+        .replace("Environmental Science", "Env Sci")
+        .replace("Business", "Business")
+        .replace("Economics", "Econ")
+        .replace("Political Science", "Pol Sci")
+        .replace("Philosophy", "Phil")
+        .replace("Linguistics", "Ling")
+        .replace("Law", "Law")
+        .replace("Education", "Edu");
+      if (!map.has(shortField)) map.set(shortField, []);
+      if (!map.get(shortField)!.includes(i.keyword)) {
+        map.get(shortField)!.push(i.keyword);
+      }
+    }
+    return map;
+  }, [interests]);
 
-  // Filter papers by active keyword or active digest
+  // Filter papers by active field (keyword overlap with user's interests in that field) or active digest
   const filteredPapers = useMemo(() => {
     const base = activeDigestId && digestPapers ? digestPapers : papers;
-    if (!activeKeyword) return base;
+    if (!activeField) return base;
+    const fieldKeywords = fieldGroups.get(activeField) ?? [];
+    if (fieldKeywords.length === 0) return base;
     return base.filter((p) =>
-      p.keywords.some((k) => k.toLowerCase() === activeKeyword.toLowerCase())
+      p.keywords.some((pk) =>
+        fieldKeywords.some((fk) => {
+          const pkWords = pk.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+          const fkWords = fk.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+          return pkWords.some((pw) => fkWords.some((fw) => pw.includes(fw) || fw.includes(pw)));
+        })
+      )
     );
-  }, [papers, activeKeyword, activeDigestId, digestPapers]);
+  }, [papers, activeField, activeDigestId, digestPapers, fieldGroups]);
 
   // Toggle card selection in compare mode
   const toggleSelect = (id: string) => {
@@ -223,84 +286,88 @@ export function VaultPage({ session }: VaultPageProps) {
     }
   };
 
-  // If viewing a single paper detail
-  if (selectedPaper) {
-    return (
-      <PaperDetail
-        paper={selectedPaper}
-        session={session}
-        onBack={() => setSelectedPaper(null)}
-        onStar={(id) => handleFeedback(id, "star")}
-        onDislike={(id) => handleFeedback(id, "dislike")}
-      />
-    );
-  }
-
   return (
     <div className="flex flex-col md:grid md:min-h-[calc(100vh-2.75rem)]" style={{ gridTemplateColumns: "1fr 300px" }}>
       {/* Main content area */}
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {/* Keyword ribbon */}
+        {/* Field filter ribbon — wraps naturally, no scroll, no dropdowns */}
         <div
-          className="overflow-x-auto md:overflow-x-visible"
           style={{
             borderBottom: "4px solid #1a1a1a",
             padding: "8px 16px",
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            flexWrap: "nowrap",
+            gap: "6px",
+            flexWrap: "wrap",
           }}
+          className="md:px-10"
         >
-          <style>{`
-            @media (min-width: 768px) {
-              .vault-keyword-ribbon { flex-wrap: wrap !important; padding-left: 40px !important; padding-right: 40px !important; }
-            }
-          `}</style>
-          <div className="vault-keyword-ribbon flex items-center gap-2 flex-nowrap md:flex-wrap min-w-0">
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", flex: 1 }}>
             <button
-              onClick={() => setActiveKeyword(null)}
-              className="shrink-0"
+              onClick={() => setActiveField(null)}
               style={{
                 padding: "4px 12px",
-                background: activeKeyword === null ? "#1a1a1a" : "transparent",
+                background: activeField === null ? "#1a1a1a" : "transparent",
                 border: "2px solid #1a1a1a",
-                boxShadow: activeKeyword === null ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
-                color: activeKeyword === null ? "white" : "#1a1a1a",
+                boxShadow: activeField === null ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
+                color: activeField === null ? "white" : "#1a1a1a",
                 fontSize: "0.65rem",
                 fontWeight: 700,
                 textTransform: "uppercase",
                 letterSpacing: "1px",
                 fontFamily: "var(--font-mono), monospace",
+                whiteSpace: "nowrap",
               }}
             >
               All
             </button>
-            {allKeywords.map((kw) => (
+
+            {Array.from(fieldGroups.keys()).map((field) => (
               <button
-                key={kw}
-                onClick={() => setActiveKeyword(activeKeyword === kw ? null : kw)}
-                className="shrink-0"
+                key={field}
+                onClick={() => setActiveField(activeField === field ? null : field)}
                 style={{
                   padding: "4px 12px",
-                  background: activeKeyword === kw ? "#1a1a1a" : "transparent",
+                  background: activeField === field ? "#1a1a1a" : "transparent",
                   border: "2px solid #1a1a1a",
-                  boxShadow: activeKeyword === kw ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
-                  color: activeKeyword === kw ? "white" : "#1a1a1a",
+                  boxShadow: activeField === field ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
+                  color: activeField === field ? "white" : "#1a1a1a",
                   fontSize: "0.65rem",
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "1px",
                   fontFamily: "var(--font-mono), monospace",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {kw}
+                {field}
               </button>
             ))}
           </div>
 
-          {/* Search input in ribbon */}
-          <div className="shrink-0 md:ml-auto relative">
+          {/* Papers / News toggle */}
+          <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+            {(["all", "papers", "news"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => { setSourceFilter(f); setPage(1); }}
+                style={{
+                  padding: "4px 10px",
+                  background: sourceFilter === f ? "#1a1a1a" : "transparent",
+                  border: "2px solid #1a1a1a",
+                  color: sourceFilter === f ? "white" : "#1a1a1a",
+                  fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
+                  letterSpacing: "1px", fontFamily: "var(--font-mono), monospace",
+                  whiteSpace: "nowrap", cursor: "pointer",
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Search input */}
+          <div className="shrink-0 relative">
             <Search
               style={{
                 position: "absolute",
@@ -316,7 +383,7 @@ export function VaultPage({ session }: VaultPageProps) {
               placeholder="SEARCH..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-[160px] md:w-[200px]"
+              className="w-[140px] md:w-[200px]"
               style={{
                 border: "2px solid #1a1a1a",
                 background: "transparent",
@@ -389,7 +456,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+                  boxShadow: "3px 3px 0px 0px rgba(0,0,0,0.12)",
                   opacity: comparing ? 0.5 : 1,
                 }}
               >
@@ -443,7 +510,7 @@ export function VaultPage({ session }: VaultPageProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
+              boxShadow: "2px 2px 0px 0px rgba(0,0,0,0.15)",
             }}
           >
             <span
@@ -502,161 +569,19 @@ export function VaultPage({ session }: VaultPageProps) {
               }}
               className="grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
             >
-              {filteredPapers.map((paper, cardIdx) => {
-                const isSelected = selectedIds.has(paper.id);
-                const accentColor = ACCENT_COLORS[cardIdx % ACCENT_COLORS.length];
-                return (
-                  <div
-                    key={paper.id}
-                    className="group"
-                    style={{
-                      aspectRatio: "1 / 1",
-                      border: isSelected ? "4px solid #ff007f" : "2px solid #1a1a1a",
-                      background: "white",
-                      padding: "16px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      position: "relative",
-                      overflow: "hidden",
-                      transition: "all 0.15s ease",
-                      boxShadow: isSelected ? "4px 4px 0px 0px rgba(255,0,127,1)" : "4px 4px 0px 0px rgba(0,0,0,1)",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = "translate(-2px, -2px)";
-                      (e.currentTarget as HTMLElement).style.boxShadow = isSelected ? "6px 6px 0px 0px rgba(255,0,127,1)" : "6px 6px 0px 0px rgba(0,0,0,1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = "translate(0, 0)";
-                      (e.currentTarget as HTMLElement).style.boxShadow = isSelected ? "4px 4px 0px 0px rgba(255,0,127,1)" : "4px 4px 0px 0px rgba(0,0,0,1)";
-                    }}
-                    onClick={() => {
-                      if (compareMode) {
-                        toggleSelect(paper.id);
-                      } else {
-                        setSelectedPaper(paper);
-                      }
-                    }}
-                  >
-                    {/* Accent aura blob top-right — subtle */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        width: "120px",
-                        height: "120px",
-                        background: accentColor,
-                        borderRadius: "50%",
-                        filter: "blur(40px)",
-                        opacity: 0.3,
-                        top: "-20px",
-                        right: "-20px",
-                        pointerEvents: "none",
-                      }}
-                    />
-
-                    {/* Top section */}
-                    <div style={{ position: "relative", zIndex: 2 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span
-                          style={{
-                            fontSize: "0.65rem",
-                            fontFamily: 'var(--font-mono), monospace',
-                            fontWeight: 700,
-                            color: "#666",
-                            border: "1px solid #d1d5db",
-                            padding: "2px 6px",
-                          }}
-                        >
-                          {paper.source === "rss" ? "NEWS" : "PAPER"}{paper.year ? ` \u00b7 ${paper.year}` : ""}
-                        </span>
-                      </div>
-
-                      {/* Compare badge */}
-                      {compareMode && (
-                        <div style={{ marginTop: "8px" }}>
-                          <span
-                            style={{
-                              padding: "3px 10px",
-                              fontSize: "0.6rem",
-                              fontWeight: 700,
-                              textTransform: "uppercase",
-                              letterSpacing: "1px",
-                              border: `2px solid ${isSelected ? "#ff007f" : "#1a1a1a"}`,
-                              background: isSelected ? "#ff007f" : "transparent",
-                              color: isSelected ? "#fff" : "#1a1a1a",
-                              fontFamily: 'var(--font-mono), monospace',
-                              boxShadow: isSelected ? "2px 2px 0px 0px rgba(255,0,127,1)" : "none",
-                            }}
-                          >
-                            {isSelected ? "SELECTED" : "SELECT"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bottom section */}
-                    <div style={{ position: "relative", zIndex: 2 }}>
-                      {/* Keywords */}
-                      {paper.keywords.length > 0 && (
-                        <div style={{ display: "flex", gap: "4px", marginBottom: "6px", flexWrap: "wrap" }}>
-                          {paper.keywords.slice(0, 2).map((kw, ki) => (
-                            <KeywordTag
-                              key={kw}
-                              keyword={kw}
-                              color={ACCENT_COLORS[ki % ACCENT_COLORS.length]}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Title */}
-                      <h3
-                        className="text-sm md:text-base group-hover:underline"
-                        style={{
-                          fontWeight: 800,
-                          textTransform: "uppercase",
-                          lineHeight: 1.2,
-                          color: "#1a1a1a",
-                          fontFamily: "var(--font-display), sans-serif",
-                          margin: 0,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {paper.title}
-                      </h3>
-
-                      {/* Hover actions - always visible on mobile */}
-                      {!compareMode && (
-                        <div className="md:opacity-0 md:transition-opacity md:group-hover:opacity-100" style={{ display: "flex", gap: "4px", marginTop: "8px" }}>
-                          <button
-                            style={{ padding: "2px", background: "none", border: "none", color: "#1a1a1a" }}
-                            className="hover:text-[#38b000] min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFeedback(paper.id, "star");
-                            }}
-                          >
-                            <Star style={{ width: "12px", height: "12px" }} />
-                          </button>
-                          <button
-                            style={{ padding: "2px", background: "none", border: "none", color: "#1a1a1a" }}
-                            className="hover:text-[#ff007f] min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFeedback(paper.id, "dislike");
-                            }}
-                          >
-                            <ThumbsDown style={{ width: "12px", height: "12px" }} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredPapers.map((paper, cardIdx) => (
+                <PaperCard
+                  key={paper.id}
+                  paper={paper}
+                  index={cardIdx}
+                  compact
+                  compareMode={compareMode}
+                  isCompareSelected={selectedIds.has(paper.id)}
+                  onSelect={(p) => compareMode ? toggleSelect(p.id) : setSelectedPaper(p)}
+                  onStar={(id) => handleFeedback(id, "star")}
+                  onDislike={(id) => handleFeedback(id, "dislike")}
+                />
+              ))}
             </div>
           )}
 
@@ -689,7 +614,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   gap: "4px",
                   opacity: page <= 1 ? 0.3 : 1,
                   color: "#1a1a1a",
-                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
+                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,0.15)",
                 }}
               >
                 <ChevronLeft style={{ width: "12px", height: "12px" }} />
@@ -725,7 +650,7 @@ export function VaultPage({ session }: VaultPageProps) {
                   gap: "4px",
                   opacity: page >= totalPages ? 0.3 : 1,
                   color: "#1a1a1a",
-                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
+                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,0.15)",
                 }}
               >
                 NEXT
@@ -775,13 +700,25 @@ export function VaultPage({ session }: VaultPageProps) {
             >
               Past Themes
             </h3>
+            <button
+              onClick={() => setStarFilter(!starFilter)}
+              title={starFilter ? "Show all" : "Show starred only"}
+              style={{
+                background: "none", border: "none", cursor: "pointer", padding: "2px",
+                color: starFilter ? "#f59e0b" : "#ccc", transition: "color 0.15s",
+              }}
+            >
+              <Star size={14} className={starFilter ? "fill-current" : ""} />
+            </button>
           </div>
 
           {/* Theme list */}
           <div style={{ padding: "12px 16px", flex: 1 }}>
             {pastThemes.length > 0 ? (
               <div className="flex flex-row md:flex-col gap-2 md:gap-1.5 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
-                {pastThemes.map((theme) => (
+                {pastThemes
+                  .filter(t => !starFilter || t.starred)
+                  .map((theme) => (
                   <div
                     key={theme.id}
                     onClick={() => handleThemeClick(theme.id)}
@@ -789,13 +726,14 @@ export function VaultPage({ session }: VaultPageProps) {
                     style={{
                       padding: "6px 8px",
                       transition: "background 0.1s ease",
-                      background: activeDigestId === theme.id ? "rgba(255,0,127,0.1)" : "transparent",
-                      borderLeft: activeDigestId === theme.id ? "4px solid #ff007f" : "4px solid transparent",
+                      background: activeDigestId === theme.id ? "#f3f4f6" : "transparent",
+                      borderLeft: activeDigestId === theme.id ? "4px solid #1a1a1a" : "4px solid transparent",
                       minWidth: "140px",
+                      cursor: "pointer",
                     }}
                     onMouseEnter={(e) => {
                       if (activeDigestId !== theme.id) {
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,0,127,0.05)";
+                        (e.currentTarget as HTMLElement).style.background = "#f9fafb";
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -804,17 +742,29 @@ export function VaultPage({ session }: VaultPageProps) {
                       }
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: "0.65rem",
-                        color: "#666",
-                        fontFamily: 'var(--font-mono), monospace',
-                        display: "block",
-                        marginBottom: "2px",
-                      }}
-                    >
-                      {theme.date}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "2px" }}>
+                      <span
+                        style={{
+                          fontSize: "0.6rem",
+                          color: "#888",
+                          fontFamily: "var(--font-mono), monospace",
+                        }}
+                      >
+                        {theme.date}
+                      </span>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const newStarred = !theme.starred;
+                          setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: newStarred } : t));
+                          try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: theme.id }) }); } catch { setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: !newStarred } : t)); }
+                        }}
+                        style={{ background: "none", border: "none", cursor: "pointer", padding: "0", flexShrink: 0, color: theme.starred ? "#f59e0b" : "#ddd", transition: "color 0.15s" }}
+                        className="hover:text-[#f59e0b]"
+                      >
+                        <Star size={10} className={theme.starred ? "fill-current" : ""} />
+                      </button>
+                    </div>
                     <span
                       style={{
                         fontSize: "0.8rem",
@@ -839,11 +789,11 @@ export function VaultPage({ session }: VaultPageProps) {
                   fontSize: "0.6rem",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
-                  color: "#666",
-                  fontFamily: 'var(--font-mono), monospace',
+                  color: "#888",
+                  fontFamily: "var(--font-mono), monospace",
                 }}
               >
-                No past themes yet
+                {starFilter ? "No starred themes" : "No past themes yet"}
               </span>
             )}
           </div>
@@ -883,6 +833,17 @@ export function VaultPage({ session }: VaultPageProps) {
           </div>
         </div>
       </aside>
+
+      {/* Paper detail overlay */}
+      {selectedPaper && (
+        <PaperDetail
+          paper={selectedPaper}
+          session={session}
+          onBack={() => setSelectedPaper(null)}
+          onStar={(id) => handleFeedback(id, "star")}
+          onDislike={(id) => handleFeedback(id, "dislike")}
+        />
+      )}
     </div>
   );
 }

@@ -1,24 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { PaperCard, type PaperItem } from "./paper-card";
 import { PaperDetail } from "./paper-detail";
 import { SynthesisBanner } from "./synthesis-banner";
-import { KnowledgeGraph } from "./knowledge-graph";
 
 interface Digest {
   id: string;
+  theme: string | null;
   synthesisContent: string | null;
   keyConcepts: string[];
+  starred: boolean | null;
   date: string;
-}
-
-interface Interest {
-  id: string;
-  keyword: string;
-  weight: number | null;
-  source: "seed" | "star" | "engagement" | "dislike";
 }
 
 interface Session {
@@ -32,17 +26,18 @@ interface Session {
 
 interface TodayPageProps {
   session: Session;
+  onRegisterRefresh?: (fn: () => void) => void;
 }
 
-export function TodayPage({ session }: TodayPageProps) {
+export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
-  const [interests, setInterests] = useState<Interest[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   const [selectedPaper, setSelectedPaper] = useState<PaperItem | null>(null);
+  const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
   const fetchDigest = useCallback(async () => {
     try {
@@ -56,22 +51,17 @@ export function TodayPage({ session }: TodayPageProps) {
     }
   }, []);
 
-  const fetchInterests = useCallback(async () => {
-    try {
-      const res = await fetch("/api/interests");
-      if (!res.ok) return;
-      const data = await res.json();
-      setInterests(data.interests ?? []);
-    } catch (err) {
-      console.error("Failed to fetch interests:", err);
-    }
-  }, []);
+  useEffect(() => {
+    fetchDigest().finally(() => setLoading(false));
+  }, [fetchDigest]);
 
   useEffect(() => {
-    Promise.all([fetchDigest(), fetchInterests()]).finally(() =>
-      setLoading(false)
-    );
-  }, [fetchDigest, fetchInterests]);
+    handleGenerateRef.current = handleGenerate;
+  });
+
+  useEffect(() => {
+    onRegisterRefresh?.(() => handleGenerateRef.current?.(true));
+  }, [onRegisterRefresh]);
 
   const handleGenerate = async (force = false) => {
     setGenerating(true);
@@ -90,7 +80,6 @@ export function TodayPage({ session }: TodayPageProps) {
       });
       if (res.ok) {
         await fetchDigest();
-        await fetchInterests();
       } else {
         const data = await res.json().catch(() => ({}));
         setGenerateError(data.error || `Generation failed (${res.status}). Check your API key in settings.`);
@@ -110,14 +99,9 @@ export function TodayPage({ session }: TodayPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type }),
       });
-      await fetchInterests();
     } catch (err) {
       console.error("Failed to submit feedback:", err);
     }
-  };
-
-  const handleConceptClick = (concept: string) => {
-    setActiveConcept((prev) => (prev === concept ? null : concept));
   };
 
   const isPaperHighlighted = (paper: PaperItem) => {
@@ -129,38 +113,6 @@ export function TodayPage({ session }: TodayPageProps) {
       (paper.summary ?? "").toLowerCase().includes(conceptLower)
     );
   };
-
-  // Show user's interests that connect to today's papers (partial match)
-  const graphInterests = useMemo(() => {
-    const paperText = papers.map(p => `${p.title} ${p.keywords.join(" ")} ${p.summary || ""}`).join(" ").toLowerCase();
-
-    // Include any user interest where any word appears in today's paper content
-    const matched = interests.filter((i) => {
-      const words = i.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      return words.some(w => paperText.includes(w));
-    });
-
-    // If fewer than 3 matches, pad with top-weighted interests
-    if (matched.length < 3) {
-      const matchedIds = new Set(matched.map((m) => m.id));
-      const remaining = interests
-        .filter((i) => !matchedIds.has(i.id))
-        .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0));
-      for (const interest of remaining) {
-        if (matched.length >= 3) break;
-        matched.push(interest);
-      }
-    }
-
-    return matched;
-  }, [papers, interests]);
-
-  // Extract paper keywords for the graph
-  const paperKeywordsForGraph = useMemo(() => {
-    return papers.flatMap(p =>
-      p.keywords.map(kw => ({ keyword: kw, paperId: p.id, paperTitle: p.title }))
-    );
-  }, [papers]);
 
   if (loading) {
     return (
@@ -206,21 +158,18 @@ export function TodayPage({ session }: TodayPageProps) {
     );
   }
 
-  if (selectedPaper) {
-    return (
-      <div className="p-4">
-        <PaperDetail
-          paper={selectedPaper}
-          session={session}
-          onBack={() => setSelectedPaper(null)}
-          onStar={(id) => handleFeedback(id, "star")}
-          onDislike={(id) => handleFeedback(id, "dislike")}
-        />
-      </div>
-    );
-  }
-
   const allPapers = papers;
+
+  // Build concept definition map from digest keyConcepts ("term: definition" format)
+  const conceptDefs: Record<string, string> = {};
+  for (const concept of digest.keyConcepts) {
+    const colonIdx = concept.indexOf(": ");
+    if (colonIdx > 0) {
+      const term = concept.slice(0, colonIdx).toLowerCase().trim();
+      const def = concept.slice(colonIdx + 2).trim();
+      conceptDefs[term] = def;
+    }
+  }
 
   return (
     <div className="flex flex-col md:flex-row md:h-[calc(100vh-2.75rem)]">
@@ -229,12 +178,14 @@ export function TodayPage({ session }: TodayPageProps) {
         {digest.synthesisContent ? (
           <SynthesisBanner
             synthesis={digest.synthesisContent}
+            theme={digest.theme ?? undefined}
             keyConcepts={digest.keyConcepts}
+            digestId={digest.id}
+            digestStarred={!!digest.starred}
             activeConcept={activeConcept}
-            onConceptClick={handleConceptClick}
+            onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
             papers={allPapers}
             onSelectPaper={setSelectedPaper}
-            onAddInterest={() => fetchInterests()}
             session={session}
           />
         ) : (
@@ -253,11 +204,28 @@ export function TodayPage({ session }: TodayPageProps) {
         style={{ borderRight: "4px solid #1a1a1a" }}
       >
         <div className="p-4 space-y-3">
-          {allPapers.map((paper) => (
+          {/* Regenerate button */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => handleGenerate(true)}
+              disabled={generating}
+              className="flex items-center gap-1.5 px-3 py-1 text-[0.6rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors disabled:opacity-50"
+              style={{ border: "1.5px solid #ccc", fontFamily: "var(--font-mono), monospace" }}
+            >
+              {generating ? (
+                <><Loader2 className="size-3 animate-spin" /> Regenerating...</>
+              ) : (
+                <><RefreshCw className="size-3" /> Regenerate</>
+              )}
+            </button>
+          </div>
+          {allPapers.map((paper, idx) => (
             <PaperCard
               key={paper.id}
               paper={paper}
+              index={idx}
               highlighted={isPaperHighlighted(paper)}
+              conceptDefs={conceptDefs}
               onSelect={setSelectedPaper}
               onStar={(id) => handleFeedback(id, "star")}
               onDislike={(id) => handleFeedback(id, "dislike")}
@@ -298,44 +266,59 @@ export function TodayPage({ session }: TodayPageProps) {
         </div>
       </aside>
 
-      {/* Canvas area - hidden on mobile (synthesis shown above, graph below) */}
+      {/* Canvas area - hidden on mobile */}
       <div className="hidden md:flex flex-1 flex-col overflow-y-auto">
-        {/* Synthesis */}
-        <div style={{ padding: "40px" }}>
-          {digest.synthesisContent ? (
-            <SynthesisBanner
-              synthesis={digest.synthesisContent}
-              keyConcepts={digest.keyConcepts}
-              activeConcept={activeConcept}
-              onConceptClick={handleConceptClick}
-            />
-          ) : (
-            <span
-              className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
-              style={{ fontFamily: 'var(--font-mono), monospace' }}
-            >
-              No synthesis available
-            </span>
-          )}
-        </div>
+        {selectedPaper ? (
+          <PaperDetail
+            paper={selectedPaper}
+            session={session}
+            inline
+            onBack={() => setSelectedPaper(null)}
+            onStar={(id) => handleFeedback(id, "star")}
+            onDislike={(id) => handleFeedback(id, "dislike")}
+          />
+        ) : (
+          <>
+            <div style={{ padding: "40px 40px 24px 40px" }}>
+              {digest.synthesisContent ? (
+                <SynthesisBanner
+                  synthesis={digest.synthesisContent}
+                  theme={digest.theme ?? undefined}
+                  keyConcepts={digest.keyConcepts}
+                  digestId={digest.id}
+                  digestStarred={!!digest.starred}
+                  activeConcept={activeConcept}
+                  onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
+                  papers={allPapers}
+                  onSelectPaper={setSelectedPaper}
+                  session={session}
+                />
+              ) : (
+                <span
+                  className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
+                  style={{ fontFamily: 'var(--font-mono), monospace' }}
+                >
+                  No synthesis available
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
-        {/* Node graph — below synthesis */}
-        <div style={{ padding: "0 40px 40px 40px", display: "flex", justifyContent: "flex-end" }}>
-          <KnowledgeGraph
-            interests={graphInterests}
-            paperKeywords={paperKeywordsForGraph}
-            onNodeClick={handleConceptClick}
+
+      {/* Paper detail overlay — mobile only (desktop uses inline) */}
+      {selectedPaper && (
+        <div className="block md:hidden">
+          <PaperDetail
+            paper={selectedPaper}
+            session={session}
+            onBack={() => setSelectedPaper(null)}
+            onStar={(id) => handleFeedback(id, "star")}
+            onDislike={(id) => handleFeedback(id, "dislike")}
           />
         </div>
-      </div>
-
-      {/* Knowledge graph on mobile - at the bottom */}
-      <div className="block md:hidden p-4">
-        <KnowledgeGraph
-          interests={graphInterests}
-          onNodeClick={handleConceptClick}
-        />
-      </div>
+      )}
     </div>
   );
 }

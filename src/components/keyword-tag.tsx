@@ -7,12 +7,13 @@ interface KeywordTagProps {
   keyword: string;
   color?: string;
   textColor?: string;
+  definition?: string;
   onClick?: () => void;
 }
 
 const PASTEL_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
 
-export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagProps) {
+export function KeywordTag({ keyword, color, textColor, definition, onClick }: KeywordTagProps) {
   const [hovered, setHovered] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
@@ -65,7 +66,7 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
     }
   };
 
-  const bg = color || PASTEL_COLORS[0];
+  const bg = color || "rgba(255, 255, 255, 0.85)";
   const showAddButton = !isInterest && (hovered || isTouchDevice);
 
   return (
@@ -74,13 +75,13 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
         position: "relative",
         display: "inline-flex",
         alignItems: "center",
-        padding: "3px 10px",
-        paddingRight: !isInterest ? "24px" : "10px",
+        padding: "4px 12px",
+        paddingRight: !isInterest ? "26px" : "12px",
         background: bg,
         border: "2px solid #1a1a1a",
         boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
         color: textColor || "#1a1a1a",
-        fontSize: "10px",
+        fontSize: "9px",
         fontWeight: 700,
         textTransform: "uppercase",
         letterSpacing: "0.5px",
@@ -92,6 +93,31 @@ export function KeywordTag({ keyword, color, textColor, onClick }: KeywordTagPro
       onMouseLeave={() => setHovered(false)}
     >
       {keyword}
+      {definition && hovered && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 6px)",
+            left: "0",
+            background: "#1a1a1a",
+            color: "white",
+            fontSize: "0.7rem",
+            fontWeight: 400,
+            textTransform: "none",
+            letterSpacing: "0",
+            fontFamily: "inherit",
+            lineHeight: 1.4,
+            padding: "6px 10px",
+            whiteSpace: "normal",
+            width: "220px",
+            zIndex: 50,
+            pointerEvents: "none",
+            boxShadow: "2px 2px 0px 0px rgba(0,0,0,0.4)",
+          }}
+        >
+          {definition}
+        </span>
+      )}
       {showAddButton && (
         <button
           onClick={handleAdd}

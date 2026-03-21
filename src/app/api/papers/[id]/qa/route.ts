@@ -5,12 +5,13 @@ import { eq, and } from "drizzle-orm";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { qaPrompt } from "@/lib/ai/prompts";
 import { downloadAndParsePdf } from "@/lib/fetchers/pdf";
+import { getAuthUser } from "@/lib/get-user";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -32,7 +33,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

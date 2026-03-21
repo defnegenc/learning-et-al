@@ -1,50 +1,110 @@
-export const SYNTHESIS_SYSTEM = `You write like a sharp analyst, not a summarizer. You find the non-obvious connection. You identify what each paper gets RIGHT and what it MISSES. Your reader should finish and think "huh, I hadn't considered that." No em dashes. No corporate filler. No hand-waving.`;
+export const SYNTHESIS_SYSTEM = `You write like a person texting a group chat, not writing an essay. You use contractions (it's, don't, can't, they're). You start sentences with "So", "But", "And", "Turns out". You say "pretty wild", "kind of", "basically", "honestly". You never say "notably", "furthermore", "it is worth noting", "this highlights", "demonstrates". You sound like someone who just read something cool and wants to share it. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
 
-export function digestPrompt(items: { title: string; abstract: string; source: string; category?: string }[], theme: string) {
-  const listing = items.map((p, i) =>
-    `[${i + 1}] "${p.title}" (${p.source}, ${p.category || "unknown"})\n${p.abstract.slice(0, 2000)}`
-  ).join("\n\n");
+interface DigestContext {
+  focusInterest: string;
+  focusLevel: "beginner" | "intermediate" | "expert";
+  researchAngle: string;
+}
 
-  return `Today's theme is: "${theme}"
+export function digestPrompt(
+  items: { title: string; abstract: string; source: string; category?: string; year?: number }[],
+  theme: string,
+  ctx?: DigestContext
+) {
+  const listing = items.map((p, i) => {
+    const maxChars = p.source === "rss" ? 6000 : 2000;
+    const yearStr = p.year ? `, ${p.year}` : "";
+    return `[${i + 1}] "${p.title}" (${p.source}${yearStr}, ${p.category || "unknown"})\n${p.abstract.slice(0, maxChars)}`;
+  }).join("\n\n");
 
-Here are 3 items. Produce JSON (no markdown fences):
+  const contextBlock = ctx
+    ? `User's interest: "${ctx.focusInterest}" (level: ${ctx.focusLevel})
+Research angle for today: "${ctx.researchAngle}"
+`
+    : "";
+
+  return `${contextBlock}Today's theme: "${theme}"
+
+Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "summary": "2-3 sentence summary", "keywords": ["kw1", "kw2", "kw3"] }
+    { "index": 1, "summary": "2-3 sentence plain-English summary", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"] }
   ],
   "synthesis": "see format below",
-  "keyConcepts": ["concept1", "concept2", "concept3", "concept4", "concept5"]
+  "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
 }
 
+SUMMARY RULES:
+- Write for a smart person who is NOT a domain expert. No jargon without explanation.
+- When you must use a technical term, define it immediately: "formal verification (a method for mathematically proving code is correct)"
+- Focus on what the paper actually FOUND and why it matters — not what it set out to do.
+- For NEWS articles: the summary should be a TL;DR that tells the reader the CORE CONTENT of the article. Name specific companies, products, numbers, trends. The reader should walk away knowing what the article actually said.
+- BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches for sentiment classification tasks"
+- BAD: "This industry report outlines key trends in AI agent development" — WHICH trends? NAME THEM.
+- GOOD: "Researchers tested whether you could fine-tune a large AI model cheaply by only updating a tiny fraction of its parameters. On social media text, this cut training costs 10x with only a 3% accuracy drop."
+- GOOD: "FintechNews reports that multi-agent collaboration, agentic RAG, and vertical AI agents (specialized for healthcare, legal, finance) are the three biggest AI agent trends heading into 2026."
+
+FINDINGS RULES:
+- 3 findings per paper. Each one answers: "what did they FIND OUT?" not "what did they DO?"
+- A finding is a RESULT, OUTCOME, or CONCLUSION. Not a method, not a description of the study.
+- Think of it as: if someone asks "so what?" — your finding should answer that.
+
+BAD findings (these describe the STUDY, not the RESULTS):
+- "Five gamified versions were created and tested with 13 experts" — that's the METHOD, not what they found
+- "The paper examines how AI affects creativity" — tells me nothing
+- "Researchers surveyed 381 students about emoji use" — that's what they DID, not what they LEARNED
+- "Expert interviews revealed design principles" — WHICH principles? Say them.
+
+GOOD findings (these tell me WHAT WORKED, WHAT HAPPENED, WHAT'S TRUE):
+- "Leaderboards boosted student attention by 40% but badges had no measurable effect"
+- "The podcast group's motivation jumped massively (1.33 effect size) while the control group showed zero change"
+- "Salesforce's Agentforce processed 1 billion agent actions in December 2024"
+- "Multi-agent collaboration is the #1 AI agent trend for 2026 according to the report"
+
+For NEWS: name the specific companies, products, numbers, trends. The reader should learn the actual content from your 3 findings.
+
 KEYWORD RULES:
-- Each paper's keywords should be 3 DISTINCT terms, not variations of the same concept
-- BAD: ["co-creative systems", "co-creation", "creative collaboration"] — these are the same thing
-- GOOD: ["co-creative AI", "design agency", "human-AI handoff"] — each is a different angle
-- keyConcepts should be 5 themes that SPAN all papers, not repeat per-paper keywords
+- Keywords should describe what the PAPER is actually about, not the user's interest. If the paper is about nutrition, say "precision nutrition" not "fashion tech"
+- Keywords should be terms a curious person could Google and learn something from
+- For ${ctx?.focusLevel === "beginner" ? "beginners" : "this level"}: avoid pure jargon acronyms (HMC, ELBO). Use plain-ish terms: "Bayesian inference" not "MCMC sampling"
+- 3 DISTINCT terms per paper — not variations of the same thing
 
-SYNTHESIS — write it as an engaging narrative that makes the reader THINK:
+KEYCONCEPTS RULES:
+- 5 concepts that span all papers
+- MUST include at least 1 concept that explains the user's core interest: "${ctx?.focusInterest ?? "the main topic"}"
+- Format MUST be "term: definition" — e.g. "AI agents: AI systems that take sequences of actions to complete a goal autonomously"
+- Definitions must be one plain sentence, as if explaining to a curious 20-year-old with no domain background
 
-Line 1: "Today's thread: ${theme}"
+SYNTHESIS — conversational walkthrough of today's findings.
 
-Then write 4-6 sentences that tell a STORY with genuine tension. DO NOT just summarize each paper in sequence. Instead:
-- Identify the REAL contradiction or tension between the items. Paper A says X works. But Paper B found that X breaks when Y happens.
-- Go one level deeper than description. WHY does the disagreement exist? What assumption does each paper make that the other rejects?
-- If there's a news item, use it to show what happens when theory meets reality. Did the real world prove one paper right and the other wrong?
-- END with a question that is genuinely hard to answer. Not rhetorical, not a softball. Something where smart people would disagree. "But if X, then what happens to Y?" or "The real question is whether Z."
-- Each sentence should earn its place. If a sentence just describes what a paper did without connecting it to the tension, cut it.
+Your synthesis MUST begin with this EXACT opening line (I will provide it, just copy it):
+"Today we're looking at this from three angles: **${items[0]?.title?.split(/[:.]/)[0].trim() ?? ""}**, **${items[1]?.title?.split(/[:.]/)[0].trim() ?? ""}**, and **${items[2]?.title?.split(/[:.]/)[0].trim() ?? "a real-world story"}**."
 
-The tone should be like a sharp analyst briefing (think Stratechery or Benedict Evans). Clear, opinionated, draws non-obvious connections.
+After that opening line, write 3 paragraphs + a closing. EVERY paragraph must discuss one item:
 
-Mention each item by name in **bold**.
+PARAGRAPH 1 — about [1] "${items[0]?.title ?? ""}":
+Start with something like "First up," or "Starting with" and reference **${items[0]?.title?.split(/[:.]/)[0].trim() ?? ""}** in bold. Say what they found in plain words. 2-3 sentences.
+
+PARAGRAPH 2 — about [2] "${items[1]?.title ?? ""}":
+Transition naturally ("What's striking is...", "Now contrast that with...", "This connects to..."). Reference **${items[1]?.title?.split(/[:.]/)[0].trim() ?? ""}** in bold. Say what they found and how it relates to paper 1. 2-3 sentences.
+
+PARAGRAPH 3 — about [3] "${items[2]?.title ?? ""}":
+Transition ("And in the real world...", "Then there's...", "Meanwhile..."). Reference **${items[2]?.title?.split(/[:.]/)[0].trim() ?? ""}** in bold. Say what it adds. 1-2 sentences.
+
+CLOSING — 2 sentences:
+What pattern or tension do you see across all three? End with "If you want to go deeper, look into [specific thing], [specific reason]."
+
+TONE: You're a curious friend walking someone through what you read today. Human words. Short sentences. No academic language.
+
+Paper titles in **bold**. Use the short version (before the colon if there is one). The theme "${theme}" is the big headline above — don't restate it.
 
 RULES:
-- NO em dashes (—). Use periods, commas, "and", "but".
-- NO: demonstrates, reveals, highlights, suggests, indicates, showcases, underscores, bridges, navigates
-- NO: "the gap between", "early stages of", "democratization of", "landscape of"
-- NO: "so basically", "what's wild is", "the interesting part is" — these are filler. Just make the point.
-- Be SPECIFIC. Say what the paper found, not that it "explored" something.
-- 4-6 sentences after the theme line. End on a question that smart people would disagree about.
+- NO em dashes. Use periods, commas, "and", "but".
+- NO: demonstrates, reveals, highlights, suggests, indicates, showcases, underscores, elicits, employs, utilizes, nuanced, multifaceted
+- NO: "the gap between", "the question of whether", "it is increasingly", "a complex but"
+- Be SPECIFIC. Say what was found, not that it "explored" something.
+- Use paragraph breaks between each paper discussion.
 
 Papers:
 

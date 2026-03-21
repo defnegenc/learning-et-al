@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { signOut } from "next-auth/react";
+import { LogOut } from "lucide-react";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
 import { SettingsDialog } from "@/components/settings-dialog";
@@ -22,6 +24,7 @@ interface AppShellProps {
 
 export function AppShell({ session, updateSession }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<"today" | "vault">("today");
+  const refreshDigestRef = useRef<(() => void) | null>(null);
 
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
@@ -106,12 +109,34 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           </button>
         </div>
 
-        <SettingsDialog session={session} updateSession={updateSession} />
+        <div className="flex items-center gap-2">
+          <SettingsDialog
+            session={session}
+            updateSession={updateSession}
+            onRefreshDigest={() => refreshDigestRef.current?.()}
+          />
+          <button
+            onClick={() => signOut()}
+            title="Sign out"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
+            className="hover:text-[#1a1a1a] transition-colors"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </header>
 
       <main className="relative z-10 flex-1">
-        {activeTab === "today" && <TodayPage session={session} />}
-        {activeTab === "vault" && <VaultPage session={session} />}
+        {/* Both tabs always mounted — hidden one stays alive so generation doesn't die on tab switch */}
+        <div style={{ display: activeTab === "today" ? "contents" : "none" }}>
+          <TodayPage
+            session={session}
+            onRegisterRefresh={(fn) => { refreshDigestRef.current = fn; }}
+          />
+        </div>
+        <div style={{ display: activeTab === "vault" ? "contents" : "none" }}>
+          <VaultPage session={session} />
+        </div>
       </main>
     </div>
   );

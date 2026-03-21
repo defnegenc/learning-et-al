@@ -41,7 +41,13 @@ yarn-error.log*
 next-env.d.ts
 
 # sqlite
-paper-processor.db
-paper-processor.db-wal
-paper-processor.db-shm
+*.db
+*.db-wal
+*.db-shm
 .env.local
+
+# model cache
+.cache/
+
+# source fonts (public/fonts has the copies)
+apercu pro/

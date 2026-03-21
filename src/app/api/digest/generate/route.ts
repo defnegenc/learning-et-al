@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDigest } from "@/lib/pipeline/digest";
 import { AIConfig } from "@/lib/ai/provider";
+import { getAuthUser } from "@/lib/get-user";
 
 export async function POST(req: NextRequest) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

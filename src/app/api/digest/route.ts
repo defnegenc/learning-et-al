@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { getAuthUser } from "@/lib/get-user";
 
 export async function GET(req: NextRequest) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -12,6 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const date = url.searchParams.get("date");
+    const id = url.searchParams.get("id");
     const all = url.searchParams.get("all");
 
     // Return all digests (for theme history)
@@ -30,9 +32,14 @@ export async function GET(req: NextRequest) {
     }
 
     let digest;
-    if (date) {
+    if (id) {
+      digest = await db.query.digests.findFirst({
+        where: and(eq(digests.userId, userId), eq(digests.id, id)),
+      });
+    } else if (date) {
       digest = await db.query.digests.findFirst({
         where: and(eq(digests.userId, userId), eq(digests.date, date)),
+        orderBy: desc(digests.createdAt),
       });
     } else {
       digest = await db.query.digests.findFirst({
@@ -58,6 +65,8 @@ export async function GET(req: NextRequest) {
         ...p,
         authors: p.authors ? JSON.parse(p.authors) : [],
         keywords: p.keywords ? JSON.parse(p.keywords) : [],
+        keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
+        connectionReason: p.connectionReason || null,
       })),
     });
   } catch (error) {
