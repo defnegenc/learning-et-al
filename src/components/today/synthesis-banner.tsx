@@ -6,6 +6,96 @@ import { KeywordTag } from "@/components/keyword-tag";
 import { Loader2, Plus, Check, Star } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
+// Sticky-note notepad for user notes on a digest
+function DigestNotes({ digestId }: { digestId: string }) {
+  const [notes, setNotes] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const storageKey = `digest_notes_${digestId}`;
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) { setNotes(saved); setExpanded(true); }
+  }, [storageKey]);
+
+  const handleSave = () => {
+    localStorage.setItem(storageKey, notes);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  if (!expanded) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        style={{
+          marginTop: "12px", padding: "10px 16px",
+          background: "#fef9c3", border: "2px solid #1a1a1a",
+          boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
+          fontSize: "0.75rem", fontWeight: 600, color: "#92400e",
+          cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
+          fontFamily: "var(--font-mono), monospace",
+          textTransform: "uppercase", letterSpacing: "1px",
+        }}
+      >
+        <span style={{ fontSize: "1rem" }}>📝</span> Add notes
+      </button>
+    );
+  }
+
+  return (
+    <div style={{
+      marginTop: "12px", background: "#fef9c3",
+      border: "2px solid #1a1a1a", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+      padding: "16px",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+        <span style={{
+          fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
+          letterSpacing: "2px", color: "#92400e",
+          fontFamily: "var(--font-mono), monospace",
+        }}>
+          📝 My Notes
+        </span>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {saved && <span style={{ fontSize: "0.65rem", color: "#38b000", fontFamily: "var(--font-mono), monospace" }}>Saved</span>}
+          <button
+            onClick={handleSave}
+            style={{
+              padding: "4px 12px", background: "#1a1a1a", color: "white",
+              border: "none", fontSize: "0.6rem", fontWeight: 700,
+              textTransform: "uppercase", letterSpacing: "1px",
+              fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+            }}
+          >
+            Save
+          </button>
+          <button
+            onClick={() => setExpanded(false)}
+            style={{
+              padding: "4px 8px", background: "none", border: "none",
+              fontSize: "0.8rem", cursor: "pointer", color: "#92400e",
+            }}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="What stood out? What do you want to remember?"
+        style={{
+          width: "100%", minHeight: "80px", background: "transparent",
+          border: "none", outline: "none", resize: "vertical",
+          fontSize: "0.88rem", lineHeight: 1.6, color: "#78350f",
+          fontFamily: "inherit",
+        }}
+      />
+    </div>
+  );
+}
+
 // Inline tooltip for hard words — shows definition on hover
 function DefinitionTooltip({ term, definition, children }: { term: string; definition: string; children: React.ReactNode }) {
   const [show, setShow] = useState(false);
@@ -365,6 +455,9 @@ export function SynthesisBanner({
           })}
         </div>
       )}
+
+      {/* Notes — sticky post-it */}
+      {digestId && session && <DigestNotes digestId={digestId} />}
 
       {/* Dig deeper — chat-style */}
       {papers.length > 0 && session && (
