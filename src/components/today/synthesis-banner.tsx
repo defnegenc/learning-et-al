@@ -203,13 +203,13 @@ export function SynthesisBanner({
     setDigDeeperLoading(true);
     setDigDeeperAnswer(null);
     try {
-      const context = papers.map(p => `${p.title}: ${p.summary || ""}`).join("\n\n");
-      // Use the first paper's QA endpoint as a proxy, or call a general endpoint
-      const res = await fetch(`/api/papers/${papers[0]?.id}/qa`, {
+      // Use digest chat endpoint — only sends summaries, not full papers
+      const res = await fetch("/api/digest/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: `Context: Today's digest is about "${displayTheme || "this topic"}". Papers: ${context}\n\nQuestion: ${question}`,
+          question: `Keep your answer to 3-4 sentences max. Be specific and concrete.\n\n${question}`,
+          digestId: digestId || papers[0]?.id,
           apiKey: session.apiKey,
           provider: session.provider,
           model: session.model,
@@ -217,7 +217,7 @@ export function SynthesisBanner({
         }),
       });
       const data = await res.json();
-      setDigDeeperAnswer(data.qaPair?.answer || data.qa?.answer || "Couldn't get an answer.");
+      setDigDeeperAnswer(data.answer || "Couldn't get an answer.");
     } catch {
       setDigDeeperAnswer("Something went wrong. Try again.");
     }
