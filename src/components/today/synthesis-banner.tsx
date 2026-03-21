@@ -392,26 +392,28 @@ export function SynthesisBanner({
                 const overlap = boldWords.filter(w => titleWords.includes(w));
                 return overlap.length >= 3 || (overlap.length >= 2 && boldWords.length <= 4);
               });
-              // Underline colors from paper card blob/tag palettes
-              const UNDERLINE_COLORS = ["#f9a8d4", "#93c5fd", "#c4b5fd"];
+              // Highlight colors from paper card blob palettes
+              const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.3)", "rgba(147,197,253,0.3)", "rgba(196,181,253,0.3)"];
+              const HIGHLIGHT_HOVER = ["rgba(249,168,212,0.5)", "rgba(147,197,253,0.5)", "rgba(196,181,253,0.5)"];
               if (matchedPaper && onSelectPaper) {
                 const paperIdx = papers.indexOf(matchedPaper);
-                const underlineColor = UNDERLINE_COLORS[paperIdx % UNDERLINE_COLORS.length];
+                const bg = HIGHLIGHT_COLORS[paperIdx % HIGHLIGHT_COLORS.length];
+                const bgHover = HIGHLIGHT_HOVER[paperIdx % HIGHLIGHT_HOVER.length];
                 return (
                   <span
                     style={{
                       color: "#111",
-                      fontSize: "1.12em",
+                      fontSize: "1.1em",
                       fontWeight: 700,
-                      textDecoration: "underline",
-                      textDecorationColor: underlineColor,
-                      textDecorationThickness: "3px",
-                      textUnderlineOffset: "3px",
+                      background: bg,
+                      padding: "1px 4px",
+                      margin: "0 -2px",
                       cursor: "pointer",
-                      transition: "text-decoration-color 0.15s",
+                      transition: "background 0.15s",
+                      borderRadius: "2px",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.textDecorationColor = "#1a1a1a"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.textDecorationColor = underlineColor; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = bgHover; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = bg; }}
                     onClick={() => onSelectPaper(matchedPaper)}
                   >
                     {children}
