@@ -76,9 +76,9 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
 
   return (
     <div className="flex flex-col md:flex-row md:h-[calc(100vh-4rem)]">
-      {/* Sidebar — paper cards */}
+      {/* Sidebar — paper cards (desktop only) */}
       <aside
-        className="overflow-y-auto shrink-0 w-full md:w-[380px]"
+        className="hidden md:block overflow-y-auto shrink-0 w-[380px]"
         style={{ borderRight: "4px solid #1a1a1a" }}
       >
         <div className="p-4 space-y-3">
@@ -183,7 +183,7 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
             </div>
           </div>
         ) : (
-          <div style={{ padding: "40px 40px 24px 40px" }}>
+          <div className="p-4 md:p-10">
             {digest.synthesisContent && (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}
@@ -222,6 +222,21 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
               }}>
                 Sign in with Google
               </button>
+            </div>
+
+            {/* Mobile compact cards */}
+            <div className="block md:hidden space-y-2 mt-6">
+              {papers.map((paper, idx) => (
+                <PaperCard
+                  key={paper.id}
+                  paper={paper}
+                  index={idx}
+                  compact
+                  onSelect={setSelectedPaper}
+                  onStar={() => {}}
+                  onDislike={() => {}}
+                />
+              ))}
             </div>
           </div>
         )}

@@ -97,9 +97,8 @@ export function PaperCard({
 
   return (
     <article
-      className="group relative"
+      className="group relative md:aspect-square"
       style={{
-        aspectRatio: "1 / 1",
         background: "white",
         border: borderStyle,
         boxShadow: shadowStyle,

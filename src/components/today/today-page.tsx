@@ -198,9 +198,26 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
         )}
       </div>
 
-      {/* Sidebar - paper cards */}
+      {/* Mobile paper cards — compact, below synthesis */}
+      <div className="block md:hidden px-4 pb-4 space-y-2">
+        {allPapers.map((paper, idx) => (
+          <PaperCard
+            key={paper.id}
+            paper={paper}
+            index={idx}
+            compact
+            highlighted={isPaperHighlighted(paper)}
+            conceptDefs={conceptDefs}
+            onSelect={setSelectedPaper}
+            onStar={(id) => handleFeedback(id, "star")}
+            onDislike={(id) => handleFeedback(id, "dislike")}
+          />
+        ))}
+      </div>
+
+      {/* Sidebar - paper cards (hidden on mobile, shown on desktop) */}
       <aside
-        className="overflow-y-auto shrink-0 w-full md:w-[380px]"
+        className="hidden md:block overflow-y-auto shrink-0 w-[380px]"
         style={{ borderRight: "4px solid #1a1a1a" }}
       >
         <div className="p-4 space-y-3">
