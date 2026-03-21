@@ -4,9 +4,10 @@ import { papers, comparisons } from "@/lib/db/schema";
 import { inArray } from "drizzle-orm";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { comparisonPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
+import { getAuthUser } from "@/lib/get-user";
 
 export async function POST(req: NextRequest) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

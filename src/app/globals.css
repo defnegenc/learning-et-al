@@ -121,6 +121,49 @@
   --sidebar-ring: #1a1a1a;
 }
 
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/apercu_regular_pro.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/apercu_regular_italic_pro.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/apercu_medium_pro.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/apercu_medium_italic_pro.otf") format("opentype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/apercu_bold_pro.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Apercu Pro";
+  src: url("/fonts/apercu_bold_italic_pro.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -128,11 +171,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "Apercu Pro", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 0.95rem;
   }
   html {
-    font-family: var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "Apercu Pro", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
   input, textarea, button, a {
     cursor: crosshair;

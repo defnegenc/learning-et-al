@@ -1,16 +1,79 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { KeywordTag } from "@/components/keyword-tag";
-import { Loader2, Plus, Check } from "lucide-react";
+import { Loader2, Plus, Check, Star } from "lucide-react";
 import type { PaperItem } from "./paper-card";
+
+// Inline tooltip for hard words — shows definition on hover
+function DefinitionTooltip({ term, definition, children }: { term: string; definition: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      style={{ position: "relative", borderBottom: "1.5px dotted #999", cursor: "help" }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          background: "#1a1a1a", color: "white", fontSize: "0.78rem", fontWeight: 400,
+          lineHeight: 1.5, padding: "8px 12px", whiteSpace: "normal", width: "260px",
+          zIndex: 50, pointerEvents: "none", boxShadow: "3px 3px 0px 0px rgba(0,0,0,0.3)",
+        }}>
+          <strong style={{ display: "block", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "3px", color: "#999" }}>
+            {term}
+          </strong>
+          {definition}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Scan text children for terms that have definitions, wrap them in tooltips
+function annotateText(children: React.ReactNode, defs: Record<string, string>): React.ReactNode {
+  if (!defs || Object.keys(defs).length === 0) return children;
+
+  return React.Children.map(children, child => {
+    if (typeof child !== "string") return child;
+
+    // Build regex from definition terms (sorted longest first to match "extended cognition" before "cognition")
+    const terms = Object.keys(defs).sort((a, b) => b.length - a.length);
+    if (terms.length === 0) return child;
+    const regex = new RegExp(`\\b(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
+
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    const matched = new Set<string>(); // only annotate first occurrence
+    let match;
+    while ((match = regex.exec(child)) !== null) {
+      const term = match[1].toLowerCase();
+      if (matched.has(term)) continue;
+      matched.add(term);
+      if (match.index > lastIndex) parts.push(child.slice(lastIndex, match.index));
+      parts.push(
+        <DefinitionTooltip key={match.index} term={match[1]} definition={defs[term]}>
+          {match[1]}
+        </DefinitionTooltip>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < child.length) parts.push(child.slice(lastIndex));
+    return parts.length > 0 ? <>{parts}</> : child;
+  });
+}
 
 interface SynthesisBannerProps {
   synthesis: string;
+  theme?: string;
   keyConcepts: string[];
   activeConcept: string | null;
   onConceptClick: (concept: string) => void;
+  digestId?: string;
+  digestStarred?: boolean;
   papers?: PaperItem[];
   onSelectPaper?: (paper: PaperItem) => void;
   onAddInterest?: (keyword: string) => void;
@@ -22,18 +85,35 @@ interface SynthesisBannerProps {
   };
 }
 
-const PASTEL_COLORS = ["#bbf7d0", "#fbcfe8", "#e9d5ff", "#bfdbfe", "#fef08a"];
+const PASTEL_COLORS = ["#fce7f3", "#dcfce7", "#dbeafe", "#fef9c3", "#ede9fe"];
 
 export function SynthesisBanner({
   synthesis,
+  theme,
   keyConcepts,
   activeConcept,
   onConceptClick,
+  digestId,
+  digestStarred = false,
   papers = [],
   onSelectPaper,
   onAddInterest,
   session,
 }: SynthesisBannerProps) {
+  const [starred, setStarred] = useState(digestStarred);
+
+  // Build concept definition map from keyConcepts ("term: definition" format)
+  const conceptDefs = useMemo(() => {
+    const defs: Record<string, string> = {};
+    for (const concept of keyConcepts) {
+      const colonIdx = concept.indexOf(": ");
+      if (colonIdx > 0) {
+        defs[concept.slice(0, colonIdx).toLowerCase().trim()] = concept.slice(colonIdx + 2).trim();
+      }
+    }
+    return defs;
+  }, [keyConcepts]);
+
   const [digDeeperAnswer, setDigDeeperAnswer] = useState<string | null>(null);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
@@ -44,15 +124,16 @@ export function SynthesisBanner({
     if (addedConcepts.has(concept) || addingConcept) return;
     setAddingConcept(concept);
     try {
+      const conceptName = concept.includes(": ") ? concept.split(": ")[0] : concept;
       const res = await fetch("/api/interests/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword: concept }),
+        body: JSON.stringify({ keyword: conceptName }),
       });
       const data = await res.json();
       if (data.added) {
         setAddedConcepts(prev => new Set([...prev, concept]));
-        onAddInterest?.(concept);
+        onAddInterest?.(conceptName);
       }
     } catch { /* silent */ }
     setAddingConcept(null);
@@ -65,46 +146,56 @@ export function SynthesisBanner({
     year: "numeric",
   });
 
-  // Split synthesis into thread title and body
+  // Extract theme headline + body from synthesis text
   const lines = synthesis.split("\n").filter(l => l.trim());
-  let threadTitle = "";
+  let displayTheme = theme || "";
   let bodyLines = lines;
 
-  const firstLine = lines[0] || "";
-  if (firstLine.toLowerCase().startsWith("today's thread:")) {
-    threadTitle = firstLine.replace(/^today's thread:\s*/i, "").trim();
-    bodyLines = lines.slice(1);
+  if (!displayTheme) {
+    // Try to extract from synthesis first line (old digests with prefix)
+    const firstLine = lines[0] || "";
+    const prefixMatch = firstLine.match(/^today(?:'s\s+\w+| we're exploring):\s*/i);
+    if (prefixMatch) {
+      const after = firstLine.slice(prefixMatch[0].length).trim();
+      const sentenceEnd = after.match(/^(.+?[?!.])/);
+      displayTheme = sentenceEnd ? sentenceEnd[1] : after;
+      bodyLines = lines.slice(1);
+    } else {
+      // No prefix — use the first sentence as the headline
+      const sentenceEnd = firstLine.match(/^(.+?[?!.])/);
+      if (sentenceEnd) {
+        displayTheme = sentenceEnd[1];
+        const remainder = firstLine.slice(sentenceEnd[0].length).trim();
+        bodyLines = remainder ? [remainder, ...lines.slice(1)] : lines.slice(1);
+      } else {
+        // Entire first line is the headline
+        displayTheme = firstLine;
+        bodyLines = lines.slice(1);
+      }
+    }
+  } else {
+    // Theme prop exists — strip first line if it's a prefix or repeats the theme
+    const firstLine = lines[0] || "";
+    if (/^today/i.test(firstLine)) {
+      bodyLines = lines.slice(1);
+    }
   }
   const bodyText = bodyLines.join("\n\n");
 
-  // Smart dig deeper prompts — based on the actual papers and theme
+  // Dig deeper prompts — short, casual, based on the actual content
   const digDeeperPrompts = useMemo(() => {
     if (papers.length === 0) return [];
+    const topic = (p: PaperItem) => p.keywords.length > 0 ? p.keywords[0].toLowerCase() : p.title.split(" ").slice(0, 3).join(" ").toLowerCase();
     const p0 = papers[0];
-    const p1 = papers.length > 1 ? papers[1] : null;
-    const p2 = papers.length > 2 ? papers[2] : null;
+    const p1 = papers[1];
+    const p2 = papers[2];
+
     const prompts: string[] = [];
-
-    // Cross-pollination
-    if (p0 && p1) {
-      prompts.push(`What if ${p0.title.split(" ").slice(0, 4).join(" ")}'s approach was applied to ${p1.title.split(" ").slice(0, 4).join(" ")}'s problem?`);
-    }
-    // Practical implications
-    prompts.push(`Who's actually building on this research right now? Any startups or products?`);
-    // History / context
-    if (p0) {
-      prompts.push(`What came before ${p0.title.split(" ").slice(0, 5).join(" ")}? What made it possible?`);
-    }
-    // Challenge / critique
-    if (p1) {
-      prompts.push(`What are the strongest criticisms of this line of research?`);
-    }
-    // News connection
-    if (p2 && p2.source === "rss") {
-      prompts.push(`How does the ${p2.title.split(" ").slice(0, 5).join(" ")} story change the picture here?`);
-    }
-
-    return prompts.slice(0, 3);
+    if (p0 && p1) prompts.push(`How do ${topic(p0)} and ${topic(p1)} actually connect?`);
+    prompts.push("What's the most surprising takeaway here?");
+    if (p0) prompts.push(`What should I read next about ${topic(p0)}?`);
+    if (p2) prompts.push(`Does the ${topic(p2)} angle change anything?`);
+    return prompts.slice(0, 4);
   }, [papers]);
 
   const handleDigDeeper = async (question: string) => {
@@ -118,7 +209,7 @@ export function SynthesisBanner({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: `Context: Today's digest is about "${threadTitle}". Papers: ${context}\n\nQuestion: ${question}`,
+          question: `Context: Today's digest is about "${displayTheme || "this topic"}". Papers: ${context}\n\nQuestion: ${question}`,
           apiKey: session.apiKey,
           provider: session.provider,
           model: session.model,
@@ -135,94 +226,109 @@ export function SynthesisBanner({
 
   return (
     <div className="space-y-5">
-      {/* Date */}
-      <span
-        style={{
-          fontSize: "0.875rem",
-          color: "#6b7280",
-          display: "block",
-          fontFamily: "var(--font-mono), monospace",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-        }}
-      >
-        {today}
-      </span>
-
-      {/* Thread title — large and impactful */}
-      {threadTitle && (
-        <h2
+      {/* Date + star */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span
           style={{
-            fontSize: "clamp(1.875rem, 4vw, 2.25rem)",
-            fontWeight: 800,
-            lineHeight: 1.15,
-            color: "#1a1a1a",
-            fontFamily: "var(--font-display), sans-serif",
-            letterSpacing: "-0.02em",
+            fontSize: "0.875rem",
+            color: "#6b7280",
+            fontFamily: "var(--font-mono), monospace",
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
           }}
         >
-          {threadTitle}
-        </h2>
+          {today}
+        </span>
+        {digestId && (
+          <button
+            title={starred ? "Unstar this digest" : "Star this digest"}
+            onClick={async () => {
+              setStarred(!starred);
+              try {
+                await fetch("/api/digest/star", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ digestId }),
+                });
+              } catch { setStarred(starred); }
+            }}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: "4px", display: "flex", alignItems: "center",
+              color: starred ? "#f59e0b" : "#d1d5db",
+              transition: "color 0.15s",
+            }}
+            className="hover:text-[#f59e0b]"
+          >
+            <Star size={20} className={starred ? "fill-current" : ""} />
+          </button>
+        )}
+      </div>
+
+      {/* Theme — big, bold, Space Grotesk */}
+      {displayTheme && (
+        <h1
+          style={{
+            fontSize: "clamp(2.5rem, 5.5vw, 3.75rem)",
+            fontWeight: 700,
+            lineHeight: 1.1,
+            color: "#111",
+            fontFamily: "var(--font-display), sans-serif",
+            letterSpacing: "-0.025em",
+            maxWidth: "840px",
+          }}
+        >
+          {displayTheme}
+        </h1>
       )}
 
       {/* Synthesis body */}
       <div
-        className="text-[0.95rem] md:text-[1.125rem] text-gray-800"
-        style={{ lineHeight: "2", fontFamily: "var(--font-inter), sans-serif" }}
+        className="text-[0.95rem] md:text-[1.05rem] text-gray-700"
+        style={{ lineHeight: "1.85", fontFamily: "inherit" }}
       >
         <ReactMarkdown
           components={{
+            p: ({ children }) => (
+              <p style={{ marginBottom: "1.25em" }}>{annotateText(children, conceptDefs)}</p>
+            ),
             strong: ({ children }) => {
-              const text = String(children);
-              const matchedPaper = papers.find(
-                p => p.title.toLowerCase().includes(text.toLowerCase()) ||
-                     text.toLowerCase().includes(p.title.toLowerCase().slice(0, 30))
-              );
+              const text = String(children).toLowerCase();
+              const matchedPaper = papers.find(p => {
+                const title = p.title.toLowerCase();
+                if (title.includes(text) || text.includes(title.slice(0, 30))) return true;
+                const boldWords = text.split(/\s+/).filter(w => w.length > 3);
+                const titleWords = title.split(/\s+/).filter(w => w.length > 3);
+                const overlap = boldWords.filter(w => titleWords.includes(w));
+                return overlap.length >= 3 || (overlap.length >= 2 && boldWords.length <= 4);
+              });
+              // Underline colors from paper card blob/tag palettes
+              const UNDERLINE_COLORS = ["#f9a8d4", "#93c5fd", "#c4b5fd"];
               if (matchedPaper && onSelectPaper) {
+                const paperIdx = papers.indexOf(matchedPaper);
+                const underlineColor = UNDERLINE_COLORS[paperIdx % UNDERLINE_COLORS.length];
                 return (
                   <span
                     style={{
-                      display: "inline-block",
-                      background: "white",
-                      border: "2px solid #1a1a1a",
-                      boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
-                      padding: "2px 8px",
-                      fontFamily: "var(--font-mono), monospace",
-                      fontSize: "0.75rem",
+                      color: "#111",
+                      fontSize: "1.12em",
                       fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "1px",
+                      textDecoration: "underline",
+                      textDecorationColor: underlineColor,
+                      textDecorationThickness: "3px",
+                      textUnderlineOffset: "3px",
                       cursor: "pointer",
-                      transition: "all 0.15s ease",
-                      verticalAlign: "baseline",
+                      transition: "text-decoration-color 0.15s",
                     }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.textDecorationColor = "#1a1a1a"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.textDecorationColor = underlineColor; }}
                     onClick={() => onSelectPaper(matchedPaper)}
-                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "#1a1a1a"; (e.target as HTMLElement).style.color = "#fff"; }}
-                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "white"; (e.target as HTMLElement).style.color = "#1a1a1a"; }}
                   >
                     {children}
                   </span>
                 );
               }
-              return (
-                <span
-                  style={{
-                    display: "inline-block",
-                    background: "white",
-                    border: "2px solid #1a1a1a",
-                    boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
-                    padding: "2px 8px",
-                    fontFamily: "var(--font-mono), monospace",
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    verticalAlign: "baseline",
-                  }}
-                >
-                  {children}
-                </span>
-              );
+              return <strong style={{ color: "#111", fontWeight: 700 }}>{children}</strong>;
             },
           }}
         >
@@ -230,113 +336,105 @@ export function SynthesisBanner({
         </ReactMarkdown>
       </div>
 
-      {/* Key concept tags — clickable to filter, "+" to add to interests */}
+      {/* Key concepts — display only */}
       {keyConcepts.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2">
           {keyConcepts.map((concept, idx) => {
-            const isActive = activeConcept === concept;
-            const isAdded = addedConcepts.has(concept);
-            const isAdding = addingConcept === concept;
             const pastel = PASTEL_COLORS[idx % 5];
             return (
               <span
                 key={concept}
-                className="group/tag"
+                title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "5px 10px 5px 14px",
-                  background: isActive ? "#1a1a1a" : pastel,
-                  border: `2px solid #1a1a1a`,
+                  display: "inline-block",
+                  padding: "5px 12px",
+                  background: pastel,
+                  border: "2px solid #1a1a1a",
                   boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
-                  color: isActive ? "#fff" : "#1a1a1a",
-                  fontSize: "0.75rem",
+                  color: "#1a1a1a",
+                  fontSize: "0.7rem",
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
                   fontFamily: "var(--font-mono), monospace",
                 }}
               >
-                <span onClick={() => onConceptClick(concept)}>{concept}</span>
-                {isAdded ? (
-                  <Check style={{ width: "12px", height: "12px", color: "#38b000", flexShrink: 0 }} />
-                ) : (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleAddConcept(concept); }}
-                    className="opacity-40 group-hover/tag:opacity-100 transition-opacity"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: "2px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      color: isActive ? "#fff" : "#1a1a1a",
-                    }}
-                    title="Add to interests"
-                  >
-                    {isAdding ? (
-                      <Loader2 style={{ width: "12px", height: "12px", animation: "spin 1s linear infinite" }} />
-                    ) : (
-                      <Plus style={{ width: "12px", height: "12px" }} />
-                    )}
-                  </button>
-                )}
+                {concept.includes(": ") ? concept.split(": ")[0] : concept}
               </span>
             );
           })}
         </div>
       )}
 
-      {/* Dig deeper section */}
+      {/* Dig deeper — chat-style */}
       {papers.length > 0 && session && (
         <div
           style={{
-            borderTop: "2px solid #1a1a1a",
-            paddingTop: "20px",
-            marginTop: "8px",
+            border: "3px solid #1a1a1a",
+            boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
+            overflow: "hidden",
+            marginTop: "12px",
           }}
         >
-          <span
-            className="text-[0.6rem] uppercase tracking-[2px] text-[#999] block mb-3"
-            style={{ fontFamily: "var(--font-mono), monospace" }}
-          >
-            Dig deeper
-          </span>
-
-          {/* Pre-generated prompts */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {digDeeperPrompts.map((prompt, i) => (
-              <button
-                key={i}
-                onClick={() => handleDigDeeper(prompt)}
-                disabled={digDeeperLoading}
-                style={{
-                  padding: "8px 14px",
-                  border: "2px solid #1a1a1a",
-                  background: "white",
-                  color: "#333",
-                  fontSize: "0.75rem",
-                  lineHeight: 1.4,
-                  textAlign: "left",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  maxWidth: "300px",
-                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translate(-1px, -1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "3px 3px 0px 0px rgba(0,0,0,1)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translate(0, 0)"; (e.currentTarget as HTMLElement).style.boxShadow = "2px 2px 0px 0px rgba(0,0,0,1)"; }}
-              >
-                {prompt.replace(/\*\*/g, "")}
-              </button>
-            ))}
+          <div style={{ background: "#1a1a1a", padding: "16px 20px" }}>
+            <span style={{
+              fontSize: "1rem", fontWeight: 700, textTransform: "uppercase",
+              letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "white",
+            }}>
+              Dig Deeper
+            </span>
           </div>
 
-          {/* Custom question input */}
-          <div className="flex gap-2 items-start" style={{ maxWidth: "500px" }}>
+          {/* Questions — hidden after first ask */}
+          {!digDeeperAnswer && !digDeeperLoading && (
+            <div style={{ padding: "16px 20px", borderBottom: "2px solid #e5e7eb" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                {digDeeperPrompts.map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleDigDeeper(prompt)}
+                    style={{
+                      padding: "8px 16px", border: "2px solid #1a1a1a", background: "white",
+                      fontSize: "0.8rem", fontWeight: 600,
+                      color: "#1a1a1a", textAlign: "left", cursor: "pointer",
+                      transition: "background 0.1s, color 0.1s", lineHeight: 1.4,
+                      boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#1a1a1a"; (e.currentTarget as HTMLElement).style.color = "white"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "white"; (e.currentTarget as HTMLElement).style.color = "#1a1a1a"; }}
+                  >
+                    {prompt.replace(/\*\*/g, "")}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Answer thread */}
+          {(digDeeperLoading || digDeeperAnswer) && (
+            <div style={{ padding: "16px 20px" }}>
+              {digDeeperAnswer && (
+                <div style={{
+                  fontSize: "0.95rem", lineHeight: 1.75, color: "#333",
+                  borderBottom: "2px solid #e5e7eb", paddingBottom: "16px", marginBottom: "12px",
+                }}>
+                  <ReactMarkdown>{digDeeperAnswer}</ReactMarkdown>
+                </div>
+              )}
+              {digDeeperLoading && (
+                <div className="flex items-center gap-2 text-[#888]">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono), monospace" }}>Thinking...</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Input */}
+          <div style={{
+            borderTop: "3px solid #1a1a1a", padding: "14px 20px",
+            display: "flex", gap: "10px", alignItems: "center", background: "#fafafa",
+          }}>
             <input
               value={customQuestion}
               onChange={(e) => setCustomQuestion(e.target.value)}
@@ -346,65 +444,25 @@ export function SynthesisBanner({
                   setCustomQuestion("");
                 }
               }}
-              placeholder="Ask something about today's digest..."
+              placeholder="Ask anything about these papers..."
               style={{
-                flex: 1,
-                border: "2px solid #1a1a1a",
-                padding: "8px 12px",
-                fontSize: "0.8rem",
-                background: "white",
-                outline: "none",
+                flex: 1, border: "none", outline: "none", fontSize: "0.9rem",
+                color: "#1a1a1a", background: "transparent",
               }}
             />
             <button
-              onClick={() => {
-                if (customQuestion.trim()) {
-                  handleDigDeeper(customQuestion);
-                  setCustomQuestion("");
-                }
-              }}
+              onClick={() => { if (customQuestion.trim()) { handleDigDeeper(customQuestion); setCustomQuestion(""); } }}
               disabled={!customQuestion.trim() || digDeeperLoading}
               style={{
-                padding: "8px 14px",
-                border: "2px solid #1a1a1a",
-                background: "#1a1a1a",
-                color: "white",
-                fontSize: "0.7rem",
-                textTransform: "uppercase",
-                letterSpacing: "1px",
-                fontFamily: "var(--font-mono), monospace",
-                boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
-                opacity: !customQuestion.trim() || digDeeperLoading ? 0.4 : 1,
+                padding: "8px", border: "none",
+                background: customQuestion.trim() && !digDeeperLoading ? "#1a1a1a" : "#d1d5db",
+                cursor: customQuestion.trim() && !digDeeperLoading ? "pointer" : "not-allowed",
+                display: "flex", alignItems: "center", transition: "background 0.15s",
               }}
             >
-              Ask
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </div>
-
-          {/* Answer */}
-          {digDeeperLoading && (
-            <div className="flex items-center gap-2 mt-3 text-[#666]">
-              <Loader2 className="size-3 animate-spin" />
-              <span style={{ fontSize: "0.75rem" }}>Thinking...</span>
-            </div>
-          )}
-          {digDeeperAnswer && (
-            <div
-              style={{
-                marginTop: "12px",
-                padding: "16px",
-                border: "2px solid #1a1a1a",
-                background: "#f9fafb",
-                fontSize: "0.9rem",
-                lineHeight: 1.7,
-                color: "#333",
-                maxWidth: "720px",
-                boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-              }}
-            >
-              <ReactMarkdown>{digDeeperAnswer}</ReactMarkdown>
-            </div>
-          )}
         </div>
       )}
     </div>

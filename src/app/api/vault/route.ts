@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
 import { eq, and, like, desc, inArray } from "drizzle-orm";
+import { getAuthUser } from "@/lib/get-user";
 
 export async function GET(req: NextRequest) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
     const page = parseInt(url.searchParams.get("page") || "1", 10);
     const limit = parseInt(url.searchParams.get("limit") || "20", 10);
     const search = url.searchParams.get("search") || "";
+    const source = url.searchParams.get("source") || "";
     const offset = (page - 1) * limit;
 
     // Get all digest IDs for this user
@@ -44,14 +46,24 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const total = allPapers.length;
-    const paginated = allPapers.slice(offset, offset + limit);
+    // Filter by source type
+    let filtered = allPapers;
+    if (source === "papers") {
+      filtered = allPapers.filter(p => p.source !== "rss");
+    } else if (source === "news") {
+      filtered = allPapers.filter(p => p.source === "rss");
+    }
+
+    const total = filtered.length;
+    const paginated = filtered.slice(offset, offset + limit);
 
     return NextResponse.json({
       papers: paginated.map((p) => ({
         ...p,
         authors: p.authors ? JSON.parse(p.authors) : [],
         keywords: p.keywords ? JSON.parse(p.keywords) : [],
+        keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
+        connectionReason: p.connectionReason || null,
       })),
       total,
       page,

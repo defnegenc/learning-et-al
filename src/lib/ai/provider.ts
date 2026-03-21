@@ -72,11 +72,15 @@ export async function aiComplete(
       }
       // Throw a readable error
       const message = err.error?.message || err.message || `API error (status ${status})`;
+      console.error(`[AI] ${config.provider} error (status ${status}, model ${model}):`, message);
       if (status === 429) {
         throw new Error(`Rate limited by ${config.provider} after ${maxRetries} retries. Your API key may be on a free tier with low rate limits. Try a paid key or a different provider.`);
       }
       if (status === 401 || status === 403) {
         throw new Error(`Authentication failed for ${config.provider}. Check your API key in settings.`);
+      }
+      if (status === 402) {
+        throw new Error(`Insufficient credits for ${config.provider}. Add funds or switch to Gemini (free tier).`);
       }
       throw new Error(`${config.provider} API error: ${message}`);
     }

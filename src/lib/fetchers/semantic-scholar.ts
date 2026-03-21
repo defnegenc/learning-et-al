@@ -1,4 +1,5 @@
 export interface SemanticScholarPaper {
+  paperId: string;
   title: string;
   authors: string[];
   abstract: string;
@@ -9,7 +10,7 @@ export interface SemanticScholarPaper {
 }
 
 const API_BASE = "https://api.semanticscholar.org/graph/v1";
-const FIELDS = "title,abstract,authors,url,citationCount,year,externalIds";
+const FIELDS = "paperId,title,abstract,authors,url,citationCount,year,externalIds";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,10 +28,33 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   return fetch(url);
 }
 
+// Map user-facing field names to Semantic Scholar fieldsOfStudy values
+const FIELD_MAP: Record<string, string> = {
+  "Computer Science": "Computer Science",
+  "Mathematics": "Mathematics",
+  "Biology": "Biology",
+  "Physics": "Physics",
+  "Chemistry": "Chemistry",
+  "Medicine": "Medicine",
+  "Engineering": "Engineering",
+  "Psychology": "Psychology",
+  "Economics": "Economics",
+  "Sociology": "Sociology",
+  "Art": "Art",
+  "History": "History",
+  "Business": "Business",
+  "Environmental Science": "Environmental Science",
+  "Law": "Law",
+  "Philosophy": "Philosophy",
+  "Linguistics": "Linguistics",
+  "Political Science": "Political Science",
+};
+
 export async function searchSemanticScholar(
   query: string,
   maxResults = 10,
-  sort: "citationCount" | "publicationDate" = "citationCount"
+  sort: "citationCount" | "publicationDate" = "citationCount",
+  fieldsOfStudy?: string
 ): Promise<SemanticScholarPaper[]> {
   try {
     const encodedQuery = encodeURIComponent(query);
@@ -43,6 +67,12 @@ export async function searchSemanticScholar(
       url += `&sort=publicationDate:desc`;
     } else {
       url += `&sort=citationCount:desc`;
+    }
+
+    // Restrict to the relevant academic field to avoid cross-domain noise
+    if (fieldsOfStudy) {
+      const s2Field = FIELD_MAP[fieldsOfStudy] || fieldsOfStudy;
+      url += `&fieldsOfStudy=${encodeURIComponent(s2Field)}`;
     }
 
     const response = await rateLimitedFetch(url);
@@ -70,6 +100,7 @@ export async function searchSemanticScholar(
           : [];
 
         return {
+          paperId: (paper.paperId as string) || "",
           title: (paper.title as string).replace(/\n/g, " "),
           authors,
           abstract: (paper.abstract as string).replace(/\n/g, " "),
@@ -81,6 +112,48 @@ export async function searchSemanticScholar(
       });
   } catch (error) {
     console.error("Semantic Scholar search failed:", error);
+    return [];
+  }
+}
+
+export async function getS2Recommendations(
+  paperId: string,
+  limit = 10,
+  fieldsOfStudy?: string
+): Promise<SemanticScholarPaper[]> {
+  try {
+    let url = `https://api.semanticscholar.org/recommendations/v1/papers/forpaper/${paperId}?limit=${limit}&fields=paperId,title,abstract,authors,url,citationCount,year,externalIds`;
+    if (fieldsOfStudy) {
+      const s2Field = FIELD_MAP[fieldsOfStudy] || fieldsOfStudy;
+      url += `&fieldsOfStudy=${encodeURIComponent(s2Field)}`;
+    }
+    const response = await rateLimitedFetch(url);
+    if (!response.ok) {
+      console.log(`[S2] Recommendations not available (${response.status})`);
+      return [];
+    }
+    const data = await response.json();
+    const papers = data.recommendedPapers || data.data || [];
+    return papers
+      .filter((p: Record<string, unknown>) => p.title && p.abstract)
+      .map((paper: Record<string, unknown>) => {
+        const externalIds = (paper.externalIds || {}) as Record<string, string>;
+        const arxivId = externalIds.ArXiv;
+        return {
+          paperId: (paper.paperId as string) || "",
+          title: (paper.title as string).replace(/\n/g, " "),
+          authors: Array.isArray(paper.authors)
+            ? (paper.authors as { name?: string }[]).map(a => a.name || "Unknown")
+            : [],
+          abstract: (paper.abstract as string).replace(/\n/g, " "),
+          sourceUrl: (paper.url as string) || "",
+          pdfUrl: arxivId ? `https://arxiv.org/pdf/${arxivId}` : "",
+          citationCount: (paper.citationCount as number) || 0,
+          year: (paper.year as number) || 0,
+        };
+      });
+  } catch (error) {
+    console.log(`[S2] Recommendations fetch failed: ${error}`);
     return [];
   }
 }

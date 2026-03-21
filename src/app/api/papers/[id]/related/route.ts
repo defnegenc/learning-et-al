@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { papers, digests, feedback } from "@/lib/db/schema";
 import { eq, ne, and } from "drizzle-orm";
+import { getAuthUser } from "@/lib/get-user";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = req.cookies.get("user_id")?.value;
+  const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
