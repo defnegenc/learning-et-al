@@ -118,7 +118,9 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <button
             onClick={() => {
               localStorage.removeItem("pp_session");
-              signOut({ callbackUrl: "/" });
+              signOut({ redirect: false }).catch(() => {}).finally(() => {
+                window.location.href = "/";
+              });
             }}
             title="Sign out"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}

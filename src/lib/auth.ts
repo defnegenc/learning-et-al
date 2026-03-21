@@ -8,13 +8,15 @@ import type { Adapter } from "next-auth/adapters";
 // Custom minimal adapter — avoids DrizzleAdapter's column name assumptions
 const adapter: Adapter = {
   async createUser(data) {
-    const [user] = await db.insert(users).values({
+    const id = crypto.randomUUID();
+    await db.insert(users).values({
+      id,
       email: data.email,
       name: data.name ?? null,
       image: data.image ?? null,
       emailVerified: data.emailVerified ?? null,
-    }).returning();
-    return { id: user.id, email: user.email!, name: user.name, image: user.image, emailVerified: user.emailVerified };
+    });
+    return { id, email: data.email, name: data.name ?? null, image: data.image ?? null, emailVerified: data.emailVerified ?? null };
   },
   async getUser(id) {
     const user = await db.query.users.findFirst({ where: eq(users.id, id) });
@@ -51,12 +53,12 @@ const adapter: Adapter = {
     });
   },
   async createSession(data) {
-    const [session] = await db.insert(sessions).values({
+    await db.insert(sessions).values({
       sessionToken: data.sessionToken,
       userId: data.userId,
       expires: data.expires,
-    }).returning();
-    return { sessionToken: session.sessionToken, userId: session.userId, expires: session.expires! };
+    });
+    return { sessionToken: data.sessionToken, userId: data.userId, expires: data.expires };
   },
   async getSessionAndUser(sessionToken) {
     const session = await db.query.sessions.findFirst({ where: eq(sessions.sessionToken, sessionToken) });
