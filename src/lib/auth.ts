@@ -15,7 +15,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      checks: ["state"], // Disable PKCE — cookies don't survive Vercel's proxy redirects
+      checks: ["none"], // Disable all checks — cookies don't survive domain mismatch between www.learningetal.com and learningetal.vercel.app
     }),
   ],
   callbacks: {
