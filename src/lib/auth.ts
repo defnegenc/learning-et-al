@@ -6,9 +6,11 @@ import { eq, and } from "drizzle-orm";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  // JWT strategy: session lives in an encrypted cookie, no sessions table needed.
-  // This avoids the adapter session CRUD methods that were causing "Configuration" errors.
+  debug: true,
   session: { strategy: "jwt" },
+  pages: {
+    error: "/auth/error",
+  },
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
