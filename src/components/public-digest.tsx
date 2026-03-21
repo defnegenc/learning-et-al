@@ -46,6 +46,7 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
   }
 
   if (!digest) {
+    // No admin digest yet — show minimal background, the auth modal overlay handles sign-in
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
         <h1 style={{
@@ -53,11 +54,12 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
           fontFamily: "var(--font-display), sans-serif",
           letterSpacing: "-0.03em", textAlign: "center",
         }}>
-          Your daily research companion
+          Today&apos;s digest is brewing
         </h1>
-        <p style={{ fontSize: "1rem", color: "#666", textAlign: "center", maxWidth: "440px" }}>
-          Every day, we find research papers and news that connect in surprising ways. Sign in to get your own personalized digest.
+        <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
+          Check back soon — a fresh research digest is generated every day.
         </p>
+        <div style={{ display: "none" }}>
         <button onClick={onSignIn} style={{
           padding: "14px 32px", background: "#1a1a1a", color: "white",
           border: "2px solid #1a1a1a", fontSize: "0.85rem", fontWeight: 700,
@@ -67,6 +69,7 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
         }}>
           Sign in with Google
         </button>
+        </div>
       </div>
     );
   }
