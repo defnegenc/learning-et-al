@@ -32,7 +32,13 @@
       "Bash(gh auth:*)",
       "Bash(git rm:*)",
       "Bash(gh repo:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "vercel"
+  ]
 }
