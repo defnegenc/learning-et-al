@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "@/lib/hooks/use-session";
+import { useSession as useAuthSession, signIn } from "next-auth/react";
 import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
 import { PublicDigest } from "@/components/public-digest";
-import { signIn } from "next-auth/react";
 
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
+  const { data: authSession, status: authStatus } = useAuthSession();
   const [showAuthModal, setShowAuthModal] = useState(true);
 
-  if (!loaded) {
+  // Sync Auth.js session → local session
+  // When Google sign-in succeeds, authSession has the user but local session doesn't know
+  useEffect(() => {
+    if (authStatus === "authenticated" && authSession?.user?.id && !session.userId) {
+      updateSession({ userId: authSession.user.id });
+    }
+  }, [authStatus, authSession, session.userId, updateSession]);
+
+  if (!loaded || authStatus === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center" style={{ background: "white" }}>
         <div className="size-6 animate-spin border-[1.5px] border-[#1a1a1a] border-t-transparent" />
@@ -24,7 +33,7 @@ export default function Home() {
     return <AppShell session={session} updateSession={updateSession} />;
   }
 
-  // Has a userId (signed in via Google) but hasn't picked interests yet — onboard
+  // Has a userId (signed in via Google or legacy cookie) but hasn't picked interests yet — onboard
   if (session.userId) {
     return (
       <Onboarding
@@ -64,7 +73,6 @@ export default function Home() {
         </button>
       </header>
 
-      {/* Public digest always visible */}
       <main className="flex-1">
         <PublicDigest onSignIn={() => setShowAuthModal(true)} />
       </main>
@@ -75,14 +83,12 @@ export default function Home() {
           className="fixed inset-0 z-50 flex items-center justify-center"
           style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
         >
-          <div
-            style={{
-              background: "white", border: "4px solid #1a1a1a",
-              boxShadow: "12px 12px 0px 0px rgba(0,0,0,1)",
-              padding: "48px 40px", maxWidth: "420px", width: "calc(100% - 2rem)",
-              textAlign: "center",
-            }}
-          >
+          <div style={{
+            background: "white", border: "4px solid #1a1a1a",
+            boxShadow: "12px 12px 0px 0px rgba(0,0,0,1)",
+            padding: "48px 40px", maxWidth: "420px", width: "calc(100% - 2rem)",
+            textAlign: "center",
+          }}>
             <h2 style={{
               fontSize: "1.5rem", fontWeight: 800,
               fontFamily: "var(--font-display), sans-serif",
@@ -93,7 +99,6 @@ export default function Home() {
             <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "28px", lineHeight: 1.6 }}>
               Every day, we find research papers and news that connect in surprising ways. Sign in to get your own personalized digest.
             </p>
-
             <button
               onClick={() => signIn("google")}
               style={{
@@ -106,7 +111,6 @@ export default function Home() {
             >
               Sign in with Google
             </button>
-
             <button
               onClick={() => setShowAuthModal(false)}
               style={{
