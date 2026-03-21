@@ -76,24 +76,27 @@ KEYCONCEPTS RULES:
 - Format MUST be "term: definition" — e.g. "AI agents: AI systems that take sequences of actions to complete a goal autonomously"
 - Definitions must be one plain sentence, as if explaining to a curious 20-year-old with no domain background
 
-SYNTHESIS — conversational walkthrough of today's findings.
+SYNTHESIS — three lenses on the central question "${theme}".
 
-Your synthesis MUST begin with this EXACT opening line (I will provide it, just copy it):
-"Today we're looking at this from three angles: **${items[0]?.title?.split(/[:.]/)[0].trim() ?? ""}**, **${items[1]?.title?.split(/[:.]/)[0].trim() ?? ""}**, and **${items[2]?.title?.split(/[:.]/)[0].trim() ?? "a real-world story"}**."
+The central question is EVERYTHING. Each paragraph is about a FACET OF THE QUESTION, not about a paper. Papers are evidence you pull in to illuminate that facet. Multiple papers can appear in the same paragraph. A single paper can appear in multiple paragraphs.
 
-After that opening line, write 3 paragraphs + a closing. EVERY paragraph must discuss one item:
+Write 3 paragraphs + a closing. Structure:
 
-PARAGRAPH 1 — about [1] "${items[0]?.title ?? ""}":
-Start with something like "First up," or "Starting with" and reference **${items[0]?.title?.split(/[:.]/)[0].trim() ?? ""}** in bold. Say what they found in plain words. 2-3 sentences.
+PARAGRAPH 1 — THE MECHANISM: What's actually happening under the hood? Start with what makes this question interesting, then pull in whichever paper(s) explain the "how" or "why." Reference paper titles in **bold** (short version, before the colon). 2-3 sentences.
 
-PARAGRAPH 2 — about [2] "${items[1]?.title ?? ""}":
-Transition naturally ("What's striking is...", "Now contrast that with...", "This connects to..."). Reference **${items[1]?.title?.split(/[:.]/)[0].trim() ?? ""}** in bold. Say what they found and how it relates to paper 1. 2-3 sentences.
+PARAGRAPH 2 — THE EVIDENCE: What proof do we have that this works (or doesn't)? Pull in paper(s) with concrete results, numbers, experiments. Show where papers AGREE or DISAGREE with each other. If one paper says X works and another found X breaks under certain conditions, that's gold. 2-3 sentences.
 
-PARAGRAPH 3 — about [3] "${items[2]?.title ?? ""}":
-Transition ("And in the real world...", "Then there's...", "Meanwhile..."). Reference **${items[2]?.title?.split(/[:.]/)[0].trim() ?? ""}** in bold. Say what it adds. 1-2 sentences.
+PARAGRAPH 3 — THE IMPLICATION: So what? What does this mean for the real world, for the reader, for what comes next? Pull in any remaining papers plus connect back to earlier ones. What's the genuinely hard question this raises? 2-3 sentences.
 
 CLOSING — 2 sentences:
-What pattern or tension do you see across all three? End with "If you want to go deeper, look into [specific thing], [specific reason]."
+Name the core tension across the papers (where do they push in different directions? what's unresolved?). End with "If you want to go deeper, look into [specific thing], because [specific reason]."
+
+CRITICAL RULES FOR SYNTHESIS:
+- Every paper MUST appear at least once, referenced by **bold title** (short version before the colon).
+- Do NOT go paper-by-paper. Go question-facet-by-facet.
+- Each paragraph should reference 2+ papers when possible. Weave them together.
+- Find the TENSION. Paper A says X. Paper B found the opposite. Paper C explains why both could be right. That's the good stuff.
+- If there's no real tension, find the COMPLEMENT: how do the papers fill different gaps in the same puzzle?
 
 TONE: You're a curious friend walking someone through what you read today. Human words. Short sentences. No academic language.
 
@@ -104,7 +107,7 @@ RULES:
 - NO: demonstrates, reveals, highlights, suggests, indicates, showcases, underscores, elicits, employs, utilizes, nuanced, multifaceted
 - NO: "the gap between", "the question of whether", "it is increasingly", "a complex but"
 - Be SPECIFIC. Say what was found, not that it "explored" something.
-- Use paragraph breaks between each paper discussion.
+- Use paragraph breaks between paragraphs.
 
 Papers:
 

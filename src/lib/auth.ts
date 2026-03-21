@@ -2,13 +2,9 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
-import { users, accounts, sessions } from "@/lib/db/schema";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const adapter = DrizzleAdapter(db, { usersTable: users, accountsTable: accounts, sessionsTable: sessions } as any);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter,
+  adapter: DrizzleAdapter(db),
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -21,13 +17,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-  logger: {
-    error(error) {
-      console.error("[AUTH ERROR]", error);
-    },
-    warn(code) {
-      console.warn("[AUTH WARN]", code);
-    },
-  },
-  debug: process.env.NODE_ENV === "development",
 });
