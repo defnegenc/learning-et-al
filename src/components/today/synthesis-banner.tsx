@@ -205,6 +205,11 @@ export function SynthesisBanner({
   }, [keyConcepts]);
 
   const [digDeeperAnswer, setDigDeeperAnswer] = useState<string | null>(null);
+
+  // Reset dig deeper when synthesis changes (e.g. after regeneration)
+  React.useEffect(() => {
+    setDigDeeperAnswer(null);
+  }, [synthesis]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
   const [addedConcepts, setAddedConcepts] = useState<Set<string>>(new Set());
@@ -272,7 +277,13 @@ export function SynthesisBanner({
   }
   const bodyText = bodyLines.join("\n\n");
 
-  // Dig deeper prompts — short, casual, based on the actual content
+  // Extract the "look into X" suggestion from the synthesis to use as first dig deeper prompt
+  const lookIntoMatch = useMemo(() => {
+    const match = synthesis.match(/look into\s+(.+?)(?:\s*[,.]|\s+because)/i);
+    return match ? match[1].trim() : null;
+  }, [synthesis]);
+
+  // Dig deeper prompts — lead with the synthesis's own suggestion
   const digDeeperPrompts = useMemo(() => {
     if (papers.length === 0) return [];
     const topic = (p: PaperItem) => p.keywords.length > 0 ? p.keywords[0].toLowerCase() : p.title.split(" ").slice(0, 3).join(" ").toLowerCase();
@@ -281,12 +292,12 @@ export function SynthesisBanner({
     const p2 = papers[2];
 
     const prompts: string[] = [];
+    if (lookIntoMatch) prompts.push(`Tell me more about ${lookIntoMatch}`);
     if (p0 && p1) prompts.push(`How do ${topic(p0)} and ${topic(p1)} actually connect?`);
     prompts.push("What's the most surprising takeaway here?");
-    if (p0) prompts.push(`What should I read next about ${topic(p0)}?`);
     if (p2) prompts.push(`Does the ${topic(p2)} angle change anything?`);
     return prompts.slice(0, 4);
-  }, [papers]);
+  }, [papers, lookIntoMatch]);
 
   const handleDigDeeper = async (question: string) => {
     if (!session || digDeeperLoading) return;
