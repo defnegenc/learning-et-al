@@ -292,103 +292,73 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
         {/* STEP 2 — Interests (same table as settings) */}
         {step === 2 && (
           <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "0 28px" }}>
-              <table className="w-full border-collapse" style={{ border: "2px solid #1a1a1a", marginTop: "20px" }}>
-                <thead className="sticky top-0 z-10">
-                  <tr style={{ background: "#f5f5f5", borderBottom: "2px solid #1a1a1a" }}>
-                    <th style={{ textAlign: "left", padding: "12px 16px", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", borderRight: "2px solid #1a1a1a", width: "220px" }}>
-                      Category
-                    </th>
-                    <th style={{ textAlign: "left", padding: "12px 16px", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace" }}>
-                      Topics
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="flex-1 overflow-y-auto" style={{ padding: "0 16px" }}>
+              <div style={{ marginTop: "16px" }}>
                   {Object.entries(FIELD_HIERARCHY).map(([fieldKey, fieldDef]) => {
                     const currentLevel = categoryLevels[fieldKey] || "beginner";
                     const allTopics = Object.values(fieldDef.subfields).flat();
                     const isCustomOpen = customFieldKey === fieldKey;
                     return (
-                      <tr key={fieldKey} style={{ borderBottom: "1px solid #e5e7eb" }} className="hover:bg-gray-50/30">
-                        <td style={{ padding: "14px 16px", borderRight: "2px solid #1a1a1a", verticalAlign: "top" }}>
-                          <div className="flex items-center gap-2 mb-1.5">
+                      <div key={fieldKey} style={{ borderBottom: "2px solid #e5e7eb", padding: "14px 0" }}>
+                        {/* Category header */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
                             <div style={{ width: "10px", height: "10px", background: fieldDef.color, border: "1.5px solid #1a1a1a", flexShrink: 0 }} />
-                            <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3px" }}>
-                              {fieldKey}
-                            </span>
+                            <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase" }}>{fieldKey}</span>
                           </div>
-                          <span style={{ fontSize: "0.55rem", fontFamily: "var(--font-mono), monospace", color: "#aaa", display: "block", marginBottom: "8px" }}>
-                            {fieldDef.label}
-                          </span>
                           <div style={{ display: "inline-flex", border: "1.5px solid #1a1a1a", borderRadius: "999px", overflow: "hidden" }}>
                             {LEVELS.map(lvl => (
-                              <button
-                                key={lvl}
-                                onClick={() => setCategoryLevel(fieldKey, lvl)}
-                                style={{
-                                  padding: "3px 8px", fontSize: "0.55rem", fontWeight: 700,
-                                  fontFamily: "var(--font-mono), monospace",
-                                  background: currentLevel === lvl ? "#1a1a1a" : "transparent",
-                                  color: currentLevel === lvl ? "white" : "#888",
-                                  border: "none", cursor: "pointer",
-                                }}
-                              >
+                              <button key={lvl} onClick={() => setCategoryLevel(fieldKey, lvl)} style={{
+                                padding: "3px 8px", fontSize: "0.55rem", fontWeight: 700,
+                                fontFamily: "var(--font-mono), monospace",
+                                background: currentLevel === lvl ? "#1a1a1a" : "transparent",
+                                color: currentLevel === lvl ? "white" : "#888",
+                                border: "none", cursor: "pointer",
+                              }}>
                                 {LEVEL_LABELS[lvl]}
                               </button>
                             ))}
                           </div>
-                        </td>
-                        <td style={{ padding: "14px 16px" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                            {allTopics.map(topic => {
-                              const isSelected = selectedTopics.some(t => t.keyword === topic);
-                              return (
-                                <button
-                                  key={topic}
-                                  onClick={() => toggleTopic(topic, fieldKey)}
-                                  style={{
-                                    padding: "5px 12px", fontSize: "0.75rem", fontWeight: 600,
-                                    border: "1.5px solid #1a1a1a",
-                                    background: isSelected ? "#1a1a1a" : "white",
-                                    color: isSelected ? "white" : "#1a1a1a",
-                                    cursor: "pointer", transition: "all 0.1s",
-                                    boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
-                                  }}
-                                >
-                                  {topic}
-                                </button>
-                              );
-                            })}
-                            {isCustomOpen ? (
-                              <div style={{ display: "inline-flex" }}>
-                                <input
-                                  autoFocus value={customInput}
-                                  onChange={e => setCustomInput(e.target.value)}
-                                  onKeyDown={e => { if (e.key === "Enter") addCustomTopicToCategory(fieldKey); if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); } }}
-                                  onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
-                                  placeholder="type topic..."
-                                  style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px solid #1a1a1a", borderRight: "none", background: fieldDef.color, outline: "none", width: "140px" }}
-                                />
-                                <button onClick={() => addCustomTopicToCategory(fieldKey)} style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", cursor: "pointer" }}>
-                                  Add
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
-                                style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px dashed #aaa", background: fieldDef.color, color: "#666", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                              >
-                                <Plus size={11} /> custom
+                        </div>
+                        {/* Topics */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                          {allTopics.map(topic => {
+                            const isSelected = selectedTopics.some(t => t.keyword === topic);
+                            return (
+                              <button key={topic} onClick={() => toggleTopic(topic, fieldKey)} style={{
+                                padding: "5px 12px", fontSize: "0.75rem", fontWeight: 600,
+                                border: "1.5px solid #1a1a1a",
+                                background: isSelected ? "#1a1a1a" : "white",
+                                color: isSelected ? "white" : "#1a1a1a",
+                                cursor: "pointer", transition: "all 0.1s",
+                                boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
+                              }}>
+                                {topic}
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                            );
+                          })}
+                          {isCustomOpen ? (
+                            <div style={{ display: "inline-flex" }}>
+                              <input autoFocus value={customInput}
+                                onChange={e => setCustomInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") addCustomTopicToCategory(fieldKey); if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); } }}
+                                onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
+                                placeholder="type topic..."
+                                style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px solid #1a1a1a", borderRight: "none", background: fieldDef.color, outline: "none", width: "140px" }}
+                              />
+                              <button onClick={() => addCustomTopicToCategory(fieldKey)} style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", cursor: "pointer" }}>Add</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
+                              style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px dashed #aaa", background: fieldDef.color, color: "#666", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              <Plus size={11} /> custom
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+              </div>
             </div>
 
             {/* Footer */}
@@ -414,13 +384,10 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
                 ))}
               </div>
 
-              {/* Content mix */}
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-                <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", color: "#999", whiteSpace: "nowrap" }}>Just research</span>
-                <input type="range" min={0} max={100} step={5} value={contentMix} onChange={(e) => setContentMix(Number(e.target.value))} className="flex-1 h-1 appearance-none bg-[#1a1a1a] outline-none" style={{ accentColor: "#1a1a1a" }} />
-                <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", color: "#999", whiteSpace: "nowrap" }}>Just news</span>
-                <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", color: "#666", whiteSpace: "nowrap" }}>{getMixLabel()}</span>
-              </div>
+              {/* Content mix info */}
+              <p style={{ fontSize: "0.7rem", color: "#999", marginBottom: "12px", fontFamily: "var(--font-mono), monospace" }}>
+                Your daily digest: 2 research papers + 1 news article
+              </p>
 
               {error && <p style={{ fontSize: "0.8rem", color: "#ff007f", marginBottom: "8px" }}>{error}</p>}
 
