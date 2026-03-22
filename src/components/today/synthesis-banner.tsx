@@ -6,6 +6,77 @@ import { KeywordTag } from "@/components/keyword-tag";
 import { Loader2, Plus, Check, Star } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
+// Quick digest feedback — was this interesting?
+function DigestFeedback({ digestId }: { digestId: string }) {
+  const [reaction, setReaction] = useState<"up" | "down" | null>(null);
+  const [comment, setComment] = useState("");
+  const [showComment, setShowComment] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const storageKey = `digest_feedback_${digestId}`;
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) { setSubmitted(true); setReaction(saved as "up" | "down"); }
+  }, [storageKey]);
+
+  const submit = async (r: "up" | "down") => {
+    setReaction(r);
+    setSubmitted(true);
+    localStorage.setItem(storageKey, r);
+    try {
+      await fetch("/api/digest/star", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ digestId }),
+      });
+    } catch { /* non-critical */ }
+    if (r === "down") setShowComment(true);
+  };
+
+  if (submitted && !showComment) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
+        <span style={{ fontSize: "0.7rem", color: "#aaa" }}>
+          {reaction === "up" ? "👍 Glad you liked it" : "👎 Noted — we'll improve"}
+        </span>
+        {reaction === "down" && !showComment && (
+          <button onClick={() => setShowComment(true)} style={{ fontSize: "0.65rem", color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+            Tell us why
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (showComment) {
+    return (
+      <div style={{ marginTop: "8px" }}>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <input
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            placeholder="What could be better?"
+            autoFocus
+            style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #ddd", fontSize: "0.8rem", outline: "none" }}
+            onKeyDown={e => { if (e.key === "Enter") { setShowComment(false); } }}
+          />
+          <button onClick={() => setShowComment(false)} style={{ padding: "8px 12px", background: "#1a1a1a", color: "white", border: "none", fontSize: "0.65rem", fontWeight: 700, cursor: "pointer" }}>
+            Send
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px" }}>
+      <span style={{ fontSize: "0.7rem", color: "#aaa" }}>Was this interesting?</span>
+      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "4px 10px", cursor: "pointer", borderRadius: "2px", fontSize: "0.8rem" }} className="hover:border-[#38b000] transition-colors">👍</button>
+      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "4px 10px", cursor: "pointer", borderRadius: "2px", fontSize: "0.8rem" }} className="hover:border-[#ff007f] transition-colors">👎</button>
+    </div>
+  );
+}
+
 // Paper name highlight with hover tooltip showing summary
 function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
   bg: string; bgHover: string; summary: string | null; onClick: () => void; children: React.ReactNode;
@@ -374,7 +445,7 @@ export function SynthesisBanner({
 
   return (
     <div className="space-y-5">
-      {/* "Today's Digest" label + star */}
+      {/* "Today's Digest" label + save/star */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span
           style={{
@@ -390,7 +461,6 @@ export function SynthesisBanner({
         </span>
         {digestId && (
           <button
-            title={starred ? "Unstar this digest" : "Star this digest"}
             onClick={async () => {
               setStarred(!starred);
               try {
@@ -402,14 +472,17 @@ export function SynthesisBanner({
               } catch { setStarred(starred); }
             }}
             style={{
-              background: "none", border: "none", cursor: "pointer",
-              padding: "4px", display: "flex", alignItems: "center",
-              color: starred ? "#f59e0b" : "#d1d5db",
-              transition: "color 0.15s",
+              background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer",
+              padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px",
+              color: starred ? "#f59e0b" : "#ccc",
+              transition: "all 0.15s", borderRadius: "2px",
             }}
-            className="hover:text-[#f59e0b]"
+            className="hover:border-[#f59e0b]"
           >
-            <Star size={20} className={starred ? "fill-current" : ""} />
+            <Star size={14} className={starred ? "fill-current" : ""} />
+            <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: starred ? "#f59e0b" : "#aaa" }}>
+              {starred ? "Saved" : "Save"}
+            </span>
           </button>
         )}
       </div>
@@ -532,6 +605,10 @@ export function SynthesisBanner({
       {digestId && session && <DigestNotes digestId={digestId} />}
 
       {/* Dig deeper — conversation history */}
+      {/* Quick feedback */}
+      {digestId && session && <DigestFeedback digestId={digestId} />}
+
+      {/* Dig deeper */}
       {papers.length > 0 && session && (
         <div
           style={{
