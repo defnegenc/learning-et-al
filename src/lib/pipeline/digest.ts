@@ -263,7 +263,7 @@ SEARCH QUERY RULES:
 Return JSON only (no markdown):
 {
   "selectedInterests": ["interest1", "interest2"],
-  "theme": "catchy headline, MAX 8 WORDS — can be a question OR a statement",
+  "theme": "catchy headline MAX 8 WORDS — question or statement. If statement, NO question mark.",
   "searchQueries": [
     "academic search query 1 (MUST include the interest keyword, 3-5 words)",
     "academic search query 2 (different angle, 3-5 words)",
