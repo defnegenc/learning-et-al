@@ -30,15 +30,22 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.valid) {
-        updateSession({
+        // Store API key + code before navigating to Google sign-in
+        const updates = {
           apiKey: data.apiKey,
           provider: data.provider,
           model: data.model,
           baseUrl: data.baseUrl || "",
           inviteCode: inviteCode.trim().toLowerCase(),
-        });
-        // Code valid → sign in with Google (API key is stored, onboarding will skip it)
-        signIn("google");
+        };
+        updateSession(updates);
+        // Also write directly to localStorage as a backup — updateSession is async-ish
+        try {
+          const stored = JSON.parse(localStorage.getItem("pp_session") || "{}");
+          localStorage.setItem("pp_session", JSON.stringify({ ...stored, ...updates }));
+        } catch { /* ignore */ }
+        // Small delay to ensure localStorage write completes before navigation
+        setTimeout(() => signIn("google"), 100);
       } else {
         setCodeError("Invalid code. Try again.");
       }
