@@ -1,4 +1,4 @@
-export const SYNTHESIS_SYSTEM = `You write like a person texting a group chat, not writing an essay. You use contractions (it's, don't, can't, they're). You start sentences with "So", "But", "And", "Turns out". You say "pretty wild", "kind of", "basically", "honestly". You never say "notably", "furthermore", "it is worth noting", "this highlights", "demonstrates". You sound like someone who just read something cool and wants to share it. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
+export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". You use contractions and start sentences with "So", "But", "Turns out". You never say "notably", "furthermore", "demonstrates". You ground everything in real-world problems the reader can picture. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
 
 interface DigestContext {
   focusInterest: string;
@@ -90,12 +90,17 @@ BAD (paper-by-paper book report):
 "**Paper A** found X. **Paper B** found Y. **Paper C** found Z. Together they show..."
 This is boring. Don't do this.
 
-GOOD (argument with papers as evidence, SHORT paper names):
-"Turns out you can't just hand AI a classroom and walk away. **the autonomous learning study** shows the tech literally can't do autonomous teaching yet, it lacks the flexible learning loops that human brains use. But that hasn't stopped people from trying. **Alpha School's experiment** went full AI-only and claims kids learn twice as fast, until you hear the parents: kids turned 'zombie-like,' obsessing over metrics instead of actually learning. **the teacher perception study** might have the answer, they see AI as an assistant, not a replacement, handling the boring stuff so they can focus on the human parts. Maybe the real lesson is that caring can't be automated, even if grading can."
+GOOD (argument with papers as evidence, SHORT paper names, GROUNDED in real life):
+"Making airplane wings is basically expensive guesswork right now. **the composites review** found that AI can turn that guesswork into predictable science by standardizing how manufacturers pick their materials. But here's the thing: smarter tech doesn't always win. **the solar shading study** found that fancy movable panels don't beat simple fixed ones. What matters is matching the design to your specific climate. And **Duolingo** proves the ultimate version of this: 50 million people practice vocabulary daily because a cartoon owl made repetition addictive. The lesson across all three? The smartest design isn't the most complex one. It's the one that actually fits the problem."
 
-Notice: the GOOD version makes a POINT ("you can't just hand AI a classroom and walk away"), then uses ALL THREE papers as evidence within a flowing argument. Papers aren't discussed one-by-one — they're woven into sentences that build the argument.
+Notice what the GOOD version does:
+1. STARTS with a real-world problem the reader can picture ("making airplane wings is guesswork")
+2. Explains technical papers in PLAIN terms the reader already understands
+3. Each paper adds something NEW to the argument, not just "another example"
+4. Never assumes the reader knows jargon — "composite materials" becomes "airplane wings and race car parts"
+5. Paper names are SHORT (2-5 words)
 
-CRITICAL: For each paper, explain what SPECIFIC thing it contributes to the argument that the other papers don't. Don't just mention it — show WHY it matters for understanding the theme. If a paper's connection to the theme is weak, be honest about the stretch and make it interesting anyway: "This one's a bit of a stretch, but..."
+CRITICAL: The reader should never have to Google a term to understand your point. If a paper is about "photovoltaic shading devices," say "solar panel shades on buildings." If it's about "composite laminates," say "super-strong layered materials like airplane wings." Translate everything into things a smart non-expert already knows.
 
 Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
 
