@@ -76,38 +76,29 @@ KEYCONCEPTS RULES:
 - Format MUST be "term: definition" — e.g. "AI agents: AI systems that take sequences of actions to complete a goal autonomously"
 - Definitions must be one plain sentence, as if explaining to a curious 20-year-old with no domain background
 
-SYNTHESIS — three lenses on the central question "${theme}".
+SYNTHESIS — make an ARGUMENT about "${theme}", using the papers as evidence.
 
-The central question is EVERYTHING. Each paragraph is about a FACET OF THE QUESTION, not about a paper. Papers are evidence you pull in to illuminate that facet. Multiple papers can appear in the same paragraph. A single paper can appear in multiple paragraphs.
+You are NOT summarizing papers. You are making a point about the theme question, and the papers are your proof. Think of it like a short op-ed, not a book report.
 
-Write 3 paragraphs + a closing. Structure:
+BAD (paper-by-paper book report):
+"**Paper A** found X. **Paper B** found Y. **Paper C** found Z. Together they show..."
+This is boring. Don't do this.
 
-PARAGRAPH 1 — THE MECHANISM: What's actually happening under the hood? Start with what makes this question interesting, then pull in whichever paper(s) explain the "how" or "why." Reference paper titles in **bold** (short version, before the colon). 2-3 sentences.
+GOOD (argument with papers as evidence):
+"Turns out you can't just hand AI a classroom and walk away. **Why AI systems don't learn** shows the tech literally can't do autonomous teaching yet — it lacks the flexible learning loops that human brains use. But that hasn't stopped people from trying. **Alpha School** went full AI-only and claims kids learn twice as fast, until you hear the parents: kids turned 'zombie-like,' obsessing over metrics instead of actually learning. The teachers in **Exploring teachers' views** might have the answer — they see AI as an assistant, not a replacement, handling the boring stuff so they can focus on the human parts. Maybe the real lesson is that caring can't be automated, even if grading can."
 
-PARAGRAPH 2 — THE EVIDENCE: What proof do we have that this works (or doesn't)? Pull in paper(s) with concrete results, numbers, experiments. Show where papers AGREE or DISAGREE with each other. If one paper says X works and another found X breaks under certain conditions, that's gold. 2-3 sentences.
+Notice: the GOOD version makes a POINT ("you can't just hand AI a classroom and walk away"), then uses ALL THREE papers as evidence within a flowing argument. Papers aren't discussed one-by-one — they're woven into sentences that build the argument.
 
-PARAGRAPH 3 — THE IMPLICATION: So what? What does this mean for the real world, for the reader, for what comes next? Pull in any remaining papers plus connect back to earlier ones. What's the genuinely hard question this raises? 2-3 sentences.
-
-CLOSING — 2 sentences:
-Name the core tension across the papers (where do they push in different directions? what's unresolved?). End with "If you want to go deeper, look into [specific thing], because [specific reason]."
-
-CRITICAL RULES FOR SYNTHESIS:
-- Every paper MUST appear at least once, referenced by **bold title** (short version before the colon).
-- Do NOT go paper-by-paper. Go question-facet-by-facet.
-- Each paragraph should reference 2+ papers when possible. Weave them together.
-- Find the TENSION. Paper A says X. Paper B found the opposite. Paper C explains why both could be right. That's the good stuff.
-- If there's no real tension, find the COMPLEMENT: how do the papers fill different gaps in the same puzzle?
-
-TONE: You're a curious friend walking someone through what you read today. Human words. Short sentences. No academic language.
-
-Paper titles in **bold**. Use the short version (before the colon if there is one). The theme "${theme}" is the big headline above — don't restate it.
+Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
 
 RULES:
-- NO em dashes. Use periods, commas, "and", "but".
-- NO: demonstrates, reveals, highlights, suggests, indicates, showcases, underscores, elicits, employs, utilizes, nuanced, multifaceted
-- NO: "the gap between", "the question of whether", "it is increasingly", "a complex but"
-- Be SPECIFIC. Say what was found, not that it "explored" something.
-- Use paragraph breaks between paragraphs.
+- Every paper MUST appear at least once in **bold** (short title before the colon).
+- Weave papers together — don't give each one its own paragraph.
+- Make a POINT, don't just describe what each paper found.
+- Include at least one specific number, finding, or quote from the papers.
+- NO em dashes. NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted.
+- The theme "${theme}" is the headline above. Don't restate it.
+- Short sentences. Human words. You're texting a friend, not writing an essay.
 
 Papers:
 
