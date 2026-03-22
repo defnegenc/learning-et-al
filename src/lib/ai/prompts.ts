@@ -90,8 +90,8 @@ BAD (paper-by-paper book report):
 "**Paper A** found X. **Paper B** found Y. **Paper C** found Z. Together they show..."
 This is boring. Don't do this.
 
-GOOD (argument with papers as evidence):
-"Turns out you can't just hand AI a classroom and walk away. **Why AI systems don't learn** shows the tech literally can't do autonomous teaching yet — it lacks the flexible learning loops that human brains use. But that hasn't stopped people from trying. **Alpha School** went full AI-only and claims kids learn twice as fast, until you hear the parents: kids turned 'zombie-like,' obsessing over metrics instead of actually learning. The teachers in **Exploring teachers' views** might have the answer — they see AI as an assistant, not a replacement, handling the boring stuff so they can focus on the human parts. Maybe the real lesson is that caring can't be automated, even if grading can."
+GOOD (argument with papers as evidence, SHORT paper names):
+"Turns out you can't just hand AI a classroom and walk away. **the autonomous learning study** shows the tech literally can't do autonomous teaching yet, it lacks the flexible learning loops that human brains use. But that hasn't stopped people from trying. **Alpha School's experiment** went full AI-only and claims kids learn twice as fast, until you hear the parents: kids turned 'zombie-like,' obsessing over metrics instead of actually learning. **the teacher perception study** might have the answer, they see AI as an assistant, not a replacement, handling the boring stuff so they can focus on the human parts. Maybe the real lesson is that caring can't be automated, even if grading can."
 
 Notice: the GOOD version makes a POINT ("you can't just hand AI a classroom and walk away"), then uses ALL THREE papers as evidence within a flowing argument. Papers aren't discussed one-by-one — they're woven into sentences that build the argument.
 
@@ -107,7 +107,7 @@ NEVER start your last paragraph with "The core tension is..." or any formulaic c
 Just don't use the same closer every time.
 
 RULES:
-- Every paper MUST appear at least once in **bold** (short title before the colon).
+- Every paper MUST appear at least once in **bold**. Use a SHORT conversational name (2-5 words) — how you'd refer to it talking to a friend. NOT the full academic title. Examples: "the VR teaching study", "McKinsey's fashion report", "the uncertainty estimates paper". If the title has a catchy short form, use that: **Reliable uncertainty estimates** not **Reliable uncertainty estimates in deep learning with efficient Metropolis-Hastings algorithms**.
 - Weave papers together — don't give each one its own paragraph.
 - Make a POINT, don't just describe what each paper found.
 - Include at least one specific number, finding, or quote from the papers.

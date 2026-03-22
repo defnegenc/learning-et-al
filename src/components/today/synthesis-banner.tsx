@@ -401,7 +401,7 @@ export function SynthesisBanner({
                 const boldWords = text.split(/\s+/).filter(w => w.length > 3);
                 const titleWords = title.split(/\s+/).filter(w => w.length > 3);
                 const overlap = boldWords.filter(w => titleWords.includes(w));
-                return overlap.length >= 3 || (overlap.length >= 2 && boldWords.length <= 4);
+                return overlap.length >= 2;
               });
               // Highlight colors from paper card blob palettes
               const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.3)", "rgba(147,197,253,0.3)", "rgba(196,181,253,0.3)"];
