@@ -180,25 +180,6 @@ export function PaperCard({
 
       {/* Bottom: connection reason + title + summary snippet + keywords */}
       <div style={{ position: "relative", zIndex: 2 }}>
-        {paper.connectionReason && !compact && (
-          <p
-            style={{
-              fontSize: "0.58rem",
-              color: "#aaa",
-              fontStyle: "italic",
-              lineHeight: 1.3,
-              marginBottom: "5px",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
-            {paper.connectionReason
-              .replace(/^(Directly answers the question|A bit of a stretch, but|This one's a bit of a stretch|Directly relevant)\s*[-—:]\s*/i, "")
-              .replace(/^↔\s*/, "")}
-          </p>
-        )}
         <h2
           style={{
             fontSize: compact ? "0.8rem" : "1rem",
