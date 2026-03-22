@@ -486,18 +486,24 @@ Return JSON only (no markdown):
 Papers we actually found:
 ${paperList}
 
-The theme MUST thread ALL ${items.length} items together. Look at what these papers have in common and find the question that connects them.
+Read the papers carefully. What is the REAL thread connecting them? It might NOT be what the original theme says.
 
-Example: if the papers are about Buddhist AI ethics, healthcare AI, and enterprise AI news, a BAD theme is "Can AI achieve consciousness?" (only connects to the first paper). A GOOD theme is "Can AI agents care for you?" (threads ethics + healthcare + enterprise adoption).
+If the papers are about research methodology, reproducibility, and adoption — the theme is about EVIDENCE and TRUST, not about AI. Don't force an AI angle when the papers are really about something deeper.
 
-Another example: if papers are about AI romantic bonds, healthcare AI, and enterprise AI, a BAD theme is "Can AI agents achieve human-like consciousness?" (too abstract, doesn't connect healthcare). A GOOD theme is "Should we trust AI with our wellbeing?" (threads intimacy + healthcare + enterprise trust).
+BAD: "Does AI hype match real classroom results?" — when the papers are really about research reproducibility and academic visions (AI is just the context, not the point)
+GOOD: "Can we trust the research behind the hype?" — captures what ALL three papers actually share
+
+BAD: "Can AI achieve consciousness?" — only connects to one paper
+GOOD: "Can AI agents care for you?" — threads all papers
+
+The theme should capture what the papers are ACTUALLY about at their core, not the surface-level topic they happen to mention.
 
 Rules:
 - MAX 8 WORDS
-- Must connect ALL papers, not just one
+- Must connect ALL papers at their CORE, not their surface topic
 - Punchy, magazine-cover energy
 - A normal person should want to click on it
-- Must sound like something a real person would wonder about. NOT goofy or forced ("Can bacteria become your stylist?" = bad). YES grounded and curious ("Can we wear our gut health?" = good).
+- Drop the original framing entirely if the papers tell a different story
 
 ALWAYS revise. The original was written before seeing the papers so it almost certainly doesn't fit well.
 
