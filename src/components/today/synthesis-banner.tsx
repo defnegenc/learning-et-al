@@ -6,6 +6,41 @@ import { KeywordTag } from "@/components/keyword-tag";
 import { Loader2, Plus, Check, Star } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
+// Paper name highlight with hover tooltip showing summary
+function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
+  bg: string; bgHover: string; summary: string | null; onClick: () => void; children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <span
+      style={{
+        position: "relative",
+        color: "#111", fontSize: "1.1em", fontWeight: 700,
+        background: hovered ? bgHover : bg,
+        padding: "1px 4px", margin: "0 -2px",
+        cursor: "pointer", transition: "background 0.15s", borderRadius: "2px",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
+    >
+      {children}
+      {hovered && summary && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "0",
+          background: "#1a1a1a", color: "white",
+          fontSize: "0.75rem", fontWeight: 400, lineHeight: 1.5,
+          padding: "10px 14px", width: "280px", whiteSpace: "normal",
+          zIndex: 50, boxShadow: "4px 4px 0px 0px rgba(0,0,0,0.3)",
+          borderRadius: "0",
+        }}>
+          {summary.length > 150 ? summary.slice(0, 147) + "..." : summary}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // Sticky-note notepad for user notes on a digest
 function DigestNotes({ digestId }: { digestId: string }) {
   const [notes, setNotes] = useState("");
@@ -443,24 +478,14 @@ export function SynthesisBanner({
                 const bg = HIGHLIGHT_COLORS[paperIdx % HIGHLIGHT_COLORS.length];
                 const bgHover = HIGHLIGHT_HOVER[paperIdx % HIGHLIGHT_HOVER.length];
                 return (
-                  <span
-                    style={{
-                      color: "#111",
-                      fontSize: "1.1em",
-                      fontWeight: 700,
-                      background: bg,
-                      padding: "1px 4px",
-                      margin: "0 -2px",
-                      cursor: "pointer",
-                      transition: "background 0.15s",
-                      borderRadius: "2px",
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = bgHover; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = bg; }}
+                  <PaperHighlight
+                    bg={bg}
+                    bgHover={bgHover}
+                    summary={matchedPaper.summary}
                     onClick={() => onSelectPaper(matchedPaper)}
                   >
                     {children}
-                  </span>
+                  </PaperHighlight>
                 );
               }
               return <strong style={{ color: "#111", fontWeight: 700 }}>{children}</strong>;
