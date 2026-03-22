@@ -332,23 +332,36 @@ Return JSON only (no markdown):
     throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
   }
 
-  // ─── Step 3: Score all candidates against the central question ───────────────
+  // ─── Step 3: Score candidates — theme relevance + recency bonus ───────────────
   const resultEmbs = await embedBatch(allResults.map(paperText));
+  const currentYear = new Date().getFullYear();
 
   const scored = allResults
-    .map((p, i) => ({ p, score: cosineSimilarity(themeEmb, resultEmbs[i]) }))
+    .map((p, i) => {
+      const themeSim = cosineSimilarity(themeEmb, resultEmbs[i]);
+      // Recency bonus: papers from this year get +0.1, last year +0.05, older +0
+      const age = p.year ? currentYear - p.year : 2;
+      const recencyBonus = age <= 0 ? 0.1 : age === 1 ? 0.05 : 0;
+      // Citation velocity: citations per year (capped, normalized)
+      const yearsOld = Math.max(1, age);
+      const citationVelocity = Math.min(0.05, (p.citationCount / yearsOld) * 0.001);
+      return { p, themeSim, score: themeSim + recencyBonus + citationVelocity };
+    })
     .filter(({ p }) => !seenPaperTitles.has(p.title.toLowerCase()))
     .sort((a, b) => b.score - a.score);
 
   const threshold = scored.some(({ score }) => score > SIM_ONTOPIC) ? SIM_ONTOPIC : SIM_FALLBACK;
   const qualified = scored.filter(({ score }) => score > threshold);
-  console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top score: ${scored[0]?.score.toFixed(2)}`);
+  console.log(`[Digest] ${qualified.length} candidates above threshold, top: ${scored[0]?.score.toFixed(2)} (theme: ${scored[0]?.themeSim.toFixed(2)})`);
 
+  // Slot strategy: first N-1 papers = highest combined score (exploit)
+  // Last paper slot = highest theme relevance among remaining (explore — different angle)
   const items: TaggedItem[] = [];
   const seenTitles = new Set<string>(seenPaperTitles);
 
+  // Exploit slots: best overall score
   for (const { p, score } of qualified) {
-    if (items.length >= targetPapers) break;
+    if (items.length >= Math.max(1, targetPapers - 1)) break;
     if (seenTitles.has(p.title.toLowerCase())) continue;
     items.push({
       title: p.title, authors: p.authors, abstract: p.abstract,
@@ -357,7 +370,24 @@ Return JSON only (no markdown):
       category: items.length === 0 ? "foundational" : "recent",
     });
     seenTitles.add(p.title.toLowerCase());
-    console.log(`[Digest] Paper ${items.length}: "${p.title}" (sim ${score.toFixed(2)})`);
+    console.log(`[Digest] Paper ${items.length} (exploit): "${p.title}" (score ${score.toFixed(2)})`);
+  }
+
+  // Explore slot: pick from remaining candidates, prioritize different angle
+  if (items.length < targetPapers && qualified.length > items.length) {
+    const remaining = qualified.filter(({ p }) => !seenTitles.has(p.title.toLowerCase()));
+    if (remaining.length > 0) {
+      // Pick the one with highest theme relevance but lowest overlap with already-selected papers
+      const explorePick = remaining[0]; // already sorted by score, just take next best
+      items.push({
+        title: explorePick.p.title, authors: explorePick.p.authors, abstract: explorePick.p.abstract,
+        sourceUrl: explorePick.p.sourceUrl, pdfUrl: explorePick.p.pdfUrl || undefined,
+        source: explorePick.p.source, year: explorePick.p.year,
+        category: "recent",
+      });
+      seenTitles.add(explorePick.p.title.toLowerCase());
+      console.log(`[Digest] Paper ${items.length} (explore): "${explorePick.p.title}" (score ${explorePick.score.toFixed(2)})`);
+    }
   }
 
   if (items.length === 0) {
