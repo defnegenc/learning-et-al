@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Loader2, ArrowRight, Plus } from "lucide-react";
+import { Loader2, ArrowRight, Plus } from "lucide-react";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { ExpertiseLevel, S2Field } from "@/lib/field-hierarchy";
@@ -50,6 +50,35 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
   const [contentMix, setContentMix] = useState(33);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [validatingCode, setValidatingCode] = useState(false);
+
+  async function handleCodeSubmit() {
+    if (!inviteCode.trim() || validatingCode) return;
+    setValidatingCode(true);
+    setCodeError("");
+    try {
+      const res = await fetch("/api/validate-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCode }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setProvider(data.provider || "gemini");
+        setApiKey(data.apiKey || "");
+        setModel(data.model || "");
+        setBaseUrl(data.baseUrl || "");
+        setStep(2); // Skip to interests
+      } else {
+        setCodeError("Invalid code");
+      }
+    } catch {
+      setCodeError("Something went wrong");
+    }
+    setValidatingCode(false);
+  }
 
   const providerDefaults: Record<Provider, { model: string; baseUrl: string; label: string }> = {
     openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1", label: "OPENAI" },
@@ -218,6 +247,45 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
             >
               Continue <ArrowRight className="size-3.5" />
             </button>
+
+            {/* Or use invite code */}
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "4px 0" }}>
+              <div style={{ flex: 1, height: "1px", background: "#e5e7eb" }} />
+              <span style={{ fontSize: "0.7rem", color: "#999", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px" }}>or</span>
+              <div style={{ flex: 1, height: "1px", background: "#e5e7eb" }} />
+            </div>
+
+            <div>
+              <p style={{ fontSize: "0.75rem", color: "#666", marginBottom: "8px" }}>
+                Have an invite code? Skip the API key.
+              </p>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  value={inviteCode}
+                  onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
+                  placeholder="Enter code..."
+                  style={{
+                    flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a",
+                    fontSize: "0.85rem", fontFamily: "var(--font-mono), monospace", outline: "none",
+                  }}
+                />
+                <button
+                  onClick={handleCodeSubmit}
+                  disabled={!inviteCode.trim() || validatingCode}
+                  style={{
+                    padding: "10px 16px", background: "#1a1a1a", color: "white",
+                    border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
+                    textTransform: "uppercase", letterSpacing: "1px",
+                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+                    opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1,
+                  }}
+                >
+                  {validatingCode ? "..." : "Go"}
+                </button>
+              </div>
+              {codeError && <p style={{ fontSize: "0.7rem", color: "#ff007f", marginTop: "4px" }}>{codeError}</p>}
+            </div>
           </div>
         )}
 
