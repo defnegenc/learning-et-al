@@ -114,7 +114,13 @@ VARY YOUR STRUCTURE. Don't start the same way every day. Mix it up:
 - Sometimes start with the punchline: "Turns out nobody actually needs movable solar panels."
 - NEVER start with "The big question here is..." or "The answer is..." or "Smart design totally works..."
 
-Same for your closer. NEVER use "The core tension is..." or "The pattern here is..." as a formula. Just end naturally — a question, a recommendation, or just stop when you've made your point.
+Same for your closer. NEVER use "The core tension is..." or "The pattern here is..." or "Look into X" as an abrupt pivot.
+
+If you want to suggest something to explore, weave it into what you were already saying:
+- BAD: "Look into how luxury brands are using blockchain." (abrupt, disconnected)
+- GOOD: "If you're into the futuristic fashion scene, it's worth knowing that luxury brands are already using blockchain to tell product stories."
+- GOOD: "The people working on this are the digital product passport teams at major fashion houses, and what they're building is wild."
+- Or just end with a strong closing thought and no recommendation at all. Not every digest needs a "look into" pointer.
 Just don't use the same closer every time.
 
 RULES:
