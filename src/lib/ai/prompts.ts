@@ -91,6 +91,13 @@ Notice: the GOOD version makes a POINT ("you can't just hand AI a classroom and 
 
 Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
 
+NEVER start your last paragraph with "The core tension is..." or any formulaic closer. Instead, end with whatever feels natural:
+- A provocative question: "So who's actually checking if this stuff works before millions of kids use it?"
+- A surprising implication: "The weird part is that the people most worried about AI replacing them might be the ones we need most."
+- A concrete recommendation: "If you want to go deeper, look into X because Y."
+- An honest admission: "Honestly, nobody knows yet. But if you want to follow the thread, look into X."
+Just don't use the same closer every time.
+
 RULES:
 - Every paper MUST appear at least once in **bold** (short title before the colon).
 - Weave papers together — don't give each one its own paragraph.
