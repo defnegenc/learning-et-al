@@ -327,18 +327,19 @@ export function SynthesisBanner({
 
   return (
     <div className="space-y-5">
-      {/* Date + star */}
+      {/* "Today's Digest" label + star */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span
           style={{
-            fontSize: "0.875rem",
-            color: "#6b7280",
+            fontSize: "0.65rem",
+            color: "#999",
             fontFamily: "var(--font-mono), monospace",
             textTransform: "uppercase",
-            letterSpacing: "0.1em",
+            letterSpacing: "2px",
+            fontWeight: 700,
           }}
         >
-          {today}
+          Today&apos;s Digest
         </span>
         {digestId && (
           <button
@@ -382,6 +383,19 @@ export function SynthesisBanner({
           {displayTheme}
         </h1>
       )}
+
+      {/* Date under theme */}
+      <span
+        style={{
+          fontSize: "0.75rem",
+          color: "#aaa",
+          fontFamily: "var(--font-mono), monospace",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+        }}
+      >
+        {today}
+      </span>
 
       {/* Synthesis body */}
       <div
