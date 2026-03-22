@@ -180,18 +180,17 @@ export function PaperCard({
 
       {/* Bottom: connection reason + title + summary snippet + keywords */}
       <div style={{ position: "relative", zIndex: 2 }}>
-        {paper.connectionReason && (
+        {paper.connectionReason && !compact && (
           <p
             style={{
               fontSize: "0.6rem",
-              color: "#7700ff",
-              fontFamily: "var(--font-mono), monospace",
+              color: "#888",
               fontStyle: "italic",
               lineHeight: 1.4,
               marginBottom: "6px",
             }}
           >
-            ↔ {paper.connectionReason}
+            {paper.connectionReason}
           </p>
         )}
         <h2
