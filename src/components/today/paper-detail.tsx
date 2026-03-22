@@ -141,7 +141,17 @@ export function PaperDetail({
   };
 
   const isNews = paper.source === "rss";
-  const sourceLabel = paper.source === "arxiv" ? "ARXIV" : isNews ? "NEWS" : "PAPER";
+  const sourceLabel = (() => {
+    if (isNews) return "NEWS";
+    if (paper.source === "arxiv") return "ARXIV";
+    const url = (paper.sourceUrl || "").toLowerCase();
+    if (url.includes("arxiv.org")) return "ARXIV";
+    if (url.includes("nature.com")) return "NATURE";
+    if (url.includes("acm.org")) return "ACM";
+    if (url.includes("ieee")) return "IEEE";
+    if (url.includes("frontiersin")) return "FRONTIERS";
+    return "PAPER";
+  })();
   const paperId = `${sourceLabel}-${paper.year ?? "??"}`;
   // For news articles, prefer fullText (full article) over abstract (snippet)
   const articleText = isNews

@@ -60,10 +60,26 @@ const CARD_STYLES = [
 
 const PASTEL_COLORS = ["#fef3c7", "#bae6fd", "#d8b4fe", "#fed7aa", "#a5f3fc"];
 
-function getSourceLabel(source: PaperItem["source"], year?: number | null) {
+function getSourceLabel(source: PaperItem["source"], year?: number | null, sourceUrl?: string | null) {
   const yearStr = year ? ` · ${year}` : "";
   if (source === "rss") return `NEWS${yearStr}`;
   if (source === "arxiv") return `ARXIV${yearStr}`;
+  // Try to extract venue from URL domain
+  if (sourceUrl) {
+    const url = sourceUrl.toLowerCase();
+    if (url.includes("arxiv.org")) return `ARXIV${yearStr}`;
+    if (url.includes("nature.com")) return `NATURE${yearStr}`;
+    if (url.includes("sciencedirect") || url.includes("elsevier")) return `ELSEVIER${yearStr}`;
+    if (url.includes("springer")) return `SPRINGER${yearStr}`;
+    if (url.includes("ieee")) return `IEEE${yearStr}`;
+    if (url.includes("acm.org")) return `ACM${yearStr}`;
+    if (url.includes("pnas.org")) return `PNAS${yearStr}`;
+    if (url.includes("frontiersin.org")) return `FRONTIERS${yearStr}`;
+    if (url.includes("mdpi.com")) return `MDPI${yearStr}`;
+    if (url.includes("wiley")) return `WILEY${yearStr}`;
+    if (url.includes("tandfonline")) return `T&F${yearStr}`;
+    if (url.includes("sagepub")) return `SAGE${yearStr}`;
+  }
   return `PAPER${yearStr}`;
 }
 
@@ -164,7 +180,7 @@ export function PaperCard({
             display: "inline-block",
           }}
         >
-          {getSourceLabel(paper.source, paper.year)}
+          {getSourceLabel(paper.source, paper.year, paper.sourceUrl)}
         </span>
         {compareMode && (
           <span style={{
