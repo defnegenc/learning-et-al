@@ -158,10 +158,9 @@ export function PaperDetail({
   if (inline) {
     const topic = paper.keywords.length > 0 ? paper.keywords[0].toLowerCase() : paper.title.split(" ").slice(0, 3).join(" ").toLowerCase();
     const paperQuestions = [
-      `What did they actually find about ${topic}?`,
-      `Why does this matter? What does it change?`,
-      `What's the strongest criticism of this work?`,
-      `What should I read next to go deeper on ${topic}?`,
+      `Why does this matter for ${topic}?`,
+      `How does this connect to the other papers today?`,
+      `What should I read next about ${topic}?`,
     ];
 
     return (
