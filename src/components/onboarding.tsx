@@ -20,6 +20,9 @@ interface SelectedTopic {
 }
 
 interface OnboardingProps {
+  skipApiKey?: boolean;
+  defaultApiKey?: string;
+  defaultProvider?: Provider;
   onComplete: (data: {
     apiKey: string;
     provider: Provider;
@@ -30,12 +33,12 @@ interface OnboardingProps {
   }) => void;
 }
 
-export function Onboarding({ onComplete }: OnboardingProps) {
-  const [step, setStep] = useState<1 | 2>(1);
+export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvider }: OnboardingProps) {
+  const [step, setStep] = useState<1 | 2>(skipApiKey ? 2 : 1);
 
   // Step 1
-  const [provider, setProvider] = useState<Provider>("gemini");
-  const [apiKey, setApiKey] = useState("");
+  const [provider, setProvider] = useState<Provider>(defaultProvider || "gemini");
+  const [apiKey, setApiKey] = useState(defaultApiKey || "");
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
 

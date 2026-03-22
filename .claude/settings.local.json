@@ -36,7 +36,9 @@
       "Bash(vercel link:*)",
       "Bash(vercel:*)",
       "Bash(python3 -m json.tool)",
-      "Bash(vercel logs:*)"
+      "Bash(vercel logs:*)",
+      "Bash(ls:*)",
+      "Bash(echo:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
