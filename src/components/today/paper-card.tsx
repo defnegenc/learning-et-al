@@ -183,14 +183,20 @@ export function PaperCard({
         {paper.connectionReason && !compact && (
           <p
             style={{
-              fontSize: "0.6rem",
-              color: "#888",
+              fontSize: "0.58rem",
+              color: "#aaa",
               fontStyle: "italic",
-              lineHeight: 1.4,
-              marginBottom: "6px",
+              lineHeight: 1.3,
+              marginBottom: "5px",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
             }}
           >
-            {paper.connectionReason}
+            {paper.connectionReason
+              .replace(/^(Directly answers the question|A bit of a stretch, but|This one's a bit of a stretch|Directly relevant)\s*[-—:]\s*/i, "")
+              .replace(/^↔\s*/, "")}
           </p>
         )}
         <h2
