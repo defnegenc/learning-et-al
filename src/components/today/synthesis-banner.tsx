@@ -395,13 +395,19 @@ export function SynthesisBanner({
             ),
             strong: ({ children }) => {
               const text = String(children).toLowerCase();
+              // Match bold text to a paper — handle plurals, stems, and short names
+              const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
               const matchedPaper = papers.find(p => {
                 const title = p.title.toLowerCase();
+                // Direct substring match
                 if (title.includes(text) || text.includes(title.slice(0, 30))) return true;
-                const boldWords = text.split(/\s+/).filter(w => w.length > 3);
-                const titleWords = title.split(/\s+/).filter(w => w.length > 3);
-                const overlap = boldWords.filter(w => titleWords.includes(w));
-                return overlap.length >= 2;
+                // Keyword match (from paper's keywords)
+                if (p.keywords.some(kw => text.includes(kw.toLowerCase()))) return true;
+                // Stem-based word overlap
+                const boldStems = text.split(/\s+/).filter(w => w.length > 3).map(stem);
+                const titleStems = title.split(/\s+/).filter(w => w.length > 3).map(stem);
+                const overlap = boldStems.filter(bs => titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts)));
+                return overlap.length >= 1;
               });
               // Highlight colors from paper card blob palettes
               const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.3)", "rgba(147,197,253,0.3)", "rgba(196,181,253,0.3)"];
