@@ -204,14 +204,23 @@ export function SynthesisBanner({
     return defs;
   }, [keyConcepts]);
 
-  const [digDeeperAnswer, setDigDeeperAnswer] = useState<string | null>(null);
-
-  // Reset dig deeper when digest changes (e.g. after regeneration)
-  React.useEffect(() => {
-    setDigDeeperAnswer(null);
-  }, [digestId, synthesis]);
+  const [digDeeperHistory, setDigDeeperHistory] = useState<{ q: string; a: string }[]>([]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
+  const [showQuestions, setShowQuestions] = useState(true);
+
+  // Load history from localStorage + reset on digest change
+  const historyKey = digestId ? `digest_chat_${digestId}` : "";
+  React.useEffect(() => {
+    if (!historyKey) return;
+    const saved = localStorage.getItem(historyKey);
+    if (saved) {
+      try { setDigDeeperHistory(JSON.parse(saved)); setShowQuestions(false); } catch { /* ignore */ }
+    } else {
+      setDigDeeperHistory([]);
+      setShowQuestions(true);
+    }
+  }, [historyKey]);
   const [addedConcepts, setAddedConcepts] = useState<Set<string>>(new Set());
   const [addingConcept, setAddingConcept] = useState<string | null>(null);
 
@@ -302,9 +311,8 @@ export function SynthesisBanner({
   const handleDigDeeper = async (question: string) => {
     if (!session || digDeeperLoading) return;
     setDigDeeperLoading(true);
-    setDigDeeperAnswer(null);
+    setShowQuestions(false);
     try {
-      // Use digest chat endpoint — only sends summaries, not full papers
       const res = await fetch("/api/digest/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -318,9 +326,13 @@ export function SynthesisBanner({
         }),
       });
       const data = await res.json();
-      setDigDeeperAnswer(data.answer || "Couldn't get an answer.");
+      const answer = data.answer || "Couldn't get an answer.";
+      const newHistory = [...digDeeperHistory, { q: question, a: answer }];
+      setDigDeeperHistory(newHistory);
+      if (historyKey) localStorage.setItem(historyKey, JSON.stringify(newHistory));
     } catch {
-      setDigDeeperAnswer("Something went wrong. Try again.");
+      const newHistory = [...digDeeperHistory, { q: question, a: "Something went wrong. Try again." }];
+      setDigDeeperHistory(newHistory);
     }
     setDigDeeperLoading(false);
   };
@@ -492,7 +504,7 @@ export function SynthesisBanner({
       {/* Notes — sticky post-it */}
       {digestId && session && <DigestNotes digestId={digestId} />}
 
-      {/* Dig deeper — chat-style */}
+      {/* Dig deeper — conversation history */}
       {papers.length > 0 && session && (
         <div
           style={{
@@ -509,9 +521,9 @@ export function SynthesisBanner({
             }}>
               Dig Deeper
             </span>
-            {digDeeperAnswer && (
+            {digDeeperHistory.length > 0 && !showQuestions && (
               <button
-                onClick={() => setDigDeeperAnswer(null)}
+                onClick={() => setShowQuestions(true)}
                 style={{
                   background: "none", border: "1px solid rgba(255,255,255,0.3)",
                   color: "rgba(255,255,255,0.7)", fontSize: "0.6rem", fontWeight: 600,
@@ -525,14 +537,14 @@ export function SynthesisBanner({
             )}
           </div>
 
-          {/* Questions — hidden after first ask */}
-          {!digDeeperAnswer && !digDeeperLoading && (
-            <div style={{ padding: "16px 20px", borderBottom: "2px solid #e5e7eb" }}>
+          {/* Suggested questions */}
+          {showQuestions && !digDeeperLoading && (
+            <div style={{ padding: "16px 20px", borderBottom: digDeeperHistory.length > 0 ? "none" : "2px solid #e5e7eb" }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                 {digDeeperPrompts.map((prompt, i) => (
                   <button
                     key={i}
-                    onClick={() => handleDigDeeper(prompt)}
+                    onClick={() => { handleDigDeeper(prompt); setShowQuestions(false); }}
                     style={{
                       padding: "8px 16px", border: "2px solid #1a1a1a", background: "white",
                       fontSize: "0.8rem", fontWeight: 600,
@@ -550,73 +562,35 @@ export function SynthesisBanner({
             </div>
           )}
 
-          {/* Answer thread */}
-          {(digDeeperLoading || digDeeperAnswer) && (
-            <div style={{ padding: "16px 20px" }}>
-              {digDeeperAnswer && (
-                <div style={{
-                  fontSize: "0.95rem", lineHeight: 1.75, color: "#333",
-                  paddingBottom: "12px", marginBottom: "12px",
-                }}>
-                  <ReactMarkdown
-                    components={{
-                      p: ({ children }) => <p style={{ marginBottom: "0.75em" }}>{children}</p>,
-                      strong: ({ children }) => {
-                        const text = String(children).toLowerCase();
-                        const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-                        const matched = papers.find(p => {
-                          const title = p.title.toLowerCase();
-                          if (title.includes(text) || text.includes(title.slice(0, 30))) return true;
-                          if (p.keywords.some(kw => text.includes(kw.toLowerCase()))) return true;
-                          const bStems = text.split(/\s+/).filter(w => w.length > 3).map(stem);
-                          const tStems = title.split(/\s+/).filter(w => w.length > 3).map(stem);
-                          return bStems.filter(bs => tStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))).length >= 1;
-                        });
-                        if (matched && onSelectPaper) {
-                          const idx = papers.indexOf(matched);
-                          const COLORS = ["rgba(249,168,212,0.3)", "rgba(147,197,253,0.3)", "rgba(196,181,253,0.3)"];
-                          return (
-                            <span
-                              style={{ fontWeight: 700, background: COLORS[idx % 3], padding: "1px 4px", borderRadius: "2px", cursor: "pointer" }}
-                              onClick={() => onSelectPaper(matched)}
-                            >
-                              {children}
-                            </span>
-                          );
-                        }
-                        return <strong>{children}</strong>;
-                      },
-                    }}
-                  >
-                    {digDeeperAnswer}
-                  </ReactMarkdown>
-
-                  {/* Source links */}
-                  <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #e5e7eb", display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    <span style={{ fontSize: "0.6rem", color: "#aaa", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px", alignSelf: "center" }}>Sources:</span>
-                    {papers.map((p, i) => (
-                      <button
-                        key={p.id}
-                        onClick={() => onSelectPaper?.(p)}
-                        style={{
-                          fontSize: "0.65rem", fontWeight: 600, color: "#555",
-                          background: "none", border: "1px solid #ddd", padding: "3px 8px",
-                          cursor: "pointer", borderRadius: "2px",
-                        }}
-                        className="hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors"
-                      >
-                        {p.title.split(/[:.]/)[0].trim().slice(0, 40)}{p.title.split(/[:.]/)[0].trim().length > 40 ? "…" : ""}
-                      </button>
-                    ))}
+          {/* Conversation history */}
+          {digDeeperHistory.length > 0 && (
+            <div style={{ padding: "16px 20px", maxHeight: "400px", overflowY: "auto" }}>
+              {digDeeperHistory.map((entry, i) => (
+                <div key={i} style={{ marginBottom: i < digDeeperHistory.length - 1 ? "16px" : "0" }}>
+                  <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "8px", fontFamily: "var(--font-mono), monospace" }}>
+                    {entry.q}
+                  </p>
+                  <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
+                        strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
+                      }}
+                    >
+                      {entry.a}
+                    </ReactMarkdown>
                   </div>
+                  {i < digDeeperHistory.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
                 </div>
-              )}
-              {digDeeperLoading && (
-                <div className="flex items-center gap-2 text-[#888]">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono), monospace" }}>Thinking...</span>
-                </div>
-              )}
+              ))}
+            </div>
+          )}
+
+          {/* Loading indicator */}
+          {digDeeperLoading && (
+            <div className="flex items-center gap-2 text-[#888]" style={{ padding: "12px 20px" }}>
+              <Loader2 className="size-3.5 animate-spin" />
+              <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono), monospace" }}>Thinking...</span>
             </div>
           )}
 
