@@ -51,7 +51,9 @@ Key findings: ${findings.join("; ")}
 Abstract: ${(p.abstract ?? "").slice(0, 600)}`;
     }).join("\n\n");
 
-    const systemPrompt = `Answer in 3-4 sentences MAX. Be direct and specific. No bullet points, no lists, no headers. Just a short paragraph like you're replying in a group chat. Cite paper titles when relevant but keep it brief.
+    const systemPrompt = `Answer in 3-4 sentences MAX. Be direct and specific. No bullet points, no lists, no headers. Just a short paragraph like you're replying in a group chat.
+
+IMPORTANT: Only reference information that's actually in the papers below. If the user asks about something not covered by these papers, say "That's not in today's papers, but based on what we have..." and stick to what IS there. Never make up facts or cite things that aren't in the provided context.
 
 Today's synthesis:
 ${digest.synthesisContent ?? ""}
