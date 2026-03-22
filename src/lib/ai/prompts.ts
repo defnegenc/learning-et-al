@@ -134,6 +134,9 @@ RULES:
 - NO em dashes. NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted.
 - The theme "${theme}" is the headline above. Don't restate it.
 - Short sentences. Human words. You're texting a friend, not writing an essay.
+- Don't start with "Turns out" every time — vary your opener.
+- Cut filler: "it's deeply about", "This kind of", "This shows how", "The real lesson here is" — just make the point.
+- Aim for 4-6 sentences total. Tighter is better.
 
 Papers:
 
