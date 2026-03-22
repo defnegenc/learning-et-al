@@ -51,7 +51,7 @@ Key findings: ${findings.join("; ")}
 Abstract: ${(p.abstract ?? "").slice(0, 600)}`;
     }).join("\n\n");
 
-    const systemPrompt = `You are a sharp research analyst. The user is reading today's digest — a curated set of research papers and news articles. Answer their question concisely and insightfully based on the provided synthesis and papers. Be specific. Cite paper titles when relevant. No fluff.
+    const systemPrompt = `Answer in 3-4 sentences MAX. Be direct and specific. No bullet points, no lists, no headers. Just a short paragraph like you're replying in a group chat. Cite paper titles when relevant but keep it brief.
 
 Today's synthesis:
 ${digest.synthesisContent ?? ""}
