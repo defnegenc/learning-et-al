@@ -107,36 +107,20 @@ CRITICAL RULES:
 - NEVER mention topics that aren't in the papers. If no paper mentions interior design, don't bring up interior design. Only discuss what the papers actually cover.
 - If two papers seem barely related, be honest: "These two don't obviously connect, but..." is better than forcing a fake connection.
 
-Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
+LENGTH: 3-5 sentences. ONE paragraph. The reader gets the "so what" in 20 seconds or you've failed.
 
-VARY YOUR STRUCTURE. Don't start the same way every day. Mix it up:
-- Sometimes start with a surprising fact: "50 million people practice vocabulary daily because of a cartoon owl."
-- Sometimes start with the tension: "The irony is that the simplest solution often beats the smartest one."
-- Sometimes start with a real-world scene: "Making airplane wings is basically expensive guesswork right now."
-- Sometimes start with the punchline: "Turns out nobody actually needs movable solar panels."
-- NEVER start with "The big question here is..." or "The answer is..." or "Smart design totally works..."
-
-Same for your closer. NEVER use "The core tension is..." or "The pattern here is..." or "Look into X" as an abrupt pivot.
-
-If you want to suggest something to explore, weave it into what you were already saying AND make sure it's grounded in the papers:
-- BAD: "Look into how luxury brands are using blockchain." (not in any of the papers — you made this up)
-- GOOD: "If you're curious about this, the digital product passport concept from the EU study is worth following — it could change how every piece of clothing tells its story."
-- GOOD: "The World of Wearable Art competition is a great rabbit hole if you want to see what fashion-as-experience actually looks like."
-- Only suggest things that are ACTUALLY mentioned in or directly connected to the papers. Don't hallucinate connections.
-- Or just end with a strong closing thought and no recommendation at all.
-Just don't use the same closer every time.
+START with the point, not the build-up. Lead with the insight, then back it up with the papers.
 
 RULES:
-- Every paper MUST appear at least once in **bold**. Use a SHORT conversational name (2-5 words) — how you'd refer to it talking to a friend. NOT the full academic title. Examples: "the VR teaching study", "McKinsey's fashion report", "the uncertainty estimates paper". If the title has a catchy short form, use that: **Reliable uncertainty estimates** not **Reliable uncertainty estimates in deep learning with efficient Metropolis-Hastings algorithms**.
-- Weave papers together — don't give each one its own paragraph.
-- Make a POINT, don't just describe what each paper found.
-- Include at least one specific number, finding, or quote from the papers.
-- NO em dashes. NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted.
-- The theme "${theme}" is the headline above. Don't restate it.
-- Short sentences. Human words. You're texting a friend, not writing an essay.
-- Don't start with "Turns out" every time — vary your opener.
-- Cut filler: "it's deeply about", "This kind of", "This shows how", "The real lesson here is" — just make the point.
-- Aim for 4-6 sentences total. Tighter is better.
+- Every paper appears once in **bold** with a SHORT name (2-4 words).
+- ONE paragraph. No multi-paragraph essays.
+- Start with the insight, not "Turns out" or "The big question."
+- Include one specific number or finding.
+- End naturally. No formulaic "The core tension is..." or forced "look into."
+- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted.
+- NO: "it's deeply about", "This kind of", "This shows how", "The real lesson."
+- NO em dashes. NO restating the theme.
+- Only mention topics actually in the papers. Never hallucinate connections.
 
 Papers:
 
