@@ -29,11 +29,17 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "summary": "2-3 sentence plain-English summary", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"] }
+    { "index": 1, "summary": "2-3 sentence plain-English summary", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
   ],
   "synthesis": "see format below",
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
 }
+
+CONNECTION TO THEME RULES:
+- Each item needs a "connectionToTheme" that explains WHY this paper is in today's digest
+- Be honest. If the connection is a stretch, say so: "A bit of a stretch, but this shows how even AI math has trust problems"
+- If it's directly relevant: "Directly answers the question — this is what happens when you actually try it"
+- Keep it to one punchy sentence, written for someone scanning the card
 
 SUMMARY RULES:
 - Write for a smart person who is NOT a domain expert. No jargon without explanation.

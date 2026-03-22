@@ -27,7 +27,7 @@ type PaperSearchResult = {
 };
 
 interface DigestAIResponse {
-  items: { index: number; summary: string; keywords: string[]; findings?: string[] }[];
+  items: { index: number; summary: string; keywords: string[]; findings?: string[]; connectionToTheme?: string }[];
   synthesis: string;
   keyConcepts: string[];
 }
@@ -563,7 +563,7 @@ Return JSON only: {"theme": "the revised question, MAX 8 WORDS"}`;
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [] };
+    const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "" };
     await db.insert(papers).values({
       digestId: digest.id,
       title: item.title, authors: JSON.stringify(item.authors),
@@ -572,7 +572,7 @@ Return JSON only: {"theme": "the revised question, MAX 8 WORDS"}`;
       sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
       keywords: JSON.stringify(aiItem.keywords),
       keyFindings: JSON.stringify(aiItem.findings || []),
-      connectionReason: null,
+      connectionReason: aiItem.connectionToTheme || null,
       category: item.category,
       year: item.year,
     });
