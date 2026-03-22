@@ -102,8 +102,10 @@ Notice what the GOOD version does:
 
 CRITICAL RULES:
 - The reader should never have to Google a term to understand your point. Translate jargon into things a smart non-expert already knows.
-- When moving between papers, ADD A BRIDGE SENTENCE that explicitly connects them: "That same tension shows up in...", "This is basically the opposite of what...", "Which is exactly what ... found when they..."
-- Don't just place papers next to each other and hope the reader connects them. SPELL OUT the connection in one sentence.
+- When moving between papers, ADD A BRIDGE SENTENCE that explicitly connects them.
+- Don't just place papers next to each other and hope the reader connects them. SPELL OUT the connection.
+- NEVER mention topics that aren't in the papers. If no paper mentions interior design, don't bring up interior design. Only discuss what the papers actually cover.
+- If two papers seem barely related, be honest: "These two don't obviously connect, but..." is better than forcing a fake connection.
 
 Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
 

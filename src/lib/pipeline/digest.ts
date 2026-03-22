@@ -253,9 +253,12 @@ Rules:
 - The theme must sound like something a real person would actually wonder about. "Can we wear our gut health?" is great. "Can bacteria become your personal health stylist?" is too goofy.
 
 SEARCH QUERY RULES:
-- Queries must find papers DIRECTLY about the selected interests, not tangentially related ancient history or random fields
-- Include the interest keyword in each query (e.g. if interest is "consciousness", query should contain "consciousness")
-- Papers should be from the same academic domain as the interests, not randomly pulled from archaeology or linguistics
+- All 3 queries must find papers a PERSON WITH THESE INTERESTS would actually want to read
+- Include at least one interest keyword in each query
+- Papers should be from the same general domain — if interests are in design/art, don't return physics papers
+- BAD query: "measurement methodology" (too broad, matches physics AND social science AND everything)
+- GOOD query: "design evaluation user experience measurement" (specific to the domain)
+- Each query should find papers that could plausibly appear in the same reading list
 
 Return JSON only (no markdown):
 {
