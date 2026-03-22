@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  debug: true,
+  debug: process.env.NODE_ENV === "development",
   session: { strategy: "jwt" },
   pages: {
     error: "/auth/error",
