@@ -36,10 +36,10 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 }
 
 CONNECTION TO THEME RULES:
-- Each item needs a "connectionToTheme" that explains WHY this paper is in today's digest
-- Be honest. If the connection is a stretch, say so: "A bit of a stretch, but this shows how even AI math has trust problems"
-- If it's directly relevant: "Directly answers the question — this is what happens when you actually try it"
-- Keep it to one punchy sentence, written for someone scanning the card
+- Each item needs a "connectionToTheme" — a SHORT phrase (5-10 words) explaining why it's here
+- NO prefixes like "Directly answers..." or "A bit of a stretch..."
+- Just the reason: "shows what happens when you remove human teachers" or "the tech behind the trust problem"
+- Think of it like a subtitle on a card — brief and scannable
 
 SUMMARY RULES:
 - Write for a smart person who is NOT a domain expert. No jargon without explanation.
