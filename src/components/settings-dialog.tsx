@@ -7,7 +7,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus } from "lucide-react";
+import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus, LogOut } from "lucide-react";
+import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { ExpertiseLevel, S2Field } from "@/lib/field-hierarchy";
 
@@ -46,6 +47,7 @@ interface SelectedTopic {
 export function SettingsDialog({ session, updateSession, onRefreshDigest }: SettingsDialogProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTab>("interests");
+  const { data: authSession } = useAuthSession();
 
   // API state
   const [provider, setProvider] = useState<Provider>(session.provider as Provider);
@@ -223,29 +225,35 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </button>
             ))}
           </nav>
+          {/* Account */}
           <div style={{ padding: "16px 24px", borderTop: "3px solid #1a1a1a" }}>
-            <div className="flex items-center gap-3">
-              {saved && (
-                <span className="flex items-center gap-1 text-[#38b000] text-[0.75rem]">
-                  <CheckCircle className="size-3" /> Saved
-                </span>
-              )}
-            </div>
+            {authSession?.user && (
+              <div style={{ marginBottom: "12px" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  {authSession.user.image && (
+                    <img src={authSession.user.image} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1.5px solid #1a1a1a" }} />
+                  )}
+                  <div>
+                    <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1a1a1a", lineHeight: 1.2 }}>
+                      {authSession.user.name}
+                    </p>
+                    <p style={{ fontSize: "0.6rem", color: "#888" }}>
+                      {authSession.user.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             <button
-              onClick={handleRefreshDigest}
-              disabled={!apiKey.trim()}
-              className="w-full flex items-center justify-center gap-2 py-2.5 mb-2 text-[0.7rem] uppercase tracking-[1.5px] hover:bg-gray-50 transition-colors disabled:opacity-50"
-              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace" }}
+              onClick={() => {
+                localStorage.removeItem("pp_session");
+                fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
+                window.location.href = "/";
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2 text-[0.7rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors"
+              style={{ border: "1.5px solid #ddd", fontFamily: "var(--font-mono), monospace" }}
             >
-              <RefreshCw className="size-3" /> Refresh Digest
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full py-3 text-[0.8rem] font-bold uppercase tracking-[2px] bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors disabled:opacity-50"
-              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}
-            >
-              {saving ? <Loader2 className="size-3 animate-spin mx-auto" /> : "Save"}
+              <LogOut className="size-3" /> Sign Out
             </button>
           </div>
         </aside>
@@ -504,6 +512,34 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </div>
             </div>
           )}
+          {/* Bottom action bar */}
+          <div style={{
+            borderTop: "3px solid #1a1a1a", background: "white",
+            padding: "14px 40px", display: "flex", justifyContent: "flex-end",
+            alignItems: "center", gap: "10px", flexShrink: 0,
+          }}>
+            {saved && (
+              <span className="flex items-center gap-1 text-[#38b000] text-[0.7rem]" style={{ marginRight: "auto" }}>
+                <CheckCircle className="size-3" /> Saved
+              </span>
+            )}
+            <button
+              onClick={handleRefreshDigest}
+              disabled={!apiKey.trim()}
+              className="flex items-center gap-2 px-4 py-2.5 text-[0.65rem] uppercase tracking-[1.5px] hover:bg-gray-50 transition-colors disabled:opacity-50"
+              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace" }}
+            >
+              <RefreshCw className="size-3" /> Refresh Digest
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2.5 text-[0.7rem] font-bold uppercase tracking-[2px] bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors disabled:opacity-50"
+              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}
+            >
+              {saving ? <Loader2 className="size-3 animate-spin" /> : "Save"}
+            </button>
+          </div>
         </main>
       </DialogContent>
     </Dialog>
