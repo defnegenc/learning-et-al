@@ -7,10 +7,13 @@ import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
 import { PublicDigest } from "@/components/public-digest";
 
+type ModalStep = "main" | "code";
+
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
   const { data: authSession, status: authStatus } = useAuthSession();
   const [showAuthModal, setShowAuthModal] = useState(true);
+  const [modalStep, setModalStep] = useState<ModalStep>("main");
   const [inviteCode, setInviteCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [validatingCode, setValidatingCode] = useState(false);
@@ -27,7 +30,6 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.valid) {
-        // Store the shared AI config — user won't need their own key
         updateSession({
           apiKey: data.apiKey,
           provider: data.provider,
@@ -35,7 +37,7 @@ export default function Home() {
           baseUrl: data.baseUrl || "",
           inviteCode: inviteCode.trim().toLowerCase(),
         });
-        // Now sign in with Google (they still need an account for interests)
+        // Code valid → sign in with Google (API key is stored, onboarding will skip it)
         signIn("google");
       } else {
         setCodeError("Invalid code. Try again.");
@@ -47,7 +49,6 @@ export default function Home() {
   }
 
   // Sync Auth.js session → local session
-  // When Google sign-in succeeds, authSession has the user but local session doesn't know
   useEffect(() => {
     if (authStatus === "authenticated" && authSession?.user?.id && !session.userId) {
       updateSession({ userId: authSession.user.id });
@@ -67,7 +68,7 @@ export default function Home() {
     return <AppShell session={session} updateSession={updateSession} />;
   }
 
-  // Has a userId (signed in via Google or legacy cookie) but hasn't picked interests yet — onboard
+  // Signed in but no interests yet — onboard (skip API key if invite code was used)
   if (session.userId) {
     return (
       <Onboarding
@@ -81,10 +82,9 @@ export default function Home() {
     );
   }
 
-  // Not signed in — show public digest with sign-in overlay
+  // Not signed in — public digest with auth overlay
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
-      {/* Header */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-5 md:px-8"
         style={{ borderBottom: "4px solid #1a1a1a", background: "white", height: "64px" }}
@@ -97,7 +97,7 @@ export default function Home() {
           LEARNING ET AL.
         </h1>
         <button
-          onClick={() => setShowAuthModal(true)}
+          onClick={() => { setShowAuthModal(true); setModalStep("main"); }}
           style={{
             padding: "8px 20px", background: "#1a1a1a", color: "white",
             border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
@@ -111,10 +111,10 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <PublicDigest onSignIn={() => setShowAuthModal(true)} />
+        <PublicDigest onSignIn={() => { setShowAuthModal(true); setModalStep("main"); }} />
       </main>
 
-      {/* Auth modal overlay */}
+      {/* Auth modal */}
       {showAuthModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
@@ -126,79 +126,118 @@ export default function Home() {
             padding: "48px 40px", maxWidth: "420px", width: "calc(100% - 2rem)",
             textAlign: "center",
           }}>
-            <h2 style={{
-              fontSize: "1.5rem", fontWeight: 800,
-              fontFamily: "var(--font-display), sans-serif",
-              letterSpacing: "-0.02em", marginBottom: "8px",
-            }}>
-              Your daily research companion
-            </h2>
-            <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "28px", lineHeight: 1.6 }}>
-              Every day, we find research papers and news that connect in surprising ways. Sign in to get your own personalized digest.
-            </p>
-            <button
-              onClick={() => signIn("google")}
-              style={{
-                width: "100%", padding: "14px", background: "#1a1a1a", color: "white",
-                border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700,
-                textTransform: "uppercase", letterSpacing: "2px",
-                fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "16px",
-              }}
-            >
-              Sign in with Google
-            </button>
 
-            {/* Invite code */}
-            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "16px", marginBottom: "16px" }}>
-              <p style={{ fontSize: "0.7rem", color: "#999", marginBottom: "8px", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px" }}>
-                Have an invite code?
-              </p>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <input
-                  value={inviteCode}
-                  onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
-                  onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
-                  placeholder="Enter code..."
+            {/* Step 1: Sign in or Guest */}
+            {modalStep === "main" && (
+              <>
+                <h2 style={{
+                  fontSize: "1.5rem", fontWeight: 800,
+                  fontFamily: "var(--font-display), sans-serif",
+                  letterSpacing: "-0.02em", marginBottom: "8px",
+                }}>
+                  Your daily research companion
+                </h2>
+                <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "28px", lineHeight: 1.6 }}>
+                  Every day, we find research papers and news that connect in surprising ways. Sign in to get your own personalized digest.
+                </p>
+
+                <button
+                  onClick={() => signIn("google")}
                   style={{
-                    flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a",
-                    fontSize: "0.85rem", fontFamily: "var(--font-mono), monospace",
-                    outline: "none",
+                    width: "100%", padding: "14px", background: "#1a1a1a", color: "white",
+                    border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700,
+                    textTransform: "uppercase", letterSpacing: "2px",
+                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+                    boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "10px",
                   }}
-                />
+                >
+                  Sign in with Google
+                </button>
+
+                <button
+                  onClick={() => setModalStep("code")}
+                  style={{
+                    width: "100%", padding: "12px", background: "white", color: "#1a1a1a",
+                    border: "2px solid #1a1a1a", fontSize: "0.75rem", fontWeight: 600,
+                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+                    textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "16px",
+                  }}
+                >
+                  I have an invite code
+                </button>
+
+                <button
+                  onClick={() => setShowAuthModal(false)}
+                  style={{
+                    width: "100%", padding: "12px", background: "white", color: "#aaa",
+                    border: "none", fontSize: "0.75rem", fontWeight: 600,
+                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+                    textTransform: "uppercase", letterSpacing: "1.5px",
+                  }}
+                >
+                  Continue as Guest
+                </button>
+              </>
+            )}
+
+            {/* Step 2: Enter invite code */}
+            {modalStep === "code" && (
+              <>
+                <h2 style={{
+                  fontSize: "1.3rem", fontWeight: 800,
+                  fontFamily: "var(--font-display), sans-serif",
+                  letterSpacing: "-0.02em", marginBottom: "8px",
+                }}>
+                  Enter your invite code
+                </h2>
+                <p style={{ fontSize: "0.85rem", color: "#666", marginBottom: "24px", lineHeight: 1.6 }}>
+                  Your code gives you full access without needing your own AI key. You&apos;ll sign in with Google next.
+                </p>
+
+                <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
+                  <input
+                    value={inviteCode}
+                    onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
+                    onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
+                    placeholder="Enter code..."
+                    autoFocus
+                    style={{
+                      flex: 1, padding: "12px 14px", border: "2px solid #1a1a1a",
+                      fontSize: "0.9rem", fontFamily: "var(--font-mono), monospace", outline: "none",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+                {codeError && <p style={{ fontSize: "0.7rem", color: "#ff007f", marginBottom: "8px" }}>{codeError}</p>}
+
                 <button
                   onClick={handleCodeSubmit}
                   disabled={!inviteCode.trim() || validatingCode}
                   style={{
-                    padding: "10px 16px", background: "#1a1a1a", color: "white",
-                    border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
-                    textTransform: "uppercase", letterSpacing: "1px",
+                    width: "100%", padding: "14px", background: "#1a1a1a", color: "white",
+                    border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700,
+                    textTransform: "uppercase", letterSpacing: "2px",
                     fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+                    boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "12px",
                     opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1,
                   }}
                 >
-                  {validatingCode ? "..." : "Go"}
+                  {validatingCode ? "Checking..." : "Continue"}
                 </button>
-              </div>
-              {codeError && (
-                <p style={{ fontSize: "0.7rem", color: "#ff007f", marginTop: "6px" }}>{codeError}</p>
-              )}
-            </div>
 
-            <button
-              onClick={() => setShowAuthModal(false)}
-              style={{
-                width: "100%", padding: "12px", background: "white", color: "#888",
-                border: "2px solid #e5e7eb", fontSize: "0.75rem", fontWeight: 600,
-                fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                textTransform: "uppercase", letterSpacing: "1.5px",
-              }}
-            >
-              Continue as Guest
-            </button>
-            <p style={{ fontSize: "0.7rem", color: "#aaa", marginTop: "8px" }}>
-              Browse today&apos;s digest without an account
-            </p>
+                <button
+                  onClick={() => { setModalStep("main"); setInviteCode(""); setCodeError(""); }}
+                  style={{
+                    width: "100%", padding: "10px", background: "white", color: "#888",
+                    border: "none", fontSize: "0.7rem", fontWeight: 600,
+                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+                    textTransform: "uppercase", letterSpacing: "1px",
+                  }}
+                >
+                  ← Back
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
