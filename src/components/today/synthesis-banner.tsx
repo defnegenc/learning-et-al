@@ -556,9 +556,59 @@ export function SynthesisBanner({
               {digDeeperAnswer && (
                 <div style={{
                   fontSize: "0.95rem", lineHeight: 1.75, color: "#333",
-                  borderBottom: "2px solid #e5e7eb", paddingBottom: "16px", marginBottom: "12px",
+                  paddingBottom: "12px", marginBottom: "12px",
                 }}>
-                  <ReactMarkdown>{digDeeperAnswer}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p style={{ marginBottom: "0.75em" }}>{children}</p>,
+                      strong: ({ children }) => {
+                        const text = String(children).toLowerCase();
+                        const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
+                        const matched = papers.find(p => {
+                          const title = p.title.toLowerCase();
+                          if (title.includes(text) || text.includes(title.slice(0, 30))) return true;
+                          if (p.keywords.some(kw => text.includes(kw.toLowerCase()))) return true;
+                          const bStems = text.split(/\s+/).filter(w => w.length > 3).map(stem);
+                          const tStems = title.split(/\s+/).filter(w => w.length > 3).map(stem);
+                          return bStems.filter(bs => tStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))).length >= 1;
+                        });
+                        if (matched && onSelectPaper) {
+                          const idx = papers.indexOf(matched);
+                          const COLORS = ["rgba(249,168,212,0.3)", "rgba(147,197,253,0.3)", "rgba(196,181,253,0.3)"];
+                          return (
+                            <span
+                              style={{ fontWeight: 700, background: COLORS[idx % 3], padding: "1px 4px", borderRadius: "2px", cursor: "pointer" }}
+                              onClick={() => onSelectPaper(matched)}
+                            >
+                              {children}
+                            </span>
+                          );
+                        }
+                        return <strong>{children}</strong>;
+                      },
+                    }}
+                  >
+                    {digDeeperAnswer}
+                  </ReactMarkdown>
+
+                  {/* Source links */}
+                  <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #e5e7eb", display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    <span style={{ fontSize: "0.6rem", color: "#aaa", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px", alignSelf: "center" }}>Sources:</span>
+                    {papers.map((p, i) => (
+                      <button
+                        key={p.id}
+                        onClick={() => onSelectPaper?.(p)}
+                        style={{
+                          fontSize: "0.65rem", fontWeight: 600, color: "#555",
+                          background: "none", border: "1px solid #ddd", padding: "3px 8px",
+                          cursor: "pointer", borderRadius: "2px",
+                        }}
+                        className="hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors"
+                      >
+                        {p.title.split(/[:.]/)[0].trim().slice(0, 40)}{p.title.split(/[:.]/)[0].trim().length > 40 ? "…" : ""}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {digDeeperLoading && (
