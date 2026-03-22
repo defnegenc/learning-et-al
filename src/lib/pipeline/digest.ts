@@ -206,12 +206,10 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   console.log(`[Digest] Cross-digest dedup (last 30 days + current): ${seenPaperTitles.size} previously seen`);
 
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  const contentMix = user?.contentMix ?? 33;
-  // Map contentMix (0-100) to paper/news counts:
-  // 0-20: 3 papers, 0 news | 21-50: 2 papers, 1 news | 51-80: 1 paper, 2 news | 81-100: 0 papers, 3 news
-  const targetPapers = contentMix <= 20 ? 3 : contentMix <= 50 ? 2 : contentMix <= 80 ? 1 : 0;
-  const targetNews = 3 - targetPapers;
-  console.log(`[Digest] Content mix: ${contentMix} → ${targetPapers} papers, ${targetNews} news`);
+  // Fixed at 2 papers + 1 news — best balance per recsys literature (2 exploit + 1 explore)
+  const targetPapers = 2;
+  const targetNews = 1;
+  console.log(`[Digest] Target: ${targetPapers} papers, ${targetNews} news`);
 
   // ─── Step 1: Generate today's central question ──────────────────────────────
   // The LLM picks 1-3 interests and frames a catchy "wow factor" question.
