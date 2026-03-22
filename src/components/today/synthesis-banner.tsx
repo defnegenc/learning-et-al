@@ -482,13 +482,27 @@ export function SynthesisBanner({
             marginTop: "12px",
           }}
         >
-          <div style={{ background: "#1a1a1a", padding: "16px 20px" }}>
+          <div style={{ background: "#1a1a1a", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{
               fontSize: "1rem", fontWeight: 700, textTransform: "uppercase",
               letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "white",
             }}>
               Dig Deeper
             </span>
+            {digDeeperAnswer && (
+              <button
+                onClick={() => setDigDeeperAnswer(null)}
+                style={{
+                  background: "none", border: "1px solid rgba(255,255,255,0.3)",
+                  color: "rgba(255,255,255,0.7)", fontSize: "0.6rem", fontWeight: 600,
+                  padding: "4px 10px", cursor: "pointer", fontFamily: "var(--font-mono), monospace",
+                  textTransform: "uppercase", letterSpacing: "1px",
+                }}
+                className="hover:text-white hover:border-white transition-colors"
+              >
+                More questions
+              </button>
+            )}
           </div>
 
           {/* Questions — hidden after first ask */}
