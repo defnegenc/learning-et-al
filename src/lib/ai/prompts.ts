@@ -116,11 +116,12 @@ VARY YOUR STRUCTURE. Don't start the same way every day. Mix it up:
 
 Same for your closer. NEVER use "The core tension is..." or "The pattern here is..." or "Look into X" as an abrupt pivot.
 
-If you want to suggest something to explore, weave it into what you were already saying:
-- BAD: "Look into how luxury brands are using blockchain." (abrupt, disconnected)
-- GOOD: "If you're into the futuristic fashion scene, it's worth knowing that luxury brands are already using blockchain to tell product stories."
-- GOOD: "The people working on this are the digital product passport teams at major fashion houses, and what they're building is wild."
-- Or just end with a strong closing thought and no recommendation at all. Not every digest needs a "look into" pointer.
+If you want to suggest something to explore, weave it into what you were already saying AND make sure it's grounded in the papers:
+- BAD: "Look into how luxury brands are using blockchain." (not in any of the papers — you made this up)
+- GOOD: "If you're curious about this, the digital product passport concept from the EU study is worth following — it could change how every piece of clothing tells its story."
+- GOOD: "The World of Wearable Art competition is a great rabbit hole if you want to see what fashion-as-experience actually looks like."
+- Only suggest things that are ACTUALLY mentioned in or directly connected to the papers. Don't hallucinate connections.
+- Or just end with a strong closing thought and no recommendation at all.
 Just don't use the same closer every time.
 
 RULES:
