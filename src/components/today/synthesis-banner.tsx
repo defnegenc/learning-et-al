@@ -206,10 +206,10 @@ export function SynthesisBanner({
 
   const [digDeeperAnswer, setDigDeeperAnswer] = useState<string | null>(null);
 
-  // Reset dig deeper when synthesis changes (e.g. after regeneration)
+  // Reset dig deeper when digest changes (e.g. after regeneration)
   React.useEffect(() => {
     setDigDeeperAnswer(null);
-  }, [synthesis]);
+  }, [digestId, synthesis]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
   const [addedConcepts, setAddedConcepts] = useState<Set<string>>(new Set());

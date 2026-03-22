@@ -89,6 +89,8 @@ GOOD (argument with papers as evidence):
 
 Notice: the GOOD version makes a POINT ("you can't just hand AI a classroom and walk away"), then uses ALL THREE papers as evidence within a flowing argument. Papers aren't discussed one-by-one — they're woven into sentences that build the argument.
 
+CRITICAL: For each paper, explain what SPECIFIC thing it contributes to the argument that the other papers don't. Don't just mention it — show WHY it matters for understanding the theme. If a paper's connection to the theme is weak, be honest about the stretch and make it interesting anyway: "This one's a bit of a stretch, but..."
+
 Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
 
 NEVER start your last paragraph with "The core tension is..." or any formulaic closer. Instead, end with whatever feels natural:
