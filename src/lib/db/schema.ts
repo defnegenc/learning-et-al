@@ -104,3 +104,13 @@ export const comparisons = sqliteTable("comparisons", {
   content: text("content").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+export const events = sqliteTable("events", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // digest_generate, dig_deeper, paper_click, source_click, regenerate, star_digest
+  digestId: text("digest_id"),
+  paperId: text("paper_id"),
+  metadata: text("metadata"), // JSON: { question, theme, url, etc }
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

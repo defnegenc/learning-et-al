@@ -4,6 +4,7 @@ import { digests, papers, interests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { aiComplete } from "@/lib/ai/provider";
 import { getAuthUser } from "@/lib/get-user";
+import { trackEvent } from "@/lib/track";
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUser(req);
@@ -65,6 +66,8 @@ ${papersContext}`;
       systemPrompt,
       question
     );
+
+    trackEvent(userId, "dig_deeper", { digestId, metadata: { question } });
 
     // Engagement tracking: boost the user interest that best matches the anchor paper.
     // Tiny boost per question (+0.05) — engagement should nudge, not dominate.

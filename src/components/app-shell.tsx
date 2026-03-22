@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { LogOut, BookOpen, Archive } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { LogOut, BookOpen, Archive, BarChart3 } from "lucide-react";
+import { AdminDashboard } from "@/components/admin-dashboard";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
 import { SettingsDialog } from "@/components/settings-dialog";
@@ -22,7 +23,13 @@ interface AppShellProps {
 }
 
 export function AppShell({ session, updateSession }: AppShellProps) {
-  const [activeTab, setActiveTab] = useState<"today" | "vault">("today");
+  const [activeTab, setActiveTab] = useState<"today" | "vault" | "admin">("today");
+  const isAdmin = session.userId === (typeof window !== "undefined" ? undefined : process.env.ADMIN_USER_ID);
+  // Check admin via API on mount
+  const [adminVerified, setAdminVerified] = useState(false);
+  useEffect(() => {
+    fetch("/api/admin").then(r => { if (r.ok) setAdminVerified(true); }).catch(() => {});
+  }, []);
   const refreshDigestRef = useRef<(() => void) | null>(null);
 
   return (
@@ -65,7 +72,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
 
         {/* Desktop tabs */}
         <div className="hidden md:flex items-center gap-1">
-          {(["today", "vault"] as const).map(tab => (
+          {(["today", "vault", ...(adminVerified ? ["admin" as const] : [])] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -121,6 +128,11 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <div style={{ display: activeTab === "vault" ? "contents" : "none" }}>
           <VaultPage session={session} />
         </div>
+        {adminVerified && (
+          <div style={{ display: activeTab === "admin" ? "contents" : "none" }}>
+            <AdminDashboard />
+          </div>
+        )}
       </main>
 
       {/* Mobile bottom nav */}
@@ -161,6 +173,25 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             Vault
           </span>
         </button>
+        {adminVerified && (
+          <button
+            onClick={() => setActiveTab("admin")}
+            className="flex-1 flex flex-col items-center gap-1 py-3"
+            style={{
+              background: activeTab === "admin" ? "#1a1a1a" : "white",
+              color: activeTab === "admin" ? "white" : "#888",
+              border: "none",
+              cursor: "pointer",
+              borderLeft: "2px solid #1a1a1a",
+              transition: "all 0.15s",
+            }}
+          >
+            <BarChart3 size={18} />
+            <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
+              Admin
+            </span>
+          </button>
+        )}
       </nav>
     </div>
   );
