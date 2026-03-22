@@ -278,7 +278,7 @@ export function PaperDetail({
 
           {/* Key Findings */}
           {paper.keyFindings && paper.keyFindings.length > 0 && (
-            <div className="mb-10 pb-8" style={{ borderBottom: "2px solid #e5e7eb" }}>
+            <div className="mb-8">
               <h3 style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", color: "#999", fontFamily: "var(--font-mono), monospace", marginBottom: "16px" }}>
                 {isNews ? "What You Need to Know" : "Key Findings"}
               </h3>
@@ -293,18 +293,31 @@ export function PaperDetail({
             </div>
           )}
 
-          {/* Abstract / Full Article */}
-          <div className="mb-10">
-            <h3 style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", color: "#999", fontFamily: "var(--font-mono), monospace", marginBottom: "16px" }}>
-              {isNews ? "Full Article" : "Abstract"}
-            </h3>
-            <div
-              className="text-[0.95rem] text-gray-700"
-              style={{ lineHeight: "1.8", fontFamily: "inherit", whiteSpace: "pre-wrap" }}
-            >
-              {articleText || "No content available."}
+          {/* Read the source — prominent link */}
+          {paper.sourceUrl && (
+            <div className="mb-10" style={{ borderTop: "2px solid #e5e7eb", borderBottom: "2px solid #e5e7eb", padding: "16px 0" }}>
+              <button
+                onClick={() => window.open(paper.sourceUrl!, "_blank", "noopener,noreferrer")}
+                style={{
+                  width: "100%", padding: "14px 20px",
+                  background: "#1a1a1a", color: "white",
+                  border: "2px solid #1a1a1a",
+                  fontSize: "0.8rem", fontWeight: 700,
+                  textTransform: "uppercase", letterSpacing: "2px",
+                  fontFamily: "var(--font-mono), monospace",
+                  cursor: "pointer",
+                  boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                }}
+              >
+                <ExternalLink size={16} />
+                {isNews ? "Read the full article" : "Read the full paper"}
+              </button>
+              <p style={{ fontSize: "0.65rem", color: "#aaa", marginTop: "8px", textAlign: "center", fontFamily: "var(--font-mono), monospace" }}>
+                {paper.sourceUrl.replace(/^https?:\/\//, "").split("/")[0]}
+              </p>
             </div>
-          </div>
+          )}
 
           {/* Q&A — chat style matching synthesis chat */}
           <div
