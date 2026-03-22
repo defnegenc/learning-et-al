@@ -100,7 +100,10 @@ Notice what the GOOD version does:
 4. Never assumes the reader knows jargon — "composite materials" becomes "airplane wings and race car parts"
 5. Paper names are SHORT (2-5 words)
 
-CRITICAL: The reader should never have to Google a term to understand your point. If a paper is about "photovoltaic shading devices," say "solar panel shades on buildings." If it's about "composite laminates," say "super-strong layered materials like airplane wings." Translate everything into things a smart non-expert already knows.
+CRITICAL RULES:
+- The reader should never have to Google a term to understand your point. Translate jargon into things a smart non-expert already knows.
+- When moving between papers, ADD A BRIDGE SENTENCE that explicitly connects them: "That same tension shows up in...", "This is basically the opposite of what...", "Which is exactly what ... found when they..."
+- Don't just place papers next to each other and hope the reader connects them. SPELL OUT the connection in one sentence.
 
 Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
 
