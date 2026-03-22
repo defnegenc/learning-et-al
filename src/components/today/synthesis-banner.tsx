@@ -463,7 +463,9 @@ export function SynthesisBanner({
                 // Direct substring match
                 if (title.includes(text) || text.includes(title.slice(0, 30))) return true;
                 // Keyword match (from paper's keywords)
-                if (p.keywords.some(kw => text.includes(kw.toLowerCase()))) return true;
+                // Check keyword overlap (any keyword word appears in bold text)
+                const kwWords = p.keywords.flatMap(kw => kw.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+                if (kwWords.some(w => text.includes(w))) return true;
                 // Stem-based word overlap
                 const boldStems = text.split(/\s+/).filter(w => w.length > 3).map(stem);
                 const titleStems = title.split(/\s+/).filter(w => w.length > 3).map(stem);
