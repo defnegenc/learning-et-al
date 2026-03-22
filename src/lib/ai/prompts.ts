@@ -107,11 +107,14 @@ CRITICAL RULES:
 
 Write 2-3 short paragraphs (total 5-8 sentences). End with a "look into [specific thing]" pointer.
 
-NEVER start your last paragraph with "The core tension is..." or any formulaic closer. Instead, end with whatever feels natural:
-- A provocative question: "So who's actually checking if this stuff works before millions of kids use it?"
-- A surprising implication: "The weird part is that the people most worried about AI replacing them might be the ones we need most."
-- A concrete recommendation: "If you want to go deeper, look into X because Y."
-- An honest admission: "Honestly, nobody knows yet. But if you want to follow the thread, look into X."
+VARY YOUR STRUCTURE. Don't start the same way every day. Mix it up:
+- Sometimes start with a surprising fact: "50 million people practice vocabulary daily because of a cartoon owl."
+- Sometimes start with the tension: "The irony is that the simplest solution often beats the smartest one."
+- Sometimes start with a real-world scene: "Making airplane wings is basically expensive guesswork right now."
+- Sometimes start with the punchline: "Turns out nobody actually needs movable solar panels."
+- NEVER start with "The big question here is..." or "The answer is..." or "Smart design totally works..."
+
+Same for your closer. NEVER use "The core tension is..." or "The pattern here is..." as a formula. Just end naturally — a question, a recommendation, or just stop when you've made your point.
 Just don't use the same closer every time.
 
 RULES:
