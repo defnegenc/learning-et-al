@@ -10,6 +10,7 @@ interface Session {
   baseUrl: string;
   isSetUp: boolean;
   contentMix: number;
+  inviteCode?: string;
 }
 
 const DEFAULT_SESSION: Session = {

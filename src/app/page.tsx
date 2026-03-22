@@ -11,6 +11,40 @@ export default function Home() {
   const { session, updateSession, loaded } = useSession();
   const { data: authSession, status: authStatus } = useAuthSession();
   const [showAuthModal, setShowAuthModal] = useState(true);
+  const [inviteCode, setInviteCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [validatingCode, setValidatingCode] = useState(false);
+
+  async function handleCodeSubmit() {
+    if (!inviteCode.trim() || validatingCode) return;
+    setValidatingCode(true);
+    setCodeError("");
+    try {
+      const res = await fetch("/api/validate-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCode }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        // Store the shared AI config — user won't need their own key
+        updateSession({
+          apiKey: data.apiKey,
+          provider: data.provider,
+          model: data.model,
+          baseUrl: data.baseUrl || "",
+          inviteCode: inviteCode.trim().toLowerCase(),
+        });
+        // Now sign in with Google (they still need an account for interests)
+        signIn("google");
+      } else {
+        setCodeError("Invalid code. Try again.");
+      }
+    } catch {
+      setCodeError("Something went wrong.");
+    }
+    setValidatingCode(false);
+  }
 
   // Sync Auth.js session → local session
   // When Google sign-in succeeds, authSession has the user but local session doesn't know
@@ -37,6 +71,9 @@ export default function Home() {
   if (session.userId) {
     return (
       <Onboarding
+        skipApiKey={!!session.apiKey}
+        defaultApiKey={session.apiKey}
+        defaultProvider={(session.provider || "gemini") as "openai" | "anthropic" | "gemini" | "other"}
         onComplete={({ apiKey, provider, model, baseUrl, userId, contentMix }) => {
           updateSession({ apiKey, provider, model, baseUrl, userId, isSetUp: true, contentMix });
         }}
@@ -106,11 +143,48 @@ export default function Home() {
                 border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700,
                 textTransform: "uppercase", letterSpacing: "2px",
                 fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "12px",
+                boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "16px",
               }}
             >
               Sign in with Google
             </button>
+
+            {/* Invite code */}
+            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "16px", marginBottom: "16px" }}>
+              <p style={{ fontSize: "0.7rem", color: "#999", marginBottom: "8px", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px" }}>
+                Have an invite code?
+              </p>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  value={inviteCode}
+                  onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
+                  placeholder="Enter code..."
+                  style={{
+                    flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a",
+                    fontSize: "0.85rem", fontFamily: "var(--font-mono), monospace",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  onClick={handleCodeSubmit}
+                  disabled={!inviteCode.trim() || validatingCode}
+                  style={{
+                    padding: "10px 16px", background: "#1a1a1a", color: "white",
+                    border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
+                    textTransform: "uppercase", letterSpacing: "1px",
+                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+                    opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1,
+                  }}
+                >
+                  {validatingCode ? "..." : "Go"}
+                </button>
+              </div>
+              {codeError && (
+                <p style={{ fontSize: "0.7rem", color: "#ff007f", marginTop: "6px" }}>{codeError}</p>
+              )}
+            </div>
+
             <button
               onClick={() => setShowAuthModal(false)}
               style={{
