@@ -287,9 +287,20 @@ export function VaultPage({ session }: VaultPageProps) {
   };
 
   return (
-    <div className="flex flex-col md:grid md:min-h-[calc(100vh-2.75rem)]" style={{ gridTemplateColumns: "1fr 300px" }}>
+    <div className="flex flex-col md:grid md:min-h-[calc(100vh-3.5rem)]" style={{ gridTemplateColumns: "1fr 300px" }}>
       {/* Main content area */}
       <div style={{ display: "flex", flexDirection: "column" }}>
+        {selectedPaper ? (
+          <PaperDetail
+            paper={selectedPaper}
+            session={session}
+            inline
+            onBack={() => setSelectedPaper(null)}
+            onStar={(id) => handleFeedback(id, "star")}
+            onDislike={(id) => handleFeedback(id, "dislike")}
+          />
+        ) : (
+        <>
         {/* Field filter ribbon — wraps naturally, no scroll, no dropdowns */}
         <div
           style={{
@@ -659,6 +670,8 @@ export function VaultPage({ session }: VaultPageProps) {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {/* Right sidebar - below main content on mobile */}
@@ -834,16 +847,6 @@ export function VaultPage({ session }: VaultPageProps) {
         </div>
       </aside>
 
-      {/* Paper detail overlay */}
-      {selectedPaper && (
-        <PaperDetail
-          paper={selectedPaper}
-          session={session}
-          onBack={() => setSelectedPaper(null)}
-          onStar={(id) => handleFeedback(id, "star")}
-          onDislike={(id) => handleFeedback(id, "dislike")}
-        />
-      )}
     </div>
   );
 }
