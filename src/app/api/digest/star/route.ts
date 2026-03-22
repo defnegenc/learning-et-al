@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { digests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
+import { trackEvent } from "@/lib/track";
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUser(req);
@@ -19,6 +20,8 @@ export async function POST(req: NextRequest) {
 
     const newStarred = !digest.starred;
     await db.update(digests).set({ starred: newStarred }).where(eq(digests.id, digestId));
+
+    trackEvent(userId, "star_digest", { digestId, metadata: { starred: newStarred } });
 
     return NextResponse.json({ starred: newStarred });
   } catch (error) {

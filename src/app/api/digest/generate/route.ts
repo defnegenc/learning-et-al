@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateDigest } from "@/lib/pipeline/digest";
 import { AIConfig } from "@/lib/ai/provider";
 import { getAuthUser } from "@/lib/get-user";
+import { trackEvent } from "@/lib/track";
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUser(req);
@@ -18,6 +19,8 @@ export async function POST(req: NextRequest) {
 
     const aiConfig: AIConfig = { apiKey, provider, model, baseUrl };
     const digest = await generateDigest(userId, aiConfig, force);
+
+    trackEvent(userId, "digest_generate", { metadata: { force: !!force } });
 
     return NextResponse.json({ digest });
   } catch (error) {

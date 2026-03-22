@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { papers, feedback, interests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
+import { trackEvent } from "@/lib/track";
 
 export async function POST(
   req: NextRequest,
@@ -59,6 +60,8 @@ export async function POST(
       }
       // Don't create new interests — the user picks their interests in settings
     }
+
+    trackEvent(userId, "paper_feedback", { paperId: id, metadata: { type } });
 
     return NextResponse.json({ feedback: fb });
   } catch (error) {

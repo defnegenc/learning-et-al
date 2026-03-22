@@ -55,12 +55,32 @@ export default function Home() {
     setValidatingCode(false);
   }
 
-  // Sync Auth.js session → local session
+  // Sync Auth.js session → local session + check if returning user
   useEffect(() => {
-    if (authStatus === "authenticated" && authSession?.user?.id && !session.userId) {
-      updateSession({ userId: authSession.user.id });
+    if (authStatus === "authenticated" && authSession?.user?.id) {
+      if (!session.userId) {
+        updateSession({ userId: authSession.user.id });
+      }
+      // Check if user already has interests (returning user — skip onboarding)
+      if (!session.isSetUp && authSession.user.id) {
+        fetch("/api/interests")
+          .then(r => r.json())
+          .then(data => {
+            if (data.interests && data.interests.length >= 3) {
+              // Returning user with interests — auto-setup
+              // If no API key in localStorage, check if they have an invite code stored
+              const stored = JSON.parse(localStorage.getItem("pp_session") || "{}");
+              updateSession({
+                userId: authSession.user!.id,
+                isSetUp: true,
+                ...(stored.apiKey ? { apiKey: stored.apiKey, provider: stored.provider, model: stored.model, baseUrl: stored.baseUrl } : {}),
+              });
+            }
+          })
+          .catch(() => {});
+      }
     }
-  }, [authStatus, authSession, session.userId, updateSession]);
+  }, [authStatus, authSession, session.userId, session.isSetUp, updateSession]);
 
   if (!loaded || authStatus === "loading") {
     return (
