@@ -226,20 +226,22 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
 User interests (sorted by priority):
 ${interestList}
 
-GOOD themes are SHORT and PUNCHY — like a magazine cover headline:
-- "Can AI out-create humans?" (5 words)
-- "When will robots cook dinner?" (6 words)
-- "Do machines have taste?" (4 words)
-- "Is code the new poetry?" (5 words)
-- "Can AI agents be fashionable?" (5 words)
+GOOD themes are SHORT and PUNCHY — like a magazine cover headline. Can be a question OR a statement:
+- "When fakes become indistinguishable from reality" (statement)
+- "Can AI out-create humans?" (question)
+- "The death of the expert" (statement)
+- "When will robots cook dinner?" (question)
+- "Old traditions, new machines" (statement)
+- "Do machines have taste?" (question)
 
 BAD themes are wordy, academic, or just topic labels:
-- "Can AI out-create humans, or will it expand our artistic horizons?" — TOO LONG. Just say "Can AI out-create humans?"
-- "Recent advances in AI" — not a question, zero surprise
+- "When fakes become indistinguishable from reality?" — drop the question mark, it's stronger as a statement
+- "Can AI out-create humans, or will it expand our artistic horizons?" — TOO LONG
+- "Recent advances in AI" — not interesting, zero surprise
 - "The question of whether generative AI..." — NO. Never start with "The question of"
 
 Rules:
-- MAX 8 WORDS. If your question is longer than 8 words, shorten it.
+- MAX 8 WORDS. Shorten ruthlessly.
 - For beginner interests: concrete and real-world, avoid pure theory
 - For a single interest: find the unexpected angle within it
 - Only combine 2 interests if they NATURALLY connect (AI + design, robotics + cooking, biology + fashion-tech). If interests are truly unrelated (like microbiome + cryptocurrency), just pick ONE and find a great angle within it.
@@ -253,7 +255,7 @@ SEARCH QUERY RULES:
 Return JSON only (no markdown):
 {
   "selectedInterests": ["interest1", "interest2"],
-  "theme": "the catchy central question, MAX 8 WORDS",
+  "theme": "catchy headline, MAX 8 WORDS — can be a question OR a statement",
   "searchQueries": [
     "academic search query 1 (MUST include the interest keyword, 3-5 words)",
     "academic search query 2 (different angle, 3-5 words)",
@@ -507,7 +509,7 @@ Rules:
 
 ALWAYS revise. The original was written before seeing the papers so it almost certainly doesn't fit well.
 
-Return JSON only: {"theme": "the revised question, MAX 8 WORDS"}`;
+Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or statement"}`;
 
     console.log(`[Digest] Step 5: revising theme to fit actual papers...`);
     const reviseResp = await aiComplete(aiConfig, "You refine central questions for research digests. Return only JSON.", revisePrompt);
