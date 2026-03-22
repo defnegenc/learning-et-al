@@ -5,6 +5,7 @@ const OA_SELECT = [
   "id", "title", "abstract_inverted_index", "cited_by_count",
   "publication_year", "authorships", "primary_location",
   "open_access", "related_works", "primary_topic",
+  "best_oa_location",
 ].join(",");
 
 const OA_CONCEPT_MAP: Record<string, string> = {
@@ -33,8 +34,9 @@ interface OARawWork {
   abstract_inverted_index: Record<string, number[]> | null;
   cited_by_count: number;
   publication_year: number | null;
-  authorships: { author: { display_name: string } }[];
-  primary_location: { landing_page_url: string | null; pdf_url: string | null } | null;
+  authorships: { author: { display_name: string }; institutions?: { display_name: string }[] }[];
+  primary_location: { landing_page_url: string | null; pdf_url: string | null; source?: { display_name: string } | null } | null;
+  best_oa_location?: { source?: { display_name: string } | null } | null;
   open_access: { oa_url: string | null } | null;
   related_works: string[];
   primary_topic?: { domain?: { display_name: string }; field?: { display_name: string } } | null;
@@ -53,6 +55,10 @@ export interface OpenAlexPaper {
   relatedWorkIds: string[];
   /** Broad academic domain from OA primary_topic (e.g. "Physical Sciences", "Health Sciences") */
   primaryDomain?: string;
+  /** Journal/conference name from OA primary_location.source */
+  venueName?: string;
+  /** Institutions from author affiliations */
+  institutions?: string[];
 }
 
 function reconstructAbstract(inv: Record<string, number[]> | null): string {
@@ -67,6 +73,17 @@ function reconstructAbstract(inv: Record<string, number[]> | null): string {
 function mapWork(raw: OARawWork): OpenAlexPaper {
   const shortId = raw.id.replace("https://openalex.org/", "");
   const landingUrl = raw.primary_location?.landing_page_url || raw.id;
+  // Extract venue name from primary_location or best_oa_location
+  const venueName = raw.primary_location?.source?.display_name
+    || raw.best_oa_location?.source?.display_name
+    || undefined;
+  // Extract unique institution names from author affiliations
+  const instSet = new Set<string>();
+  for (const a of raw.authorships || []) {
+    for (const inst of a.institutions || []) {
+      if (inst.display_name) instSet.add(inst.display_name);
+    }
+  }
   return {
     openAlexId: shortId,
     paperId: "",
@@ -81,6 +98,8 @@ function mapWork(raw: OARawWork): OpenAlexPaper {
       .slice(0, 20)
       .map((url: string) => url.replace("https://openalex.org/", "")),
     primaryDomain: raw.primary_topic?.domain?.display_name,
+    venueName,
+    institutions: instSet.size > 0 ? [...instSet] : undefined,
   };
 }
 

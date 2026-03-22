@@ -10,6 +10,7 @@ import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { digestPrompt, SYNTHESIS_SYSTEM } from "@/lib/ai/prompts";
 import { embedText, embedBatch, cosineSimilarity } from "@/lib/embeddings";
+import { venueQualityBoost, institutionBoost } from "@/lib/venue-quality";
 
 // See docs/algorithm.md for the full algorithm design.
 
@@ -24,6 +25,12 @@ type PaperSearchResult = {
   citationCount: number;
   year: number;
   source: "semantic_scholar" | "arxiv";
+  /** Journal/conference name from OpenAlex */
+  venueName?: string;
+  /** Author institutions from OpenAlex */
+  institutions?: string[];
+  /** Academic field from OpenAlex primary_topic */
+  primaryDomain?: string;
 };
 
 interface DigestAIResponse {
@@ -330,7 +337,9 @@ Return JSON only (no markdown):
     throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
   }
 
-  // ─── Step 3: Score candidates — theme relevance + recency bonus ───────────────
+  // ─── Step 3: Score candidates — multi-signal scoring ───────────────────────────
+  // Literature says quality is one of 7 serendipity factors (Kotkov et al.)
+  // Scoring: theme relevance + recency + citation velocity + venue prestige + institution
   const resultEmbs = await embedBatch(allResults.map(paperText));
   const currentYear = new Date().getFullYear();
 
@@ -343,7 +352,15 @@ Return JSON only (no markdown):
       // Citation velocity: citations per year (capped, normalized)
       const yearsOld = Math.max(1, age);
       const citationVelocity = Math.min(0.05, (p.citationCount / yearsOld) * 0.001);
-      return { p, themeSim, score: themeSim + recencyBonus + citationVelocity };
+      // Venue prestige: CHI paper > unknown journal (0 to +0.08)
+      const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain);
+      // Institutional credibility: MIT/Stanford/etc. (0 to +0.05)
+      const instBoost = institutionBoost(p.institutions || []);
+      const score = themeSim + recencyBonus + citationVelocity + venueBoost + instBoost;
+      if (venueBoost > 0 || instBoost > 0) {
+        console.log(`[Digest] Quality boost: "${p.title.slice(0, 50)}" venue=${venueBoost.toFixed(2)} inst=${instBoost.toFixed(2)} (${p.venueName || "unknown"})`);
+      }
+      return { p, themeSim, score };
     })
     .filter(({ p }) => !seenPaperTitles.has(p.title.toLowerCase()))
     .sort((a, b) => b.score - a.score);
@@ -371,20 +388,53 @@ Return JSON only (no markdown):
     console.log(`[Digest] Paper ${items.length} (exploit): "${p.title}" (score ${score.toFixed(2)})`);
   }
 
-  // Explore slot: pick from remaining candidates, prioritize different angle
-  if (items.length < targetPapers && qualified.length > items.length) {
-    const remaining = qualified.filter(({ p }) => !seenTitles.has(p.title.toLowerCase()));
-    if (remaining.length > 0) {
-      // Pick the one with highest theme relevance but lowest overlap with already-selected papers
-      const explorePick = remaining[0]; // already sorted by score, just take next best
-      items.push({
-        title: explorePick.p.title, authors: explorePick.p.authors, abstract: explorePick.p.abstract,
-        sourceUrl: explorePick.p.sourceUrl, pdfUrl: explorePick.p.pdfUrl || undefined,
-        source: explorePick.p.source, year: explorePick.p.year,
-        category: "recent",
-      });
-      seenTitles.add(explorePick.p.title.toLowerCase());
-      console.log(`[Digest] Paper ${items.length} (explore): "${explorePick.p.title}" (score ${explorePick.score.toFixed(2)})`);
+  // Explore slot: intentionally diverse — search with adjacent interest for structured serendipity
+  // Literature: "structured exploration (bridge items) beats random novelty" (recsys-literature.md)
+  if (items.length < targetPapers) {
+    // Try an adjacent-field search first for genuine serendipity
+    const unusedInterests = candidateInterests.filter(i =>
+      !selectedInterestKeywords.includes(i.keyword)
+    );
+    const adjacentQuery = unusedInterests.length > 0
+      ? `${theme} ${unusedInterests[0].keyword}` // bridge theme + different interest
+      : searchQueries[2] || searchQueries[0]; // fallback to third search query
+
+    console.log(`[Digest] Explore slot: searching with adjacent query: "${adjacentQuery}"`);
+    await delay(500);
+    const exploreResults = await searchPapers(adjacentQuery, 8, "publicationDate", focusField);
+    let explorePicked = false;
+
+    for (const p of exploreResults) {
+      if (seenTitles.has(p.title.toLowerCase())) continue;
+      const sim = cosineSimilarity(themeEmb, await embedText(paperText(p)));
+      const vBoost = venueQualityBoost(p.venueName, p.primaryDomain);
+      const iBoost = institutionBoost(p.institutions || []);
+      if (sim + vBoost + iBoost > SIM_FALLBACK) {
+        items.push({
+          title: p.title, authors: p.authors, abstract: p.abstract,
+          sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl || undefined,
+          source: p.source, year: p.year, category: "recent",
+        });
+        seenTitles.add(p.title.toLowerCase());
+        console.log(`[Digest] Paper ${items.length} (explore): "${p.title}" (sim ${sim.toFixed(2)}, venue +${vBoost.toFixed(2)})`);
+        explorePicked = true;
+        break;
+      }
+    }
+
+    // Fallback: take from existing qualified pool
+    if (!explorePicked) {
+      const remaining = qualified.filter(({ p }) => !seenTitles.has(p.title.toLowerCase()));
+      if (remaining.length > 0) {
+        const pick = remaining[0];
+        items.push({
+          title: pick.p.title, authors: pick.p.authors, abstract: pick.p.abstract,
+          sourceUrl: pick.p.sourceUrl, pdfUrl: pick.p.pdfUrl || undefined,
+          source: pick.p.source, year: pick.p.year, category: "recent",
+        });
+        seenTitles.add(pick.p.title.toLowerCase());
+        console.log(`[Digest] Paper ${items.length} (explore fallback): "${pick.p.title}"`);
+      }
     }
   }
 
