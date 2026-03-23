@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { LogOut, BookOpen, Archive, BarChart3 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
@@ -105,8 +106,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <button
             onClick={() => {
               localStorage.removeItem("pp_session");
-              fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
-              window.location.href = "/";
+              signOut({ callbackUrl: "/" });
             }}
             title="Sign out"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
