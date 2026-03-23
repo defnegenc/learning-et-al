@@ -88,6 +88,19 @@ function getSourceLabel(source: PaperItem["source"], year?: number | null, sourc
     if (url.includes("researchgate")) return `RESEARCHGATE${yearStr}`;
     if (url.includes("mckinsey")) return `MCKINSEY${yearStr}`;
     if (url.includes("weforum")) return `WEF${yearStr}`;
+    // DOI prefix detection for common publishers
+    if (url.includes("doi.org/10.3389")) return `FRONTIERS${yearStr}`;
+    if (url.includes("doi.org/10.1038")) return `NATURE${yearStr}`;
+    if (url.includes("doi.org/10.1016")) return `ELSEVIER${yearStr}`;
+    if (url.includes("doi.org/10.1007")) return `SPRINGER${yearStr}`;
+    if (url.includes("doi.org/10.1109")) return `IEEE${yearStr}`;
+    if (url.includes("doi.org/10.1145")) return `ACM${yearStr}`;
+    if (url.includes("doi.org/10.1073")) return `PNAS${yearStr}`;
+    if (url.includes("doi.org/10.3390")) return `MDPI${yearStr}`;
+    if (url.includes("doi.org/10.1002")) return `WILEY${yearStr}`;
+    if (url.includes("doi.org/10.1080")) return `T&F${yearStr}`;
+    if (url.includes("doi.org/10.1177")) return `SAGE${yearStr}`;
+    if (url.includes("doi.org/10.1371")) return `PLOS${yearStr}`;
     if (url.includes("doi.org")) return `JOURNAL${yearStr}`;
   }
   return `SOURCE${yearStr}`;
