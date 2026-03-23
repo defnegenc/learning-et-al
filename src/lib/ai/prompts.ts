@@ -29,7 +29,7 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "summary": "2-3 sentence plain-English summary", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
+    { "index": 1, "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
   ],
   "synthesis": "see format below",
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
@@ -42,10 +42,11 @@ CONNECTION TO THEME RULES:
 - Think of it like a subtitle on a card — brief and scannable
 
 SUMMARY RULES:
-- Write for a smart person who is NOT a domain expert. No jargon without explanation.
-- When you must use a technical term, define it immediately: "formal verification (a method for mathematically proving code is correct)"
-- Focus on what the paper actually FOUND and why it matters — not what it set out to do.
-- For NEWS articles: the summary should be a TL;DR that tells the reader the CORE CONTENT of the article. Name specific companies, products, numbers, trends. The reader should walk away knowing what the article actually said.
+- MAX 40 WORDS. 1-2 sentences. The reader scans this on a card — it must fit without truncation.
+- Write for a smart person who is NOT a domain expert.
+- Focus on what the paper FOUND, not what it set out to do.
+- BAD (too long): "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..."
+- GOOD (scannable): "Fine-tuning just 1% of an AI model's parameters cut training costs 10x with only a 3% accuracy drop."
 - BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches for sentiment classification tasks"
 - BAD: "This industry report outlines key trends in AI agent development" — WHICH trends? NAME THEM.
 - GOOD: "Researchers tested whether you could fine-tune a large AI model cheaply by only updating a tiny fraction of its parameters. On social media text, this cut training costs 10x with only a 3% accuracy drop."
