@@ -70,9 +70,13 @@ function DigestFeedback({ digestId }: { digestId: string }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px" }}>
-      <span style={{ fontSize: "0.65rem", color: "#bbb" }}>Feedback?</span>
-      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", fontSize: "0.75rem", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">👍</button>
-      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", fontSize: "0.75rem", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">👎</button>
+      <span style={{ fontSize: "0.65rem", color: "#bbb" }}>Did you find this interesting?</span>
+      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+      </button>
+      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+      </button>
     </div>
   );
 }
@@ -222,6 +226,8 @@ interface SynthesisBannerProps {
   papers?: PaperItem[];
   onSelectPaper?: (paper: PaperItem) => void;
   onAddInterest?: (keyword: string) => void;
+  onRegenerate?: () => void;
+  generating?: boolean;
   session?: {
     apiKey: string;
     provider: string;
@@ -243,6 +249,8 @@ export function SynthesisBanner({
   papers = [],
   onSelectPaper,
   onAddInterest,
+  onRegenerate,
+  generating = false,
   session,
 }: SynthesisBannerProps) {
   const [starred, setStarred] = useState(digestStarred);
@@ -408,7 +416,16 @@ export function SynthesisBanner({
         >
           Today&apos;s Digest
         </span>
-        {digestId && (
+        <div className="flex items-center gap-2">
+          {onRegenerate && (
+            <button onClick={onRegenerate} disabled={generating}
+              style={{ background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer", padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px", borderRadius: "2px" }}
+              className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50">
+              {generating ? <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} /> : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>}
+              <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regen</span>
+            </button>
+          )}
+          {digestId && (
           <button
             onClick={async () => {
               setStarred(!starred);
@@ -434,6 +451,7 @@ export function SynthesisBanner({
             </span>
           </button>
         )}
+        </div>
       </div>
 
       {/* Theme — big, bold, Space Grotesk */}
