@@ -15,7 +15,7 @@ function NotesInput({ digestId }: { digestId: string }) {
       onChange={(e) => setNotes(e.target.value)}
       onBlur={() => { if (notes.trim()) localStorage.setItem(storageKey, notes); }}
       placeholder="Jot down your thoughts..."
-      style={{ width: "100%", minHeight: "120px", background: "white", border: "2px solid #1a1a1a", padding: "12px", fontSize: "0.8rem", lineHeight: 1.6, outline: "none", resize: "vertical", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
+      style={{ width: "100%", height: "100%", minHeight: "100px", background: "white", border: "2px solid #1a1a1a", padding: "12px", fontSize: "0.8rem", lineHeight: 1.6, outline: "none", resize: "none", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
     />
   );
 }
@@ -242,13 +242,15 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
           ))}
         </div>
 
-        {/* Notes */}
+        {/* Notes — fills remaining space */}
         {digest.id && session && (
-          <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 16px" }}>
+          <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
             <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", marginBottom: "8px" }}>
-              ✦ What did you find interesting?
+              ✦ Notes
             </div>
-            <NotesInput digestId={digest.id} />
+            <div style={{ flex: 1 }}>
+              <NotesInput digestId={digest.id} />
+            </div>
           </div>
         )}
       </aside>

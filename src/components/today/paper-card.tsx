@@ -138,6 +138,7 @@ export function PaperCard({
     <article
       className="group relative"
       style={{
+        aspectRatio: compact ? "auto" : "4 / 3",
         background: "white",
         border: borderStyle,
         boxShadow: shadowStyle,
@@ -272,7 +273,7 @@ export function PaperCard({
           </p>
         )}
         {paper.keywords.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "8px" }}>
             {paper.keywords.slice(0, 2).map((kw, idx) => (
               <KeywordTag
                 key={kw}
