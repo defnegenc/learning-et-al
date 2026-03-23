@@ -79,8 +79,18 @@ function getSourceLabel(source: PaperItem["source"], year?: number | null, sourc
     if (url.includes("wiley")) return `WILEY${yearStr}`;
     if (url.includes("tandfonline")) return `T&F${yearStr}`;
     if (url.includes("sagepub")) return `SAGE${yearStr}`;
+    if (url.includes("cambridge.org")) return `CAMBRIDGE${yearStr}`;
+    if (url.includes("oxford")) return `OXFORD${yearStr}`;
+    if (url.includes("plos")) return `PLOS${yearStr}`;
+    if (url.includes("biorxiv")) return `BIORXIV${yearStr}`;
+    if (url.includes("medrxiv")) return `MEDRXIV${yearStr}`;
+    if (url.includes("ssrn")) return `SSRN${yearStr}`;
+    if (url.includes("researchgate")) return `RESEARCHGATE${yearStr}`;
+    if (url.includes("mckinsey")) return `MCKINSEY${yearStr}`;
+    if (url.includes("weforum")) return `WEF${yearStr}`;
+    if (url.includes("doi.org")) return `JOURNAL${yearStr}`;
   }
-  return `PAPER${yearStr}`;
+  return `SOURCE${yearStr}`;
 }
 
 function idToColorIndex(id: string) {
