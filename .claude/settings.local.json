@@ -38,7 +38,8 @@
       "Bash(python3 -m json.tool)",
       "Bash(vercel logs:*)",
       "Bash(ls:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(git stash:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
