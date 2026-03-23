@@ -247,12 +247,12 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               Settings
             </h2>
           </div>
-          <nav className="flex flex-row md:flex-col flex-1 md:pt-2">
+          <nav className="flex flex-row md:flex-col md:flex-1 md:pt-2">
             {navItems.map(item => (
               <button
                 key={item.key}
                 onClick={() => setTab(item.key)}
-                className={`flex-1 md:flex-initial ${tab !== item.key ? "hover:bg-gray-50" : ""}`}
+                className={tab !== item.key ? "hover:bg-gray-50" : ""}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
                   padding: "12px 16px", textAlign: "center",
