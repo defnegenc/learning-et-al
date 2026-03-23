@@ -242,17 +242,6 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
           ))}
         </div>
 
-        {/* Notes — fills remaining space */}
-        {digest.id && session && (
-          <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", marginBottom: "8px" }}>
-              ✦ Notes
-            </div>
-            <div style={{ flex: 1 }}>
-              <NotesInput digestId={digest.id} />
-            </div>
-          </div>
-        )}
       </aside>
 
       {/* ── Mobile: sources + notes below synthesis ── */}
