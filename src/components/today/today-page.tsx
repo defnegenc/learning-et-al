@@ -76,8 +76,7 @@ function NoteCard({ digestId }: { digestId: string }) {
           fontSize: "0.85rem",
           lineHeight: 1.6,
           color: "#333",
-          fontFamily: "Georgia, 'Times New Roman', serif",
-          fontStyle: "italic",
+          fontFamily: "'Apercu Pro', var(--font-inter), sans-serif",
         }}
       />
       {saved && (
@@ -433,85 +432,57 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
         </div>
       </div>
 
-      {/* ── Paper Source Tabs (horizontal, desktop only) ── */}
-      {allPapers.length > 0 && (
-        <div
-          className="hidden md:flex h-20 items-center gap-3 px-4 md:px-10 overflow-x-auto"
-          style={{ borderBottom: "1.5px solid #e5e7eb" }}
-        >
-          {allPapers.map((paper, idx) => (
-            <PaperSourceTab key={paper.id} paper={paper} index={idx} />
-          ))}
-        </div>
-      )}
-
-      {/* ── Main scrollable area with grid bg ── */}
-      <div className="flex-1 overflow-y-auto bg-grid-pattern">
-        <div className="max-w-4xl mx-auto px-4 md:px-8 py-6 md:py-10">
-          {digest.synthesisContent ? (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
-              {/* Col 8: synthesis + tags + feedback + dig deeper */}
-              <div className="md:col-span-8" style={{ overflow: "visible", position: "relative", zIndex: 10 }}>
-                <SynthesisBanner
-                  synthesis={digest.synthesisContent}
-                  theme={digest.theme ?? undefined}
-                  keyConcepts={digest.keyConcepts}
-                  digestId={digest.id}
-                  digestStarred={!!digest.starred}
-                  activeConcept={activeConcept}
-                  onConceptClick={(concept) =>
-                    setActiveConcept((prev) =>
-                      prev === concept ? null : concept
-                    )
-                  }
-                  papers={allPapers}
-                  onSelectPaper={openSource}
-                  onRegenerate={() => handleGenerate(true)}
-                  generating={generating}
-                  session={session}
-                />
+      {/* ── Main area: digest left, sources+notes right ── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: digest content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-4 md:px-10 py-6 md:py-10 md:max-w-[680px]">
+            {digest.synthesisContent ? (
+              <SynthesisBanner
+                synthesis={digest.synthesisContent}
+                theme={digest.theme ?? undefined}
+                keyConcepts={digest.keyConcepts}
+                digestId={digest.id}
+                digestStarred={!!digest.starred}
+                activeConcept={activeConcept}
+                onConceptClick={(concept) => setActiveConcept((prev) => prev === concept ? null : concept)}
+                papers={allPapers}
+                onSelectPaper={openSource}
+                onRegenerate={() => handleGenerate(true)}
+                generating={generating}
+                session={session}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-16">
+                <p className="text-[0.65rem] uppercase tracking-[2px] text-[#888]" style={{ fontFamily: "var(--font-mono), monospace" }}>
+                  {generateError || "No digest found for today"}
+                </p>
+                <button onClick={() => handleGenerate(true)} disabled={generating}
+                  className="flex items-center gap-2 px-4 py-2 text-[0.7rem] uppercase tracking-[2px] bg-[#1a1a1a] text-white disabled:opacity-50"
+                  style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}>
+                  {generating ? <><Loader2 className="size-3 animate-spin" /> Generating...</> : <><RefreshCw className="size-3" /> Generate digest</>}
+                </button>
               </div>
-
-              {/* Col 4: floating note card (desktop) */}
-              <div className="md:col-span-4">
-                {digest.id && session && (
-                  <NoteCard digestId={digest.id} />
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3 py-16">
-              <p
-                className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
-                style={{
-                  fontFamily: "var(--font-mono), monospace",
-                }}
-              >
-                {generateError || "No digest found for today"}
-              </p>
-              <button
-                onClick={() => handleGenerate(true)}
-                disabled={generating}
-                className="flex items-center gap-2 px-4 py-2 text-[0.7rem] uppercase tracking-[2px] bg-[#1a1a1a] text-white disabled:opacity-50"
-                style={{
-                  border: "2px solid #1a1a1a",
-                  fontFamily: "var(--font-mono), monospace",
-                  boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-                }}
-              >
-                {generating ? (
-                  <>
-                    <Loader2 className="size-3 animate-spin" /> Generating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="size-3" /> Generate digest
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* Right: sources + notes (desktop) */}
+        <aside className="hidden md:flex flex-col overflow-y-auto shrink-0 w-[320px]" style={{ borderLeft: "none" }}>
+          <div style={{ padding: "16px 16px 10px" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
+          </div>
+          <div className="flex-1 px-3 space-y-2">
+            {allPapers.map((paper, idx) => (
+              <PaperSourceTab key={paper.id} paper={paper} index={idx} />
+            ))}
+
+            {/* Notes */}
+            {digest.id && session && (
+              <NoteCard digestId={digest.id} />
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* ── Mobile: sources + notes below synthesis ── */}
@@ -595,6 +566,7 @@ function MobileNotesInput({ digestId }: { digestId: string }) {
           outline: "none",
           resize: "vertical",
           color: "#333",
+          fontFamily: "'Apercu Pro', var(--font-inter), sans-serif",
         }}
       />
       {saved && (
