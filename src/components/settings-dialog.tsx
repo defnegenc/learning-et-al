@@ -7,10 +7,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus, LogOut } from "lucide-react";
+import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus, LogOut, ChevronDown, ChevronRight } from "lucide-react";
 import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
-import type { ExpertiseLevel, S2Field } from "@/lib/field-hierarchy";
+import type { S2Field } from "@/lib/field-hierarchy";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
 type SettingsTab = "api" | "interests";
@@ -33,15 +33,71 @@ const providerDefaults: Record<Provider, { model: string; label: string }> = {
   other: { model: "", label: "OTHER" },
 };
 
-const LEVELS: ExpertiseLevel[] = ["beginner", "intermediate", "expert"];
-const LEVEL_LABELS: Record<ExpertiseLevel, string> = { beginner: "BEG", intermediate: "INT", expert: "ADV" };
 
 interface SelectedTopic {
   keyword: string;
   field: S2Field;
   fieldLabel: string;
-  level: ExpertiseLevel;
   color: string;
+}
+
+function SettingsInterestPicker({ selectedTopics, setSelectedTopics, customFieldKey, setCustomFieldKey, customInput, setCustomInput, toggleTopic, addCustomTopicToCategory }: {
+  selectedTopics: SelectedTopic[]; setSelectedTopics: (fn: (prev: SelectedTopic[]) => SelectedTopic[]) => void;
+  customFieldKey: string | null; setCustomFieldKey: (v: string | null) => void;
+  customInput: string; setCustomInput: (v: string) => void;
+  toggleTopic: (kw: string, fk: string) => void; addCustomTopicToCategory: (fk: string) => void;
+}) {
+  const [expandedField, setExpandedField] = useState<string | null>(null);
+  return (
+    <div>
+      {Object.entries(FIELD_HIERARCHY).map(([fieldKey, fieldDef]) => {
+        const isExpanded = expandedField === fieldKey;
+        const selectedInField = selectedTopics.filter(t => t.field === fieldDef.s2Field).length;
+        const isCustomOpen = customFieldKey === fieldKey;
+        return (
+          <div key={fieldKey} style={{ borderBottom: "1px solid #eee" }}>
+            <button onClick={() => setExpandedField(isExpanded ? null : fieldKey)}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", background: "none", border: "none", cursor: "pointer" }}>
+              <div className="flex items-center gap-2">
+                <div style={{ width: "10px", height: "10px", background: fieldDef.color, border: "1.5px solid #1a1a1a" }} />
+                <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>{fieldKey}</span>
+                {selectedInField > 0 && <span style={{ fontSize: "0.6rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>{selectedInField} selected</span>}
+              </div>
+              {isExpanded ? <ChevronDown size={14} color="#888" /> : <ChevronRight size={14} color="#888" />}
+            </button>
+            {isExpanded && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingBottom: "12px" }}>
+                {fieldDef.topics.map(topic => {
+                  const isSelected = selectedTopics.some(t => t.keyword === topic);
+                  return (
+                    <button key={topic} onClick={() => toggleTopic(topic, fieldKey)} style={{
+                      padding: "5px 12px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px solid #1a1a1a",
+                      background: isSelected ? "#1a1a1a" : "white", color: isSelected ? "white" : "#1a1a1a",
+                      cursor: "pointer", boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
+                    }}>{topic}</button>
+                  );
+                })}
+                {isCustomOpen ? (
+                  <div style={{ display: "inline-flex" }}>
+                    <input autoFocus value={customInput} onChange={e => setCustomInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") addCustomTopicToCategory(fieldKey); if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); } }}
+                      onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
+                      placeholder="add topic..." style={{ padding: "5px 10px", fontSize: "0.75rem", border: "1.5px solid #1a1a1a", borderRight: "none", background: fieldDef.color, outline: "none", width: "130px" }} />
+                    <button onClick={() => addCustomTopicToCategory(fieldKey)} style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", cursor: "pointer" }}>Add</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
+                    style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px dashed #bbb", background: fieldDef.color, color: "#888", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                    <Plus size={10} /> custom
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export function SettingsDialog({ session, updateSession, onRefreshDigest }: SettingsDialogProps) {
@@ -59,7 +115,6 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
 
   // Interests state
   const [selectedTopics, setSelectedTopics] = useState<SelectedTopic[]>([]);
-  const [categoryLevels, setCategoryLevels] = useState<Record<string, ExpertiseLevel>>({});
   const [customFieldKey, setCustomFieldKey] = useState<string | null>(null);
   const [customInput, setCustomInput] = useState("");
   const [loadingInterests, setLoadingInterests] = useState(false);
@@ -90,7 +145,6 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
             keyword: i.keyword,
             field: (i.field || "Computer Science") as S2Field,
             fieldLabel: fieldEntry ? fieldEntry[1].label : "CS",
-            level: (i.level || "beginner") as ExpertiseLevel,
             color: fieldEntry ? fieldEntry[1].color : "#e5e7eb",
           };
         }
@@ -129,28 +183,18 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
     if (exists > -1) {
       setSelectedTopics(prev => prev.filter(t => t.keyword !== keyword));
     } else if (selectedTopics.length < 20) {
-      const level = categoryLevels[fieldKey] || "beginner";
       setSelectedTopics(prev => [...prev, {
-        keyword, field: fieldDef.s2Field, fieldLabel: fieldDef.label, level, color: fieldDef.color,
+        keyword, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
       }]);
     }
-  }
-
-  function setCategoryLevel(fieldKey: string, level: ExpertiseLevel) {
-    setCategoryLevels(prev => ({ ...prev, [fieldKey]: level }));
-    const fieldDef = FIELD_HIERARCHY[fieldKey];
-    setSelectedTopics(prev => prev.map(t =>
-      t.field === fieldDef.s2Field ? { ...t, level } : t
-    ));
   }
 
   function addCustomTopicToCategory(fieldKey: string) {
     const val = customInput.trim();
     if (!val || selectedTopics.length >= 20) return;
     const fieldDef = FIELD_HIERARCHY[fieldKey];
-    const level = categoryLevels[fieldKey] || "beginner";
     setSelectedTopics(prev => [...prev, {
-      keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, level, color: fieldDef.color,
+      keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
     }]);
     setCustomInput("");
     setCustomFieldKey(null);
@@ -165,7 +209,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            interests: selectedTopics.map(t => ({ keyword: t.keyword, field: t.field, level: t.level })),
+            interests: selectedTopics.map(t => ({ keyword: t.keyword, field: t.field, level: "beginner" })),
           }),
         });
       }
@@ -348,127 +392,16 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 {loadingInterests ? (
                   <div className="flex items-center justify-center py-16"><Loader2 className="size-5 animate-spin text-[#888]" /></div>
                 ) : (
-                  <table className="w-full border-collapse" style={{ border: "2px solid #1a1a1a" }}>
-                    <thead className="sticky top-0 z-10">
-                      <tr style={{ background: "#f5f5f5", borderBottom: "2px solid #1a1a1a", borderTop: "2px solid #1a1a1a" }}>
-                        <th style={{ textAlign: "left", padding: "12px 16px", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", borderRight: "2px solid #1a1a1a", width: "240px" }}>
-                          Category
-                        </th>
-                        <th style={{ textAlign: "left", padding: "12px 16px", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace" }}>
-                          Topics
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(FIELD_HIERARCHY).map(([fieldKey, fieldDef]) => {
-                        const currentLevel = categoryLevels[fieldKey] || "beginner";
-                        const allTopics = Object.values(fieldDef.subfields).flat();
-                        const isCustomOpen = customFieldKey === fieldKey;
-                        return (
-                          <tr key={fieldKey} style={{ borderBottom: "1px solid #e5e7eb" }} className="hover:bg-gray-50/30">
-                            <td style={{ padding: "16px", borderRight: "2px solid #1a1a1a", verticalAlign: "top" }}>
-                              <div className="flex items-center gap-2.5 mb-2">
-                                <div style={{ width: "12px", height: "12px", background: fieldDef.color, border: "1.5px solid #1a1a1a", flexShrink: 0 }} />
-                                <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3px" }}>
-                                  {fieldKey}
-                                </span>
-                              </div>
-                              <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", color: "#aaa", display: "block", marginBottom: "10px" }}>
-                                {fieldDef.label}
-                              </span>
-                              {/* Level toggle */}
-                              <div style={{ display: "inline-flex", border: "1.5px solid #1a1a1a", borderRadius: "999px", overflow: "hidden" }}>
-                                {LEVELS.map(lvl => (
-                                  <button
-                                    key={lvl}
-                                    onClick={() => setCategoryLevel(fieldKey, lvl)}
-                                    style={{
-                                      padding: "4px 10px", fontSize: "0.6rem", fontWeight: 700,
-                                      fontFamily: "var(--font-mono), monospace",
-                                      background: currentLevel === lvl ? "#1a1a1a" : "transparent",
-                                      color: currentLevel === lvl ? "white" : "#888",
-                                      border: "none", cursor: "pointer", transition: "all 0.1s",
-                                    }}
-                                  >
-                                    {LEVEL_LABELS[lvl]}
-                                  </button>
-                                ))}
-                              </div>
-                            </td>
-                            <td style={{ padding: "16px" }}>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                                {allTopics.map(topic => {
-                                  const isSelected = selectedTopics.some(t => t.keyword === topic);
-                                  return (
-                                    <button
-                                      key={topic}
-                                      onClick={() => toggleTopic(topic, fieldKey)}
-                                      style={{
-                                        padding: "6px 14px", fontSize: "0.8rem", fontWeight: 600,
-                                        border: "1.5px solid #1a1a1a",
-                                        background: isSelected ? "#1a1a1a" : "white",
-                                        color: isSelected ? "white" : "#1a1a1a",
-                                        cursor: "pointer", transition: "all 0.1s",
-                                        boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
-                                      }}
-                                    >
-                                      {topic}
-                                    </button>
-                                  );
-                                })}
-
-                                {/* Custom topic "+" button */}
-                                {isCustomOpen ? (
-                                  <div style={{ display: "inline-flex" }}>
-                                    <input
-                                      autoFocus
-                                      value={customInput}
-                                      onChange={e => setCustomInput(e.target.value)}
-                                      onKeyDown={e => {
-                                        if (e.key === "Enter") addCustomTopicToCategory(fieldKey);
-                                        if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); }
-                                      }}
-                                      onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
-                                      placeholder="type topic..."
-                                      style={{
-                                        padding: "6px 12px", fontSize: "0.8rem", fontWeight: 600,
-                                        border: "1.5px solid #1a1a1a", borderRight: "none",
-                                        background: fieldDef.color, outline: "none", width: "160px",
-                                      }}
-                                    />
-                                    <button
-                                      onClick={() => addCustomTopicToCategory(fieldKey)}
-                                      style={{
-                                        padding: "6px 12px", fontSize: "0.8rem", fontWeight: 700,
-                                        border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white",
-                                        cursor: "pointer",
-                                      }}
-                                    >
-                                      Add
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
-                                    style={{
-                                      padding: "6px 12px", fontSize: "0.8rem", fontWeight: 700,
-                                      border: "1.5px dashed #aaa",
-                                      background: fieldDef.color, color: "#666",
-                                      cursor: "pointer", transition: "all 0.1s",
-                                      display: "inline-flex", alignItems: "center", gap: "4px",
-                                    }}
-                                    className="hover:border-[#1a1a1a] hover:color-[#1a1a1a]"
-                                  >
-                                    <Plus size={12} /> custom
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <SettingsInterestPicker
+                    selectedTopics={selectedTopics}
+                    setSelectedTopics={setSelectedTopics}
+                    customFieldKey={customFieldKey}
+                    setCustomFieldKey={setCustomFieldKey}
+                    customInput={customInput}
+                    setCustomInput={setCustomInput}
+                    toggleTopic={toggleTopic}
+                    addCustomTopicToCategory={addCustomTopicToCategory}
+                  />
                 )}
               </div>
 

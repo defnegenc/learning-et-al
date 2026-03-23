@@ -1,21 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, ArrowRight, Plus } from "lucide-react";
+import { Loader2, ArrowRight, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
-import type { ExpertiseLevel, S2Field } from "@/lib/field-hierarchy";
+import type { S2Field } from "@/lib/field-hierarchy";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
-
-const LEVELS: ExpertiseLevel[] = ["beginner", "intermediate", "expert"];
-const LEVEL_LABELS: Record<ExpertiseLevel, string> = { beginner: "BEG", intermediate: "INT", expert: "ADV" };
 
 interface SelectedTopic {
   keyword: string;
   field: S2Field;
   fieldLabel: string;
-  level: ExpertiseLevel;
   color: string;
 }
 
@@ -36,49 +32,20 @@ interface OnboardingProps {
 export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvider }: OnboardingProps) {
   const [step, setStep] = useState<1 | 2>(skipApiKey ? 2 : 1);
 
-  // Step 1
   const [provider, setProvider] = useState<Provider>(defaultProvider || "gemini");
   const [apiKey, setApiKey] = useState(defaultApiKey || "");
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
 
-  // Step 2
   const [selectedTopics, setSelectedTopics] = useState<SelectedTopic[]>([]);
-  const [categoryLevels, setCategoryLevels] = useState<Record<string, ExpertiseLevel>>({});
+  const [expandedField, setExpandedField] = useState<string | null>(null);
   const [customFieldKey, setCustomFieldKey] = useState<string | null>(null);
   const [customInput, setCustomInput] = useState("");
-  const [contentMix, setContentMix] = useState(33);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [validatingCode, setValidatingCode] = useState(false);
-
-  async function handleCodeSubmit() {
-    if (!inviteCode.trim() || validatingCode) return;
-    setValidatingCode(true);
-    setCodeError("");
-    try {
-      const res = await fetch("/api/validate-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: inviteCode }),
-      });
-      const data = await res.json();
-      if (data.valid) {
-        setProvider(data.provider || "gemini");
-        setApiKey(data.apiKey || "");
-        setModel(data.model || "");
-        setBaseUrl(data.baseUrl || "");
-        setStep(2); // Skip to interests
-      } else {
-        setCodeError("Invalid code");
-      }
-    } catch {
-      setCodeError("Something went wrong");
-    }
-    setValidatingCode(false);
-  }
 
   const providerDefaults: Record<Provider, { model: string; baseUrl: string; label: string }> = {
     openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1", label: "OPENAI" },
@@ -100,38 +67,45 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
     if (exists > -1) {
       setSelectedTopics(prev => prev.filter(t => t.keyword !== keyword));
     } else if (selectedTopics.length < 20) {
-      const level = categoryLevels[fieldKey] || "beginner";
       setSelectedTopics(prev => [...prev, {
-        keyword, field: fieldDef.s2Field, fieldLabel: fieldDef.label, level, color: fieldDef.color,
+        keyword, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
       }]);
     }
-  }
-
-  function setCategoryLevel(fieldKey: string, level: ExpertiseLevel) {
-    setCategoryLevels(prev => ({ ...prev, [fieldKey]: level }));
-    const fieldDef = FIELD_HIERARCHY[fieldKey];
-    setSelectedTopics(prev => prev.map(t =>
-      t.field === fieldDef.s2Field ? { ...t, level } : t
-    ));
   }
 
   function addCustomTopicToCategory(fieldKey: string) {
     const val = customInput.trim();
     if (!val || selectedTopics.length >= 20) return;
     const fieldDef = FIELD_HIERARCHY[fieldKey];
-    const level = categoryLevels[fieldKey] || "beginner";
     setSelectedTopics(prev => [...prev, {
-      keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, level, color: fieldDef.color,
+      keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
     }]);
     setCustomInput("");
     setCustomFieldKey(null);
   }
 
-  function getMixLabel() {
-    if (contentMix <= 20) return "3 research papers";
-    if (contentMix <= 50) return "2 papers, 1 news — recommended";
-    if (contentMix <= 80) return "1 paper, 2 news";
-    return "3 news articles";
+  async function handleCodeSubmit() {
+    if (!inviteCode.trim() || validatingCode) return;
+    setValidatingCode(true);
+    setCodeError("");
+    try {
+      const res = await fetch("/api/validate-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCode }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setProvider(data.provider || "gemini");
+        setApiKey(data.apiKey || "");
+        setModel(data.model || "");
+        setBaseUrl(data.baseUrl || "");
+        setStep(2);
+      } else {
+        setCodeError("Invalid code");
+      }
+    } catch { setCodeError("Something went wrong"); }
+    setValidatingCode(false);
   }
 
   async function handleSubmit() {
@@ -143,9 +117,9 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          interests: selectedTopics.map(t => ({ keyword: t.keyword, field: t.field, level: t.level })),
+          interests: selectedTopics.map(t => ({ keyword: t.keyword, field: t.field, level: "beginner" })),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          contentMix,
+          contentMix: 33,
         }),
       });
       const data = await res.json();
@@ -155,7 +129,7 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
         model: model || providerDefaults[provider].model,
         baseUrl: baseUrl || providerDefaults[provider].baseUrl,
         userId: data.userId,
-        contentMix,
+        contentMix: 33,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -166,121 +140,66 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
   return (
     <div className="relative flex min-h-screen items-center justify-center p-3 md:p-4" style={{ background: "white" }}>
       <NoiseOverlay />
-
       <div
         className="relative z-10 w-full flex flex-col"
         style={{
-          maxWidth: step === 2 ? "1000px" : "512px",
+          maxWidth: step === 2 ? "600px" : "480px",
           maxHeight: "90vh",
           border: "4px solid #1a1a1a",
           background: "white",
           boxShadow: "8px 8px 0px 0px rgba(0,0,0,1)",
         }}
       >
-        {/* Header */}
-        <div style={{ padding: "24px 28px 16px", borderBottom: "3px solid #1a1a1a" }}>
-          <h2 style={{
-            fontSize: "1.5rem", fontWeight: 800,
-            fontFamily: "var(--font-display), sans-serif",
-            letterSpacing: "-0.02em", marginBottom: "4px",
-          }}>
-            {step === 1 ? "Connect AI Provider" : "Pick Your Interests"}
+        <div style={{ padding: "24px 24px 16px", borderBottom: "3px solid #1a1a1a" }}>
+          <h2 style={{ fontSize: "1.4rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "4px" }}>
+            {step === 1 ? "Connect AI Provider" : "What are you curious about?"}
           </h2>
           <p style={{ fontSize: "0.85rem", color: "#666" }}>
-            {step === 1
-              ? "We use an LLM to generate your daily digest. Gemini's free tier works great."
-              : "Select topics you're curious about. We'll find papers and news that connect them in surprising ways."}
+            {step === 1 ? "We use an LLM to generate your daily digest." : "Pick at least 3 topics. We'll find papers and news that connect them."}
           </p>
         </div>
 
-        {/* STEP 1 — API Key */}
+        {/* STEP 1 */}
         {step === 1 && (
-          <div style={{ padding: "24px 28px" }} className="space-y-5">
-            <div className="flex gap-0 flex-wrap md:flex-nowrap">
+          <div style={{ padding: "20px 24px" }} className="space-y-4">
+            <div className="flex gap-0 flex-wrap">
               {(["gemini", "anthropic", "openai", "other"] as Provider[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => handleProviderChange(p)}
-                  className={`flex-1 px-2 py-3 text-[0.75rem] font-bold uppercase tracking-[1px] transition-colors ${
-                    provider === p ? "bg-[#1a1a1a] text-white" : "text-[#1a1a1a] hover:bg-gray-50"
-                  }`}
-                  style={{ border: "2px solid #1a1a1a", marginRight: "-2px", fontFamily: "var(--font-mono), monospace" }}
-                >
+                <button key={p} onClick={() => handleProviderChange(p)}
+                  className={`flex-1 px-2 py-2.5 text-[0.7rem] font-bold uppercase tracking-[1px] ${provider === p ? "bg-[#1a1a1a] text-white" : "text-[#1a1a1a] hover:bg-gray-50"}`}
+                  style={{ border: "2px solid #1a1a1a", marginRight: "-2px", fontFamily: "var(--font-mono), monospace" }}>
                   {providerDefaults[p].label}
                 </button>
               ))}
             </div>
-
-            <div>
-              <label style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "6px" }}>
-                API Key
-              </label>
-              <input
-                type="password"
-                placeholder="Paste your API key..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && apiKey.trim() && setStep(2)}
-                className="w-full bg-transparent px-4 py-3 text-[0.95rem] placeholder:text-[#bbb] focus:outline-none"
-                style={{ border: "2px solid #1a1a1a" }}
-              />
-            </div>
-
+            <input type="password" placeholder="Paste your API key..." value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && apiKey.trim() && setStep(2)}
+              className="w-full bg-transparent px-4 py-3 text-[0.9rem] placeholder:text-[#bbb] focus:outline-none"
+              style={{ border: "2px solid #1a1a1a" }} />
             {provider === "other" && (
               <div className="flex gap-3">
-                <div className="flex-1">
-                  <label style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "6px" }}>Model</label>
-                  <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. gpt-4o" className="w-full bg-transparent px-3 py-2 text-[0.9rem] placeholder:text-[#bbb] focus:outline-none" style={{ border: "2px solid #1a1a1a" }} />
-                </div>
-                <div className="flex-1">
-                  <label style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "6px" }}>Base URL</label>
-                  <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://..." className="w-full bg-transparent px-3 py-2 text-[0.9rem] placeholder:text-[#bbb] focus:outline-none" style={{ border: "2px solid #1a1a1a" }} />
-                </div>
+                <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Model" className="flex-1 bg-transparent px-3 py-2 text-[0.85rem] placeholder:text-[#bbb] focus:outline-none" style={{ border: "2px solid #1a1a1a" }} />
+                <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="Base URL" className="flex-1 bg-transparent px-3 py-2 text-[0.85rem] placeholder:text-[#bbb] focus:outline-none" style={{ border: "2px solid #1a1a1a" }} />
               </div>
             )}
-
-            <button
-              disabled={!apiKey.trim()}
-              onClick={() => setStep(2)}
-              className="w-full bg-[#1a1a1a] text-white px-4 py-3 text-[0.8rem] uppercase tracking-[2px] hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}
-            >
+            <button disabled={!apiKey.trim()} onClick={() => setStep(2)}
+              className="w-full bg-[#1a1a1a] text-white px-4 py-3 text-[0.8rem] uppercase tracking-[2px] hover:bg-[#333] disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}>
               Continue <ArrowRight className="size-3.5" />
             </button>
-
-            {/* Or use invite code */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "4px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div style={{ flex: 1, height: "1px", background: "#e5e7eb" }} />
-              <span style={{ fontSize: "0.7rem", color: "#999", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px" }}>or</span>
+              <span style={{ fontSize: "0.65rem", color: "#999", fontFamily: "var(--font-mono), monospace" }}>OR</span>
               <div style={{ flex: 1, height: "1px", background: "#e5e7eb" }} />
             </div>
-
             <div>
-              <p style={{ fontSize: "0.75rem", color: "#666", marginBottom: "8px" }}>
-                Have an invite code? Skip the API key.
-              </p>
+              <p style={{ fontSize: "0.75rem", color: "#666", marginBottom: "6px" }}>Have an invite code?</p>
               <div style={{ display: "flex", gap: "6px" }}>
-                <input
-                  value={inviteCode}
-                  onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
+                <input value={inviteCode} onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
                   onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
-                  placeholder="Enter code..."
-                  style={{
-                    flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a",
-                    fontSize: "0.85rem", fontFamily: "var(--font-mono), monospace", outline: "none",
-                  }}
-                />
-                <button
-                  onClick={handleCodeSubmit}
-                  disabled={!inviteCode.trim() || validatingCode}
-                  style={{
-                    padding: "10px 16px", background: "#1a1a1a", color: "white",
-                    border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
-                    textTransform: "uppercase", letterSpacing: "1px",
-                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                    opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1,
-                  }}
-                >
+                  placeholder="Enter code..." style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.85rem", fontFamily: "var(--font-mono), monospace", outline: "none" }} />
+                <button onClick={handleCodeSubmit} disabled={!inviteCode.trim() || validatingCode}
+                  style={{ padding: "10px 16px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", cursor: "pointer", opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1 }}>
                   {validatingCode ? "..." : "Go"}
                 </button>
               </div>
@@ -289,119 +208,99 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
           </div>
         )}
 
-        {/* STEP 2 — Interests (same table as settings) */}
+        {/* STEP 2 — expandable categories */}
         {step === 2 && (
           <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "0 16px" }}>
-              <div style={{ marginTop: "16px" }}>
-                  {Object.entries(FIELD_HIERARCHY).map(([fieldKey, fieldDef]) => {
-                    const currentLevel = categoryLevels[fieldKey] || "beginner";
-                    const allTopics = Object.values(fieldDef.subfields).flat();
-                    const isCustomOpen = customFieldKey === fieldKey;
-                    return (
-                      <div key={fieldKey} style={{ borderBottom: "2px solid #e5e7eb", padding: "14px 0" }}>
-                        {/* Category header */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <div style={{ width: "10px", height: "10px", background: fieldDef.color, border: "1.5px solid #1a1a1a", flexShrink: 0 }} />
-                            <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase" }}>{fieldKey}</span>
-                          </div>
-                          <div style={{ display: "inline-flex", border: "1.5px solid #1a1a1a", borderRadius: "999px", overflow: "hidden" }}>
-                            {LEVELS.map(lvl => (
-                              <button key={lvl} onClick={() => setCategoryLevel(fieldKey, lvl)} style={{
-                                padding: "3px 8px", fontSize: "0.55rem", fontWeight: 700,
-                                fontFamily: "var(--font-mono), monospace",
-                                background: currentLevel === lvl ? "#1a1a1a" : "transparent",
-                                color: currentLevel === lvl ? "white" : "#888",
-                                border: "none", cursor: "pointer",
-                              }}>
-                                {LEVEL_LABELS[lvl]}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Topics */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                          {allTopics.map(topic => {
-                            const isSelected = selectedTopics.some(t => t.keyword === topic);
-                            return (
-                              <button key={topic} onClick={() => toggleTopic(topic, fieldKey)} style={{
-                                padding: "5px 12px", fontSize: "0.75rem", fontWeight: 600,
-                                border: "1.5px solid #1a1a1a",
-                                background: isSelected ? "#1a1a1a" : "white",
-                                color: isSelected ? "white" : "#1a1a1a",
-                                cursor: "pointer", transition: "all 0.1s",
-                                boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
-                              }}>
-                                {topic}
-                              </button>
-                            );
-                          })}
-                          {isCustomOpen ? (
-                            <div style={{ display: "inline-flex" }}>
-                              <input autoFocus value={customInput}
-                                onChange={e => setCustomInput(e.target.value)}
-                                onKeyDown={e => { if (e.key === "Enter") addCustomTopicToCategory(fieldKey); if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); } }}
-                                onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
-                                placeholder="type topic..."
-                                style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px solid #1a1a1a", borderRight: "none", background: fieldDef.color, outline: "none", width: "140px" }}
-                              />
-                              <button onClick={() => addCustomTopicToCategory(fieldKey)} style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", cursor: "pointer" }}>Add</button>
-                            </div>
-                          ) : (
-                            <button onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
-                              style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px dashed #aaa", background: fieldDef.color, color: "#666", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              <Plus size={11} /> custom
-                            </button>
-                          )}
-                        </div>
+            <div className="flex-1 overflow-y-auto" style={{ padding: "12px 24px" }}>
+              {Object.entries(FIELD_HIERARCHY).map(([fieldKey, fieldDef]) => {
+                const isExpanded = expandedField === fieldKey;
+                const selectedInField = selectedTopics.filter(t => t.field === fieldDef.s2Field).length;
+                const isCustomOpen = customFieldKey === fieldKey;
+                return (
+                  <div key={fieldKey} style={{ borderBottom: "1px solid #eee" }}>
+                    <button
+                      onClick={() => setExpandedField(isExpanded ? null : fieldKey)}
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "12px 0", background: "none", border: "none", cursor: "pointer",
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div style={{ width: "10px", height: "10px", background: fieldDef.color, border: "1.5px solid #1a1a1a" }} />
+                        <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>{fieldKey}</span>
+                        {selectedInField > 0 && (
+                          <span style={{ fontSize: "0.6rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
+                            {selectedInField} selected
+                          </span>
+                        )}
                       </div>
-                    );
-                  })}
-              </div>
+                      {isExpanded ? <ChevronDown size={14} color="#888" /> : <ChevronRight size={14} color="#888" />}
+                    </button>
+                    {isExpanded && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingBottom: "12px" }}>
+                        {fieldDef.topics.map(topic => {
+                          const isSelected = selectedTopics.some(t => t.keyword === topic);
+                          return (
+                            <button key={topic} onClick={() => toggleTopic(topic, fieldKey)} style={{
+                              padding: "5px 12px", fontSize: "0.75rem", fontWeight: 600,
+                              border: "1.5px solid #1a1a1a",
+                              background: isSelected ? "#1a1a1a" : "white",
+                              color: isSelected ? "white" : "#1a1a1a",
+                              cursor: "pointer",
+                              boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
+                            }}>
+                              {topic}
+                            </button>
+                          );
+                        })}
+                        {isCustomOpen ? (
+                          <div style={{ display: "inline-flex" }}>
+                            <input autoFocus value={customInput}
+                              onChange={e => setCustomInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") addCustomTopicToCategory(fieldKey); if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); } }}
+                              onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
+                              placeholder="add topic..."
+                              style={{ padding: "5px 10px", fontSize: "0.75rem", border: "1.5px solid #1a1a1a", borderRight: "none", background: fieldDef.color, outline: "none", width: "130px" }} />
+                            <button onClick={() => addCustomTopicToCategory(fieldKey)} style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", cursor: "pointer" }}>
+                              Add
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
+                            style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px dashed #bbb", background: fieldDef.color, color: "#888", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                            <Plus size={10} /> custom
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Footer */}
-            <div style={{ borderTop: "3px solid #1a1a1a", background: "#fafafa", padding: "12px 28px" }}>
-              {/* Selected chips */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace" }}>
-                  Selected ({selectedTopics.length}/20)
-                </span>
-                {selectedTopics.length > 0 && (
-                  <button onClick={() => setSelectedTopics([])} style={{ fontSize: "0.6rem", fontWeight: 700, color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                    Clear All
+            <div style={{ borderTop: "3px solid #1a1a1a", padding: "12px 24px", background: "#fafafa" }}>
+              {selectedTopics.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "10px", maxHeight: "60px", overflowY: "auto" }}>
+                  {selectedTopics.map(t => (
+                    <span key={t.keyword} style={{ display: "inline-flex", alignItems: "center", border: "1.5px solid #1a1a1a", fontSize: "0.65rem", fontWeight: 600, background: t.color }}>
+                      <span style={{ padding: "3px 8px" }}>{t.keyword}</span>
+                      <button onClick={() => setSelectedTopics(prev => prev.filter(x => x.keyword !== t.keyword))} className="hover:bg-[#1a1a1a] hover:text-white transition-colors" style={{ padding: "3px 6px", borderLeft: "1px solid #1a1a1a", background: "none", cursor: "pointer" }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {error && <p style={{ fontSize: "0.75rem", color: "#ff007f", marginBottom: "6px" }}>{error}</p>}
+              <div className="flex gap-2">
+                {!skipApiKey && (
+                  <button onClick={() => setStep(1)} disabled={submitting} style={{ padding: "10px 16px", border: "2px solid #1a1a1a", background: "white", fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", cursor: "pointer" }}>
+                    Back
                   </button>
                 )}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "12px", maxHeight: "50px", overflowY: "auto" }}>
-                {selectedTopics.map(t => (
-                  <span key={t.keyword} style={{ display: "inline-flex", alignItems: "center", border: "2px solid #1a1a1a", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", background: t.color }}>
-                    <span style={{ padding: "2px 6px", borderRight: "1px solid #1a1a1a", fontSize: "0.5rem", fontFamily: "var(--font-mono), monospace", opacity: 0.6 }}>{t.fieldLabel}</span>
-                    <span style={{ padding: "2px 8px" }}>{t.keyword}</span>
-                    <button onClick={() => setSelectedTopics(prev => prev.filter(x => x.keyword !== t.keyword))} className="hover:bg-[#1a1a1a] hover:text-white transition-colors" style={{ padding: "2px 5px", borderLeft: "1px solid #1a1a1a", background: "none", cursor: "pointer", fontSize: "0.65rem" }}>×</button>
-                  </span>
-                ))}
-              </div>
-
-              {/* Content mix info */}
-              <p style={{ fontSize: "0.7rem", color: "#999", marginBottom: "12px", fontFamily: "var(--font-mono), monospace" }}>
-                Your daily digest: 2 research papers + 1 news article
-              </p>
-
-              {error && <p style={{ fontSize: "0.8rem", color: "#ff007f", marginBottom: "8px" }}>{error}</p>}
-
-              <div className="flex gap-2">
-                <button onClick={() => setStep(1)} disabled={submitting} style={{ padding: "10px 20px", border: "2px solid #1a1a1a", background: "white", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", cursor: "pointer" }}>
-                  Back
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={selectedTopics.length < 3 || submitting}
+                <button onClick={handleSubmit} disabled={selectedTopics.length < 3 || submitting}
                   className="flex-1 flex items-center justify-center gap-2"
-                  style={{ padding: "10px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", cursor: "pointer", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", opacity: selectedTopics.length < 3 || submitting ? 0.5 : 1 }}
-                >
-                  {submitting ? <><Loader2 className="size-3.5 animate-spin" /> Setting up...</> : "Start Exploring"}
+                  style={{ padding: "10px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", cursor: "pointer", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", opacity: selectedTopics.length < 3 || submitting ? 0.5 : 1 }}>
+                  {submitting ? <><Loader2 className="size-3.5 animate-spin" /> Setting up...</> : `Start Exploring (${selectedTopics.length}/3+)`}
                 </button>
               </div>
             </div>
