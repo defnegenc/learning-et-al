@@ -539,32 +539,6 @@ export function SynthesisBanner({
         </ReactMarkdown>
       </div>
 
-      {/* Floating note — right of synthesis */}
-      {digestId && session && (
-        <div
-          className="hidden md:block"
-          style={{
-            width: "200px", flexShrink: 0, alignSelf: "flex-start",
-            border: "2px solid #1a1a1a",
-            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-            background: "white", padding: "14px",
-            transform: "rotate(1deg)",
-            transition: "transform 0.2s",
-          }}
-          onMouseEnter={e => (e.currentTarget.style.transform = "rotate(0deg) scale(1.02)")}
-          onMouseLeave={e => (e.currentTarget.style.transform = "rotate(1deg)")}
-        >
-          <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
-            ✦ Note
-          </div>
-          <textarea
-            defaultValue={typeof window !== "undefined" ? localStorage.getItem(`digest_notes_${digestId}`) || "" : ""}
-            onBlur={e => { if (e.target.value.trim()) localStorage.setItem(`digest_notes_${digestId}`, e.target.value); }}
-            placeholder="Jot down your thoughts..."
-            style={{ width: "100%", minHeight: "100px", background: "transparent", border: "none", outline: "none", resize: "none", fontSize: "0.78rem", lineHeight: 1.5, color: "#333" }}
-          />
-        </div>
-      )}
       </div>
 
       {/* Key concepts — display only */}
