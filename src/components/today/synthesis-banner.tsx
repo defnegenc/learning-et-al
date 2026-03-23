@@ -447,7 +447,7 @@ export function SynthesisBanner({
           >
             <Star size={14} className={starred ? "fill-current" : ""} />
             <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: starred ? "#f59e0b" : "#aaa" }}>
-              {starred ? "Saved" : "Save"}
+              {starred ? "Saved" : "Save Digest"}
             </span>
           </button>
         )}
