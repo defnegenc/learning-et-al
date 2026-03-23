@@ -17,7 +17,7 @@ function NotesInput({ digestId }: { digestId: string }) {
         onChange={(e) => { setNotes(e.target.value); setSaved(false); }}
         onBlur={() => { if (notes.trim()) { localStorage.setItem(storageKey, notes); setSaved(true); setTimeout(() => setSaved(false), 2000); } }}
         placeholder="Jot down your thoughts..."
-        style={{ width: "100%", minHeight: "100px", background: "white", border: "2px solid #1a1a1a", padding: "12px", fontSize: "0.8rem", lineHeight: 1.6, outline: "none", resize: "vertical", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
+        style={{ width: "100%", minHeight: "80px", background: "transparent", border: "none", padding: "0", fontSize: "0.8rem", lineHeight: 1.7, outline: "none", resize: "vertical", color: "#333" }}
       />
       {saved && (
         <span style={{ position: "absolute", bottom: "8px", right: "10px", fontSize: "0.6rem", color: "#38b000", fontFamily: "var(--font-mono), monospace" }}>
@@ -232,28 +232,57 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
       {/* ── Right: Sources + Notes (desktop) ── */}
       <aside
         className="hidden md:flex flex-col overflow-y-auto shrink-0 w-[340px]"
-        style={{ borderLeft: "3px solid #1a1a1a" }}
+        style={{ borderLeft: "none" }}
       >
         {/* Regenerate */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #eee" }}>
-          <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Sources</span>
+        {/* Referenced Sources header */}
+        <div style={{ padding: "16px 16px 10px" }}>
+          <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
         </div>
 
-        {/* Paper cards + notes underneath */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {/* Minimal paper cards */}
+        <div className="flex-1 overflow-y-auto px-3 space-y-2">
           {allPapers.map((paper, idx) => (
-            <PaperCard key={paper.id} paper={paper} index={idx} compact
-              highlighted={isPaperHighlighted(paper)} conceptDefs={conceptDefs}
-              onSelect={openSource}
-              onStar={(id) => handleFeedback(id, "star")}
-              onDislike={(id) => handleFeedback(id, "dislike")} />
+            <div
+              key={paper.id}
+              onClick={() => openSource(paper)}
+              className="cursor-pointer group"
+              style={{ border: "2px solid #1a1a1a", padding: "14px", background: "white", transition: "box-shadow 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.boxShadow = "3px 3px 0px 0px rgba(0,0,0,1)")}
+              onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
+            >
+              <h3 style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.25, marginBottom: "4px", fontFamily: "var(--font-display), sans-serif" }}
+                className="group-hover:underline">
+                {paper.title.length > 70 ? paper.title.slice(0, 67) + "..." : paper.title}
+              </h3>
+              <p style={{ fontSize: "0.6rem", color: "#888", fontFamily: "var(--font-mono), monospace", fontStyle: "italic", marginBottom: "8px" }}>
+                {paper.authors.length > 0 ? (paper.authors.length === 1 ? paper.authors[0] : `${paper.authors[0].split(" ").pop()} et al.`) : ""}
+                {paper.year ? `, ${paper.year}` : ""}
+              </p>
+              {paper.keywords.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                  {paper.keywords.slice(0, 2).map(kw => (
+                    <span key={kw} style={{ padding: "2px 8px", border: "1.5px solid #1a1a1a", fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace" }}>
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
 
-          {/* Notes — naturally below papers */}
+          {/* Notes & Reflections */}
           {digest.id && session && (
-            <div style={{ padding: "8px 0", marginTop: "4px" }}>
-              <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#aaa", fontFamily: "var(--font-mono), monospace", marginBottom: "8px" }}>
-                ✦ Notes
+            <div
+              style={{
+                border: "2px dashed #ccc", padding: "16px", marginTop: "8px",
+                transition: "border-color 0.2s, transform 0.2s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#1a1a1a"; e.currentTarget.style.transform = "scale(1.01)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#ccc"; e.currentTarget.style.transform = "scale(1)"; }}
+            >
+              <div style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#555", fontFamily: "var(--font-mono), monospace", marginBottom: "10px" }}>
+                Notes & Reflections
               </div>
               <NotesInput digestId={digest.id} />
             </div>

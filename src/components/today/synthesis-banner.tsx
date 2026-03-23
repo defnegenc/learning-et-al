@@ -406,8 +406,8 @@ export function SynthesisBanner({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span
           style={{
-            fontSize: "0.65rem",
-            color: "#999",
+            fontSize: "0.7rem",
+            color: "#555",
             fontFamily: "var(--font-mono), monospace",
             textTransform: "uppercase",
             letterSpacing: "2px",
@@ -594,7 +594,7 @@ export function SynthesisBanner({
           {/* Suggested explorations — full-width rows */}
           {showQuestions && !digDeeperLoading && (
             <div style={{ padding: "16px 20px" }}>
-              <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#999", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "10px" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#555", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "10px" }}>
                 Suggested Explorations
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
