@@ -237,40 +237,38 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
         <Settings className="size-4" />
       </DialogTrigger>
       <DialogContent
-        className="flex p-0 gap-0"
+        className="flex flex-col md:flex-row p-0 gap-0"
         style={{ width: "100vw", height: "100vh", maxWidth: "100vw", maxHeight: "100vh", borderRadius: 0 }}
       >
-        {/* ── Left sidebar nav ── */}
-        <aside style={{ width: "220px", borderRight: "3px solid #1a1a1a", background: "white", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-          <div style={{ padding: "28px 24px 20px", borderBottom: "3px solid #1a1a1a" }}>
+        {/* ── Sidebar: horizontal tab bar on mobile, vertical sidebar on desktop ── */}
+        <aside className="shrink-0 flex flex-row md:flex-col md:w-[220px] border-b-[3px] md:border-b-0 md:border-r-[3px] border-[#1a1a1a]" style={{ background: "white" }}>
+          <div className="hidden md:block" style={{ padding: "28px 24px 20px", borderBottom: "3px solid #1a1a1a" }}>
             <h2 style={{ fontSize: "1.5rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
               Settings
             </h2>
           </div>
-          <nav style={{ flex: 1, paddingTop: "8px" }}>
+          <nav className="flex flex-row md:flex-col flex-1 md:pt-2">
             {navItems.map(item => (
               <button
                 key={item.key}
                 onClick={() => setTab(item.key)}
+                className={`flex-1 md:flex-initial ${tab !== item.key ? "hover:bg-gray-50" : ""}`}
                 style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  width: "100%", padding: "14px 24px", textAlign: "left",
-                  fontSize: "0.9rem", fontWeight: tab === item.key ? 800 : 600,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "12px 16px", textAlign: "center",
+                  fontSize: "0.8rem", fontWeight: tab === item.key ? 800 : 600,
                   background: tab === item.key ? "#1a1a1a" : "transparent",
                   color: tab === item.key ? "white" : "#1a1a1a",
                   border: "none", cursor: "pointer", transition: "all 0.1s",
+                  fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1.5px",
                 }}
-                className={tab !== item.key ? "hover:bg-gray-50" : ""}
               >
                 {item.label}
-                {tab === item.key && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                )}
               </button>
             ))}
           </nav>
-          {/* Account */}
-          <div style={{ padding: "16px 24px", borderTop: "3px solid #1a1a1a" }}>
+          {/* Account — desktop only */}
+          <div className="hidden md:block" style={{ padding: "16px 24px", borderTop: "3px solid #1a1a1a" }}>
             {authSession?.user && (
               <div style={{ marginBottom: "12px" }}>
                 <div className="flex items-center gap-2 mb-2">
@@ -306,7 +304,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* ── API Tab ── */}
           {tab === "api" && (
-            <div className="flex-1 overflow-y-auto" style={{ padding: "40px" }}>
+            <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
               <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
                 AI Provider
               </h3>
@@ -378,7 +376,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
           {/* ── Interests Tab ── */}
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div style={{ padding: "40px 40px 20px" }}>
+              <div className="px-5 pt-6 pb-4 md:px-10 md:pt-10 md:pb-5">
                 <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
                   Curate Your Feed
                 </h3>
@@ -388,7 +386,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </div>
 
               {/* Table */}
-              <div className="flex-1 overflow-y-auto" style={{ padding: "0 40px" }}>
+              <div className="flex-1 overflow-y-auto px-5 md:px-10">
                 {loadingInterests ? (
                   <div className="flex items-center justify-center py-16"><Loader2 className="size-5 animate-spin text-[#888]" /></div>
                 ) : (
@@ -406,7 +404,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </div>
 
               {/* Selected footer */}
-              <div style={{ borderTop: "3px solid #1a1a1a", background: "#fafafa", padding: "12px 40px", flexShrink: 0 }}>
+              <div className="px-5 md:px-10" style={{ borderTop: "3px solid #1a1a1a", background: "#fafafa", paddingTop: "12px", paddingBottom: "12px", flexShrink: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                   <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace" }}>
                     Selected ({selectedTopics.length}/20)
@@ -446,9 +444,9 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
             </div>
           )}
           {/* Bottom action bar */}
-          <div style={{
+          <div className="px-5 md:px-10" style={{
             borderTop: "3px solid #1a1a1a", background: "white",
-            padding: "14px 40px", display: "flex", justifyContent: "flex-end",
+            paddingTop: "14px", paddingBottom: "14px", display: "flex", justifyContent: "flex-end",
             alignItems: "center", gap: "10px", flexShrink: 0,
           }}>
             {saved && (
@@ -456,6 +454,17 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 <CheckCircle className="size-3" /> Saved
               </span>
             )}
+            <button
+              onClick={() => {
+                localStorage.removeItem("pp_session");
+                fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
+                window.location.href = "/";
+              }}
+              className="md:hidden flex items-center gap-1.5 px-3 py-2.5 text-[0.65rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] transition-colors"
+              style={{ border: "1.5px solid #ddd", fontFamily: "var(--font-mono), monospace", marginRight: "auto" }}
+            >
+              <LogOut className="size-3" /> Sign Out
+            </button>
             <button
               onClick={handleRefreshDigest}
               disabled={!apiKey.trim()}
