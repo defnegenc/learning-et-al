@@ -15,7 +15,7 @@ function NotesInput({ digestId }: { digestId: string }) {
       onChange={(e) => setNotes(e.target.value)}
       onBlur={() => { if (notes.trim()) localStorage.setItem(storageKey, notes); }}
       placeholder="Jot down your thoughts..."
-      style={{ width: "100%", minHeight: "80px", background: "white", border: "2px solid #1a1a1a", padding: "10px", fontSize: "0.8rem", lineHeight: 1.5, outline: "none", resize: "vertical", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
+      style={{ width: "100%", minHeight: "120px", background: "white", border: "2px solid #1a1a1a", padding: "12px", fontSize: "0.8rem", lineHeight: 1.6, outline: "none", resize: "vertical", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
     />
   );
 }
@@ -190,7 +190,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
     <div className="flex flex-col md:flex-row md:h-[calc(100vh-3.5rem)]">
       {/* ── Left: Synthesis (digest content) ── */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-4 md:p-10 md:max-w-3xl">
+        <div className="p-4 md:px-10 md:py-8">
           {digest.synthesisContent ? (
             <SynthesisBanner
               synthesis={digest.synthesisContent}
@@ -202,6 +202,8 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
               onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
               papers={allPapers}
               onSelectPaper={openSource}
+              onRegenerate={() => handleGenerate(true)}
+              generating={generating}
               session={session}
             />
           ) : (
@@ -225,14 +227,8 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
         style={{ borderLeft: "3px solid #1a1a1a" }}
       >
         {/* Regenerate */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid #eee" }}>
           <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Sources</span>
-          <button onClick={() => handleGenerate(true)} disabled={generating}
-            className="flex items-center gap-1.5 px-2 py-1 text-[0.55rem] uppercase tracking-[1px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 disabled:opacity-50"
-            style={{ border: "1px solid #ddd", fontFamily: "var(--font-mono), monospace" }}>
-            {generating ? <Loader2 className="size-2.5 animate-spin" /> : <RefreshCw className="size-2.5" />}
-            {generating ? "..." : "Regen"}
-          </button>
         </div>
 
         {/* Paper cards — compact */}
