@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { PaperCard, type PaperItem } from "./paper-card";
-import { PaperDetail } from "./paper-detail";
 import { SynthesisBanner } from "./synthesis-banner";
 
 interface Digest {
@@ -36,7 +35,6 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
-  const [selectedPaper, setSelectedPaper] = useState<PaperItem | null>(null);
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
   const fetchDigest = useCallback(async () => {
@@ -185,7 +183,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
             activeConcept={activeConcept}
             onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
             papers={allPapers}
-            onSelectPaper={setSelectedPaper}
+            onSelectPaper={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
             session={session}
           />
         ) : (
@@ -208,7 +206,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
             compact
             highlighted={isPaperHighlighted(paper)}
             conceptDefs={conceptDefs}
-            onSelect={setSelectedPaper}
+            onSelect={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
             onStar={(id) => handleFeedback(id, "star")}
             onDislike={(id) => handleFeedback(id, "dislike")}
           />
@@ -243,7 +241,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
               index={idx}
               highlighted={isPaperHighlighted(paper)}
               conceptDefs={conceptDefs}
-              onSelect={setSelectedPaper}
+              onSelect={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
               onStar={(id) => handleFeedback(id, "star")}
               onDislike={(id) => handleFeedback(id, "dislike")}
             />
@@ -285,17 +283,6 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
 
       {/* Canvas area - hidden on mobile */}
       <div className="hidden md:flex flex-1 flex-col overflow-y-auto">
-        {selectedPaper ? (
-          <PaperDetail
-            paper={selectedPaper}
-            session={session}
-            inline
-            onBack={() => setSelectedPaper(null)}
-            onStar={(id) => handleFeedback(id, "star")}
-            onDislike={(id) => handleFeedback(id, "dislike")}
-          />
-        ) : (
-          <>
             <div style={{ padding: "40px 40px 24px 40px" }}>
               {digest.synthesisContent ? (
                 <SynthesisBanner
@@ -307,7 +294,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
                   activeConcept={activeConcept}
                   onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
                   papers={allPapers}
-                  onSelectPaper={setSelectedPaper}
+                  onSelectPaper={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
                   session={session}
                 />
               ) : (
@@ -319,23 +306,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
                 </span>
               )}
             </div>
-          </>
-        )}
       </div>
-
-
-      {/* Paper detail overlay — mobile only (desktop uses inline) */}
-      {selectedPaper && (
-        <div className="block md:hidden">
-          <PaperDetail
-            paper={selectedPaper}
-            session={session}
-            onBack={() => setSelectedPaper(null)}
-            onStar={(id) => handleFeedback(id, "star")}
-            onDislike={(id) => handleFeedback(id, "dislike")}
-          />
-        </div>
-      )}
     </div>
   );
 }
