@@ -27,18 +27,12 @@ function NoteCard({ digestId }: { digestId: string }) {
 
   return (
     <div
-      className="hidden md:block transition-transform duration-200 hover:rotate-0"
       style={{
-        maxWidth: "240px",
         width: "100%",
         border: "2px solid #1a1a1a",
         boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
         background: "white",
         padding: "16px",
-        alignSelf: "flex-start",
-        transform: "rotate(1deg)",
-        position: "sticky",
-        top: "24px",
       }}
     >
       <div
@@ -119,8 +113,7 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
         display: "flex",
         flexDirection: "column",
         gap: "5px",
-        minWidth: "180px",
-        maxWidth: "240px",
+        width: "100%",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -433,10 +426,10 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
       </div>
 
       {/* ── Main area: digest left, sources+notes right ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] flex-1 overflow-hidden">
         {/* Left: digest content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="px-4 md:px-10 py-6 md:py-10 md:max-w-[680px]">
+        <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-10">
+          <div style={{ maxWidth: "680px" }}>
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}
@@ -467,26 +460,25 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
           </div>
         </div>
 
-        {/* Right: sources + notes (desktop) */}
-        <aside className="hidden md:flex flex-col overflow-y-auto shrink-0 w-[320px]" style={{ borderLeft: "none" }}>
-          <div style={{ padding: "16px 16px 10px" }}>
+        {/* Right: sources + notes (desktop only) */}
+        <div className="hidden md:block overflow-y-auto pt-4">
+          <div style={{ padding: "0 16px 10px" }}>
             <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
           </div>
-          <div className="flex-1 px-3 space-y-2">
+          <div className="px-3 space-y-2">
             {allPapers.map((paper, idx) => (
               <PaperSourceTab key={paper.id} paper={paper} index={idx} />
             ))}
-
-            {/* Notes */}
             {digest.id && session && (
               <NoteCard digestId={digest.id} />
             )}
           </div>
-        </aside>
+        </div>
       </div>
 
       {/* ── Mobile: sources + notes below synthesis ── */}
       <div className="block md:hidden px-4 pb-20 space-y-2">
+        <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Sources</span>
         {allPapers.map((paper, idx) => (
           <PaperCard
             key={paper.id}
