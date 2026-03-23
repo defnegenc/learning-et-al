@@ -10,12 +10,16 @@ export async function POST(req: NextRequest) {
     if (!code) return NextResponse.json({ valid: false });
 
     const valid = VALID_CODES.has(code.trim().toLowerCase());
+    const provider = process.env.CRON_AI_PROVIDER || "gemini";
+    const defaultModel = provider === "anthropic" ? "claude-sonnet-4-20250514"
+      : provider === "openai" ? "gpt-4o"
+      : "gemini-2.5-flash";
     return NextResponse.json({
       valid,
       // If valid, return the shared AI config so the user doesn't need their own key
       ...(valid ? {
-        provider: process.env.CRON_AI_PROVIDER || "gemini",
-        model: process.env.CRON_AI_MODEL || "gemini-2.5-flash",
+        provider,
+        model: process.env.CRON_AI_MODEL || defaultModel,
         apiKey: process.env.CRON_AI_KEY || "",
         baseUrl: "",
       } : {}),
