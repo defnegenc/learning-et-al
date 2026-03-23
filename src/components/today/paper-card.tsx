@@ -192,7 +192,7 @@ export function PaperCard({
       ))}
 
       {/* Top: source label + compare badge */}
-      <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+      <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: compact ? "6px" : "12px" }}>
         <span
           style={{
             fontFamily: "var(--font-mono), monospace",
