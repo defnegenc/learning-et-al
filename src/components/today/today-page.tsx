@@ -7,16 +7,24 @@ import { SynthesisBanner } from "./synthesis-banner";
 
 function NotesInput({ digestId }: { digestId: string }) {
   const [notes, setNotes] = useState("");
+  const [saved, setSaved] = useState(false);
   const storageKey = `digest_notes_${digestId}`;
   useEffect(() => { const s = localStorage.getItem(storageKey); if (s) setNotes(s); }, [storageKey]);
   return (
-    <textarea
-      value={notes}
-      onChange={(e) => setNotes(e.target.value)}
-      onBlur={() => { if (notes.trim()) localStorage.setItem(storageKey, notes); }}
-      placeholder="Jot down your thoughts..."
-      style={{ width: "100%", height: "100%", minHeight: "100px", background: "white", border: "2px solid #1a1a1a", padding: "12px", fontSize: "0.8rem", lineHeight: 1.6, outline: "none", resize: "none", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
-    />
+    <div style={{ position: "relative" }}>
+      <textarea
+        value={notes}
+        onChange={(e) => { setNotes(e.target.value); setSaved(false); }}
+        onBlur={() => { if (notes.trim()) { localStorage.setItem(storageKey, notes); setSaved(true); setTimeout(() => setSaved(false), 2000); } }}
+        placeholder="Jot down your thoughts..."
+        style={{ width: "100%", minHeight: "100px", background: "white", border: "2px solid #1a1a1a", padding: "12px", fontSize: "0.8rem", lineHeight: 1.6, outline: "none", resize: "vertical", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
+      />
+      {saved && (
+        <span style={{ position: "absolute", bottom: "8px", right: "10px", fontSize: "0.6rem", color: "#38b000", fontFamily: "var(--font-mono), monospace" }}>
+          ✓ Saved
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -231,7 +239,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
           <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Sources</span>
         </div>
 
-        {/* Paper cards — compact */}
+        {/* Paper cards + notes underneath */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {allPapers.map((paper, idx) => (
             <PaperCard key={paper.id} paper={paper} index={idx} compact
@@ -240,6 +248,16 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
               onStar={(id) => handleFeedback(id, "star")}
               onDislike={(id) => handleFeedback(id, "dislike")} />
           ))}
+
+          {/* Notes — naturally below papers */}
+          {digest.id && session && (
+            <div style={{ padding: "8px 0", marginTop: "4px" }}>
+              <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#aaa", fontFamily: "var(--font-mono), monospace", marginBottom: "8px" }}>
+                ✦ Notes
+              </div>
+              <NotesInput digestId={digest.id} />
+            </div>
+          )}
         </div>
 
       </aside>
