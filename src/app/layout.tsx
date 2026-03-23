@@ -28,6 +28,7 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Learning et al.",
   description: "Your AI research companion",
+  icons: { icon: "/favicon.png" },
 };
 
 export default function RootLayout({
