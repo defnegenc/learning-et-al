@@ -70,9 +70,9 @@ function DigestFeedback({ digestId }: { digestId: string }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px" }}>
-      <span style={{ fontSize: "0.7rem", color: "#aaa" }}>Was this interesting?</span>
-      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "4px 10px", cursor: "pointer", borderRadius: "2px", fontSize: "0.8rem" }} className="hover:border-[#38b000] transition-colors">👍</button>
-      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "4px 10px", cursor: "pointer", borderRadius: "2px", fontSize: "0.8rem" }} className="hover:border-[#ff007f] transition-colors">👎</button>
+      <span style={{ fontSize: "0.65rem", color: "#bbb" }}>Feedback?</span>
+      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", fontSize: "0.75rem", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">👍</button>
+      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", fontSize: "0.75rem", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">👎</button>
     </div>
   );
 }
@@ -112,89 +112,38 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
   );
 }
 
-// Sticky-note notepad for user notes on a digest
+// Floating note card — sits right of synthesis text
 function DigestNotes({ digestId }: { digestId: string }) {
   const [notes, setNotes] = useState("");
-  const [expanded, setExpanded] = useState(false);
-  const [saved, setSaved] = useState(false);
   const storageKey = `digest_notes_${digestId}`;
 
   React.useEffect(() => {
     const saved = localStorage.getItem(storageKey);
-    if (saved) { setNotes(saved); setExpanded(true); }
+    if (saved) setNotes(saved);
   }, [storageKey]);
 
-  const handleSave = () => {
-    localStorage.setItem(storageKey, notes);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+  const handleBlur = () => {
+    if (notes.trim()) localStorage.setItem(storageKey, notes);
   };
-
-  if (!expanded) {
-    return (
-      <button
-        onClick={() => setExpanded(true)}
-        style={{
-          marginTop: "12px", padding: "10px 16px",
-          background: "#fef9c3", border: "2px solid #1a1a1a",
-          boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
-          fontSize: "0.75rem", fontWeight: 600, color: "#92400e",
-          cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-          fontFamily: "var(--font-mono), monospace",
-          textTransform: "uppercase", letterSpacing: "1px",
-        }}
-      >
-        <span style={{ fontSize: "1rem" }}>📝</span> Add notes
-      </button>
-    );
-  }
 
   return (
     <div style={{
-      marginTop: "12px", background: "#fef9c3",
+      width: "220px", flexShrink: 0, marginLeft: "24px",
       border: "2px solid #1a1a1a", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-      padding: "16px",
+      background: "white", padding: "14px", alignSelf: "flex-start",
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-        <span style={{
-          fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-          letterSpacing: "2px", color: "#92400e",
-          fontFamily: "var(--font-mono), monospace",
-        }}>
-          📝 My Notes
-        </span>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          {saved && <span style={{ fontSize: "0.65rem", color: "#38b000", fontFamily: "var(--font-mono), monospace" }}>Saved</span>}
-          <button
-            onClick={handleSave}
-            style={{
-              padding: "4px 12px", background: "#1a1a1a", color: "white",
-              border: "none", fontSize: "0.6rem", fontWeight: 700,
-              textTransform: "uppercase", letterSpacing: "1px",
-              fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-            }}
-          >
-            Save
-          </button>
-          <button
-            onClick={() => setExpanded(false)}
-            style={{
-              padding: "4px 8px", background: "none", border: "none",
-              fontSize: "0.8rem", cursor: "pointer", color: "#92400e",
-            }}
-          >
-            ×
-          </button>
-        </div>
+      <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
+        ✦ Note
       </div>
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="What stood out? What do you want to remember?"
+        onBlur={handleBlur}
+        placeholder="Jot down your thoughts..."
         style={{
-          width: "100%", minHeight: "80px", background: "transparent",
+          width: "100%", minHeight: "120px", background: "transparent",
           border: "none", outline: "none", resize: "vertical",
-          fontSize: "0.88rem", lineHeight: 1.6, color: "#78350f",
+          fontSize: "0.8rem", lineHeight: 1.6, color: "#333",
           fontFamily: "inherit",
         }}
       />
@@ -601,10 +550,6 @@ export function SynthesisBanner({
         </div>
       )}
 
-      {/* Notes — sticky post-it */}
-      {digestId && session && <DigestNotes digestId={digestId} />}
-
-      {/* Dig deeper — conversation history */}
       {/* Quick feedback */}
       {digestId && session && <DigestFeedback digestId={digestId} />}
 
@@ -613,53 +558,40 @@ export function SynthesisBanner({
         <div
           style={{
             border: "3px solid #1a1a1a",
-            boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
             overflow: "hidden",
-            marginTop: "12px",
+            marginTop: "20px",
           }}
         >
-          <div style={{ background: "#1a1a1a", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{
-              fontSize: "1rem", fontWeight: 700, textTransform: "uppercase",
-              letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "white",
-            }}>
+          {/* Header */}
+          <div style={{ background: "#1a1a1a", padding: "14px 20px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "white" }}>
               Dig Deeper
             </span>
-            {digDeeperHistory.length > 0 && !showQuestions && (
-              <button
-                onClick={() => setShowQuestions(true)}
-                style={{
-                  background: "none", border: "1px solid rgba(255,255,255,0.3)",
-                  color: "rgba(255,255,255,0.7)", fontSize: "0.6rem", fontWeight: 600,
-                  padding: "4px 10px", cursor: "pointer", fontFamily: "var(--font-mono), monospace",
-                  textTransform: "uppercase", letterSpacing: "1px",
-                }}
-                className="hover:text-white hover:border-white transition-colors"
-              >
-                More questions
-              </button>
-            )}
           </div>
 
-          {/* Suggested questions */}
+          {/* Suggested explorations — full-width rows */}
           {showQuestions && !digDeeperLoading && (
-            <div style={{ padding: "16px 20px", borderBottom: digDeeperHistory.length > 0 ? "none" : "2px solid #e5e7eb" }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            <div style={{ padding: "16px 20px" }}>
+              <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#999", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "10px" }}>
+                Suggested Explorations
+              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 {digDeeperPrompts.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => { handleDigDeeper(prompt); setShowQuestions(false); }}
                     style={{
-                      padding: "8px 16px", border: "2px solid #1a1a1a", background: "white",
-                      fontSize: "0.8rem", fontWeight: 600,
+                      width: "100%", padding: "12px 16px", border: "1.5px solid #e5e7eb", background: "white",
+                      fontSize: "0.85rem", fontWeight: 500,
                       color: "#1a1a1a", textAlign: "left", cursor: "pointer",
-                      transition: "background 0.1s, color 0.1s", lineHeight: 1.4,
-                      boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
+                      transition: "border-color 0.15s", lineHeight: 1.4,
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#1a1a1a"; (e.currentTarget as HTMLElement).style.color = "white"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "white"; (e.currentTarget as HTMLElement).style.color = "#1a1a1a"; }}
+                    className="hover:border-[#1a1a1a]"
                   >
-                    {prompt.replace(/\*\*/g, "")}
+                    <span>{prompt.replace(/\*\*/g, "")}</span>
+                    <span style={{ color: "#888", fontSize: "0.8rem" }}>→</span>
                   </button>
                 ))}
               </div>

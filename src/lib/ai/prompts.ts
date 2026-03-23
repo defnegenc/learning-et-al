@@ -108,12 +108,14 @@ CRITICAL RULES:
 - NEVER mention topics that aren't in the papers. If no paper mentions interior design, don't bring up interior design. Only discuss what the papers actually cover.
 - If two papers seem barely related, be honest: "These two don't obviously connect, but..." is better than forcing a fake connection.
 
-LENGTH: 3-5 sentences. ONE paragraph. The reader gets the "so what" in 20 seconds or you've failed.
+LENGTH: 5-8 sentences. ONE or TWO paragraphs. Tell the reader enough about each paper that they don't need to read it — what was studied, what was found, and why it matters for the theme.
 
 START with the point, not the build-up. Lead with the insight, then back it up with the papers.
 
 RULES:
-- Every paper appears once in **bold** with a SHORT name (2-4 words).
+- Every paper appears in **bold** with authors and year on first mention: "**Antarctic tourism governance** (Zhu et al., 2026) found..."
+- This citation format makes it clear these are real published research, not AI-generated content.
+- After first mention, just use the short bold name.
 - ONE paragraph. No multi-paragraph essays.
 - Start with the insight, not "Turns out" or "The big question."
 - Include one specific number or finding.

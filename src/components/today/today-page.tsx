@@ -5,6 +5,21 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { PaperCard, type PaperItem } from "./paper-card";
 import { SynthesisBanner } from "./synthesis-banner";
 
+function NotesInput({ digestId }: { digestId: string }) {
+  const [notes, setNotes] = useState("");
+  const storageKey = `digest_notes_${digestId}`;
+  useEffect(() => { const s = localStorage.getItem(storageKey); if (s) setNotes(s); }, [storageKey]);
+  return (
+    <textarea
+      value={notes}
+      onChange={(e) => setNotes(e.target.value)}
+      onBlur={() => { if (notes.trim()) localStorage.setItem(storageKey, notes); }}
+      placeholder="Jot down your thoughts..."
+      style={{ width: "100%", minHeight: "80px", background: "white", border: "2px solid #1a1a1a", padding: "10px", fontSize: "0.8rem", lineHeight: 1.5, outline: "none", resize: "vertical", boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)" }}
+    />
+  );
+}
+
 interface Digest {
   id: string;
   theme: string | null;
@@ -169,143 +184,88 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
     }
   }
 
+  const openSource = (p: PaperItem) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer");
+
   return (
-    <div className="flex flex-col md:flex-row md:h-[calc(100vh-2.75rem)]">
-      {/* Synthesis - shown first on mobile, inside canvas on desktop */}
-      <div className="block md:hidden p-4">
-        {digest.synthesisContent ? (
-          <SynthesisBanner
-            synthesis={digest.synthesisContent}
-            theme={digest.theme ?? undefined}
-            keyConcepts={digest.keyConcepts}
-            digestId={digest.id}
-            digestStarred={!!digest.starred}
-            activeConcept={activeConcept}
-            onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
-            papers={allPapers}
-            onSelectPaper={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
-            session={session}
-          />
-        ) : (
-          <span
-            className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
-            style={{ fontFamily: 'var(--font-mono), monospace' }}
-          >
-            No synthesis available
-          </span>
-        )}
-      </div>
-
-      {/* Mobile paper cards — compact, below synthesis */}
-      <div className="block md:hidden px-4 pb-4 space-y-2">
-        {allPapers.map((paper, idx) => (
-          <PaperCard
-            key={paper.id}
-            paper={paper}
-            index={idx}
-            compact
-            highlighted={isPaperHighlighted(paper)}
-            conceptDefs={conceptDefs}
-            onSelect={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
-            onStar={(id) => handleFeedback(id, "star")}
-            onDislike={(id) => handleFeedback(id, "dislike")}
-          />
-        ))}
-      </div>
-
-      {/* Sidebar - paper cards (hidden on mobile, shown on desktop) */}
-      <aside
-        className="hidden md:block overflow-y-auto shrink-0 w-[380px]"
-        style={{ borderRight: "4px solid #1a1a1a" }}
-      >
-        <div className="p-4 space-y-3">
-          {/* Regenerate button */}
-          <div className="flex justify-end">
-            <button
-              onClick={() => handleGenerate(true)}
-              disabled={generating}
-              className="flex items-center gap-1.5 px-3 py-1 text-[0.6rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors disabled:opacity-50"
-              style={{ border: "1.5px solid #ccc", fontFamily: "var(--font-mono), monospace" }}
-            >
-              {generating ? (
-                <><Loader2 className="size-3 animate-spin" /> Regenerating...</>
-              ) : (
-                <><RefreshCw className="size-3" /> Regenerate</>
-              )}
-            </button>
-          </div>
-          {allPapers.map((paper, idx) => (
-            <PaperCard
-              key={paper.id}
-              paper={paper}
-              index={idx}
-              highlighted={isPaperHighlighted(paper)}
-              conceptDefs={conceptDefs}
-              onSelect={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
-              onStar={(id) => handleFeedback(id, "star")}
-              onDislike={(id) => handleFeedback(id, "dislike")}
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-3.5rem)]">
+      {/* ── Left: Synthesis (digest content) ── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4 md:p-10 md:max-w-3xl">
+          {digest.synthesisContent ? (
+            <SynthesisBanner
+              synthesis={digest.synthesisContent}
+              theme={digest.theme ?? undefined}
+              keyConcepts={digest.keyConcepts}
+              digestId={digest.id}
+              digestStarred={!!digest.starred}
+              activeConcept={activeConcept}
+              onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
+              papers={allPapers}
+              onSelectPaper={openSource}
+              session={session}
             />
-          ))}
-
-          {allPapers.length === 0 && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <p
-                className="text-[0.65rem] uppercase tracking-[2px] text-[#666]"
-                style={{ fontFamily: 'var(--font-mono), monospace' }}
-              >
-                No papers found
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-16">
+              <p className="text-[0.65rem] uppercase tracking-[2px] text-[#888]" style={{ fontFamily: "var(--font-mono), monospace" }}>
+                {generateError || "No digest found for today"}
               </p>
-              {generateError && (
-                <p className="text-[0.7rem] text-[#ff007f] max-w-md text-center">
-                  {generateError}
-                </p>
-              )}
-              <button
-                onClick={() => handleGenerate(true)}
-                disabled={generating}
-                className="border border-[#1a1a1a] px-3 py-1 text-[0.6rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
-                style={{ borderWidth: "1.5px", fontFamily: 'var(--font-mono), monospace' }}
-              >
-                {generating ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="size-3 animate-spin" /> REGENERATING...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw className="size-3" /> Regenerate digest
-                  </span>
-                )}
+              <button onClick={() => handleGenerate(true)} disabled={generating}
+                className="flex items-center gap-2 px-4 py-2 text-[0.7rem] uppercase tracking-[2px] bg-[#1a1a1a] text-white disabled:opacity-50"
+                style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}>
+                {generating ? <><Loader2 className="size-3 animate-spin" /> Generating...</> : <><RefreshCw className="size-3" /> Generate digest</>}
               </button>
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Right: Sources + Notes (desktop) ── */}
+      <aside
+        className="hidden md:flex flex-col overflow-y-auto shrink-0 w-[340px]"
+        style={{ borderLeft: "3px solid #1a1a1a" }}
+      >
+        {/* Regenerate */}
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Sources</span>
+          <button onClick={() => handleGenerate(true)} disabled={generating}
+            className="flex items-center gap-1.5 px-2 py-1 text-[0.55rem] uppercase tracking-[1px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 disabled:opacity-50"
+            style={{ border: "1px solid #ddd", fontFamily: "var(--font-mono), monospace" }}>
+            {generating ? <Loader2 className="size-2.5 animate-spin" /> : <RefreshCw className="size-2.5" />}
+            {generating ? "..." : "Regen"}
+          </button>
+        </div>
+
+        {/* Paper cards — compact */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {allPapers.map((paper, idx) => (
+            <PaperCard key={paper.id} paper={paper} index={idx} compact
+              highlighted={isPaperHighlighted(paper)} conceptDefs={conceptDefs}
+              onSelect={openSource}
+              onStar={(id) => handleFeedback(id, "star")}
+              onDislike={(id) => handleFeedback(id, "dislike")} />
+          ))}
+        </div>
+
+        {/* Notes */}
+        {digest.id && session && (
+          <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 16px" }}>
+            <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", marginBottom: "8px" }}>
+              ✦ What did you find interesting?
+            </div>
+            <NotesInput digestId={digest.id} />
+          </div>
+        )}
       </aside>
 
-      {/* Canvas area - hidden on mobile */}
-      <div className="hidden md:flex flex-1 flex-col overflow-y-auto">
-            <div style={{ padding: "40px 40px 24px 40px" }}>
-              {digest.synthesisContent ? (
-                <SynthesisBanner
-                  synthesis={digest.synthesisContent}
-                  theme={digest.theme ?? undefined}
-                  keyConcepts={digest.keyConcepts}
-                  digestId={digest.id}
-                  digestStarred={!!digest.starred}
-                  activeConcept={activeConcept}
-                  onConceptClick={(concept) => setActiveConcept((prev) => (prev === concept ? null : concept))}
-                  papers={allPapers}
-                  onSelectPaper={(p) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer")}
-                  session={session}
-                />
-              ) : (
-                <span
-                  className="text-[0.65rem] uppercase tracking-[2px] text-[#888]"
-                  style={{ fontFamily: 'var(--font-mono), monospace' }}
-                >
-                  No synthesis available
-                </span>
-              )}
-            </div>
+      {/* ── Mobile: sources + notes below synthesis ── */}
+      <div className="block md:hidden px-4 pb-20 space-y-2">
+        {allPapers.map((paper, idx) => (
+          <PaperCard key={paper.id} paper={paper} index={idx} compact
+            highlighted={isPaperHighlighted(paper)} conceptDefs={conceptDefs}
+            onSelect={openSource}
+            onStar={(id) => handleFeedback(id, "star")}
+            onDislike={(id) => handleFeedback(id, "dislike")} />
+        ))}
       </div>
     </div>
   );
