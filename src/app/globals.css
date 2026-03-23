@@ -223,3 +223,9 @@
   scrollbar-width: auto;
   scrollbar-color: #1a1a1a #f9fafb;
 }
+
+/* Grid background pattern */
+.bg-grid-pattern {
+  background-size: 20px 20px;
+  background-image: linear-gradient(to right, #f0f0f0 1px, transparent 1px), linear-gradient(to bottom, #f0f0f0 1px, transparent 1px);
+}

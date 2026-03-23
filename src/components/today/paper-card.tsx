@@ -138,7 +138,7 @@ export function PaperCard({
     <article
       className="group relative"
       style={{
-        aspectRatio: compact ? "auto" : "4 / 3",
+        aspectRatio: compact ? "auto" : "1 / 1",
         background: "white",
         border: borderStyle,
         boxShadow: shadowStyle,
