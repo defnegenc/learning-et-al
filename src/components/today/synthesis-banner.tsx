@@ -2,8 +2,7 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { KeywordTag } from "@/components/keyword-tag";
-import { Loader2, Plus, Check, Star } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
 // Quick digest feedback — was this interesting?
@@ -253,8 +252,6 @@ export function SynthesisBanner({
   generating = false,
   session,
 }: SynthesisBannerProps) {
-  const [starred, setStarred] = useState(digestStarred);
-
   // Build concept definition map from keyConcepts ("term: definition" format)
   const conceptDefs = useMemo(() => {
     const defs: Record<string, string> = {};
@@ -355,19 +352,20 @@ export function SynthesisBanner({
     return match ? match[1].trim() : null;
   }, [synthesis]);
 
-  // Dig deeper prompts — lead with the synthesis's own suggestion
+  // Dig deeper prompts — specific, provocative questions about the digest
   const digDeeperPrompts = useMemo(() => {
     if (papers.length === 0) return [];
-    const topic = (p: PaperItem) => p.keywords.length > 0 ? p.keywords[0].toLowerCase() : p.title.split(" ").slice(0, 3).join(" ").toLowerCase();
+    const kw = (p: PaperItem) => p.keywords.length > 0 ? p.keywords[0] : p.title.split(" ").slice(0, 3).join(" ");
     const p0 = papers[0];
     const p1 = papers[1];
     const p2 = papers[2];
 
     const prompts: string[] = [];
-    if (lookIntoMatch) prompts.push(`Tell me more about ${lookIntoMatch}`);
-    if (p0 && p1) prompts.push(`How do ${topic(p0)} and ${topic(p1)} actually connect?`);
-    prompts.push("What's the most surprising takeaway here?");
-    if (p2) prompts.push(`Does the ${topic(p2)} angle change anything?`);
+    if (p0 && p1) prompts.push(`${kw(p0)} & ${kw(p1)} connection?`);
+    if (lookIntoMatch) prompts.push(`More on ${lookIntoMatch}`);
+    if (p2) prompts.push(`The ${kw(p2)} angle?`);
+    prompts.push("What would a skeptic say?");
+    prompts.push("Who's working on this now?");
     return prompts.slice(0, 4);
   }, [papers, lookIntoMatch]);
 
@@ -402,58 +400,6 @@ export function SynthesisBanner({
 
   return (
     <div className="space-y-5">
-      {/* "Today's Digest" label + save/star */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span
-          style={{
-            fontSize: "0.7rem",
-            color: "#555",
-            fontFamily: "var(--font-mono), monospace",
-            textTransform: "uppercase",
-            letterSpacing: "2px",
-            fontWeight: 700,
-          }}
-        >
-          Today&apos;s Digest
-        </span>
-        <div className="flex items-center gap-2">
-          {onRegenerate && (
-            <button onClick={onRegenerate} disabled={generating}
-              style={{ background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer", padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px", borderRadius: "2px" }}
-              className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50">
-              {generating ? <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} /> : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>}
-              <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regen</span>
-            </button>
-          )}
-          {digestId && (
-          <button
-            onClick={async () => {
-              setStarred(!starred);
-              try {
-                await fetch("/api/digest/star", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ digestId }),
-                });
-              } catch { setStarred(starred); }
-            }}
-            style={{
-              background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer",
-              padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px",
-              color: starred ? "#f59e0b" : "#ccc",
-              transition: "all 0.15s", borderRadius: "2px",
-            }}
-            className="hover:border-[#f59e0b]"
-          >
-            <Star size={14} className={starred ? "fill-current" : ""} />
-            <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: starred ? "#f59e0b" : "#aaa" }}>
-              {starred ? "Saved" : "Save Digest"}
-            </span>
-          </button>
-        )}
-        </div>
-      </div>
-
       {/* Theme — big, bold, Space Grotesk */}
       {displayTheme && (
         <h1
@@ -484,11 +430,10 @@ export function SynthesisBanner({
         {today}
       </span>
 
-      {/* Synthesis body + floating note */}
-      <div style={{ display: "flex", gap: "24px" }}>
+      {/* Synthesis body */}
       <div
         className="text-[0.95rem] md:text-[1.05rem] text-gray-700"
-        style={{ lineHeight: "1.85", fontFamily: "inherit", flex: 1 }}
+        style={{ lineHeight: "1.85", fontFamily: "inherit" }}
       >
         <ReactMarkdown
           components={{
@@ -539,8 +484,6 @@ export function SynthesisBanner({
         </ReactMarkdown>
       </div>
 
-      </div>
-
       {/* Key concepts — display only */}
       {keyConcepts.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2">
@@ -578,7 +521,8 @@ export function SynthesisBanner({
       {papers.length > 0 && session && (
         <div
           style={{
-            border: "3px solid #1a1a1a",
+            border: "2px solid #1a1a1a",
+            boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
             overflow: "hidden",
             marginTop: "20px",
           }}
@@ -602,17 +546,17 @@ export function SynthesisBanner({
                   <button
                     key={i}
                     onClick={() => { handleDigDeeper(prompt); setShowQuestions(false); }}
+                    className="hover:translate-x-1 hover:-translate-y-px hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all group"
                     style={{
-                      width: "100%", padding: "12px 16px", border: "1.5px solid #e5e7eb", background: "white",
-                      fontSize: "0.85rem", fontWeight: 500,
+                      width: "100%", padding: "10px 14px", border: "2px solid #1a1a1a", background: "white",
+                      fontSize: "0.82rem", fontWeight: 500,
                       color: "#1a1a1a", textAlign: "left", cursor: "pointer",
-                      transition: "border-color 0.15s", lineHeight: 1.4,
+                      lineHeight: 1.4,
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                     }}
-                    className="hover:border-[#1a1a1a]"
                   >
                     <span>{prompt.replace(/\*\*/g, "")}</span>
-                    <span style={{ color: "#888", fontSize: "0.8rem" }}>→</span>
+                    <span style={{ color: "#1a1a1a", fontSize: "0.85rem" }} className="group-hover:translate-x-1 transition-transform">→</span>
                   </button>
                 ))}
               </div>
@@ -653,7 +597,7 @@ export function SynthesisBanner({
 
           {/* Input */}
           <div style={{
-            borderTop: "3px solid #1a1a1a", padding: "14px 20px",
+            borderTop: "2px solid #1a1a1a", padding: "14px 20px",
             display: "flex", gap: "10px", alignItems: "center", background: "#fafafa",
           }}>
             <input
@@ -681,7 +625,7 @@ export function SynthesisBanner({
                 display: "flex", alignItems: "center", transition: "background 0.15s",
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
             </button>
           </div>
         </div>
