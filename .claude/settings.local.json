@@ -41,7 +41,8 @@
       "Bash(echo:*)",
       "Bash(git stash:*)",
       "Bash(git push:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(gh api:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
