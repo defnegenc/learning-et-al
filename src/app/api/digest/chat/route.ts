@@ -16,12 +16,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const question = body.question;
     const digestId = body.digestId;
-    // Use provided API key, or fall back to shared cron config
-    const apiKey = body.apiKey || process.env.CRON_AI_KEY || "";
-    const provider = body.provider || process.env.CRON_AI_PROVIDER || "gemini";
-    const defaultModel = provider === "anthropic" ? "claude-sonnet-4-20250514" : provider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
-    const model = body.model || process.env.CRON_AI_MODEL || defaultModel;
-    const baseUrl = body.baseUrl || "";
+    // Use provided API key, or fall back to shared cron config entirely
+    const hasOwnKey = !!body.apiKey;
+    const cronProvider = process.env.CRON_AI_PROVIDER || "gemini";
+    const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-20250514" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
+    const apiKey = hasOwnKey ? body.apiKey : (process.env.CRON_AI_KEY || "");
+    const provider = hasOwnKey ? (body.provider || "gemini") : cronProvider;
+    const model = hasOwnKey ? (body.model || "gemini-2.5-flash") : (process.env.CRON_AI_MODEL || cronDefaultModel);
+    const baseUrl = hasOwnKey ? (body.baseUrl || "") : "";
 
     if (!question || !digestId || !apiKey) {
       return NextResponse.json({ error: "Missing question, digest, or API key. Check Settings > API." }, { status: 400 });

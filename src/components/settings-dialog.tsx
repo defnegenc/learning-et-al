@@ -267,7 +267,6 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
   const navItems: { key: SettingsTab; label: string }[] = [
     { key: "interests", label: "Interests" },
     { key: "api", label: "API" },
-    { key: "account", label: "Account" },
   ];
 
   return (
@@ -276,53 +275,43 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
         <Settings className="size-4" />
       </DialogTrigger>
       <DialogContent
-        className="flex flex-col md:flex-row p-0 gap-0"
+        className="flex flex-col p-0 gap-0"
         style={{ width: "100vw", height: "100vh", maxWidth: "100vw", maxHeight: "100vh", borderRadius: 0 }}
       >
-        {/* ── Sidebar: horizontal tab bar on mobile, vertical sidebar on desktop ── */}
-        <aside className="shrink-0 flex flex-row md:flex-col md:w-[220px] border-b-[3px] md:border-b-0 md:border-r-[3px] border-[#1a1a1a]" style={{ background: "white" }}>
-          <div className="hidden md:block" style={{ padding: "28px 24px 20px", borderBottom: "3px solid #1a1a1a" }}>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
-              Settings
-            </h2>
-          </div>
-          <nav className="flex flex-row md:flex-col md:flex-1 md:pt-2 w-full md:w-auto">
-            {navItems.map(item => (
+        {/* ── Top bar: Settings title + tabs + sign out ── */}
+        <div style={{ borderBottom: "3px solid #1a1a1a", background: "white", padding: "0 20px", display: "flex", alignItems: "stretch", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", paddingRight: "20px", marginRight: "4px" }}>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
+                Settings
+              </h2>
+            </div>
+            {navItems.filter(i => i.key !== "account").map(item => (
               <button
                 key={item.key}
                 onClick={() => setTab(item.key)}
-                className={`flex-1 md:flex-initial ${tab !== item.key ? "hover:bg-gray-50" : ""}`}
+                className={tab !== item.key ? "hover:bg-gray-50" : ""}
                 style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "10px 8px", textAlign: "center",
-                  fontSize: "0.7rem", fontWeight: tab === item.key ? 800 : 600,
-                  background: tab === item.key ? "#1a1a1a" : "transparent",
-                  color: tab === item.key ? "white" : "#1a1a1a",
-                  border: "none", cursor: "pointer", transition: "all 0.1s",
-                  fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px",
+                  display: "flex", alignItems: "center", padding: "14px 20px",
+                  fontSize: "0.85rem", fontWeight: tab === item.key ? 800 : 500,
+                  background: "transparent",
+                  color: tab === item.key ? "#1a1a1a" : "#888",
+                  border: "none", borderBottom: tab === item.key ? "3px solid #1a1a1a" : "3px solid transparent",
+                  cursor: "pointer", transition: "all 0.1s",
+                  marginBottom: "-3px",
                 }}
               >
                 {item.label}
               </button>
             ))}
-          </nav>
-          {/* Account — desktop only */}
-          <div className="hidden md:block" style={{ padding: "16px 24px", borderTop: "3px solid #1a1a1a" }}>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {authSession?.user && (
-              <div style={{ marginBottom: "12px" }}>
-                <div className="flex items-center gap-2 mb-2">
-                  {authSession.user.image && (
-                    <img src={authSession.user.image} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1.5px solid #1a1a1a" }} />
-                  )}
-                  <div>
-                    <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "#1a1a1a", lineHeight: 1.2 }}>
-                      {authSession.user.name}
-                    </p>
-                    <p style={{ fontSize: "0.6rem", color: "#888" }}>
-                      {authSession.user.email}
-                    </p>
-                  </div>
-                </div>
+              <div className="hidden md:flex items-center gap-2">
+                {authSession.user.image && (
+                  <img src={authSession.user.image} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", border: "1.5px solid #ddd" }} />
+                )}
+                <span style={{ fontSize: "0.8rem", color: "#888" }}>{authSession.user.name?.split(" ")[0]}</span>
               </div>
             )}
             <button
@@ -330,13 +319,14 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 localStorage.removeItem("pp_session");
                 window.location.href = "/api/logout";
               }}
-              className="w-full flex items-center justify-center gap-2 py-2 text-[0.7rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors"
-              style={{ border: "1.5px solid #ddd", fontFamily: "var(--font-mono), monospace" }}
+              className="flex items-center gap-1.5 text-[#888] hover:text-[#1a1a1a] transition-colors"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px" }}
+              title="Sign out"
             >
-              <LogOut className="size-3" /> Sign Out
+              <LogOut className="size-4" />
             </button>
           </div>
-        </aside>
+        </div>
 
         {/* ── Main content ── */}
         <main className="flex-1 flex flex-col overflow-hidden">
@@ -541,37 +531,8 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </div>
             </div>
           )}
-          {/* ── Account Tab ── */}
-          {tab === "account" && (
-            <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
-              <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-                Account
-              </h3>
-              {authSession?.user && (
-                <div className="flex items-center gap-3 mb-8 mt-4">
-                  {authSession.user.image && (
-                    <img src={authSession.user.image} alt="" style={{ width: "48px", height: "48px", borderRadius: "50%", border: "2px solid #1a1a1a" }} />
-                  )}
-                  <div>
-                    <p style={{ fontSize: "1rem", fontWeight: 700, color: "#1a1a1a" }}>{authSession.user.name}</p>
-                    <p style={{ fontSize: "0.8rem", color: "#888" }}>{authSession.user.email}</p>
-                  </div>
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  localStorage.removeItem("pp_session");
-                  window.location.href = "/api/logout";
-                }}
-                className="flex items-center gap-2 px-5 py-3 text-[0.75rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors"
-                style={{ border: "2px solid #ddd", fontFamily: "var(--font-mono), monospace" }}
-              >
-                <LogOut className="size-3.5" /> Sign Out
-              </button>
-            </div>
-          )}
           {/* Bottom action bar */}
-          {tab !== "account" && (
+          {(
             <div className="px-4 md:px-10" style={{
               borderTop: "3px solid #1a1a1a", background: "white",
               paddingTop: "12px", paddingBottom: "12px", display: "flex", flexWrap: "wrap",
