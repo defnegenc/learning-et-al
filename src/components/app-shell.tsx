@@ -55,19 +55,19 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           LEARNING ET AL.
         </h1>
 
-        {/* Mobile: show current section name */}
+        {/* Mobile: show brand name */}
         <span
           className="block md:hidden"
           style={{
-            fontSize: "0.7rem",
-            fontWeight: 700,
+            fontSize: "0.85rem",
+            fontWeight: 900,
             textTransform: "uppercase",
-            letterSpacing: "2px",
+            letterSpacing: "0.15em",
             color: "#1a1a1a",
-            fontFamily: "var(--font-mono), monospace",
+            fontFamily: "var(--font-display), sans-serif",
           }}
         >
-          {activeTab === "today" ? "Today's Digest" : "Vault"}
+          Learning et al.
         </span>
 
         {/* Desktop tabs */}
@@ -121,6 +121,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <div style={{ display: activeTab === "today" ? "contents" : "none" }}>
           <TodayPage
             session={session}
+            isAdmin={adminVerified}
             onRegisterRefresh={(fn) => { refreshDigestRef.current = fn; }}
           />
         </div>

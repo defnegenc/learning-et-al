@@ -191,10 +191,11 @@ interface Session {
 
 interface TodayPageProps {
   session: Session;
+  isAdmin?: boolean;
   onRegisterRefresh?: (fn: () => void) => void;
 }
 
-export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
+export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -367,29 +368,31 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
           >
             Today&apos;s Digest
           </span>
-          <button
-            onClick={() => handleGenerate(true)}
-            disabled={generating}
-            style={{
-              background: "none",
-              border: "1.5px solid #e5e7eb",
-              cursor: "pointer",
-              padding: "4px 10px",
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-            }}
-            className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
-          >
-            {generating ? (
-              <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} />
-            ) : (
-              <RefreshCw size={12} style={{ color: "#888" }} />
-            )}
-            <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>
-              Regenerate
-            </span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => handleGenerate(true)}
+              disabled={generating}
+              style={{
+                background: "none",
+                border: "1.5px solid #e5e7eb",
+                cursor: "pointer",
+                padding: "4px 10px",
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+              className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
+            >
+              {generating ? (
+                <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} />
+              ) : (
+                <RefreshCw size={12} style={{ color: "#888" }} />
+              )}
+              <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>
+                Regenerate
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
