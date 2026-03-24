@@ -77,16 +77,57 @@ function NoteCard({ digestId }: { digestId: string }) {
 const TAB_DOT_COLORS = ["#f9a8d4", "#93c5fd", "#a3a3a3"];
 const TAB_TAG_COLORS = [["#fce7f3", "#dcfce7"], ["#dbeafe", "#fef9c3"], ["#ede9fe", "#fee2e2"]];
 
+function getJournalName(sourceUrl: string | null): string | null {
+  if (!sourceUrl) return null;
+  try {
+    const hostname = new URL(sourceUrl).hostname.replace("www.", "");
+    const domainMap: Record<string, string> = {
+      "arxiv.org": "arXiv",
+      "nature.com": "Nature",
+      "sciencedirect.com": "ScienceDirect",
+      "springer.com": "Springer",
+      "ieee.org": "IEEE",
+      "acm.org": "ACM",
+      "pnas.org": "PNAS",
+      "frontiersin.org": "Frontiers",
+      "mdpi.com": "MDPI",
+      "wiley.com": "Wiley",
+      "tandfonline.com": "Taylor & Francis",
+      "sagepub.com": "SAGE",
+      "cambridge.org": "Cambridge UP",
+      "oup.com": "Oxford UP",
+      "plos.org": "PLOS",
+      "biorxiv.org": "bioRxiv",
+      "medrxiv.org": "medRxiv",
+      "ssrn.com": "SSRN",
+      "researchgate.net": "ResearchGate",
+      "builtin.com": "Built In",
+      "techcrunch.com": "TechCrunch",
+      "wired.com": "WIRED",
+      "theverge.com": "The Verge",
+      "mckinsey.com": "McKinsey",
+    };
+    for (const [domain, name] of Object.entries(domainMap)) {
+      if (hostname.includes(domain)) return name;
+    }
+    // Extract readable name from hostname
+    const parts = hostname.split(".");
+    const name = parts.length > 2 ? parts.slice(0, -2).join(".") : parts[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch { return null; }
+}
+
 function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
   const dot = TAB_DOT_COLORS[index % TAB_DOT_COLORS.length];
   const tagColors = TAB_TAG_COLORS[index % TAB_TAG_COLORS.length];
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "ARXIV" : paper.source === "rss" ? "NEWS" : "PAPER";
+  const journalName = getJournalName(paper.sourceUrl);
 
   return (
     <button
       onClick={() => paper.sourceUrl && window.open(paper.sourceUrl, "_blank", "noopener,noreferrer")}
-      className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
+      className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
       style={{
         border: "2px solid #1a1a1a",
         boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
@@ -99,16 +140,24 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
         textAlign: "left",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: dot, flexShrink: 0 }} />
-        <span style={{ fontSize: "0.55rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>
-          {sourceType} · {paper.year || "2026"}
-        </span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: dot, flexShrink: 0 }} />
+          <span style={{ fontSize: "0.55rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>
+            {sourceType} · {paper.year || "2026"}
+          </span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#1a1a1a] transition-colors"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </div>
       <span style={{ fontSize: "0.88rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
         className="group-hover:underline">
         {paper.title.length > 55 ? paper.title.slice(0, 52) + "..." : paper.title}
       </span>
+      {journalName && (
+        <span style={{ fontSize: "0.55rem", color: "#888", fontFamily: "var(--font-mono), monospace", fontStyle: "italic" }}>
+          {journalName}
+        </span>
+      )}
       {paper.keywords.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
           {paper.keywords.slice(0, 2).map((kw, ki) => (
@@ -342,38 +391,38 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
             </span>
           </button>
         </div>
-        {digest.id && (
-          <button
-            onClick={async () => {
-              setStarred(!starred);
-              try {
-                await fetch("/api/digest/star", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ digestId: digest.id }),
-                });
-              } catch {
-                setStarred(starred);
-              }
-            }}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", gap: "5px",
-              color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s",
-            }}
-          >
-            <Star size={16} className={starred ? "fill-current" : ""} />
-            <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>
-              {starred ? "Saved" : "Save"}
-            </span>
-          </button>
-        )}
       </div>
 
       {/* ── Main area: digest left, sources+notes right ── */}
       <div className="grid grid-cols-1 md:grid-cols-[3fr_minmax(320px,1fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1400px" }}>
         {/* Left: digest content */}
         <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-8">
+          {digest.id && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "4px" }}>
+              <button
+                onClick={async () => {
+                  setStarred(!starred);
+                  try {
+                    await fetch("/api/digest/star", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ digestId: digest.id }),
+                    });
+                  } catch { setStarred(starred); }
+                }}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: "5px",
+                  color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s",
+                }}
+              >
+                <Star size={16} className={starred ? "fill-current" : ""} />
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>
+                  {starred ? "Saved" : "Save"}
+                </span>
+              </button>
+            </div>
+          )}
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}
