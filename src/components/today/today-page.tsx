@@ -361,81 +361,42 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
-      {/* ── Header row: Today's Digest + Regen + Save ── */}
-      <div
-        className="flex items-center justify-between px-4 md:px-10 mx-auto w-full pt-6 md:pt-8 pb-2"
-        style={{ maxWidth: "1400px" }}
-      >
-        <div className="flex items-center gap-3">
-          <span
-            style={{
-              fontSize: "0.7rem",
-              color: "#555",
-              fontFamily: "var(--font-mono), monospace",
-              textTransform: "uppercase",
-              letterSpacing: "2px",
-              fontWeight: 700,
-            }}
-          >
-            Today&apos;s Digest
-          </span>
-          {digest.id && (
-            <button
-              onClick={async () => {
-                setStarred(!starred);
-                try {
-                  await fetch("/api/digest/star", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ digestId: digest.id }),
-                  });
-                } catch { setStarred(starred); }
-              }}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: "5px",
-                color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s",
-                marginLeft: "auto",
-              }}
-            >
-              <Star size={16} className={starred ? "fill-current" : ""} />
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>
-                {starred ? "Saved" : "Save"}
-              </span>
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              onClick={() => handleGenerate(true)}
-              disabled={generating}
-              style={{
-                background: "none",
-                border: "1.5px solid #e5e7eb",
-                cursor: "pointer",
-                padding: "4px 10px",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-              }}
-              className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
-            >
-              {generating ? (
-                <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} />
-              ) : (
-                <RefreshCw size={12} style={{ color: "#888" }} />
-              )}
-              <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>
-                Regenerate
-              </span>
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* ── Main area: digest left, sources+notes right ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[3fr_minmax(320px,1fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1400px" }}>
+      <div className="grid grid-cols-1 md:grid-cols-[5fr_minmax(340px,2fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1500px" }}>
         {/* Left: digest content */}
-        <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-8">
+        <div className="overflow-y-auto px-4 md:px-10 pt-6 md:pt-8 pb-6 md:pb-8">
+          {/* Today's Digest label + Regen */}
+          <div className="flex items-center gap-3 mb-4">
+            <span style={{ fontSize: "0.7rem", color: "#555", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 700 }}>
+              Today&apos;s Digest
+            </span>
+            {isAdmin && (
+              <button
+                onClick={() => handleGenerate(true)}
+                disabled={generating}
+                style={{ background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer", padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px" }}
+                className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
+              >
+                {generating ? <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} /> : <RefreshCw size={12} style={{ color: "#888" }} />}
+                <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regenerate</span>
+              </button>
+            )}
+          </div>
+          {/* Save aligned with theme title */}
+          {digest.id && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "-2rem", position: "relative", zIndex: 5 }}>
+              <button
+                onClick={async () => {
+                  setStarred(!starred);
+                  try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setStarred(starred); }
+                }}
+                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s" }}
+              >
+                <Star size={16} className={starred ? "fill-current" : ""} />
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>{starred ? "Saved" : "Save"}</span>
+              </button>
+            </div>
+          )}
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}
@@ -466,9 +427,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
         </div>
 
         {/* Right: sources + notes (desktop only) */}
-        <div className="hidden md:block overflow-y-auto pt-2 pb-8 px-4">
-          <div style={{ marginBottom: "12px" }}>
-            <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Referenced Sources</span>
+        <div className="hidden md:block overflow-y-auto pt-8 pb-8 px-4">
+          <div style={{ marginBottom: "16px" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
           </div>
           <div className="space-y-3">
             {allPapers.map((paper, idx) => (
@@ -478,7 +439,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
           {digest.id && session && (
             <div style={{ marginTop: "28px" }}>
               <div style={{ marginBottom: "12px" }}>
-                <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Notepad</span>
+                <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Notepad</span>
               </div>
               <NoteCard digestId={digest.id} />
             </div>
