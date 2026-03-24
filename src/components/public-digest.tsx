@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { SynthesisBanner } from "@/components/today/synthesis-banner";
 import { PaperCard, type PaperItem } from "@/components/today/paper-card";
-import { PaperDetail } from "@/components/today/paper-detail";
 
 interface Digest {
   id: string;
@@ -15,11 +14,87 @@ interface Digest {
   date: string;
 }
 
+/* ── Source tab (matches logged-in sidebar) ── */
+const TAB_DOT_COLORS = ["#f9a8d4", "#93c5fd", "#a3a3a3"];
+const TAB_TAG_COLORS = [["#fce7f3", "#dcfce7"], ["#dbeafe", "#fef9c3"], ["#ede9fe", "#fee2e2"]];
+
+function getJournalName(sourceUrl: string | null): string | null {
+  if (!sourceUrl) return null;
+  try {
+    const hostname = new URL(sourceUrl).hostname.replace("www.", "");
+    const map: Record<string, string> = {
+      "arxiv.org": "arXiv", "nature.com": "Nature", "sciencedirect.com": "ScienceDirect",
+      "springer.com": "Springer", "ieee.org": "IEEE", "acm.org": "ACM", "pnas.org": "PNAS",
+      "frontiersin.org": "Frontiers", "mdpi.com": "MDPI", "wiley.com": "Wiley",
+      "tandfonline.com": "Taylor & Francis", "sagepub.com": "SAGE", "cambridge.org": "Cambridge UP",
+      "biorxiv.org": "bioRxiv", "medrxiv.org": "medRxiv", "builtin.com": "Built In",
+      "techcrunch.com": "TechCrunch", "wired.com": "WIRED", "theverge.com": "The Verge",
+    };
+    for (const [domain, name] of Object.entries(map)) {
+      if (hostname.includes(domain)) return name;
+    }
+    const parts = hostname.split(".");
+    const name = parts.length > 2 ? parts.slice(0, -2).join(".") : parts[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch { return null; }
+}
+
+function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
+  const dot = TAB_DOT_COLORS[index % TAB_DOT_COLORS.length];
+  const tagColors = TAB_TAG_COLORS[index % TAB_TAG_COLORS.length];
+  const url = (paper.sourceUrl || "").toLowerCase();
+  const sourceType = url.includes("arxiv") ? "ARXIV" : paper.source === "rss" ? "NEWS" : "PAPER";
+  const journalName = getJournalName(paper.sourceUrl);
+
+  return (
+    <button
+      onClick={() => paper.sourceUrl && window.open(paper.sourceUrl, "_blank", "noopener,noreferrer")}
+      className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+      style={{
+        border: "2px solid #1a1a1a", boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
+        background: "white", padding: "16px 18px",
+        display: "flex", flexDirection: "column", gap: "10px",
+        width: "100%", textAlign: "left",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: dot, flexShrink: 0 }} />
+          <span style={{ fontSize: "0.55rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>
+            {sourceType} · {paper.year || "2026"}
+          </span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#1a1a1a] transition-colors"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </div>
+      <span style={{ fontSize: "0.88rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
+        className="group-hover:underline">
+        {paper.title.length > 55 ? paper.title.slice(0, 52) + "..." : paper.title}
+      </span>
+      {journalName && (
+        <span style={{ fontSize: "0.55rem", color: "#888", fontFamily: "var(--font-mono), monospace", fontStyle: "italic" }}>
+          {journalName}
+        </span>
+      )}
+      {paper.keywords.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+          {paper.keywords.slice(0, 2).map((kw, ki) => (
+            <span key={kw} style={{ padding: "3px 10px", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", background: tagColors[ki % tagColors.length], border: "1.5px solid #1a1a1a" }}>
+              {kw}
+            </span>
+          ))}
+        </div>
+      )}
+    </button>
+  );
+}
+
+const openSource = (p: PaperItem) =>
+  p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer");
+
 export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPaper, setSelectedPaper] = useState<PaperItem | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -29,11 +104,8 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
         const data = await res.json();
         setDigest(data.digest);
         setPapers(data.papers ?? []);
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
+      } catch { /* silent */ }
+      finally { setLoading(false); }
     })();
   }, []);
 
@@ -46,200 +118,97 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
   }
 
   if (!digest) {
-    // No admin digest yet — show minimal background, the auth modal overlay handles sign-in
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
-        <h1 style={{
-          fontSize: "2.5rem", fontWeight: 700,
-          fontFamily: "var(--font-display), sans-serif",
-          letterSpacing: "-0.03em", textAlign: "center",
-        }}>
+        <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
           Today&apos;s digest is brewing
         </h1>
         <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
           Check back soon — a fresh research digest is generated every day.
         </p>
-        <div style={{ display: "none" }}>
-        <button onClick={onSignIn} style={{
-          padding: "14px 32px", background: "#1a1a1a", color: "white",
-          border: "2px solid #1a1a1a", fontSize: "0.85rem", fontWeight: 700,
-          textTransform: "uppercase", letterSpacing: "2px",
-          fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-          boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-        }}>
-          Sign in with Google
-        </button>
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col md:flex-row md:h-[calc(100vh-4rem)]">
-      {/* Sidebar — paper cards (desktop only) */}
-      <aside
-        className="hidden md:block overflow-y-auto shrink-0 w-[380px]"
-        style={{ borderRight: "4px solid #1a1a1a" }}
-      >
-        <div className="p-4 space-y-3">
-          {papers.map((paper, idx) => (
-            <PaperCard
-              key={paper.id}
-              paper={paper}
-              index={idx}
-              onSelect={setSelectedPaper}
-              onStar={() => {}}
-              onDislike={() => {}}
+    <div className="flex flex-col min-h-[calc(100vh-4rem)]">
+      {/* Header */}
+      <div className="h-14 flex items-center px-4 md:px-10 mx-auto w-full" style={{ maxWidth: "1400px" }}>
+        <span style={{ fontSize: "0.7rem", color: "#555", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 700 }}>
+          Today&apos;s Digest
+        </span>
+      </div>
+
+      {/* Grid: digest left, sources right */}
+      <div className="grid grid-cols-1 md:grid-cols-[3fr_minmax(320px,1fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1400px" }}>
+        {/* Left */}
+        <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-8">
+          {digest.synthesisContent && (
+            <SynthesisBanner
+              synthesis={digest.synthesisContent}
+              theme={digest.theme ?? undefined}
+              keyConcepts={digest.keyConcepts}
+              activeConcept={null}
+              onConceptClick={() => {}}
+              papers={papers}
+              onSelectPaper={openSource}
             />
-          ))}
-        </div>
-      </aside>
+          )}
 
-      {/* Canvas */}
-      <div className="flex-1 flex flex-col overflow-y-auto">
-        {selectedPaper ? (
-          <div className="flex-1 overflow-y-auto" style={{ padding: "40px" }}>
-            <div className="max-w-3xl mx-auto">
-              <button
-                onClick={() => setSelectedPaper(null)}
-                style={{
-                  fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-                  letterSpacing: "2px", fontFamily: "var(--font-mono), monospace",
-                  background: "none", border: "none", padding: 0, cursor: "pointer",
-                  color: "#888", marginBottom: "24px",
-                }}
-                className="hover:text-[#7700ff] transition-colors"
-              >
-                ← Back to digest
-              </button>
-
-              <h2 style={{
-                fontSize: "clamp(1.6rem, 4vw, 2.5rem)", fontWeight: 700,
-                lineHeight: 1.1, fontFamily: "var(--font-display), sans-serif",
-                color: "#111", marginBottom: "12px",
-              }}>
-                {selectedPaper.title}
-              </h2>
-
-              {selectedPaper.authors.length > 0 && (
-                <p style={{ fontSize: "0.75rem", color: "#888", fontFamily: "var(--font-mono), monospace", fontStyle: "italic", marginBottom: "24px" }}>
-                  {selectedPaper.authors.join(", ")}{selectedPaper.year ? `, ${selectedPaper.year}` : ""}
-                </p>
-              )}
-
-              {selectedPaper.summary && (
-                <div className="mb-10 text-[0.95rem] text-gray-700" style={{ lineHeight: "1.8" }}>
-                  {selectedPaper.summary}
-                </div>
-              )}
-
-              {selectedPaper.keyFindings && selectedPaper.keyFindings.length > 0 && (
-                <div className="mb-10 pb-8" style={{ borderBottom: "2px solid #e5e7eb" }}>
-                  <h3 style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", color: "#999", fontFamily: "var(--font-mono), monospace", marginBottom: "16px" }}>
-                    Key Findings
-                  </h3>
-                  <ul className="space-y-4">
-                    {selectedPaper.keyFindings.map((finding, i) => (
-                      <li key={i} className="flex gap-4 items-start">
-                        <span style={{ flexShrink: 0, width: "22px", height: "22px", background: "#f3f4f6", border: "2px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace" }}>{i + 1}</span>
-                        <p style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333" }}>{finding}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {selectedPaper.abstract && (
-                <div className="mb-10">
-                  <h3 style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", color: "#999", fontFamily: "var(--font-mono), monospace", marginBottom: "16px" }}>
-                    Abstract
-                  </h3>
-                  <div className="text-[0.95rem] text-gray-700" style={{ lineHeight: "1.8", whiteSpace: "pre-wrap" }}>
-                    {selectedPaper.abstract}
-                  </div>
-                </div>
-              )}
-
-              {/* Sign in CTA */}
-              <div style={{
-                padding: "20px 24px", border: "3px solid #1a1a1a",
-                boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: "16px", flexWrap: "wrap",
-              }}>
-                <p style={{ fontSize: "0.85rem", color: "#333" }}>
-                  Sign in to ask questions about this paper, save notes, and get personalized digests.
-                </p>
-                <button onClick={onSignIn} style={{
-                  padding: "10px 24px", background: "#1a1a1a", color: "white",
-                  border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
-                  textTransform: "uppercase", letterSpacing: "2px",
-                  fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                  boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)", flexShrink: 0,
-                }}>
-                  Sign in
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 md:p-10">
-            {digest.synthesisContent && (
-              <SynthesisBanner
-                synthesis={digest.synthesisContent}
-                theme={digest.theme ?? undefined}
-                keyConcepts={digest.keyConcepts}
-                activeConcept={null}
-                onConceptClick={() => {}}
-                papers={papers}
-                onSelectPaper={setSelectedPaper}
-              />
-            )}
-
-            {/* Sign in CTA — replaces dig deeper for logged-out users */}
-            <div style={{
-              marginTop: "32px", padding: "24px 32px",
-              border: "3px solid #1a1a1a",
-              boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
-            }}>
-              <div style={{ background: "#1a1a1a", margin: "-24px -32px 20px", padding: "16px 32px" }}>
-                <span style={{
-                  fontSize: "1rem", fontWeight: 700, textTransform: "uppercase",
-                  letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "white",
-                }}>
-                  Want your own digest?
-                </span>
-              </div>
-              <p style={{ fontSize: "0.9rem", color: "#333", marginBottom: "16px", lineHeight: 1.6 }}>
-                Sign in to pick your own interests, ask questions about papers, and get a personalized digest every day. Bring your own AI key (Gemini free tier works great).
+          {/* Sign in CTA */}
+          <div style={{
+            marginTop: "32px", padding: "20px 28px",
+            border: "2px solid #1a1a1a", boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: "16px", flexWrap: "wrap",
+          }}>
+            <div>
+              <p style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "4px" }}>
+                Want your own daily digest?
               </p>
-              <button onClick={onSignIn} style={{
-                padding: "12px 28px", background: "#1a1a1a", color: "white",
-                border: "2px solid #1a1a1a", fontSize: "0.75rem", fontWeight: 700,
-                textTransform: "uppercase", letterSpacing: "2px",
-                fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-              }}>
-                Sign in with Google
-              </button>
+              <p style={{ fontSize: "0.8rem", color: "#666" }}>
+                Pick your interests, connect an AI provider, and get personalized research every day.
+              </p>
             </div>
-
-            {/* Mobile compact cards */}
-            <div className="block md:hidden space-y-2 mt-6">
-              {papers.map((paper, idx) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  index={idx}
-                  compact
-                  onSelect={setSelectedPaper}
-                  onStar={() => {}}
-                  onDislike={() => {}}
-                />
-              ))}
-            </div>
+            <button onClick={onSignIn} style={{
+              padding: "10px 24px", background: "#1a1a1a", color: "white",
+              border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
+              textTransform: "uppercase", letterSpacing: "2px",
+              fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+              boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", flexShrink: 0, whiteSpace: "nowrap",
+            }}>
+              Sign Up Free
+            </button>
           </div>
-        )}
+        </div>
+
+        {/* Right: sources (desktop) */}
+        <div className="hidden md:block overflow-y-auto py-8 px-4">
+          <div style={{ marginBottom: "12px" }}>
+            <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Referenced Sources</span>
+          </div>
+          <div className="space-y-3">
+            {papers.map((paper, idx) => (
+              <PaperSourceTab key={paper.id} paper={paper} index={idx} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile: sources below */}
+      <div className="block md:hidden px-4 pb-8 space-y-2">
+        <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Sources</span>
+        {papers.map((paper, idx) => (
+          <PaperCard
+            key={paper.id}
+            paper={paper}
+            index={idx}
+            compact
+            onSelect={openSource}
+            onStar={() => {}}
+            onDislike={() => {}}
+          />
+        ))}
       </div>
     </div>
   );
