@@ -464,45 +464,18 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
       </div>
 
       {/* ── Mobile: sources + notes below synthesis ── */}
-      <div className="block md:hidden px-4 pb-20 space-y-2">
-        <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Sources</span>
+      <div className="block md:hidden px-4 pb-20 space-y-3">
+        <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
         {allPapers.map((paper, idx) => (
-          <PaperCard
-            key={paper.id}
-            paper={paper}
-            index={idx}
-            compact
-            highlighted={isPaperHighlighted(paper)}
-            conceptDefs={conceptDefs}
-            onSelect={openSource}
-            onStar={(id) => handleFeedback(id, "star")}
-            onDislike={(id) => handleFeedback(id, "dislike")}
-          />
+          <PaperSourceTab key={paper.id} paper={paper} index={idx} />
         ))}
-        {/* Mobile note area */}
         {digest?.id && session && (
-          <div
-            style={{
-              border: "2px dashed #ccc",
-              padding: "16px",
-              marginTop: "8px",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.65rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "2px",
-                color: "#555",
-                fontFamily: "var(--font-mono), monospace",
-                marginBottom: "10px",
-              }}
-            >
-              Notes & Reflections
+          <>
+            <div style={{ marginTop: "8px" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Notepad</span>
             </div>
-            <MobileNotesInput digestId={digest.id} />
-          </div>
+            <NoteCard digestId={digest.id} />
+          </>
         )}
       </div>
     </div>

@@ -279,10 +279,10 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
         style={{ width: "100vw", height: "100vh", maxWidth: "100vw", maxHeight: "100vh", borderRadius: 0 }}
       >
         {/* ── Top bar: Settings title + tabs + sign out ── */}
-        <div style={{ borderBottom: "3px solid #1a1a1a", background: "white", padding: "0 20px", display: "flex", alignItems: "stretch", justifyContent: "space-between", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", paddingRight: "20px", marginRight: "4px" }}>
-              <h2 style={{ fontSize: "1.2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
+        <div style={{ borderBottom: "3px solid #1a1a1a", background: "white", padding: "0 12px", display: "flex", alignItems: "stretch", justifyContent: "space-between", flexShrink: 0, minHeight: "48px" }}>
+          <div style={{ display: "flex", alignItems: "stretch", gap: 0, overflow: "hidden" }}>
+            <div className="hidden md:flex" style={{ alignItems: "center", paddingRight: "16px", marginRight: "4px" }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
                 Settings
               </h2>
             </div>
@@ -292,13 +292,13 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 onClick={() => setTab(item.key)}
                 className={tab !== item.key ? "hover:bg-gray-50" : ""}
                 style={{
-                  display: "flex", alignItems: "center", padding: "14px 20px",
-                  fontSize: "0.85rem", fontWeight: tab === item.key ? 800 : 500,
+                  display: "flex", alignItems: "center", padding: "12px 14px",
+                  fontSize: "0.8rem", fontWeight: tab === item.key ? 800 : 500,
                   background: "transparent",
                   color: tab === item.key ? "#1a1a1a" : "#888",
                   border: "none", borderBottom: tab === item.key ? "3px solid #1a1a1a" : "3px solid transparent",
                   cursor: "pointer", transition: "all 0.1s",
-                  marginBottom: "-3px",
+                  marginBottom: "-3px", whiteSpace: "nowrap",
                 }}
               >
                 {item.label}
