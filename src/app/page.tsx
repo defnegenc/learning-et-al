@@ -77,10 +77,6 @@ export default function Home() {
   // Sync Auth.js session → local session + check if returning user
   useEffect(() => {
     if (authStatus === "authenticated" && authSession?.user?.id) {
-      // Don't auto-restore session if user just logged out (no localStorage)
-      const stored = localStorage.getItem("pp_session");
-      if (!stored) return;
-
       if (!session.userId) {
         updateSession({ userId: authSession.user.id });
       }
