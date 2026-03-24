@@ -366,7 +366,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
         {/* Left: digest content */}
         <div className="overflow-y-auto px-4 md:px-10 pt-6 md:pt-8 pb-6 md:pb-8">
           {/* Today's Digest label + Regen */}
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-6">
             <span style={{ fontSize: "0.7rem", color: "#555", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 700 }}>
               Today&apos;s Digest
             </span>
@@ -428,7 +428,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
 
         {/* Right: sources + notes (desktop only) */}
         <div className="hidden md:block overflow-y-auto pt-8 pb-8 px-4">
-          <div style={{ marginBottom: "16px" }}>
+          <div style={{ marginBottom: "20px" }}>
             <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
           </div>
           <div className="space-y-3">
