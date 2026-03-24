@@ -363,7 +363,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       {/* ── Header row: Today's Digest + Regen + Save ── */}
       <div
-        className="h-14 flex items-center justify-between px-4 md:px-10 mx-auto w-full"
+        className="flex items-center justify-between px-4 md:px-10 mx-auto w-full pt-6 md:pt-8 pb-2"
         style={{ maxWidth: "1400px" }}
       >
         <div className="flex items-center gap-3">
@@ -466,7 +466,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
         </div>
 
         {/* Right: sources + notes (desktop only) */}
-        <div className="hidden md:block overflow-y-auto py-8 px-4">
+        <div className="hidden md:block overflow-y-auto pt-2 pb-8 px-4">
           <div style={{ marginBottom: "12px" }}>
             <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Referenced Sources</span>
           </div>
