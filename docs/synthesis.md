@@ -70,6 +70,13 @@ USER:
 - Bad synthesis: user says "I can't tell what the second paper has to do with this"
 - The connection must be EXPLICIT, not implicit. Spell it out in one sentence.
 
+## Rules (2026-03-23)
+
+1. **No em dashes (—)** — use commas, periods, or "but" instead. Em dashes feel academic and formulaic.
+2. **Name papers conversationally** — "the McKinsey fashion report" not "Fashion 2026". Name them the way you'd refer to them in conversation with a friend. "Nigerian banking research" not "Driving Sustainable Growth (2026)".
+3. **Explain each paper enough that the reader understands the thread** — don't just namedrop. The reader should understand what the paper found and why it matters to the argument, without reading the paper itself.
+4. **The goal is cocktail party knowledge** — after reading the synthesis, someone should be able to bring this up in conversation and sound informed. That means concrete examples, not abstract claims.
+
 ## Open Questions
 
 1. Should synthesis be longer when papers naturally connect well, shorter when the connection is a stretch?

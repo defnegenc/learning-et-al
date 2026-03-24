@@ -113,8 +113,7 @@ LENGTH: 5-8 sentences. ONE or TWO paragraphs. Tell the reader enough about each 
 START with the point, not the build-up. Lead with the insight, then back it up with the papers.
 
 RULES:
-- Every paper appears in **bold** with authors and year on first mention: "**Antarctic tourism governance** (Zhu et al., 2026) found..."
-- This citation format makes it clear these are real published research, not AI-generated content.
+- Name papers CONVERSATIONALLY in **bold** — the way you'd refer to them talking to a friend. "**the McKinsey fashion report**" not "**Fashion 2026**". "**Nigerian banking research**" not "**Driving Sustainable Growth**". Include a short parenthetical with source and year: "**Nigerian banking research** (Iwedi, 2026)".
 - After first mention, just use the short bold name.
 - ONE paragraph. No multi-paragraph essays.
 - Start with the insight, not "Turns out" or "The big question."
