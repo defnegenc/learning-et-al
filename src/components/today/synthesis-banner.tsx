@@ -360,22 +360,23 @@ export function SynthesisBanner({
     return match ? match[1].trim() : null;
   }, [synthesis]);
 
-  // Dig deeper prompts — specific, provocative questions about the digest
+  // Dig deeper prompts — one per source + a cross-cutting question
   const digDeeperPrompts = useMemo(() => {
     if (papers.length === 0) return [];
-    const kw = (p: PaperItem) => p.keywords.length > 0 ? p.keywords[0] : p.title.split(" ").slice(0, 3).join(" ");
-    const p0 = papers[0];
-    const p1 = papers[1];
-    const p2 = papers[2];
+    const shortName = (p: PaperItem) => {
+      const words = p.title.split(/\s+/).slice(0, 5).join(" ");
+      return words.length > 40 ? words.slice(0, 37) + "..." : words;
+    };
 
     const prompts: string[] = [];
-    if (p0 && p1) prompts.push(`${kw(p0)} & ${kw(p1)} connection?`);
-    if (lookIntoMatch) prompts.push(`More on ${lookIntoMatch}`);
-    if (p2) prompts.push(`The ${kw(p2)} angle?`);
-    prompts.push("What would a skeptic say?");
-    prompts.push("Who's working on this now?");
-    return prompts.slice(0, 4);
-  }, [papers, lookIntoMatch]);
+    // One question per source
+    for (const p of papers) {
+      prompts.push(`Tell me more about "${shortName(p)}"`);
+    }
+    // Cross-cutting
+    prompts.push("What would a skeptic say about all this?");
+    return prompts;
+  }, [papers]);
 
   const handleDigDeeper = async (question: string) => {
     if (!session || digDeeperLoading) return;
@@ -546,8 +547,8 @@ export function SynthesisBanner({
           {/* Suggested explorations — full-width rows */}
           {showQuestions && !digDeeperLoading && (
             <div style={{ padding: "16px 20px" }}>
-              <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#555", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "10px" }}>
-                Suggested Explorations
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#555", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "12px" }}>
+                What do you want to dig deeper into?
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 {digDeeperPrompts.map((prompt, i) => (

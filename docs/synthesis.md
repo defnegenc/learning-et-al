@@ -6,49 +6,60 @@
 
 The synthesis is a 5-8 sentence argument that threads 3 papers/articles together around a central question. It's the core value prop — the user reads it and either thinks "huh, interesting" or "what does this have to do with anything?"
 
+## The North Star
+
+**After reading the synthesis, the user should be able to bring this up in conversation and sound informed.** They shouldn't need to read any of the papers. The synthesis IS the product — not a teaser for the papers.
+
+This means:
+- Every paper gets enough context that you understand what was studied and what was found
+- The connection between papers is spelled out, not implied
+- Jargon is translated into things you already know
+- The reader walks away with a "huh, I didn't know that" moment
+- Concrete examples > abstract claims ("Nigerian banks absorbed fintech startups" > "financial institutions adapted")
+
 ## Current Approach
 
 **System prompt**: "Translate jargon into plain English. Ground everything in real-world problems. Contractions and casual language."
 
 **Structure**: Make an ARGUMENT, not a book report. Papers are evidence, not the subject. Each paper adds something unique to the argument.
 
-**Paper references**: Short conversational names (2-5 words) with colored background highlights. Hover shows paper summary tooltip. Click opens paper detail.
+**Paper references**: Conversational names with colored background highlights. "the McKinsey fashion report" not "Fashion 2026". Hover shows paper summary tooltip. Click opens source.
 
 **Bridge sentences**: Explicitly connect papers — "That same tension shows up in...", "This is basically the opposite of..."
 
 **Closer**: Natural, varied — not always "The core tension is..." Can be a provocative question, implication, recommendation, or just a strong ending.
 
+## Hard Rules
+
+1. **No em dashes (—)** — use commas, periods, or "but" instead. Em dashes feel academic and formulaic.
+2. **Name papers conversationally** — the way you'd refer to them in conversation. "the McKinsey fashion report" not "Fashion 2026". "a Nigerian banking study" not "Driving Sustainable Growth (2026)".
+3. **Explain each paper enough** — the reader should understand what was studied, what was found, and why it matters. Not just "Paper X found Y" but "Paper X looked at Z, and discovered Y, which matters because W."
+4. **Cocktail party knowledge** — could someone repeat this at dinner and sound smart? If not, it's too abstract.
+5. **No academic language** — ban list: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, "it's deeply about", "This kind of", "This shows how", "The real lesson."
+6. **No restating the theme** — don't start with "Today's question is..." or restate what was already in the title.
+7. **One paragraph** — keep it tight. If it needs two paragraphs, the second should be very short.
+8. **Include one specific number or finding** — concrete detail anchors the whole piece.
+9. **Only discuss what's in the papers** — never hallucinate connections or bring up topics not covered.
+
 ## What Worked
 
 1. **"Make an ARGUMENT" framing** — dramatically improved synthesis quality. Before: paper-by-paper summaries. After: flowing arguments with papers as evidence.
-
-2. **Concrete BAD/GOOD examples in the prompt** — the AI follows examples much better than abstract rules. Showing "this is boring, don't do this" + "this is what we want" works.
-
-3. **Banning specific words** — "demonstrates", "reveals", "nuanced", "multifaceted", "the question of whether" — forced the AI to use more specific, concrete language.
-
-4. **"Translate jargon" instruction** — "photovoltaic shading devices" → "solar panel shades on buildings" made synthesis dramatically more readable.
-
-5. **Bridge sentences requirement** — explicitly connecting papers ("That same tension shows up in...") instead of hoping the reader sees the connection.
-
-6. **Varied structure instruction** — "Don't start the same way every day" with 5 example openers prevented formulaic output.
-
-7. **Grounding in real-world problems** — "Making airplane wings is basically expensive guesswork right now" is infinitely better than "Composite laminate manufacturing faces optimization challenges."
+2. **Concrete BAD/GOOD examples in the prompt** — the AI follows examples much better than abstract rules.
+3. **Banning specific words** — forced more specific, concrete language.
+4. **"Translate jargon" instruction** — "photovoltaic shading devices" → "solar panel shades on buildings".
+5. **Bridge sentences requirement** — explicitly connecting papers instead of hoping the reader sees the connection.
+6. **Varied structure instruction** — "Don't start the same way every day" with example openers.
+7. **Grounding in real-world problems** — "Making airplane wings is basically expensive guesswork" > "Composite laminate manufacturing faces optimization challenges."
 
 ## What Didn't Work
 
-1. **"Paper A / Paper B" labels** — AI kept using generic labels instead of actual titles. Had to ban them explicitly.
-
-2. **"Today we're exploring:" prefix** — every synthesis started the same way. Had to ban it.
-
-3. **"The core tension is..." closer** — became a formulaic template. AI used it every single time until banned.
-
-4. **Paper-by-paper paragraph structure** — telling the AI "paragraph 1 about paper 1, paragraph 2 about paper 2" produced book reports, not arguments. The "3 facets" approach (mechanism/evidence/implication) was better but still formulaic. Best: just say "make an argument" with a good example.
-
-5. **"Start with paper [1]" instruction** — AI sometimes skipped paper 1 entirely. The structural requirement helped but wasn't foolproof. The current approach (GOOD example that naturally includes all papers) works better than rigid structure.
-
-6. **"Look into X" as abrupt pivot** — "Look into blockchain" when no paper mentioned blockchain. Fixed by requiring recommendations to be grounded in the actual papers.
-
-7. **Hallucinated connections** — AI would make up things not in the papers to fill gaps. Fixed with "Only reference what's in the papers. If the connection is weak, be honest."
+1. **"Paper A / Paper B" labels** — AI kept using generic labels. Had to ban explicitly.
+2. **"Today we're exploring:" prefix** — every synthesis started the same way.
+3. **"The core tension is..." closer** — became formulaic.
+4. **Paper-by-paper paragraph structure** — produced book reports, not arguments.
+5. **"Start with paper [1]" instruction** — AI sometimes skipped paper 1.
+6. **"Look into X" as abrupt pivot** — recommendations about topics not in the papers.
+7. **Hallucinated connections** — AI making up things to fill gaps.
 
 ## Prompt Architecture
 
@@ -70,15 +81,11 @@ USER:
 - Bad synthesis: user says "I can't tell what the second paper has to do with this"
 - The connection must be EXPLICIT, not implicit. Spell it out in one sentence.
 
-## Rules (2026-03-23)
+## Ideas to Explore
 
-1. **No em dashes (—)** — use commas, periods, or "but" instead. Em dashes feel academic and formulaic.
-2. **Name papers conversationally** — "the McKinsey fashion report" not "Fashion 2026". Name them the way you'd refer to them in conversation with a friend. "Nigerian banking research" not "Driving Sustainable Growth (2026)".
-3. **Explain each paper enough that the reader understands the thread** — don't just namedrop. The reader should understand what the paper found and why it matters to the argument, without reading the paper itself.
-4. **The goal is cocktail party knowledge** — after reading the synthesis, someone should be able to bring this up in conversation and sound informed. That means concrete examples, not abstract claims.
-
-## Open Questions
-
-1. Should synthesis be longer when papers naturally connect well, shorter when the connection is a stretch?
-2. Should we detect when the AI is hallucinating connections (no overlapping keywords between the "bridge" sentence and the actual papers)?
-3. Would it help to pass the synthesis from previous days so the AI doesn't repeat patterns?
+1. **Adaptive length** — longer when papers connect well, shorter when the connection is a stretch. Don't pad weak connections.
+2. **Hallucination detection** — check if bridge sentence keywords actually appear in the papers.
+3. **Day-over-day variety** — pass previous syntheses so the AI doesn't repeat patterns/structures.
+4. **"One thing to remember" line** — a single-sentence takeaway at the end, bold, that's the cocktail party line. The thing you'd actually say to someone.
+5. **Tension framing** — find where papers disagree or show different sides. Paper A says X works. Paper B found X breaks when Y. That's more interesting than "both papers agree."
+6. **Question closer** — end with a genuinely hard question the papers raise but don't answer. Not rhetorical, actually hard.
