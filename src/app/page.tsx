@@ -55,6 +55,25 @@ export default function Home() {
     setValidatingCode(false);
   }
 
+  // Re-validate invite code on load to pick up server-side config changes
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("pp_session") || "{}");
+    if (stored.inviteCode && stored.isSetUp) {
+      fetch("/api/validate-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: stored.inviteCode }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.valid && data.apiKey) {
+            updateSession({ apiKey: data.apiKey, provider: data.provider, model: data.model, baseUrl: data.baseUrl || "" });
+          }
+        })
+        .catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sync Auth.js session → local session + check if returning user
   useEffect(() => {
     if (authStatus === "authenticated" && authSession?.user?.id) {
