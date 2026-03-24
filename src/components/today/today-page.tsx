@@ -149,14 +149,25 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
         </div>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#1a1a1a] transition-colors"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </div>
-      <span style={{ fontSize: "0.88rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
+      <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
         className="group-hover:underline">
-        {paper.title.length > 55 ? paper.title.slice(0, 52) + "..." : paper.title}
+        {paper.title}
       </span>
-      {journalName && (
-        <span style={{ fontSize: "0.55rem", color: "#888", fontFamily: "var(--font-mono), monospace", fontStyle: "italic" }}>
-          {journalName}
+      {(paper.authors.length > 0 || journalName) && (
+        <span style={{ fontSize: "0.65rem", color: "#888", fontStyle: "italic", lineHeight: 1.4 }}>
+          {paper.authors.length > 0 && (
+            paper.authors.length <= 2
+              ? paper.authors.join(" & ")
+              : `${paper.authors[0]}${paper.authors[1] ? `, ${paper.authors[1]}` : ""} et al.`
+          )}
+          {paper.authors.length > 0 && journalName ? " — " : ""}
+          {journalName && <em>{journalName}</em>}
         </span>
+      )}
+      {paper.summary && (
+        <p style={{ fontSize: "0.75rem", color: "#555", lineHeight: 1.5, borderLeft: "3px solid #e5e7eb", paddingLeft: "10px", margin: 0 }}>
+          {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
+        </p>
       )}
       {paper.keywords.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
@@ -368,6 +379,31 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
           >
             Today&apos;s Digest
           </span>
+          {digest.id && (
+            <button
+              onClick={async () => {
+                setStarred(!starred);
+                try {
+                  await fetch("/api/digest/star", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ digestId: digest.id }),
+                  });
+                } catch { setStarred(starred); }
+              }}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: "5px",
+                color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s",
+                marginLeft: "auto",
+              }}
+            >
+              <Star size={16} className={starred ? "fill-current" : ""} />
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>
+                {starred ? "Saved" : "Save"}
+              </span>
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => handleGenerate(true)}
@@ -400,32 +436,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
       <div className="grid grid-cols-1 md:grid-cols-[3fr_minmax(320px,1fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1400px" }}>
         {/* Left: digest content */}
         <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-8">
-          {digest.id && (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "4px" }}>
-              <button
-                onClick={async () => {
-                  setStarred(!starred);
-                  try {
-                    await fetch("/api/digest/star", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ digestId: digest.id }),
-                    });
-                  } catch { setStarred(starred); }
-                }}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: "5px",
-                  color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s",
-                }}
-              >
-                <Star size={16} className={starred ? "fill-current" : ""} />
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>
-                  {starred ? "Saved" : "Save"}
-                </span>
-              </button>
-            </div>
-          )}
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}

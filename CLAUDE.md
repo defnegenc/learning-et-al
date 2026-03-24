@@ -128,6 +128,13 @@ Every digest is built around a single **central question** with wow factor (max 
 | 2026-03-23 | Invite code returned gemini model with anthropic provider (env var mismatch) | Default model must match provider. When returning config from env vars, validate consistency |
 | 2026-03-23 | Tried 5 different approaches to clear HttpOnly auth cookies from client JS | HttpOnly cookies CANNOT be cleared from JavaScript. Always use a server-side route. Don't waste time retrying client-side approaches |
 
+## Feature Planning Process
+- Maintain `docs/features-todo.md` as the running list of future features
+- Before implementing a feature, plan the best approach — consider UX, architecture, and trade-offs
+- Interview the user for ideas: ask clarifying questions, propose 2-3 approaches, get feedback before building
+- When there's downtime or the user asks "what's next", reference the features-todo list
+- Always think product-first: what makes the user's experience better?
+
 ## Context Maintenance Rules
 - Always update `docs/algorithm.md` when changing the digest pipeline
 - Always update `docs/design-decisions.md` when making UX/product decisions

@@ -35,16 +35,21 @@ function DigestFeedback({ digestId }: { digestId: string }) {
 
   if (submitted && !showComment) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-        <span style={{ fontSize: "0.7rem", color: "#aaa" }}>
-          {reaction === "up" ? "👍 Glad you liked it" : "👎 Noted — we'll improve"}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px" }}>
+        {reaction === "up" ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38b000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff007f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+        )}
+        <span style={{ fontSize: "0.9rem", color: "#555" }}>
+          {reaction === "up" ? "Glad you liked it" : "Noted, we'll improve"}
         </span>
         {reaction === "down" && (
-          <button onClick={() => setShowComment(true)} style={{ fontSize: "0.65rem", color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+          <button onClick={() => setShowComment(true)} style={{ fontSize: "0.75rem", color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
             Tell us why
           </button>
         )}
-        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.65rem", color: "#bbb", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.75rem", color: "#bbb", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
           Undo
         </button>
       </div>
@@ -72,13 +77,13 @@ function DigestFeedback({ digestId }: { digestId: string }) {
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px" }}>
-      <span style={{ fontSize: "0.65rem", color: "#bbb" }}>Did you find this interesting?</span>
-      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px" }}>
+      <span style={{ fontSize: "0.9rem", color: "#999" }}>Did you find this interesting?</span>
+      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "6px 10px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#38b000] transition-colors">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
       </button>
-      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "5px 8px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#1a1a1a] transition-colors">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "6px 10px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#ff007f] transition-colors">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
       </button>
     </div>
   );
