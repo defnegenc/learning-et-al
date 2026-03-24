@@ -16,6 +16,7 @@ function DigestFeedback({ digestId }: { digestId: string }) {
   React.useEffect(() => {
     const saved = localStorage.getItem(storageKey);
     if (saved) { setSubmitted(true); setReaction(saved as "up" | "down"); }
+    else { setSubmitted(false); setReaction(null); setShowComment(false); }
   }, [storageKey]);
 
   const submit = async (r: "up" | "down") => {
@@ -38,11 +39,14 @@ function DigestFeedback({ digestId }: { digestId: string }) {
         <span style={{ fontSize: "0.7rem", color: "#aaa" }}>
           {reaction === "up" ? "👍 Glad you liked it" : "👎 Noted — we'll improve"}
         </span>
-        {reaction === "down" && !showComment && (
+        {reaction === "down" && (
           <button onClick={() => setShowComment(true)} style={{ fontSize: "0.65rem", color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
             Tell us why
           </button>
         )}
+        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.65rem", color: "#bbb", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+          Undo
+        </button>
       </div>
     );
   }
