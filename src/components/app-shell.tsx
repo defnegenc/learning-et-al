@@ -105,7 +105,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <button
             onClick={() => {
               localStorage.removeItem("pp_session");
-              window.location.href = "/api/auth/logout";
+              window.location.href = "/api/logout";
             }}
             title="Sign out"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
