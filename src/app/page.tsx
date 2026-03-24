@@ -7,53 +7,10 @@ import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
 import { PublicDigest } from "@/components/public-digest";
 
-type ModalStep = "main" | "code";
-
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
   const { data: authSession, status: authStatus } = useAuthSession();
   const [showAuthModal, setShowAuthModal] = useState(true);
-  const [modalStep, setModalStep] = useState<ModalStep>("main");
-  const [inviteCode, setInviteCode] = useState("");
-  const [codeError, setCodeError] = useState("");
-  const [validatingCode, setValidatingCode] = useState(false);
-
-  async function handleCodeSubmit() {
-    if (!inviteCode.trim() || validatingCode) return;
-    setValidatingCode(true);
-    setCodeError("");
-    try {
-      const res = await fetch("/api/validate-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: inviteCode }),
-      });
-      const data = await res.json();
-      if (data.valid) {
-        // Store API key + code before navigating to Google sign-in
-        const updates = {
-          apiKey: data.apiKey,
-          provider: data.provider,
-          model: data.model,
-          baseUrl: data.baseUrl || "",
-          inviteCode: inviteCode.trim().toLowerCase(),
-        };
-        updateSession(updates);
-        // Also write directly to localStorage as a backup — updateSession is async-ish
-        try {
-          const stored = JSON.parse(localStorage.getItem("pp_session") || "{}");
-          localStorage.setItem("pp_session", JSON.stringify({ ...stored, ...updates }));
-        } catch { /* ignore */ }
-        // Small delay to ensure localStorage write completes before navigation
-        setTimeout(() => signIn("google"), 100);
-      } else {
-        setCodeError("Invalid code. Try again.");
-      }
-    } catch {
-      setCodeError("Something went wrong.");
-    }
-    setValidatingCode(false);
-  }
 
   // Re-validate invite code on load to pick up server-side config changes
   useEffect(() => {
@@ -141,7 +98,7 @@ export default function Home() {
           LEARNING ET AL.
         </h1>
         <button
-          onClick={() => { setShowAuthModal(true); setModalStep("main"); }}
+          onClick={() => { setShowAuthModal(true); }}
           style={{
             padding: "8px 20px", background: "#1a1a1a", color: "white",
             border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
@@ -155,7 +112,7 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <PublicDigest onSignIn={() => { setShowAuthModal(true); setModalStep("main"); }} />
+        <PublicDigest onSignIn={() => { setShowAuthModal(true); }} />
       </main>
 
       {/* Auth modal */}
@@ -192,22 +149,10 @@ export default function Home() {
                     border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700,
                     textTransform: "uppercase", letterSpacing: "2px",
                     fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                    boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "10px",
+                    boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "16px",
                   }}
                 >
                   Sign in with Google
-                </button>
-
-                <button
-                  onClick={() => setModalStep("code")}
-                  style={{
-                    width: "100%", padding: "12px", background: "white", color: "#1a1a1a",
-                    border: "2px solid #1a1a1a", fontSize: "0.75rem", fontWeight: 600,
-                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                    textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "16px",
-                  }}
-                >
-                  I have an invite code
                 </button>
 
                 <button
@@ -224,64 +169,6 @@ export default function Home() {
               </>
             )}
 
-            {/* Step 2: Enter invite code */}
-            {modalStep === "code" && (
-              <>
-                <h2 style={{
-                  fontSize: "1.3rem", fontWeight: 800,
-                  fontFamily: "var(--font-display), sans-serif",
-                  letterSpacing: "-0.02em", marginBottom: "8px",
-                }}>
-                  Enter your invite code
-                </h2>
-                <p style={{ fontSize: "0.85rem", color: "#666", marginBottom: "24px", lineHeight: 1.6 }}>
-                  Your code gives you full access without needing your own AI key. You&apos;ll sign in with Google next.
-                </p>
-
-                <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
-                  <input
-                    value={inviteCode}
-                    onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
-                    onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
-                    placeholder="Enter code..."
-                    autoFocus
-                    style={{
-                      flex: 1, padding: "12px 14px", border: "2px solid #1a1a1a",
-                      fontSize: "0.9rem", fontFamily: "var(--font-mono), monospace", outline: "none",
-                      textAlign: "center",
-                    }}
-                  />
-                </div>
-                {codeError && <p style={{ fontSize: "0.7rem", color: "#ff007f", marginBottom: "8px" }}>{codeError}</p>}
-
-                <button
-                  onClick={handleCodeSubmit}
-                  disabled={!inviteCode.trim() || validatingCode}
-                  style={{
-                    width: "100%", padding: "14px", background: "#1a1a1a", color: "white",
-                    border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700,
-                    textTransform: "uppercase", letterSpacing: "2px",
-                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                    boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", marginBottom: "12px",
-                    opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1,
-                  }}
-                >
-                  {validatingCode ? "Checking..." : "Continue"}
-                </button>
-
-                <button
-                  onClick={() => { setModalStep("main"); setInviteCode(""); setCodeError(""); }}
-                  style={{
-                    width: "100%", padding: "10px", background: "white", color: "#888",
-                    border: "none", fontSize: "0.7rem", fontWeight: 600,
-                    fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-                    textTransform: "uppercase", letterSpacing: "1px",
-                  }}
-                >
-                  ← Back
-                </button>
-              </>
-            )}
           </div>
         </div>
       )}
