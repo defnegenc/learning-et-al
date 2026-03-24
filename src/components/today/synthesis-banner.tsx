@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
 // Quick digest feedback — was this interesting?
-function DigestFeedback({ digestId }: { digestId: string }) {
+function DigestFeedback({ digestId, onRegenerate }: { digestId: string; onRegenerate?: () => void }) {
   const [reaction, setReaction] = useState<"up" | "down" | null>(null);
   const [comment, setComment] = useState("");
   const [showComment, setShowComment] = useState(false);
@@ -35,21 +35,16 @@ function DigestFeedback({ digestId }: { digestId: string }) {
 
   if (submitted && !showComment) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "12px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "16px" }}>
         {reaction === "up" ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38b000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38b000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
         ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff007f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff007f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
         )}
-        <span style={{ fontSize: "0.9rem", color: "#555" }}>
-          {reaction === "up" ? "Glad you liked it" : "Noted, we'll improve"}
+        <span style={{ fontSize: "0.95rem", color: "#555" }}>
+          {reaction === "up" ? "Glad you liked it!" : "Noted — we'll do better next time"}
         </span>
-        {reaction === "down" && (
-          <button onClick={() => setShowComment(true)} style={{ fontSize: "0.75rem", color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-            Tell us why
-          </button>
-        )}
-        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.75rem", color: "#bbb", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.8rem", color: "#bbb", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
           Undo
         </button>
       </div>
@@ -58,18 +53,22 @@ function DigestFeedback({ digestId }: { digestId: string }) {
 
   if (showComment) {
     return (
-      <div style={{ marginTop: "8px" }}>
-        <div style={{ display: "flex", gap: "6px" }}>
+      <div style={{ marginTop: "16px" }}>
+        <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "10px" }}>
+          What didn&apos;t work? We&apos;ll generate a new digest based on your feedback.
+        </p>
+        <div style={{ display: "flex", gap: "8px" }}>
           <input
             value={comment}
             onChange={e => setComment(e.target.value)}
-            placeholder="What could be better?"
+            placeholder="e.g. topics weren't relevant, too technical..."
             autoFocus
-            style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #ddd", fontSize: "0.8rem", outline: "none" }}
-            onKeyDown={e => { if (e.key === "Enter") { setShowComment(false); } }}
+            style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.85rem", outline: "none" }}
+            onKeyDown={e => { if (e.key === "Enter" && comment.trim()) { setShowComment(false); onRegenerate?.(); } }}
           />
-          <button onClick={() => setShowComment(false)} style={{ padding: "8px 12px", background: "#1a1a1a", color: "white", border: "none", fontSize: "0.65rem", fontWeight: 700, cursor: "pointer" }}>
-            Send
+          <button onClick={() => { setShowComment(false); if (comment.trim()) onRegenerate?.(); }}
+            style={{ padding: "10px 16px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace" }}>
+            Regenerate
           </button>
         </div>
       </div>
@@ -77,13 +76,13 @@ function DigestFeedback({ digestId }: { digestId: string }) {
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px" }}>
-      <span style={{ fontSize: "0.9rem", color: "#999" }}>Did you find this interesting?</span>
-      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "6px 10px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#38b000] transition-colors">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+    <div style={{ display: "flex", alignItems: "center", gap: "14px", marginTop: "16px" }}>
+      <span style={{ fontSize: "0.95rem", color: "#999" }}>Did you find this interesting?</span>
+      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "7px 12px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#38b000] transition-colors">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
       </button>
-      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "6px 10px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#ff007f] transition-colors">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "7px 12px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#ff007f] transition-colors">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
       </button>
     </div>
   );
@@ -524,7 +523,7 @@ export function SynthesisBanner({
       )}
 
       {/* Quick feedback */}
-      {digestId && session && <DigestFeedback digestId={digestId} />}
+      {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} />}
 
       {/* Dig deeper */}
       {papers.length > 0 && session && (
