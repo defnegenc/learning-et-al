@@ -13,7 +13,7 @@ import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
-type SettingsTab = "api" | "interests";
+type SettingsTab = "api" | "interests" | "account";
 
 interface SettingsDialogProps {
   session: {
@@ -264,6 +264,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
   const navItems: { key: SettingsTab; label: string }[] = [
     { key: "interests", label: "Interests" },
     { key: "api", label: "API" },
+    { key: "account", label: "Account" },
   ];
 
   return (
@@ -282,20 +283,20 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               Settings
             </h2>
           </div>
-          <nav className="flex flex-row md:flex-col md:flex-1 md:pt-2">
+          <nav className="flex flex-row md:flex-col md:flex-1 md:pt-2 w-full md:w-auto">
             {navItems.map(item => (
               <button
                 key={item.key}
                 onClick={() => setTab(item.key)}
-                className={tab !== item.key ? "hover:bg-gray-50" : ""}
+                className={`flex-1 md:flex-initial ${tab !== item.key ? "hover:bg-gray-50" : ""}`}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "12px 16px", textAlign: "center",
-                  fontSize: "0.8rem", fontWeight: tab === item.key ? 800 : 600,
+                  padding: "10px 8px", textAlign: "center",
+                  fontSize: "0.7rem", fontWeight: tab === item.key ? 800 : 600,
                   background: tab === item.key ? "#1a1a1a" : "transparent",
                   color: tab === item.key ? "white" : "#1a1a1a",
                   border: "none", cursor: "pointer", transition: "all 0.1s",
-                  fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1.5px",
+                  fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px",
                 }}
               >
                 {item.label}
@@ -508,44 +509,65 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </div>
             </div>
           )}
+          {/* ── Account Tab ── */}
+          {tab === "account" && (
+            <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
+              <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
+                Account
+              </h3>
+              {authSession?.user && (
+                <div className="flex items-center gap-3 mb-8 mt-4">
+                  {authSession.user.image && (
+                    <img src={authSession.user.image} alt="" style={{ width: "48px", height: "48px", borderRadius: "50%", border: "2px solid #1a1a1a" }} />
+                  )}
+                  <div>
+                    <p style={{ fontSize: "1rem", fontWeight: 700, color: "#1a1a1a" }}>{authSession.user.name}</p>
+                    <p style={{ fontSize: "0.8rem", color: "#888" }}>{authSession.user.email}</p>
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  localStorage.removeItem("pp_session");
+                  window.location.href = "/api/logout";
+                }}
+                className="flex items-center gap-2 px-5 py-3 text-[0.75rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors"
+                style={{ border: "2px solid #ddd", fontFamily: "var(--font-mono), monospace" }}
+              >
+                <LogOut className="size-3.5" /> Sign Out
+              </button>
+            </div>
+          )}
           {/* Bottom action bar */}
-          <div className="px-5 md:px-10" style={{
-            borderTop: "3px solid #1a1a1a", background: "white",
-            paddingTop: "14px", paddingBottom: "14px", display: "flex", justifyContent: "flex-end",
-            alignItems: "center", gap: "10px", flexShrink: 0,
-          }}>
-            {saved && (
-              <span className="flex items-center gap-1 text-[#38b000] text-[0.7rem]" style={{ marginRight: "auto" }}>
-                <CheckCircle className="size-3" /> Saved
-              </span>
-            )}
-            <button
-              onClick={() => {
-                localStorage.removeItem("pp_session");
-                window.location.href = "/api/logout";
-              }}
-              className="md:hidden flex items-center gap-1.5 px-3 py-2.5 text-[0.65rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] transition-colors"
-              style={{ border: "1.5px solid #ddd", fontFamily: "var(--font-mono), monospace", marginRight: "auto" }}
-            >
-              <LogOut className="size-3" /> Sign Out
-            </button>
-            <button
-              onClick={handleRefreshDigest}
-              disabled={!apiKey.trim()}
-              className="flex items-center gap-2 px-4 py-2.5 text-[0.65rem] uppercase tracking-[1.5px] hover:bg-gray-50 transition-colors disabled:opacity-50"
-              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace" }}
-            >
-              <RefreshCw className="size-3" /> Refresh Digest
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2.5 text-[0.7rem] font-bold uppercase tracking-[2px] bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors disabled:opacity-50"
-              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}
-            >
-              {saving ? <Loader2 className="size-3 animate-spin" /> : "Save"}
-            </button>
-          </div>
+          {tab !== "account" && (
+            <div className="px-4 md:px-10" style={{
+              borderTop: "3px solid #1a1a1a", background: "white",
+              paddingTop: "12px", paddingBottom: "12px", display: "flex", flexWrap: "wrap",
+              justifyContent: "flex-end", alignItems: "center", gap: "8px", flexShrink: 0,
+            }}>
+              {saved && (
+                <span className="flex items-center gap-1 text-[#38b000] text-[0.7rem]" style={{ marginRight: "auto" }}>
+                  <CheckCircle className="size-3" /> Saved
+                </span>
+              )}
+              <button
+                onClick={handleRefreshDigest}
+                disabled={!apiKey.trim()}
+                className="flex items-center gap-2 px-3 md:px-4 py-2.5 text-[0.6rem] md:text-[0.65rem] uppercase tracking-[1.5px] hover:bg-gray-50 transition-colors disabled:opacity-50"
+                style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", height: "40px" }}
+              >
+                <RefreshCw className="size-3" /> Refresh
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 md:px-6 py-2.5 text-[0.6rem] md:text-[0.7rem] font-bold uppercase tracking-[1.5px] md:tracking-[2px] bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors disabled:opacity-50"
+                style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", height: "40px" }}
+              >
+                {saving ? <Loader2 className="size-3 animate-spin" /> : "Save"}
+              </button>
+            </div>
+          )}
         </main>
       </DialogContent>
     </Dialog>
