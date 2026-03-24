@@ -113,6 +113,10 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Invite code state
+  const [inviteCode, setInviteCode] = useState("");
+  const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+
   // Interests state
   const [selectedTopics, setSelectedTopics] = useState<SelectedTopic[]>([]);
   const [customFieldKey, setCustomFieldKey] = useState<string | null>(null);
@@ -152,6 +156,37 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
       setSelectedTopics(entries);
     } finally {
       setLoadingInterests(false);
+    }
+  }
+
+  async function handleCodeSubmit() {
+    if (!inviteCode.trim() || codeStatus === "checking") return;
+    setCodeStatus("checking");
+    try {
+      const res = await fetch("/api/validate-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: inviteCode }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setCodeStatus("valid");
+        setApiKey(data.apiKey);
+        setProvider(data.provider as Provider);
+        setModel(data.model);
+        setBaseUrl(data.baseUrl || "");
+        updateSession({
+          apiKey: data.apiKey,
+          provider: data.provider,
+          model: data.model,
+          baseUrl: data.baseUrl || "",
+          inviteCode: inviteCode.trim().toLowerCase(),
+        });
+      } else {
+        setCodeStatus("invalid");
+      }
+    } catch {
+      setCodeStatus("invalid");
     }
   }
 
@@ -308,9 +343,40 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 AI Provider
               </h3>
               <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "32px" }}>
-                Connect your AI provider to generate daily digests.
+                Enter an invite code, or connect your own AI provider.
               </p>
 
+              {/* Invite code */}
+              <div className="mb-8" style={{ paddingBottom: "24px", borderBottom: "2px solid #e5e7eb" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "8px" }}>
+                  Invite Code
+                </label>
+                <div className="flex gap-3">
+                  <input
+                    value={inviteCode}
+                    onChange={(e) => { setInviteCode(e.target.value); setCodeStatus("idle"); }}
+                    onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
+                    placeholder="Enter code..."
+                    className="flex-1 bg-transparent px-4 py-3 text-[1rem] placeholder:text-[#bbb] focus:outline-none"
+                    style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", textAlign: "center" }}
+                  />
+                  <button
+                    onClick={handleCodeSubmit}
+                    disabled={!inviteCode.trim() || codeStatus === "checking"}
+                    className="px-5 py-3 text-[0.75rem] uppercase tracking-[1.5px] hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center gap-2 shrink-0"
+                    style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace" }}
+                  >
+                    {codeStatus === "checking" ? <Loader2 className="size-3.5 animate-spin" /> : codeStatus === "valid" ? <CheckCircle className="size-3.5 text-[#38b000]" /> : codeStatus === "invalid" ? <XCircle className="size-3.5 text-[#ff007f]" /> : null}
+                    Apply
+                  </button>
+                </div>
+                {codeStatus === "invalid" && <p style={{ fontSize: "0.75rem", color: "#ff007f", marginTop: "8px", fontFamily: "var(--font-mono), monospace" }}>Invalid code</p>}
+                {codeStatus === "valid" && <p style={{ fontSize: "0.75rem", color: "#38b000", marginTop: "8px", fontFamily: "var(--font-mono), monospace" }}>Code applied — API key updated</p>}
+              </div>
+
+              <label style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "12px" }}>
+                Or use your own key
+              </label>
               <div className="flex gap-0 flex-wrap md:flex-nowrap mb-6">
                 {(["openai", "anthropic", "gemini", "other"] as Provider[]).map((p) => (
                   <button
