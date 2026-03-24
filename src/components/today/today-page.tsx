@@ -31,29 +31,12 @@ function NoteCard({ digestId }: { digestId: string }) {
       style={{
         width: "100%",
         border: "2px solid #1a1a1a",
-        boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+        boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
         background: "#fafafa",
         padding: "20px",
-        minHeight: "200px",
+        minHeight: "220px",
       }}
     >
-      <div
-        style={{
-          fontSize: "0.6rem",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "2px",
-          color: "#1a1a1a",
-          fontFamily: "var(--font-mono), monospace",
-          marginBottom: "4px",
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-        }}
-      >
-        Index Card: Notes & Reflections
-      </div>
-      <div style={{ borderBottom: "1.5px solid #1a1a1a", marginBottom: "14px" }} />
       <textarea
         value={notes}
         onChange={(e) => {
@@ -106,7 +89,7 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
       className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
       style={{
         border: "2px solid #1a1a1a",
-        boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
+        boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
         background: "white",
         padding: "16px 18px",
         display: "flex",
@@ -320,7 +303,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
       {/* ── Header row: Today's Digest + Regen + Save ── */}
       <div
         className="h-14 flex items-center justify-between px-4 md:px-10 mx-auto w-full"
-        style={{ maxWidth: "1100px" }}
+        style={{ maxWidth: "1400px" }}
       >
         <div className="flex items-center gap-3">
           <span
@@ -379,8 +362,8 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
               color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s",
             }}
           >
-            <Star size={14} className={starred ? "fill-current" : ""} />
-            <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace" }}>
+            <Star size={16} className={starred ? "fill-current" : ""} />
+            <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>
               {starred ? "Saved" : "Save"}
             </span>
           </button>
@@ -388,7 +371,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
       </div>
 
       {/* ── Main area: digest left, sources+notes right ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[3fr_minmax(300px,1fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1100px" }}>
+      <div className="grid grid-cols-1 md:grid-cols-[3fr_minmax(320px,1fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1400px" }}>
         {/* Left: digest content */}
         <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-8">
             {digest.synthesisContent ? (
@@ -431,7 +414,10 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
             ))}
           </div>
           {digest.id && session && (
-            <div style={{ marginTop: "24px" }}>
+            <div style={{ marginTop: "28px" }}>
+              <div style={{ marginBottom: "12px" }}>
+                <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Notepad</span>
+              </div>
               <NoteCard digestId={digest.id} />
             </div>
           )}
