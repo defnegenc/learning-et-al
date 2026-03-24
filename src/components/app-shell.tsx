@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { LogOut, BookOpen, Archive, BarChart3 } from "lucide-react";
-import { signOut } from "next-auth/react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
@@ -106,15 +105,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <button
             onClick={async () => {
               localStorage.removeItem("pp_session");
-              // Clear all auth cookies directly
-              document.cookie.split(";").forEach(c => {
-                const name = c.split("=")[0].trim();
-                if (name.includes("authjs") || name.includes("next-auth")) {
-                  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-                  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
-                }
-              });
-              try { await signOut({ redirect: false }); } catch { /* ignore */ }
+              await fetch("/api/auth/logout", { method: "POST" });
               window.location.href = "/";
             }}
             title="Sign out"
