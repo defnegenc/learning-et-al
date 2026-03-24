@@ -90,15 +90,11 @@ function NoteCard({ digestId }: { digestId: string }) {
 }
 
 /* ── Paper Source Tab ── */
-const TAB_COLORS = [
-  { dot: "#f9a8d4", bg: "linear-gradient(135deg, #fff 60%, #fce7f3)" },
-  { dot: "#93c5fd", bg: "linear-gradient(135deg, #fff 60%, #dbeafe)" },
-  { dot: "#a3a3a3", bg: "linear-gradient(135deg, #fff 60%, #f3f4f6)" },
-];
+const TAB_DOT_COLORS = ["#f9a8d4", "#93c5fd", "#a3a3a3"];
 const TAB_TAG_COLORS = [["#fce7f3", "#dcfce7"], ["#dbeafe", "#fef9c3"], ["#ede9fe", "#fee2e2"]];
 
 function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
-  const colors = TAB_COLORS[index % TAB_COLORS.length];
+  const dot = TAB_DOT_COLORS[index % TAB_DOT_COLORS.length];
   const tagColors = TAB_TAG_COLORS[index % TAB_TAG_COLORS.length];
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "ARXIV" : paper.source === "rss" ? "NEWS" : "PAPER";
@@ -106,31 +102,32 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
   return (
     <button
       onClick={() => paper.sourceUrl && window.open(paper.sourceUrl, "_blank", "noopener,noreferrer")}
-      className="flex-shrink-0 group transition-all duration-150 hover:-translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+      className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
       style={{
-        border: "2px solid #1a1a1a",
-        background: colors.bg,
-        padding: "10px 14px",
+        border: "1.5px solid #e5e7eb",
+        background: "white",
+        padding: "14px 16px",
         display: "flex",
         flexDirection: "column",
-        gap: "5px",
+        gap: "8px",
         width: "100%",
+        textAlign: "left",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: colors.dot, flexShrink: 0 }} />
-        <span style={{ fontSize: "0.5rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#888" }}>
-          {sourceType} {paper.year && `· ${paper.year}`}
+        <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: dot, flexShrink: 0 }} />
+        <span style={{ fontSize: "0.55rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>
+          {sourceType} · {paper.year || "2026"}
         </span>
       </div>
-      <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", textAlign: "left", fontFamily: "var(--font-display), sans-serif" }}
+      <span style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
         className="group-hover:underline">
-        {paper.title.length > 55 ? paper.title.slice(0, 52) + "..." : paper.title}
+        {paper.title.length > 65 ? paper.title.slice(0, 62) + "..." : paper.title}
       </span>
       {paper.keywords.length > 0 && (
-        <div style={{ display: "flex", gap: "3px", marginTop: "2px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
           {paper.keywords.slice(0, 2).map((kw, ki) => (
-            <span key={kw} style={{ padding: "1px 6px", fontSize: "0.5rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", background: tagColors[ki % tagColors.length], border: "1px solid #1a1a1a" }}>
+            <span key={kw} style={{ padding: "2px 8px", fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", background: tagColors[ki % tagColors.length], border: "1px solid #1a1a1a" }}>
               {kw}
             </span>
           ))}
@@ -320,8 +317,8 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       {/* ── Header row: Today's Digest + Regen + Save ── */}
       <div
-        className="h-14 flex items-center justify-between px-4 md:px-12 mx-auto w-full"
-        style={{ borderBottom: "1.5px solid #e5e7eb", maxWidth: "1200px" }}
+        className="h-14 flex items-center justify-between px-4 md:px-10 mx-auto w-full"
+        style={{ borderBottom: "1.5px solid #e5e7eb", maxWidth: "1100px" }}
       >
         <span
           style={{
@@ -427,10 +424,9 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
       </div>
 
       {/* ── Main area: digest left, sources+notes right ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_380px] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1200px" }}>
+      <div className="grid grid-cols-1 md:grid-cols-[3fr_minmax(300px,1fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1100px" }}>
         {/* Left: digest content */}
-        <div className="overflow-y-auto px-4 md:px-12 py-6 md:py-10">
-          <div style={{ maxWidth: "640px", margin: "0 auto" }}>
+        <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-8">
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}
@@ -458,22 +454,22 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
                 </button>
               </div>
             )}
-          </div>
         </div>
 
         {/* Right: sources + notes (desktop only) */}
-        <div className="hidden md:block overflow-y-auto pt-4">
-          <div style={{ padding: "0 16px 10px" }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
+        <div className="hidden md:block overflow-y-auto py-8 px-4">
+          <div style={{ marginBottom: "12px" }}>
+            <span style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>Referenced Sources</span>
           </div>
-          <div className="px-3 space-y-2">
+          <div className="space-y-3">
             {allPapers.map((paper, idx) => (
               <PaperSourceTab key={paper.id} paper={paper} index={idx} />
             ))}
-            {digest.id && session && (
-              <NoteCard digestId={digest.id} />
-            )}
           </div>
+          {digest.id && session && (
+            <div style={{ marginTop: "24px" }}>
+              <NoteCard digestId={digest.id} />
+          )}
         </div>
       </div>
 
