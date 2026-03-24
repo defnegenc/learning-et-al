@@ -32,8 +32,9 @@ function NoteCard({ digestId }: { digestId: string }) {
         width: "100%",
         border: "2px solid #1a1a1a",
         boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-        background: "white",
-        padding: "16px",
+        background: "#fafafa",
+        padding: "20px",
+        minHeight: "200px",
       }}
     >
       <div
@@ -44,15 +45,15 @@ function NoteCard({ digestId }: { digestId: string }) {
           letterSpacing: "2px",
           color: "#1a1a1a",
           fontFamily: "var(--font-mono), monospace",
-          marginBottom: "10px",
+          marginBottom: "4px",
           display: "flex",
           alignItems: "center",
           gap: "6px",
         }}
       >
-        <Pin size={12} />
-        Note
+        Index Card: Notes & Reflections
       </div>
+      <div style={{ borderBottom: "1.5px solid #1a1a1a", marginBottom: "14px" }} />
       <textarea
         value={notes}
         onChange={(e) => {
@@ -63,13 +64,13 @@ function NoteCard({ digestId }: { digestId: string }) {
         placeholder="Jot down your thoughts..."
         style={{
           width: "100%",
-          minHeight: "120px",
+          minHeight: "140px",
           background: "transparent",
           border: "none",
           outline: "none",
           resize: "vertical",
-          fontSize: "0.85rem",
-          lineHeight: 1.6,
+          fontSize: "0.95rem",
+          lineHeight: 1.7,
           color: "#333",
           fontFamily: "'Apercu Pro', var(--font-inter), sans-serif",
         }}
@@ -102,14 +103,15 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
   return (
     <button
       onClick={() => paper.sourceUrl && window.open(paper.sourceUrl, "_blank", "noopener,noreferrer")}
-      className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+      className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
       style={{
-        border: "1.5px solid #e5e7eb",
+        border: "2px solid #1a1a1a",
+        boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
         background: "white",
-        padding: "14px 16px",
+        padding: "16px 18px",
         display: "flex",
         flexDirection: "column",
-        gap: "8px",
+        gap: "10px",
         width: "100%",
         textAlign: "left",
       }}
@@ -120,14 +122,14 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
           {sourceType} · {paper.year || "2026"}
         </span>
       </div>
-      <span style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
+      <span style={{ fontSize: "0.88rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
         className="group-hover:underline">
-        {paper.title.length > 65 ? paper.title.slice(0, 62) + "..." : paper.title}
+        {paper.title.length > 55 ? paper.title.slice(0, 52) + "..." : paper.title}
       </span>
       {paper.keywords.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
           {paper.keywords.slice(0, 2).map((kw, ki) => (
-            <span key={kw} style={{ padding: "2px 8px", fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", background: tagColors[ki % tagColors.length], border: "1px solid #1a1a1a" }}>
+            <span key={kw} style={{ padding: "3px 10px", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", background: tagColors[ki % tagColors.length], border: "1.5px solid #1a1a1a" }}>
               {kw}
             </span>
           ))}
@@ -320,19 +322,19 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
         className="h-14 flex items-center justify-between px-4 md:px-10 mx-auto w-full"
         style={{ maxWidth: "1100px" }}
       >
-        <span
-          style={{
-            fontSize: "0.7rem",
-            color: "#555",
-            fontFamily: "var(--font-mono), monospace",
-            textTransform: "uppercase",
-            letterSpacing: "2px",
-            fontWeight: 700,
-          }}
-        >
-          Today&apos;s Digest
-        </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <span
+            style={{
+              fontSize: "0.7rem",
+              color: "#555",
+              fontFamily: "var(--font-mono), monospace",
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+              fontWeight: 700,
+            }}
+          >
+            Today&apos;s Digest
+          </span>
           <button
             onClick={() => handleGenerate(true)}
             disabled={generating}
@@ -348,79 +350,41 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
             className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
           >
             {generating ? (
-              <Loader2
-                size={12}
-                className="animate-spin"
-                style={{ color: "#888" }}
-              />
+              <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} />
             ) : (
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#888"
-                strokeWidth="2.5"
-              >
-                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-              </svg>
+              <RefreshCw size={12} style={{ color: "#888" }} />
             )}
-            <span
-              style={{
-                fontSize: "0.6rem",
-                fontWeight: 600,
-                fontFamily: "var(--font-mono), monospace",
-                color: "#888",
-              }}
-            >
-              Regen
+            <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>
+              Regenerate
             </span>
           </button>
-          {digest.id && (
-            <button
-              onClick={async () => {
-                setStarred(!starred);
-                try {
-                  await fetch("/api/digest/star", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ digestId: digest.id }),
-                  });
-                } catch {
-                  setStarred(starred);
-                }
-              }}
-              style={{
-                background: "none",
-                border: "1.5px solid #e5e7eb",
-                cursor: "pointer",
-                padding: "4px 10px",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                color: starred ? "#f59e0b" : "#ccc",
-                transition: "all 0.15s",
-              }}
-              className="hover:border-[#f59e0b]"
-            >
-              <Star
-                size={14}
-                className={starred ? "fill-current" : ""}
-              />
-              <span
-                style={{
-                  fontSize: "0.6rem",
-                  fontWeight: 600,
-                  fontFamily: "var(--font-mono), monospace",
-                  color: starred ? "#f59e0b" : "#aaa",
-                }}
-              >
-                {starred ? "Saved" : "Save Digest"}
-              </span>
-            </button>
-          )}
         </div>
+        {digest.id && (
+          <button
+            onClick={async () => {
+              setStarred(!starred);
+              try {
+                await fetch("/api/digest/star", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ digestId: digest.id }),
+                });
+              } catch {
+                setStarred(starred);
+              }
+            }}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: "5px",
+              color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s",
+            }}
+          >
+            <Star size={14} className={starred ? "fill-current" : ""} />
+            <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace" }}>
+              {starred ? "Saved" : "Save"}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ── Main area: digest left, sources+notes right ── */}
