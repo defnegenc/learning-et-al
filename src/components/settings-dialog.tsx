@@ -324,6 +324,13 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
             <button
               onClick={async () => {
                 localStorage.removeItem("pp_session");
+                document.cookie.split(";").forEach(c => {
+                  const name = c.split("=")[0].trim();
+                  if (name.includes("authjs") || name.includes("next-auth")) {
+                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+                  }
+                });
                 try { await signOut({ redirect: false }); } catch { /* ignore */ }
                 window.location.href = "/";
               }}
@@ -523,6 +530,13 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
             <button
               onClick={async () => {
                 localStorage.removeItem("pp_session");
+                document.cookie.split(";").forEach(c => {
+                  const name = c.split("=")[0].trim();
+                  if (name.includes("authjs") || name.includes("next-auth")) {
+                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+                  }
+                });
                 try { await signOut({ redirect: false }); } catch { /* ignore */ }
                 window.location.href = "/";
               }}
