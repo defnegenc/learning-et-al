@@ -287,7 +287,62 @@ export function VaultPage({ session }: VaultPageProps) {
   };
 
   return (
-    <div className="flex flex-col md:grid md:min-h-[calc(100vh-3.5rem)]" style={{ gridTemplateColumns: "1fr 300px" }}>
+    <div className="flex flex-col md:grid md:min-h-[calc(100vh-3.5rem)]" style={{ gridTemplateColumns: "260px 1fr" }}>
+      {/* Left sidebar — Past Themes (desktop) */}
+      <aside className="hidden md:flex flex-col border-r-[4px] border-[#1a1a1a]" style={{ background: "#f9fafb", overflowY: "auto" }}>
+        <div style={{ borderBottom: "4px solid #1a1a1a", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h3 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", margin: 0 }}>
+            Past Themes
+          </h3>
+          <button
+            onClick={() => setStarFilter(!starFilter)}
+            title={starFilter ? "Show all" : "Show starred only"}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", color: starFilter ? "#f59e0b" : "#ccc", fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", display: "flex", alignItems: "center", gap: "3px" }}
+          >
+            <Star size={12} className={starFilter ? "fill-current" : ""} />
+            <span>{starFilter ? "Starred" : "All"}</span>
+          </button>
+        </div>
+        <div style={{ padding: "8px 0", flex: 1 }}>
+          {pastThemes.filter(t => !starFilter || t.starred).map(theme => (
+            <div
+              key={theme.id}
+              onClick={() => handleThemeClick(theme.id)}
+              style={{
+                padding: "8px 16px", cursor: "pointer", transition: "background 0.1s",
+                background: activeDigestId === theme.id ? "#e5e7eb" : "transparent",
+                borderLeft: activeDigestId === theme.id ? "4px solid #1a1a1a" : "4px solid transparent",
+              }}
+              className="hover:bg-gray-100"
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2px" }}>
+                <span style={{ fontSize: "0.6rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>{theme.date}</span>
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const s = !theme.starred;
+                    setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: s } : t));
+                    try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: theme.id }) }); } catch { setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: !s } : t)); }
+                  }}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: theme.starred ? "#f59e0b" : "#ddd" }}
+                  className="hover:text-[#f59e0b]"
+                >
+                  <Star size={11} className={theme.starred ? "fill-current" : ""} />
+                </button>
+              </div>
+              <span style={{ fontSize: "0.78rem", color: "#1a1a1a", fontWeight: 600, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.3, fontFamily: "var(--font-display), sans-serif" }}>
+                {theme.theme}
+              </span>
+            </div>
+          ))}
+          {pastThemes.filter(t => !starFilter || t.starred).length === 0 && (
+            <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", padding: "16px" }}>
+              {starFilter ? "No starred themes" : "No past themes yet"}
+            </span>
+          )}
+        </div>
+      </aside>
+
       {/* Main content area */}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {selectedPaper ? (
@@ -317,7 +372,7 @@ export function VaultPage({ session }: VaultPageProps) {
             <button
               onClick={() => setActiveField(null)}
               style={{
-                padding: "4px 12px",
+                padding: "0 12px", height: "36px",
                 background: activeField === null ? "#1a1a1a" : "transparent",
                 border: "2px solid #1a1a1a",
                 boxShadow: activeField === null ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
@@ -338,7 +393,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 key={field}
                 onClick={() => setActiveField(activeField === field ? null : field)}
                 style={{
-                  padding: "4px 12px",
+                  padding: "0 12px", height: "36px",
                   background: activeField === field ? "#1a1a1a" : "transparent",
                   border: "2px solid #1a1a1a",
                   boxShadow: activeField === field ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
@@ -363,7 +418,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 key={f}
                 onClick={() => { setSourceFilter(f); setPage(1); }}
                 style={{
-                  padding: "4px 10px",
+                  padding: "0 10px", height: "36px",
                   background: sourceFilter === f ? "#1a1a1a" : "transparent",
                   border: "2px solid #1a1a1a",
                   color: sourceFilter === f ? "white" : "#1a1a1a",
@@ -400,8 +455,7 @@ export function VaultPage({ session }: VaultPageProps) {
                 background: "transparent",
                 paddingLeft: "28px",
                 paddingRight: "12px",
-                paddingTop: "6px",
-                paddingBottom: "6px",
+                height: "36px",
                 fontSize: "0.75rem",
                 textTransform: "uppercase",
                 letterSpacing: "1px",
@@ -674,178 +728,6 @@ export function VaultPage({ session }: VaultPageProps) {
         )}
       </div>
 
-      {/* Right sidebar - below main content on mobile */}
-      <aside
-        className="border-t md:border-t-0 md:border-l border-[#1a1a1a]"
-        style={{
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-          background: "#f9fafb",
-        }}
-      >
-        <style>{`
-          @media (min-width: 768px) {
-            .vault-sidebar { border-left-width: 4px !important; border-top-width: 0 !important; }
-          }
-          @media (max-width: 767px) {
-            .vault-sidebar { border-top-width: 4px !important; border-left-width: 0 !important; }
-          }
-        `}</style>
-        <div className="vault-sidebar flex flex-col h-full">
-          {/* Past Themes header */}
-          <div
-            style={{
-              borderBottom: "4px solid #1a1a1a",
-              padding: "10px 16px",
-            }}
-          >
-            <h3
-              style={{
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "2px",
-                color: "#1a1a1a",
-                fontFamily: 'var(--font-mono), monospace',
-                margin: 0,
-              }}
-            >
-              Past Themes
-            </h3>
-            <button
-              onClick={() => setStarFilter(!starFilter)}
-              title={starFilter ? "Show all" : "Show starred only"}
-              style={{
-                background: "none", border: "none", cursor: "pointer", padding: "2px",
-                color: starFilter ? "#f59e0b" : "#ccc", transition: "color 0.15s",
-              }}
-            >
-              <Star size={14} className={starFilter ? "fill-current" : ""} />
-            </button>
-          </div>
-
-          {/* Theme list */}
-          <div style={{ padding: "12px 16px", flex: 1 }}>
-            {pastThemes.length > 0 ? (
-              <div className="flex flex-row md:flex-col gap-2 md:gap-1.5 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
-                {pastThemes
-                  .filter(t => !starFilter || t.starred)
-                  .map((theme) => (
-                  <div
-                    key={theme.id}
-                    onClick={() => handleThemeClick(theme.id)}
-                    className="shrink-0 md:shrink"
-                    style={{
-                      padding: "6px 8px",
-                      transition: "background 0.1s ease",
-                      background: activeDigestId === theme.id ? "#f3f4f6" : "transparent",
-                      borderLeft: activeDigestId === theme.id ? "4px solid #1a1a1a" : "4px solid transparent",
-                      minWidth: "140px",
-                      cursor: "pointer",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (activeDigestId !== theme.id) {
-                        (e.currentTarget as HTMLElement).style.background = "#f9fafb";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (activeDigestId !== theme.id) {
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
-                      }
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "2px" }}>
-                      <span
-                        style={{
-                          fontSize: "0.6rem",
-                          color: "#888",
-                          fontFamily: "var(--font-mono), monospace",
-                        }}
-                      >
-                        {theme.date}
-                      </span>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          const newStarred = !theme.starred;
-                          setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: newStarred } : t));
-                          try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: theme.id }) }); } catch { setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: !newStarred } : t)); }
-                        }}
-                        style={{ background: "none", border: "none", cursor: "pointer", padding: "0", flexShrink: 0, color: theme.starred ? "#f59e0b" : "#ddd", transition: "color 0.15s" }}
-                        className="hover:text-[#f59e0b]"
-                      >
-                        <Star size={10} className={theme.starred ? "fill-current" : ""} />
-                      </button>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: "0.8rem",
-                        color: "#1a1a1a",
-                        fontWeight: 600,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        lineHeight: 1.3,
-                        fontFamily: "var(--font-display), sans-serif",
-                      }}
-                    >
-                      {theme.theme}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <span
-                style={{
-                  fontSize: "0.6rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  color: "#888",
-                  fontFamily: "var(--font-mono), monospace",
-                }}
-              >
-                {starFilter ? "No starred themes" : "No past themes yet"}
-              </span>
-            )}
-          </div>
-
-          {/* Stats footer */}
-          <div
-            style={{
-              borderTop: "4px solid #1a1a1a",
-              padding: "12px 16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "4px",
-            }}
-          >
-            <p
-              style={{
-                fontSize: "0.6rem",
-                color: "#666",
-                fontFamily: 'var(--font-mono), monospace',
-                margin: 0,
-              }}
-            >
-              {total} papers saved
-            </p>
-            {totalPages > 1 && (
-              <p
-                style={{
-                  fontSize: "0.6rem",
-                  color: "#666",
-                  fontFamily: 'var(--font-mono), monospace',
-                  margin: 0,
-                }}
-              >
-                Page {page} of {totalPages}
-              </p>
-            )}
-          </div>
-        </div>
-      </aside>
 
     </div>
   );
