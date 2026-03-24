@@ -103,10 +103,9 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             onRefreshDigest={() => refreshDigestRef.current?.()}
           />
           <button
-            onClick={async () => {
+            onClick={() => {
               localStorage.removeItem("pp_session");
-              await fetch("/api/auth/logout", { method: "POST" });
-              window.location.href = "/";
+              window.location.href = "/api/auth/signout";
             }}
             title="Sign out"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
