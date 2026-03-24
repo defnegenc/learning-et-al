@@ -322,9 +322,10 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </div>
             )}
             <button
-              onClick={() => {
+              onClick={async () => {
                 localStorage.removeItem("pp_session");
-                signOut({ callbackUrl: "/" });
+                try { await signOut({ redirect: false }); } catch { /* ignore */ }
+                window.location.href = "/";
               }}
               className="w-full flex items-center justify-center gap-2 py-2 text-[0.7rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors"
               style={{ border: "1.5px solid #ddd", fontFamily: "var(--font-mono), monospace" }}
@@ -520,9 +521,10 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </span>
             )}
             <button
-              onClick={() => {
+              onClick={async () => {
                 localStorage.removeItem("pp_session");
-                signOut({ callbackUrl: "/" });
+                try { await signOut({ redirect: false }); } catch { /* ignore */ }
+                window.location.href = "/";
               }}
               className="md:hidden flex items-center gap-1.5 px-3 py-2.5 text-[0.65rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] transition-colors"
               style={{ border: "1.5px solid #ddd", fontFamily: "var(--font-mono), monospace", marginRight: "auto" }}
