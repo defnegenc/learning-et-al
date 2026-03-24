@@ -2,6 +2,16 @@ import { handlers } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
+  // Debug: log env var availability on every auth request
+  console.log("[AUTH ENV CHECK]", {
+    hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+    hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    hasAuthSecret: !!process.env.AUTH_SECRET,
+    hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+    nextAuthUrl: process.env.NEXTAUTH_URL || "NOT SET",
+    url: req.nextUrl.pathname,
+  });
+
   try {
     const resp = await handlers.GET(req);
     return resp;
