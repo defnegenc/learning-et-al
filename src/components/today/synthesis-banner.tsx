@@ -24,10 +24,10 @@ function DigestFeedback({ digestId, onRegenerate }: { digestId: string; onRegene
     setSubmitted(true);
     localStorage.setItem(storageKey, r);
     try {
-      await fetch("/api/digest/star", {
+      await fetch("/api/papers/" + digestId + "/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ digestId }),
+        body: JSON.stringify({ type: r === "up" ? "star" : "dislike", digestFeedback: true }),
       });
     } catch { /* non-critical */ }
     if (r === "down") setShowComment(true);
