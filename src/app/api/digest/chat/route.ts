@@ -13,10 +13,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { question, digestId, apiKey, provider, model, baseUrl } = await req.json();
+    const body = await req.json();
+    const question = body.question;
+    const digestId = body.digestId;
+    // Use provided API key, or fall back to shared cron config
+    const apiKey = body.apiKey || process.env.CRON_AI_KEY || "";
+    const provider = body.provider || process.env.CRON_AI_PROVIDER || "gemini";
+    const defaultModel = provider === "anthropic" ? "claude-sonnet-4-20250514" : provider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
+    const model = body.model || process.env.CRON_AI_MODEL || defaultModel;
+    const baseUrl = body.baseUrl || "";
 
-    if (!question || !digestId || !apiKey || !provider) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!question || !digestId || !apiKey) {
+      return NextResponse.json({ error: "Missing question, digest, or API key. Check Settings > API." }, { status: 400 });
     }
 
     // Fetch digest — fall back to user's latest if the given ID is stale

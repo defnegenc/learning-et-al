@@ -396,7 +396,7 @@ export function SynthesisBanner({
         }),
       });
       const data = await res.json();
-      const answer = data.answer || "Couldn't get an answer.";
+      const answer = data.answer || data.error || "Couldn't get an answer.";
       const newHistory = [...digDeeperHistory, { q: question, a: answer }];
       setDigDeeperHistory(newHistory);
       if (historyKey) localStorage.setItem(historyKey, JSON.stringify(newHistory));
