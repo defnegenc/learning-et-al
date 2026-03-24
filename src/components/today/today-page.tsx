@@ -318,7 +318,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
       {/* ── Header row: Today's Digest + Regen + Save ── */}
       <div
         className="h-14 flex items-center justify-between px-4 md:px-10 mx-auto w-full"
-        style={{ borderBottom: "1.5px solid #e5e7eb", maxWidth: "1100px" }}
+        style={{ maxWidth: "1100px" }}
       >
         <span
           style={{
@@ -469,6 +469,7 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
           {digest.id && session && (
             <div style={{ marginTop: "24px" }}>
               <NoteCard digestId={digest.id} />
+            </div>
           )}
         </div>
       </div>
