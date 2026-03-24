@@ -1,28 +1,37 @@
-import { signOut } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 /**
- * Hard logout — uses next-auth's own signOut to properly clear the session.
+ * Hard logout — nukes all cookies and redirects to /.
+ * Returns Set-Cookie headers to expire every auth-related cookie.
  */
-export async function POST() {
-  try {
-    await signOut({ redirect: false });
-  } catch {
-    // signOut may throw if no session exists — that's fine
+export async function GET() {
+  const cookieStore = await cookies();
+
+  // Redirect to home
+  const response = NextResponse.redirect(new URL("/", process.env.NEXTAUTH_URL || "https://learningetal.com"));
+
+  // Expire every single cookie we can find
+  for (const cookie of cookieStore.getAll()) {
+    response.cookies.set(cookie.name, "", {
+      expires: new Date(0),
+      path: "/",
+      secure: true,
+      httpOnly: true,
+      sameSite: "lax",
+    });
+    // Also try without secure for dev
+    response.cookies.set(cookie.name, "", {
+      expires: new Date(0),
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+    });
   }
 
-  // Also manually clear cookies as belt-and-suspenders
-  const response = NextResponse.json({ ok: true });
-  const cookieNames = [
-    "authjs.session-token",
-    "__Secure-authjs.session-token",
-    "authjs.callback-url",
-    "__Secure-authjs.callback-url",
-    "authjs.csrf-token",
-    "__Secure-authjs.csrf-token",
-  ];
-  for (const name of cookieNames) {
-    response.cookies.delete(name);
-  }
   return response;
+}
+
+export async function POST() {
+  return GET();
 }
