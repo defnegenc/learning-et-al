@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 /**
  * Hard logout — clears all auth cookies server-side.
@@ -6,26 +7,31 @@ import { NextResponse } from "next/server";
  */
 export async function POST() {
   const response = NextResponse.json({ ok: true });
+  const cookieStore = await cookies();
 
-  // Clear all possible auth cookie names (next-auth v5 / authjs)
-  const cookieNames = [
-    "authjs.session-token",
-    "__Secure-authjs.session-token",
-    "authjs.callback-url",
-    "__Secure-authjs.callback-url",
-    "authjs.csrf-token",
-    "__Secure-authjs.csrf-token",
-    "next-auth.session-token",
-    "__Secure-next-auth.session-token",
-    "next-auth.callback-url",
-    "next-auth.csrf-token",
-  ];
-
-  for (const name of cookieNames) {
-    response.cookies.set(name, "", {
-      expires: new Date(0),
-      path: "/",
-    });
+  // Delete every cookie that looks auth-related
+  for (const cookie of cookieStore.getAll()) {
+    if (
+      cookie.name.includes("authjs") ||
+      cookie.name.includes("next-auth") ||
+      cookie.name.includes("session")
+    ) {
+      // Must match the exact flags the cookie was set with
+      response.cookies.set(cookie.name, "", {
+        expires: new Date(0),
+        path: "/",
+        secure: cookie.name.startsWith("__Secure-"),
+        httpOnly: true,
+      });
+      // Also try without secure flag as fallback
+      if (!cookie.name.startsWith("__Secure-")) {
+        response.cookies.set(cookie.name, "", {
+          expires: new Date(0),
+          path: "/",
+          httpOnly: true,
+        });
+      }
+    }
   }
 
   return response;
