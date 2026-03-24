@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus, LogOut, ChevronDown, ChevronRight } from "lucide-react";
-import { useSession as useAuthSession, signOut } from "next-auth/react";
+import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 
@@ -324,14 +324,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
             <button
               onClick={async () => {
                 localStorage.removeItem("pp_session");
-                document.cookie.split(";").forEach(c => {
-                  const name = c.split("=")[0].trim();
-                  if (name.includes("authjs") || name.includes("next-auth")) {
-                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
-                  }
-                });
-                try { await signOut({ redirect: false }); } catch { /* ignore */ }
+                await fetch("/api/auth/logout", { method: "POST" });
                 window.location.href = "/";
               }}
               className="w-full flex items-center justify-center gap-2 py-2 text-[0.7rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] hover:bg-gray-50 transition-colors"
@@ -530,14 +523,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
             <button
               onClick={async () => {
                 localStorage.removeItem("pp_session");
-                document.cookie.split(";").forEach(c => {
-                  const name = c.split("=")[0].trim();
-                  if (name.includes("authjs") || name.includes("next-auth")) {
-                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
-                  }
-                });
-                try { await signOut({ redirect: false }); } catch { /* ignore */ }
+                await fetch("/api/auth/logout", { method: "POST" });
                 window.location.href = "/";
               }}
               className="md:hidden flex items-center gap-1.5 px-3 py-2.5 text-[0.65rem] uppercase tracking-[1.5px] text-[#888] hover:text-[#1a1a1a] transition-colors"
