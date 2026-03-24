@@ -117,6 +117,9 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
   const [inviteCode, setInviteCode] = useState("");
   const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
 
+  // Cadence state
+  const [cadence, setCadence] = useState<"daily" | "biweekly" | "weekly">("daily");
+
   // Interests state
   const [selectedTopics, setSelectedTopics] = useState<SelectedTopic[]>([]);
   const [customFieldKey, setCustomFieldKey] = useState<string | null>(null);
@@ -451,8 +454,37 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 </p>
               </div>
 
-              {/* Table */}
-              <div className="flex-1 overflow-y-auto px-5 md:px-10">
+              {/* Delivery Cadence */}
+              <div className="px-5 md:px-10 pb-4" style={{ borderBottom: "1px solid #eee" }}>
+                <label style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "10px" }}>
+                  Delivery Cadence
+                </label>
+                <div className="flex gap-0">
+                  {([
+                    { key: "daily" as const, label: "Daily", desc: "The morning digest." },
+                    { key: "biweekly" as const, label: "Bi-Weekly", desc: "Tuesday & Friday." },
+                    { key: "weekly" as const, label: "Weekly", desc: "The Sunday recap." },
+                  ]).map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setCadence(opt.key)}
+                      className="flex-1"
+                      style={{
+                        padding: "10px 8px", border: "2px solid #1a1a1a", marginRight: "-2px",
+                        background: cadence === opt.key ? "#1a1a1a" : "white",
+                        color: cadence === opt.key ? "white" : "#1a1a1a",
+                        cursor: "pointer", textAlign: "center",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>{opt.label}</div>
+                      <div style={{ fontSize: "0.6rem", color: cadence === opt.key ? "#ccc" : "#888", marginTop: "2px" }}>{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Topics */}
+              <div className="flex-1 overflow-y-auto px-5 md:px-10 pt-4">
                 {loadingInterests ? (
                   <div className="flex items-center justify-center py-16"><Loader2 className="size-5 animate-spin text-[#888]" /></div>
                 ) : (
