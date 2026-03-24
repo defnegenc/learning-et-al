@@ -9,7 +9,10 @@ Auto-generate digests daily for all users. Currently manual "Generate" button on
 ## 3. Dig Deeper Refresh
 Rethink dig deeper to actually prompt the user to explore further. Current suggested questions feel generic. Should feel like a curious friend pulling you in deeper.
 
-## 4. Research Deep Dive: Making Papers Conversational
+## 4. Delivery Cadence
+Let users choose how often they get digests: Daily (morning), Bi-Weekly (Tue & Fri), Weekly (Sunday recap). Settings UI exists, backend not wired yet.
+
+## 5. Research Deep Dive: Making Papers Conversational
 **Core question:** How might we make it so the user doesn't have to read the paper at all to feel like they've learned something? How can we make it so that short interaction is enough to bring it up in conversation?
 
 Needs a research deep dive in `docs/summarize-papers.md` — look at:
