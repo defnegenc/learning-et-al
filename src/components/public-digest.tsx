@@ -33,8 +33,23 @@ function getJournalName(sourceUrl: string | null): string | null {
     for (const [domain, name] of Object.entries(map)) {
       if (hostname.includes(domain)) return name;
     }
+    if (hostname.includes("doi.org")) {
+      const path = new URL(sourceUrl).pathname;
+      const doiMap: Record<string, string> = {
+        "10.3389": "Frontiers", "10.1038": "Nature", "10.1016": "Elsevier",
+        "10.1007": "Springer", "10.1109": "IEEE", "10.1145": "ACM",
+        "10.1073": "PNAS", "10.3390": "MDPI", "10.1002": "Wiley",
+        "10.1080": "Taylor & Francis", "10.1177": "SAGE", "10.1371": "PLOS",
+        "10.1093": "Oxford UP", "10.1017": "Cambridge UP",
+      };
+      for (const [prefix, pub] of Object.entries(doiMap)) {
+        if (path.includes(prefix)) return pub;
+      }
+      return null;
+    }
     const parts = hostname.split(".");
     const name = parts.length > 2 ? parts.slice(0, -2).join(".") : parts[0];
+    if (name.length < 3) return null;
     return name.charAt(0).toUpperCase() + name.slice(1);
   } catch { return null; }
 }
