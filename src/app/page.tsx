@@ -129,8 +129,6 @@ export default function Home() {
           }}>
 
             {/* Step 1: Sign in or Guest */}
-            {modalStep === "main" && (
-              <>
                 <h2 style={{
                   fontSize: "1.5rem", fontWeight: 800,
                   fontFamily: "var(--font-display), sans-serif",
@@ -166,8 +164,6 @@ export default function Home() {
                 >
                   Continue as Guest
                 </button>
-              </>
-            )}
 
           </div>
         </div>
