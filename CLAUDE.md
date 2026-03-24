@@ -124,6 +124,9 @@ Every digest is built around a single **central question** with wow factor (max 
 | 2026-03-16 | Gemini wasn't a provider option, user had to figure out base URL | Add common providers as first-class options, don't make users configure URLs |
 | 2026-03-16 | Gemini added to provider config but button never rendered in onboarding UI | When adding a new option, grep for ALL places it needs to appear — config, UI, types |
 | 2026-03-16 | Double res.json() call in onboarding — second call got empty body | Only call res.json() once, store the result |
+| 2026-03-23 | Created /api/auth/logout/route.ts which conflicted with [...nextauth] catch-all, breaking Google sign-in | NEVER create routes inside /api/auth/ — the [...nextauth] catch-all owns that entire path. Put custom auth-adjacent routes elsewhere (e.g. /api/logout) |
+| 2026-03-23 | Invite code returned gemini model with anthropic provider (env var mismatch) | Default model must match provider. When returning config from env vars, validate consistency |
+| 2026-03-23 | Tried 5 different approaches to clear HttpOnly auth cookies from client JS | HttpOnly cookies CANNOT be cleared from JavaScript. Always use a server-side route. Don't waste time retrying client-side approaches |
 
 ## Context Maintenance Rules
 - Always update `docs/algorithm.md` when changing the digest pipeline
