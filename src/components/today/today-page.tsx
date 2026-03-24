@@ -27,6 +27,7 @@ function NoteCard({ digestId }: { digestId: string }) {
 
   return (
     <div
+      className="transition-transform duration-200 hover:rotate-[1.5deg]"
       style={{
         width: "100%",
         border: "2px solid #1a1a1a",
@@ -319,8 +320,8 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       {/* ── Header row: Today's Digest + Regen + Save ── */}
       <div
-        className="h-14 flex items-center justify-between px-4 md:px-10"
-        style={{ borderBottom: "1.5px solid #e5e7eb" }}
+        className="h-14 flex items-center justify-between px-4 md:px-12 mx-auto w-full"
+        style={{ borderBottom: "1.5px solid #e5e7eb", maxWidth: "1200px" }}
       >
         <span
           style={{
@@ -426,10 +427,10 @@ export function TodayPage({ session, onRegisterRefresh }: TodayPageProps) {
       </div>
 
       {/* ── Main area: digest left, sources+notes right ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] flex-1 overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_380px] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1200px" }}>
         {/* Left: digest content */}
-        <div className="overflow-y-auto px-4 md:px-10 py-6 md:py-10">
-          <div style={{ maxWidth: "680px" }}>
+        <div className="overflow-y-auto px-4 md:px-12 py-6 md:py-10">
+          <div style={{ maxWidth: "640px", margin: "0 auto" }}>
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}
