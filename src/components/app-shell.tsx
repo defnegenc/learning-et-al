@@ -104,9 +104,12 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             onRefreshDigest={() => refreshDigestRef.current?.()}
           />
           <button
-            onClick={() => {
+            onClick={async () => {
               localStorage.removeItem("pp_session");
-              signOut({ callbackUrl: "/" });
+              try {
+                await signOut({ redirect: false });
+              } catch { /* ignore */ }
+              window.location.href = "/";
             }}
             title="Sign out"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
