@@ -77,6 +77,10 @@ export default function Home() {
   // Sync Auth.js session → local session + check if returning user
   useEffect(() => {
     if (authStatus === "authenticated" && authSession?.user?.id) {
+      // Don't auto-restore session if user just logged out (no localStorage)
+      const stored = localStorage.getItem("pp_session");
+      if (!stored) return;
+
       if (!session.userId) {
         updateSession({ userId: authSession.user.id });
       }
@@ -86,13 +90,11 @@ export default function Home() {
           .then(r => r.json())
           .then(data => {
             if (data.interests && data.interests.length >= 3) {
-              // Returning user with interests — auto-setup
-              // If no API key in localStorage, check if they have an invite code stored
-              const stored = JSON.parse(localStorage.getItem("pp_session") || "{}");
+              const parsedStored = JSON.parse(localStorage.getItem("pp_session") || "{}");
               updateSession({
                 userId: authSession.user!.id,
                 isSetUp: true,
-                ...(stored.apiKey ? { apiKey: stored.apiKey, provider: stored.provider, model: stored.model, baseUrl: stored.baseUrl } : {}),
+                ...(parsedStored.apiKey ? { apiKey: parsedStored.apiKey, provider: parsedStored.provider, model: parsedStored.model, baseUrl: parsedStored.baseUrl } : {}),
               });
             }
           })
