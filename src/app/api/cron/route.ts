@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { users, interests } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { users, interests, digests, papers } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { generateDigest } from "@/lib/pipeline/digest";
+import { sendDigestEmail } from "@/lib/email";
 
 /**
- * Cron endpoint — generates daily digests for all users who have interests + API keys stored.
- * Called by Vercel Cron at 6am UTC (configurable per user's timezone in the future).
+ * Cron endpoint — generates daily digests and emails them.
+ * Called by Vercel Cron at 4am UTC.
  *
  * Security: protected by CRON_SECRET env var.
  */
 export async function GET(req: NextRequest) {
-  // Verify cron secret to prevent unauthorized calls
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const allUsers = await db.select().from(users);
-    const results: { userId: string; status: string; error?: string }[] = [];
+    const results: { userId: string; status: string; error?: string; email?: string }[] = [];
 
     for (const user of allUsers) {
       // Skip users without interests
@@ -29,8 +29,6 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // For now, use a default AI config (admin's key via env, or skip if not available)
-      // In the future, each user stores their own API key securely
       const aiConfig = {
         apiKey: process.env.CRON_AI_KEY || "",
         provider: (process.env.CRON_AI_PROVIDER || "gemini") as "openai" | "anthropic" | "gemini" | "other",
@@ -44,8 +42,34 @@ export async function GET(req: NextRequest) {
       }
 
       try {
-        await generateDigest(user.id, aiConfig);
+        const digest = await generateDigest(user.id, aiConfig);
         results.push({ userId: user.id, status: "generated" });
+
+        // Send email if user has an email address
+        if (user.email && digest.synthesisContent && digest.theme) {
+          // Fetch the papers for this digest
+          const digestPapers = await db.select().from(papers)
+            .where(eq(papers.digestId, digest.id));
+
+          const emailResult = await sendDigestEmail(user.email, {
+            theme: digest.theme,
+            synthesis: digest.synthesisContent,
+            papers: digestPapers.map(p => ({
+              title: p.title,
+              source: p.source,
+              year: p.year ?? undefined,
+              summary: p.summary ?? undefined,
+              sourceUrl: p.sourceUrl ?? undefined,
+            })),
+            digestUrl: "https://learningetal.com",
+          });
+
+          if (emailResult.sent) {
+            results.push({ userId: user.id, status: "emailed", email: user.email });
+          } else {
+            results.push({ userId: user.id, status: "email_skipped", error: emailResult.error });
+          }
+        }
       } catch (err) {
         results.push({ userId: user.id, status: "error", error: String(err).slice(0, 200) });
       }

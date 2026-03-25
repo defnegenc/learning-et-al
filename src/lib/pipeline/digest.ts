@@ -876,13 +876,12 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     paperRoles: { index: number; role: string; shortName: string; coreContribution: string }[];
     coreTension: string;
     argumentArc: string;
-    skipPapers?: number[];
   };
   try {
     const skelParsed = extractJson<typeof skeleton>(skeletonResp);
     if (!skelParsed) throw new Error("No JSON");
     skeleton = skelParsed;
-    console.log(`[Digest] Skeleton: tension="${skeleton.coreTension}", skip=${skeleton.skipPapers?.length || 0} papers`);
+    console.log(`[Digest] Skeleton: tension="${skeleton.coreTension}"`);
   } catch {
     console.log(`[Digest] Skeleton parse failed, using simple fallback`);
     skeleton = {
