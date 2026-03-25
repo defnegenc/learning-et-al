@@ -172,7 +172,7 @@ Return JSON (no markdown fences):
     { "paper1": 1, "paper2": 2, "relation": "contradicts|agrees|extends|alternative_mechanism|unrelated", "explanation": "5-10 words" }
   ],
   "paperRoles": [
-    { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism|provides_context|reinforces", "shortName": "the Turkish teacher study", "coreContribution": "what this paper uniquely adds to the argument, 10 words max" }
+    { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism|provides_context|reinforces", "shortName": "2-4 word nickname: 'the polyphenols study', 'the Turkish teacher research', 'the epilepsy review'", "coreContribution": "what this paper uniquely adds to the argument, 10 words max" }
   ],
   "coreTension": "The central disagreement or unresolved question these papers surface, 1 sentence",
   "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z"
@@ -184,7 +184,7 @@ RULES:
 - The coreTension should be a GENUINE intellectual tension, not a fake one. "People haven't adopted it" or "there are still challenges" is NOT a tension. A tension is a real DISAGREEMENT or PARADOX between the papers.
 - The argumentArc MUST reference ALL papers by number. If a paper isn't in the arc, you haven't found its role yet.
 - If you can't find genuine tension, say so honestly in coreTension. "These papers agree; the interesting question is WHY it took so long" is better than manufacturing fake conflict.
-- shortName should be how you'd refer to it talking to a friend: "the McKinsey report", "the Nigerian banking study"
+- shortName: MAX 4 WORDS. How you'd refer to it at a bar: "the polyphenols study", "the McKinsey report", "the epilepsy paper". NOT "The Brain-Gut-Microbiome Axis Across the Life Continuum review" — that's the title, not a nickname. Use the topic keyword: "the gut-brain review", "the seizure inflammation study".
 - paperRelations: include one entry per pair of papers (for 3 papers: 3 pairs)`;
 }
 
@@ -221,8 +221,7 @@ ${roleDesc}
 Now write the synthesis paragraph. Follow the argument arc above. Return ONLY the paragraph text (no JSON, no markdown fences).
 
 STYLE RULES:
-- Name papers in **bold** conversationally: "**${skeleton.paperRoles[0]?.shortName || "the study"}** (Author, Year)". Use the first author's last name if available from the paper listing.
-- After first mention, just use the short bold name.
+- Name papers using their SHORT NICKNAMES from the plan above: "**${skeleton.paperRoles[0]?.shortName || "the study"}** (Author, Year)" on first mention, then just "**${skeleton.paperRoles[0]?.shortName || "the study"}**" after. MAX 4 WORDS for the name. "the polyphenols study" YES. "The Brain-Gut-Microbiome Axis review" NO — too long.
 - ONE paragraph, 5-8 sentences. Short sentences. Vary the length.
 - Start with the insight, not the build-up.
 - Include one specific number or finding.
@@ -246,17 +245,26 @@ STYLE RULES:
 export function synthesisCritiquePrompt(
   synthesis: string,
   theme: string,
-  paperTitles: string[]
+  paperTitles: string[],
+  shortNames?: string[]
 ) {
+  const paperList = paperTitles.map((t, i) => {
+    const nick = shortNames?.[i] ? ` (might be called "${shortNames[i]}" in the text)` : "";
+    return `[${i + 1}] "${t}"${nick}`;
+  }).join(", ");
+
   return `You are a tough editor reviewing a research synthesis paragraph.
 
 Theme: "${theme}"
-Papers referenced: ${paperTitles.map((t, i) => `[${i + 1}] "${t}"`).join(", ")}
+Papers that MUST be referenced: ${paperList}
+Total papers: ${paperTitles.length}
 
 Synthesis:
 """
 ${synthesis}
 """
+
+FIRST: Count how many of the ${paperTitles.length} papers appear in **bold** in the synthesis. A paper counts as "mentioned" if its title, short name, or any recognizable reference appears in bold.
 
 Score each dimension 1-5 and give specific, actionable feedback.
 
@@ -269,8 +277,9 @@ Return JSON (no markdown fences):
     "specificity": 0,
     "coverage": 0
   },
+  "missingPapers": [],
   "weakestPoint": "Which sentence is weakest and why, in 15 words",
-  "revision": "Specific rewrite instruction in 1-2 sentences. Be concrete: 'Move the finding about X to the opening' not 'make it better'"
+  "revision": "Specific rewrite instruction in 1-2 sentences. Be concrete: 'Add the polyphenols paper by noting how plant compounds provide a third pathway' not 'make it better'"
 }
 
 Scoring guide:
@@ -278,9 +287,9 @@ Scoring guide:
 - connection: Are ALL mentioned papers necessary? Or is one just... there? 1=forced, 5=essential
 - accessibility: Would a smart non-expert find this clear and interesting? 1=jargon soup, 5=coffee conversation
 - specificity: Specific findings/numbers vs vague claims? 1=all vague, 5=concrete throughout
-- coverage: Are ALL papers from the list mentioned in **bold**? If a paper is completely absent from the synthesis, score 1. Every paper should be referenced. 1=paper missing entirely, 5=all papers woven in
+- coverage: How many of the ${paperTitles.length} papers are mentioned in bold? ${paperTitles.length}/${paperTitles.length} = 5, missing 1 = 1, missing 2+ = 1. List missing papers in "missingPapers" array by index.
 
-CRITICAL: If ANY paper from the list is not mentioned at all in the synthesis, coverage MUST be 1 and the revision instruction MUST say which paper is missing and how to include it.
+CRITICAL COVERAGE RULE: There are EXACTLY ${paperTitles.length} papers. If the synthesis mentions fewer than ${paperTitles.length} in bold, coverage is 1. The "revision" instruction MUST name the missing paper and explain how to weave it into the argument. This is the MOST IMPORTANT dimension — a synthesis that ignores a paper is broken.
 
 Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
 }

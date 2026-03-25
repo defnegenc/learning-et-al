@@ -906,7 +906,10 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     const critiqueResp = await aiComplete(
       aiConfig,
       "You are a tough editor who evaluates research synthesis quality. Return only JSON.",
-      synthesisCritiquePrompt(synthesis, finalTheme, items.map(p => p.title))
+      synthesisCritiquePrompt(
+        synthesis, finalTheme, items.map(p => p.title),
+        skeleton.paperRoles.map(r => r.shortName)
+      )
     );
     const critique = extractJson<{ scores?: Record<string, number>; weakestPoint?: string; revision?: string }>(critiqueResp);
     if (critique) {
