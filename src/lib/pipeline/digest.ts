@@ -204,10 +204,23 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   }
   console.log(`[Digest] Cross-digest dedup: ${seenPaperTitles.size} seen, ${recentlyUsedKeywords.size} rotation keywords`);
 
+  // Count how many recent themes each interest's keywords appear in (not just binary overlap)
+  const keywordFrequency = new Map<string, number>();
+  for (const d of recentDigestsForRotation) {
+    if (!d.theme) continue;
+    const themeTokens = d.theme.toLowerCase().split(/\s+/);
+    for (const interest of deduped) {
+      const words = interest.keyword.toLowerCase().split(/\s+/);
+      if (words.some(w => themeTokens.includes(w) || recentlyUsedKeywords.has(w))) {
+        keywordFrequency.set(interest.keyword, (keywordFrequency.get(interest.keyword) || 0) + 1);
+      }
+    }
+  }
+
   const scoredPool = deduped.map(interest => {
-    const words = interest.keyword.toLowerCase().split(/\s+/);
-    const recentOverlap = words.filter(w => recentlyUsedKeywords.has(w)).length;
-    const recentPenalty = recentOverlap > 0 ? 0.5 : 0;
+    const freq = keywordFrequency.get(interest.keyword) || 0;
+    // Penalty scales with frequency: 1 recent use = -0.5, 2 = -1.0, 3+ = -1.5 (basically kills it)
+    const recentPenalty = Math.min(1.5, freq * 0.5);
     return { interest, score: (interest.weight ?? 1.0) - recentPenalty };
   });
 
@@ -363,12 +376,12 @@ Return JSON only (no markdown):
       const themeEmbCheck = await embedText(theme);
       const recentThemeEmbs = await embedBatch(recentThemeTexts);
       const maxSim = Math.max(...recentThemeEmbs.map(e => cosineSimilarity(themeEmbCheck, e)));
-      if (maxSim > 0.7) {
+      if (maxSim > 0.5) {
         console.log(`[Digest] Theme "${theme}" too similar to recent theme (sim ${maxSim.toFixed(2)}), requesting fresh angle...`);
         try {
           const noveltyResp = await aiComplete(aiConfig,
             "You generate surprising research questions. Return only JSON.",
-            `This theme is too similar to a recent one. Generate a COMPLETELY DIFFERENT angle using the same interests.\n\nToo-similar theme: "${theme}"\nRecent themes: ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n\nReturn JSON: {"theme": "fresh angle MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+            `This theme is too similar to a recent one. Generate a COMPLETELY DIFFERENT angle — different TOPIC, not just different phrasing.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat any of these topics): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n\nPick DIFFERENT interests from the ones used in recent themes. If recent themes were about biology/gut, pick something from a completely different domain.\n\nReturn JSON: {"theme": "fresh angle MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
           );
           const noveltyParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(noveltyResp);
           if (noveltyParsed) {
