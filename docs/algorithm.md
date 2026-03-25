@@ -19,32 +19,35 @@ The question comes first. Papers are found to inform that question — not to an
 
 Weighted random sampling with penalty for recently-used interests (last 5 digests).
 
-- **1 random primary interest** selected via weighted sampling (higher weight = more likely).
-- **4 top-weight fill interests** added alongside the primary.
+- **5 candidate interests** selected via weighted-random-without-replacement (higher weight = more likely).
 - Interests come from user settings (category-level expertise: BEG/INT/ADV).
-- Recently-used interests are penalized so the same topics don't dominate every digest. The system tracks which interests were used in recent digests and deprioritizes them during selection.
+- **Decay**: weights decay by 5% (`weight *= 0.95`) per digest generation, applied **once per day** (prevents double-decay on regeneration).
+- **Recency penalty**: interests whose keywords appear in recent digest papers' keywords or theme words get a -0.5 score penalty during sampling. Tracks actual paper keywords and title words from the last 5 digests (not just theme word matching).
 
 ### Step 2: Central Question Generation (AI call 1 — hypothesis)
 
 LLM picks 1-3 of the user's interests and generates a catchy central question.
 
-- **Max 8 words.** Must sound like something a real person would wonder about.
-- Cross-domain combos encouraged but **only combine interests that naturally connect**. "AI agents + fashion" works. "Quantum physics + knitting" does not.
+- **Max 8 words.** Enforced: if the LLM returns >8 words, a retry call requests a shorter version.
+- Cross-domain combos encouraged but **only combine interests that naturally connect**.
 - Single-interest questions get an **unexpected angle within the domain** instead.
 - For beginner interests: concrete and real-world, avoid pure theory.
 - LLM also returns:
   - `searchQueries` (3 queries for paper search)
   - `newsQuery` (for news search)
-  - `focusField` (academic domain for OpenAlex filtering)
+  - `focusFields` (array of academic domains — enables cross-domain search)
+- **Theme novelty check**: the generated theme is embedded and compared against the last 5 themes. If similarity > 0.7, the LLM is asked for a completely different angle. This prevents repetitive theme patterns.
 - Fallback: if LLM fails, use the top interest keyword as the theme.
 
 ### Step 3: Paper Search
 
 3 queries searched via the source priority chain: **OpenAlex -> Semantic Scholar -> arXiv fallback**.
 
+- **Cross-domain field distribution**: when `focusFields` has 2+ fields, queries are distributed across fields (query 1 → field 1, query 2 → field 2, etc.). This ensures papers from the secondary domain are actually found.
 - For beginner interests: `"introduction overview applications"` appended to each query.
 - All results deduplicated by title.
 - Cross-digest dedup: skip papers the user has seen in the last 30 days (includes same-day regenerations).
+- **Citation floor**: OpenAlex filters to papers with >=2 citations (`cited_by_count:>1`).
 
 **`searchPapers()` source priority:**
 1. **OpenAlex with field filter** — 250M papers, no rate limits. Preferred.
@@ -52,65 +55,111 @@ LLM picks 1-3 of the user's interests and generates a catchy central question.
 3. **Semantic Scholar** — rate-limited at 1 req/sec on free tier.
 4. **arXiv** — last resort, no field filter.
 
-### Step 4: Paper Scoring
+### Step 4: Paper Scoring & Selection
 
-Embed the central question + all candidates with `all-MiniLM-L6-v2` (local, no API key).
+**Hybrid BM25 + Embedding Scoring with Reciprocal Rank Fusion** (Cormack et al. 2009, SIGIR)
 
-- Embed the central question as `themeEmb`.
-- Embed all candidate papers (title + first 500 chars of abstract).
-- Score each candidate by **cosine similarity** to `themeEmb`.
-- Pick the top N papers above `SIM_ONTOPIC` threshold (0.25).
-- If fewer pass, fall back to `SIM_FALLBACK` (0.15) — never fail completely on threshold alone.
+Papers are scored by two independent systems:
+1. **Embedding similarity** (`all-MiniLM-L6-v2`, local) — captures semantic meaning
+2. **BM25** — captures keyword/term matches that embeddings miss
 
-**N = targetPapers, determined by the content mix slider:**
+Rankings are fused using RRF: `RRF(d) = sum(1/(k + rank_i(d)))` with k=60.
 
-| Slider value | targetPapers | News slots |
-|-------------|--------------|------------|
-| 0-20 ("Just research") | 3 | 0 |
-| 21-50 | 2 | 1 |
-| 51-80 | 1 | 2 |
-| 81-100 ("Just news") | 0 | 3 |
+**Quality boosts** (applied on top of RRF, scaled to RRF range):
+- `recencyBonus`: +0.003 for current year, +0.0015 for last year
+- `venueBoost`: 0 to +0.0024 for top-tier venues
+- `instBoost`: 0 to +0.0015 for top institutions
+
+**MMR diversity selection** (Maximal Marginal Relevance, Carbonell & Goldstein 1998):
+- Instead of taking the top-N by score, MMR balances relevance against diversity.
+- `MMR_score = λ * relevance_score - (1-λ) * max_similarity_to_selected_papers`
+- λ = 0.6 (slightly favors relevance over diversity).
+- This prevents all papers from being from the same lab/method/subfield.
+
+**Thresholds:**
+- `SIM_MIN_THEME = 0.12` — hard floor, filters truly irrelevant papers
+- `SIM_ONTOPIC = 0.25` — primary inclusion threshold
+- `SIM_FALLBACK = 0.15` — last-resort threshold
+
+Fixed at **2 papers + 1 news** (best balance per recsys literature: 2 exploit + 1 explore).
+
+### Step 4b: Counter-Query for Tension
+
+After selecting paper 1, the pipeline generates a **counter-query** via LLM:
+- "Find a paper that contradicts, complicates, or offers a completely different perspective on paper 1's findings"
+- The counter-query searches a potentially different field than the primary
+- This creates genuine intellectual tension for synthesis (not just "different topic" papers)
+- Falls back to adjacent-interest search if counter-query fails
+
+### Step 4c: LLM Re-Ranking
+
+After all papers are selected (embedding-based), an LLM scores each paper 1-5 on **"how much does this offer a surprising or useful lens on the theme?"**
+
+- Papers scoring ≤2 can be swapped with a better candidate from the qualified pool
+- This bridges the gap between topical relevance (what embeddings measure) and aspectual relevance (what the product needs)
+- Graceful degradation: if the LLM call fails, embedding-ranked papers are kept
 
 ### Step 5: News Search
 
-Number of news items = 3 - targetPapers. When news slots are needed:
+When news slots are needed (currently 1):
 
-- Web search via Serper (Google news) / DuckDuckGo fallback using `newsQuery + focusInterest + year`.
+- Web search via Serper (Google news) / DuckDuckGo fallback using `newsQuery + focusInterest + current year`.
 - Scored by **embedding similarity to theme** (same model as paper scoring).
-- **Listicle filter**: reject "Top N+", "Best N+" patterns and known SEO domains via regex + domain blocklist.
-- Article text fetched (up to 10000 chars) for content extraction.
-- RSS fallback (2 interest words + 2 theme words from TechCrunch, Ars Technica, Wired).
-- Last resort: substitute an academic paper.
+- **Listicle filter**: reject "Top N+", "Best N+" patterns and known SEO domains.
+- **Academic domain filter**: reject results from academic publishers (frontiersin.org, nature.com, springer.com, etc.) — these are papers, not news.
+- **Paywall detection**: article fetcher checks for paywall signals and returns empty text, falling back to snippet.
+- Article text extracted via **paragraph density scoring** (<p> tag extraction), with longest-run heuristic as fallback.
+- RSS fallback (keyword-matched from TechCrunch, Ars Technica, Wired).
+- Last resort: substitute an academic paper (correctly labeled as `category: "recent"`, not "news").
 
 ### Step 6: Theme Revision (AI call 2 — revision)
 
 LLM sees the actual papers found and revises the central question to better thread them.
 
 - Max 8 words.
+- Papers shown with **600 chars of abstract** (up from 300) for better context.
 - Must connect ALL papers found.
 - Must sound natural, not goofy.
-- This keeps the theme grounded in what was found while preserving the surprise factor.
+- Instruction: "ALWAYS revise" — learned from experience that giving opt-out results in no revision.
 
-### Step 7: Synthesis (AI call 3 — synthesis)
+### Step 7: Multi-Stage Synthesis (AI calls 3-6)
 
-LLM generates a JSON response containing: summaries, key findings, synthesis narrative, keyConcepts.
+Previously a single LLM call. Now four stages based on research:
 
-**Structure: 3 lenses on the central question, NOT paper-by-paper.**
+#### Stage A: Metadata Generation (AI call 3)
+Produces per-paper summaries, keywords, findings, connectionToTheme, and keyConcepts. Separated from synthesis so the model can focus on accurate metadata extraction.
 
-Each paragraph centers on a FACET of the question, not on a single paper:
-1. **The Mechanism** — what's actually happening under the hood? Pull in paper(s) that explain the "how."
-2. **The Evidence** — what proof exists? Show where papers agree, disagree, or complement each other. Numbers and results go here.
-3. **The Implication** — so what? What does this mean for the real world? What hard question remains?
+#### Stage B: Argument Skeleton (AI call 4)
+**Research:** Cross-Document Structure Theory (Radev 2000), Tree of Thoughts (Yao 2023)
 
-Papers are woven across paragraphs (a paper can appear in multiple paragraphs, multiple papers in one paragraph). Every paper must appear at least once in bold. The synthesis should find **tension** (papers that push in different directions) or **complement** (papers that fill different gaps in the same puzzle).
+Before writing prose, the LLM:
+1. Identifies cross-document relations (agrees, contradicts, extends, alternative mechanism, unrelated)
+2. Assigns each paper a role (supports, complicates, provides evidence, is weak fit)
+3. Identifies the core tension between papers
+4. Plans the argument arc
+5. Flags papers that should be skipped rather than forced
 
-- **Conversational tone**. Contractions, casual transitions.
-- Paper names in **bold** (short version before the colon).
-- Key findings must be **RESULTS, not methodology** ("They found X" not "They used method Y").
-- Ends with a specific "where to go deeper" pointer.
-- Define jargon immediately when first used. Hard words become keyConcepts with hover definitions.
-- **Banned words**: demonstrates, reveals, nuanced, multifaceted, elicits, "the question of whether".
-- NO em dashes, NO filler phrases ("so basically", "what's wild is").
+#### Stage C: Synthesis Draft (AI call 5)
+Writes the paragraph following the skeleton's argument arc. Papers marked "is_weak_fit" are mentioned briefly or skipped entirely. This produces genuinely argumentative text because the model has already planned its structure.
+
+#### Stage D: Self-Refine (AI call 6, conditional)
+**Research:** Self-Refine (Madaan et al. 2023, NeurIPS) — ~20% quality improvement
+
+The LLM critiques its own synthesis on four dimensions (1-5 each):
+- **Argument** — is it making a point, not just summarizing?
+- **Connection** — are all papers necessary to the argument?
+- **Accessibility** — would a non-expert understand?
+- **Specificity** — does it include real findings/numbers?
+
+If any score < 4, the LLM revises based on specific critique feedback. The revision targets only the weakest point.
+
+**Style rules** (unchanged):
+- Conversational tone, contractions, casual transitions
+- Paper names in **bold** (short conversational name)
+- Key findings must be RESULTS, not methodology
+- Define jargon immediately
+- Banned words: demonstrates, reveals, nuanced, multifaceted
+- NO em dashes, NO filler phrases
 
 ### Step 8: Storage
 
@@ -120,15 +169,23 @@ Papers are woven across paragraphs (a paper can appear in multiple paragraphs, m
 
 ---
 
-## Total AI Calls Per Digest: 3
+## Total AI Calls Per Digest: 6-9
 
-| Call | Step | Input tokens (approx) | Output tokens (approx) |
-|------|------|-----------------------|------------------------|
-| 1. Hypothesis generation | Step 2 | ~800 | ~100 |
-| 2. Theme revision | Step 6 | ~2500 | ~50 |
-| 3. Synthesis | Step 7 | ~8000-15000 | ~800 |
+| Call | Step | When | Input tokens (approx) | Output tokens (approx) |
+|------|------|------|-----------------------|------------------------|
+| 1. Hypothesis generation | Step 2 | Always | ~800 | ~100 |
+| 2. Theme shortening | Step 2 | If >8 words | ~100 | ~30 |
+| 3. Theme novelty retry | Step 2 | If sim >0.7 to recent | ~400 | ~100 |
+| 4. Counter-query | Step 4b | Always (paper 2 slot) | ~500 | ~50 |
+| 5. LLM re-ranking | Step 4c | If ≥2 papers | ~600 | ~100 |
+| 6. Theme revision | Step 6 | Always | ~3000 | ~50 |
+| 7. Metadata (Stage A) | Step 7 | Always | ~6000 | ~600 |
+| 8. Skeleton (Stage B) | Step 7 | Always | ~4000 | ~300 |
+| 9. Synthesis draft (Stage C) | Step 7 | Always | ~5000 | ~400 |
+| 10. Self-critique (Stage D) | Step 7 | Always | ~1000 | ~150 |
+| 11. Revision (Stage D) | Step 7 | If any score < 4 | ~1000 | ~400 |
 
-**Total: ~10000-18000 tokens per digest.**
+**Typical: 8-9 calls, ~20000-25000 tokens per digest.** Calls 2-3 and 11 are conditional.
 
 ---
 
@@ -136,11 +193,29 @@ Papers are woven across paragraphs (a paper can appear in multiple paragraphs, m
 
 | Gate | Threshold | Applied at |
 |------|-----------|-----------|
+| SIM_MIN_THEME | cosine > 0.12 | Step 4 hard floor |
 | SIM_ONTOPIC | cosine > 0.25 | Step 4 paper selection |
-| SIM_FALLBACK | cosine > 0.15 | Step 4 if no papers pass primary threshold |
+| SIM_FALLBACK | cosine > 0.15 | Step 4 fallback + news + explore |
 | News embedding similarity | cosine > 0.15 | Step 5 web results |
 | Listicle filter | regex + domain blocklist | Step 5 web results |
-| Cross-digest dedup | last 30 days (includes same-day regenerations) | Step 3 candidate filtering |
+| Academic domain filter | domain hostname check | Step 5 web results |
+| Paywall detection | 2+ paywall signals | Step 5 article fetch |
+| Theme novelty | cosine < 0.7 vs recent themes | Step 2 after generation |
+| Theme word count | ≤ 8 words | Step 2 after generation |
+| LLM re-rank score | score > 2 to keep | Step 4c |
+| Cross-digest dedup | last 30 days | Step 3 candidate filtering |
+| Citation floor | cited_by_count > 1 | Step 3 OpenAlex filter |
+
+---
+
+## Degraded Mode (ONNX unavailable)
+
+When the local embedding model fails to load (e.g., Vercel cold starts):
+- `isEmbeddingDegraded()` returns `true`
+- Warning logged: `⚠ ONNX unavailable — running in DEGRADED mode`
+- Cosine similarity falls back to keyword overlap
+- Unknown text pairs return **0.1** (conservative — was 0.3, which bypassed all gates)
+- The LLM re-ranking step partially compensates by providing quality scoring
 
 ---
 
@@ -155,7 +230,7 @@ Interests have a `weight` field (default 1.0). Weights affect how often an inter
 | Star on paper | +0.1 to best-matching interest | 3.0 |
 | Dislike on paper | -0.2 to paper's keywords | floor 0 |
 | Synthesis chat question | +0.05 to best-matching interest | 3.0 |
-| Daily decay | x0.95 applied each digest generation | — |
+| Daily decay | x0.95 applied once per day | — |
 
 ---
 
@@ -167,12 +242,15 @@ At the start of each generation, paper titles from the last 30 days of digests a
 
 ## Known Limitations
 
-1. **LLM determinism**: The central question generation may produce different themes on regeneration for the same user on the same day (LLM is not deterministic). This is acceptable — regeneration is an explicit user action.
+1. **LLM determinism**: The central question generation may produce different themes on regeneration (LLM is not deterministic). This is acceptable — regeneration is an explicit user action.
 2. **Single-word interests**: "robotics" or "cooking" alone produce a weaker theme than cross-domain combos. The LLM handles this by finding surprising angles within the single domain.
-3. **SIM_ONTOPIC threshold**: 0.25 is relatively loose (all-MiniLM-L6-v2 scores). If theme is very abstract ("Can AI be fashionable?"), many tangentially related papers may pass. The synthesis prompt compensates by framing papers as lenses rather than direct answers.
-4. **News validation**: Embedding similarity is better than keyword matching but short snippets may still produce false positives. The listicle filter helps catch the worst offenders.
-5. **Academic papers in news slots**: Web search can surface journal articles (e.g. from frontiersin.org, nature.com) that get mislabeled as "news." The pipeline needs source-type detection for academic domains so these items are correctly labeled as papers.
-6. **Sequential synthesis structure** (FIXED): Was forcing a linear A→B→C narrative. Now uses lens-based structure: Mechanism → Evidence → Implication, with papers woven across paragraphs.
+3. **SIM_ONTOPIC threshold**: 0.25 is relatively loose (all-MiniLM-L6-v2 scores). If theme is very abstract, many tangentially related papers may pass. MMR diversity + LLM re-ranking compensate.
+4. **News validation**: Embedding similarity + academic domain filter + listicle filter is multi-layered but short snippets may still produce false positives.
+5. ~~**Academic papers in news slots**~~ (FIXED): Academic domain detection now filters publisher URLs from news results.
+6. ~~**Sequential synthesis structure**~~ (FIXED): Now uses lens-based structure.
+7. **Content mix slider**: Stored in DB but currently hardcoded to 2+1. Could be wired up later.
+8. **all-MiniLM-L6-v2 cross-domain weakness**: Symmetric bi-encoders underscores cross-domain papers. LLM re-ranking partially compensates but a model upgrade (e.g., bge-small-en-v1.5) would help.
+9. **RSS feeds are US tech only**: TechCrunch, Ars Technica, Wired. Non-tech interests get poor news coverage from RSS fallback.
 
 ---
 
@@ -184,7 +262,12 @@ At the start of each generation, paper titles from the last 30 days of digests a
 - **Interest rotation** prevents same-topic digests every day
 - **"Max 8 words" rule** makes themes punchy
 - **Conversational synthesis tone** with concrete examples in prompt
-- **Banning specific AI-speak words** ("demonstrates", "nuanced", "elicits") dramatically improves output
+- **Banning specific AI-speak words** dramatically improves output
+- **MMR diversity** prevents redundant paper sets from same lab/method
+- **Counter-query for tension** finds papers that genuinely challenge paper 1
+- **LLM re-ranking** catches papers that are topically related but add no new angle
+- **Theme novelty scoring** prevents repetitive theme patterns across days
+- **Academic domain filter** properly excludes journal articles from news slots
 
 ## What Didn't Work
 
@@ -196,13 +279,15 @@ At the start of each generation, paper titles from the last 30 days of digests a
 - **Weight boost of +0.5 per star**: too aggressive, one star dominated all future digests
 - **"Paper A" / "Paper B" labels in synthesis**: AI kept using them instead of actual titles
 - **Letting AI decide whether to revise theme** ("changed: true/false"): it always said false. Now we always revise.
-- **Pink (#ff007f) as highlight color**: felt out of place with the brutalist aesthetic. Switched to neutral black.
-- **Per-item sequential synthesis paragraphs**: "Para 1 about paper A, Para 2 about paper B relates to A, Para 3 about C adds something" creates a chain, not lenses. The third item always feels like an afterthought. Need to restructure around the question, not around items in order.
+- **Per-item sequential synthesis paragraphs**: creates a chain, not lenses. Third item feels like afterthought.
+- **Theme word matching for recency penalty**: imprecise — shared words between themes and interests caused over/under-penalization. Now tracks actual paper keywords.
+- **Returning 0.3 for unknown embedding pairs**: bypassed all quality gates when ONNX unavailable. Now returns 0.1.
+- **Single focusField for cross-domain themes**: all queries went to one field, secondary domain papers were never found.
 
 ---
 
 ## Top 3 Ideas to Improve (rolling)
 
-1. **Academic domain detection in news slots**: Detect when a web search result is actually from an academic publisher (frontiersin.org, nature.com, sciencedirect.com, springer.com, wiley.com, etc.) and reclassify it as a paper instead of news. This is a concrete bug — the current pipeline mislabels journal articles as news.
-2. **Forward citation lookup**: Find papers that cite the same foundational work but disagree with each other. Would create real intellectual tension in synthesis.
-3. **User digest feedback loop**: after reading a digest, user rates it 1-5. Use this to fine-tune interest weights and theme quality over time.
+1. **Upgrade embedding model**: Switch to `bge-small-en-v1.5` or `msmarco-MiniLM-L6-v3` for better cross-domain and asymmetric query-document scoring. Requires recalibrating all thresholds.
+2. **User digest feedback loop**: after reading a digest, user rates it 1-5. Use this to fine-tune interest weights and theme quality over time.
+3. **Dynamic item count**: Let the pipeline determine 2-5 items based on candidate quality rather than forcing a fixed 3-item format.
