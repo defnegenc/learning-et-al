@@ -8,7 +8,8 @@ import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
-import { digestPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, institutionBoost } from "@/lib/venue-quality";
@@ -51,6 +52,8 @@ type TaggedItem = {
   source: "semantic_scholar" | "rss" | "arxiv";
   category: "foundational" | "recent" | "news";
   year?: number;
+  /** Hint for synthesis: "this paper was selected to contradict/complicate paper 1" */
+  tensionHint?: string;
 };
 
 async function searchPapers(
@@ -494,27 +497,25 @@ Return JSON only (no markdown):
   }
   // Otherwise keep default 2+1
 
-  // Slot strategy: MMR (Maximal Marginal Relevance) — balance relevance with diversity
-  // Pick papers that are relevant to the theme but dissimilar to already-picked papers
-  // Lambda=0.6 favors relevance slightly over diversity (Carbonell & Goldstein, 1998)
+  // ─── Wide pool + LLM selection for complementarity ──────────────────────────
+  // Select a WIDER pool (~6) via MMR for diversity, then let the LLM pick the
+  // best subset for complementarity. Embeddings find relevance, but only the
+  // LLM can assess whether papers complement each other for an argument.
+  const WIDE_POOL_SIZE = Math.min(6, qualified.length);
   const MMR_LAMBDA = 0.6;
-  const items: TaggedItem[] = [];
+  const widePool: TaggedItem[] = [];
   const seenTitles = new Set<string>(seenPaperTitles);
-  const selectedEmbs: number[][] = []; // embeddings of already-selected papers
+  const selectedEmbs: number[][] = [];
+  const mmrCandidates = [...qualified.filter(({ p }) => !seenTitles.has(p.title.toLowerCase()))];
 
-  // MMR selection for exploit slots
-  const exploitSlots = Math.max(1, targetPapers - 1);
-  const candidatePool = qualified.filter(({ p }) => !seenTitles.has(p.title.toLowerCase()));
-
-  for (let slot = 0; slot < exploitSlots && candidatePool.length > 0; slot++) {
+  for (let slot = 0; slot < WIDE_POOL_SIZE && mmrCandidates.length > 0; slot++) {
     let bestIdx = 0;
     let bestMmr = -Infinity;
 
-    for (let i = 0; i < candidatePool.length; i++) {
-      const { score } = candidatePool[i];
-      // Max similarity to any already-selected paper (diversity penalty)
+    for (let i = 0; i < mmrCandidates.length; i++) {
+      const { score } = mmrCandidates[i];
       let maxSimToSelected = 0;
-      const candidateEmb = resultEmbs[allResults.indexOf(candidatePool[i].p)];
+      const candidateEmb = resultEmbs[allResults.indexOf(mmrCandidates[i].p)];
       if (candidateEmb) {
         for (const selEmb of selectedEmbs) {
           const sim = cosineSimilarity(candidateEmb, selEmb);
@@ -522,133 +523,69 @@ Return JSON only (no markdown):
         }
       }
       const mmrScore = MMR_LAMBDA * score - (1 - MMR_LAMBDA) * maxSimToSelected;
-      if (mmrScore > bestMmr) {
-        bestMmr = mmrScore;
-        bestIdx = i;
-      }
+      if (mmrScore > bestMmr) { bestMmr = mmrScore; bestIdx = i; }
     }
 
-    const pick = candidatePool[bestIdx];
+    const pick = mmrCandidates[bestIdx];
     const pickEmb = resultEmbs[allResults.indexOf(pick.p)];
     if (pickEmb) selectedEmbs.push(pickEmb);
 
-    items.push({
+    widePool.push({
       title: pick.p.title, authors: pick.p.authors, abstract: pick.p.abstract,
       sourceUrl: pick.p.sourceUrl, pdfUrl: pick.p.pdfUrl || undefined,
       source: pick.p.source, year: pick.p.year,
-      category: items.length === 0 ? "foundational" : "recent",
+      category: slot === 0 ? "foundational" : "recent",
     });
     seenTitles.add(pick.p.title.toLowerCase());
-    console.log(`[Digest] Paper ${items.length} (MMR exploit): "${pick.p.title}" (score ${pick.score.toFixed(2)}, mmr ${bestMmr.toFixed(2)})`);
-    candidatePool.splice(bestIdx, 1);
+    console.log(`[Digest] Wide pool ${slot + 1}/${WIDE_POOL_SIZE}: "${pick.p.title}" (score ${pick.score.toFixed(4)}, theme ${pick.themeSim.toFixed(2)})`);
+    mmrCandidates.splice(bestIdx, 1);
   }
 
-  // Explore slot: tension-seeking counter-query + adjacent interest fallback
-  // Instead of just finding a "different" paper, find one that CONTRADICTS or COMPLICATES
-  // the first paper's findings — this creates real synthesis tension (audit 4.2).
-  if (items.length < targetPapers) {
-    let explorePicked = false;
-    const firstPaper = items[0];
-
-    // Try counter-query: ask LLM for a query that finds papers contradicting/complicating paper 1
-    if (firstPaper) {
-      try {
-        console.log(`[Digest] Generating counter-query for tension with "${firstPaper.title.slice(0, 50)}"...`);
-        const counterResp = await aiComplete(aiConfig,
-          "You generate academic search queries. Return only JSON.",
-          `Paper 1 for today's digest: "${firstPaper.title}" — ${firstPaper.abstract.slice(0, 300)}
-
-Theme: "${theme}"
-
-Generate a search query that would find a paper offering a DIFFERENT PERSPECTIVE on the theme. Not the same finding — a paper that:
-- Contradicts paper 1's conclusions, OR
-- Studies the same question from a completely different field, OR
-- Shows a limitation or failure case of what paper 1 found works
-
-Return JSON: {"counterQuery": "3-5 word academic search query", "counterField": "academic field to search in"}`
-        );
-        const counterJson = counterResp.match(/\{[\s\S]*\}/);
-        if (counterJson) {
-          const { counterQuery, counterField } = JSON.parse(counterJson[0]);
-          if (counterQuery) {
-            console.log(`[Digest] Counter-query: "${counterQuery}" [field: ${counterField || focusFields[0]}]`);
-            await delay(500);
-            const counterResults = await searchPapers(counterQuery, 8, "publicationDate", counterField || focusFields[0]);
-            for (const p of counterResults) {
-              if (seenTitles.has(p.title.toLowerCase())) continue;
-              const sim = cosineSimilarity(themeEmb, await embedText(paperText(p)));
-              const vBoost = venueQualityBoost(p.venueName, p.primaryDomain);
-              const iBoost = institutionBoost(p.institutions || []);
-              if (sim + vBoost + iBoost > SIM_FALLBACK) {
-                items.push({
-                  title: p.title, authors: p.authors, abstract: p.abstract,
-                  sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl || undefined,
-                  source: p.source, year: p.year, category: "recent",
-                });
-                seenTitles.add(p.title.toLowerCase());
-                console.log(`[Digest] Paper ${items.length} (counter-query): "${p.title}" (sim ${sim.toFixed(2)})`);
-                explorePicked = true;
-                break;
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.log(`[Digest] Counter-query failed (${err}), falling back to adjacent interest`);
-      }
-    }
-
-    // Fallback: adjacent interest search
-    if (!explorePicked) {
-      const unusedInterests = candidateInterests.filter(i =>
-        !selectedInterestKeywords.includes(i.keyword)
-      );
-      const adjacentQuery = unusedInterests.length > 0
-        ? `${theme} ${unusedInterests[0].keyword}`
-        : searchQueries[2] || searchQueries[0];
-
-      console.log(`[Digest] Explore slot fallback: adjacent query "${adjacentQuery}"`);
-      await delay(500);
-      const exploreResults = await searchPapers(adjacentQuery, 8, "publicationDate", focusFields[0]);
-
-      for (const p of exploreResults) {
-        if (seenTitles.has(p.title.toLowerCase())) continue;
-        const sim = cosineSimilarity(themeEmb, await embedText(paperText(p)));
-        const vBoost = venueQualityBoost(p.venueName, p.primaryDomain);
-        const iBoost = institutionBoost(p.institutions || []);
-        if (sim + vBoost + iBoost > SIM_FALLBACK) {
-          items.push({
-            title: p.title, authors: p.authors, abstract: p.abstract,
-            sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl || undefined,
-            source: p.source, year: p.year, category: "recent",
-          });
-          seenTitles.add(p.title.toLowerCase());
-          console.log(`[Digest] Paper ${items.length} (explore): "${p.title}" (sim ${sim.toFixed(2)})`);
-          explorePicked = true;
-          break;
-        }
-      }
-    }
-
-    // Last resort: take from existing qualified pool
-    if (!explorePicked) {
-      const remaining = qualified.filter(({ p }) => !seenTitles.has(p.title.toLowerCase()));
-      if (remaining.length > 0) {
-        const pick = remaining[0];
-        items.push({
-          title: pick.p.title, authors: pick.p.authors, abstract: pick.p.abstract,
-          sourceUrl: pick.p.sourceUrl, pdfUrl: pick.p.pdfUrl || undefined,
-          source: pick.p.source, year: pick.p.year, category: "recent",
-        });
-        seenTitles.add(pick.p.title.toLowerCase());
-        console.log(`[Digest] Paper ${items.length} (pool fallback): "${pick.p.title}"`);
-      }
-    }
-  }
-
-  if (items.length === 0) {
+  if (widePool.length === 0) {
     throw new Error(`Could not find relevant papers for "${theme}". Try regenerating or adding more interests.`);
   }
+
+  // LLM selects best papers for complementarity from the wide pool
+  let items: TaggedItem[];
+  if (widePool.length <= targetPapers) {
+    items = widePool;
+    console.log(`[Digest] Wide pool has only ${widePool.length} papers, using all`);
+  } else {
+    console.log(`[Digest] LLM selecting best ${targetPapers} from ${widePool.length} candidates for complementarity...`);
+    try {
+      const selectionResp = await aiComplete(
+        aiConfig,
+        "You select research papers that complement each other for a synthesis argument. Return only JSON.",
+        selectionSkeletonPrompt(
+          widePool.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year })),
+          theme,
+          targetPapers
+        )
+      );
+      const selectionMatch = selectionResp.match(/\{[\s\S]*\}/);
+      if (selectionMatch) {
+        const selection = JSON.parse(selectionMatch[0]);
+        const indices: number[] = selection.selectedIndices || [];
+        if (indices.length >= 2) {
+          items = indices
+            .filter((i: number) => i >= 1 && i <= widePool.length)
+            .map((i: number) => widePool[i - 1]);
+          console.log(`[Digest] LLM selected ${items.length} papers: ${selection.selectionReasoning || ""}`);
+          console.log(`[Digest] Tension: ${selection.coreTension || "none identified"}`);
+        } else {
+          items = widePool.slice(0, targetPapers);
+          console.log(`[Digest] LLM returned too few indices, using top ${targetPapers}`);
+        }
+      } else {
+        items = widePool.slice(0, targetPapers);
+        console.log(`[Digest] Selection parse failed, using top ${targetPapers}`);
+      }
+    } catch (err) {
+      items = widePool.slice(0, targetPapers);
+      console.log(`[Digest] Selection LLM failed (${err}), using top ${targetPapers}`);
+    }
+  }
+
 
   // themeWords used for news validation (short snippets don't embed well)
   const themeWords = theme.toLowerCase()
@@ -657,7 +594,7 @@ Return JSON: {"counterQuery": "3-5 word academic search query", "counterField": 
 
   // ─── Step 4: Fill remaining slots (news and/or papers) ───────────────────────
   const newsNeeded = targetNews;
-  const papersNeeded = 3 - items.length - newsNeeded;
+  const papersNeeded = TOTAL_ITEMS - items.length - newsNeeded;
 
   // Find news items if needed
   if (newsNeeded > 0) {
@@ -712,14 +649,14 @@ Return JSON: {"counterQuery": "3-5 word academic search query", "counterField": 
   }
 
   // Fill remaining slots with papers
-  if (items.length < 3) {
-    const remaining = 3 - items.length;
+  if (items.length < TOTAL_ITEMS) {
+    const remaining = TOTAL_ITEMS - items.length;
     console.log(`[Digest] Filling ${remaining} remaining slot(s) with papers...`);
     await delay(500);
     const fillQuery = searchQueries[2] || `${focusInterest} applications`;
     const fillResults = await searchPapers(fillQuery, 8, "citationCount", focusFields[0]);
     for (const paper of fillResults) {
-      if (items.length >= 3) break;
+      if (items.length >= TOTAL_ITEMS) break;
       if (seenTitles.has(paper.title.toLowerCase())) continue;
       const sim = cosineSimilarity(themeEmb, await embedText(paperText(paper)));
       if (sim > SIM_ONTOPIC) {
@@ -735,13 +672,13 @@ Return JSON: {"counterQuery": "3-5 word academic search query", "counterField": 
     }
   }
 
-  // Final broad fill if still under 3 items
-  if (items.length < 3) {
+  // Final broad fill if still under target
+  if (items.length < TOTAL_ITEMS) {
     console.log(`[Digest] Only ${items.length} items, trying broad fill...`);
     await delay(500);
     const broadResults = await searchPapers(focusInterest, 12, "publicationDate", focusFields[0]);
     for (const paper of broadResults) {
-      if (items.length >= 3) break;
+      if (items.length >= TOTAL_ITEMS) break;
       if (seenTitles.has(paper.title.toLowerCase())) continue;
       const sim = cosineSimilarity(themeEmb, await embedText(paperText(paper)));
       if (sim > SIM_FALLBACK) {
@@ -801,12 +738,14 @@ Return JSON: {"scores": [{"index": 1, "score": N, "reason": "brief reason"}]}`
                 !items.some(it => it.title === p.title)
               );
               if (replacement) {
+                const originalCategory = items[itemIdx].category;
                 console.log(`[Digest] Swapping low-scored paper for "${replacement.p.title.slice(0, 40)}"`);
                 items[itemIdx] = {
                   title: replacement.p.title, authors: replacement.p.authors,
                   abstract: replacement.p.abstract, sourceUrl: replacement.p.sourceUrl,
                   pdfUrl: replacement.p.pdfUrl || undefined,
-                  source: replacement.p.source, year: replacement.p.year, category: "recent",
+                  source: replacement.p.source, year: replacement.p.year,
+                  category: originalCategory, // preserve slot's original category
                 };
                 seenTitles.add(replacement.p.title.toLowerCase());
               }
@@ -874,6 +813,7 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
   // Research: Yao 2023 (Tree of Thoughts), Radev 2000 (CST), Madaan 2023 (Self-Refine)
   const paperListing = items.map(p => ({
     title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year,
+    tensionHint: p.tensionHint,
   }));
   const synthesisCtx = { focusInterest, focusLevel, researchAngle: finalTheme };
 

@@ -81,7 +81,7 @@ Rankings are fused using RRF: `RRF(d) = sum(1/(k + rank_i(d)))` with k=60.
 - `SIM_ONTOPIC = 0.25` — primary inclusion threshold
 - `SIM_FALLBACK = 0.15` — last-resort threshold
 
-Fixed at **2 papers + 1 news** (best balance per recsys literature: 2 exploit + 1 explore).
+**Dynamic item count**: default **2 papers + 1 news**, adapts to **3+0** (many strong papers), **1+2** (few strong papers), or keeps **2+1** otherwise.
 
 ### Step 4b: Counter-Query for Tension
 
