@@ -346,6 +346,7 @@ Return JSON only (no markdown):
   const resultEmbs = await embedBatch(allResults.map(paperText));
   const currentYear = new Date().getFullYear();
 
+  const SIM_MIN_THEME = 0.18; // minimum raw theme similarity — no amount of boosts can compensate for irrelevance
   const scored = allResults
     .map((p, i) => {
       const themeSim = cosineSimilarity(themeEmb, resultEmbs[i]);
@@ -366,6 +367,7 @@ Return JSON only (no markdown):
       return { p, themeSim, score };
     })
     .filter(({ p }) => !seenPaperTitles.has(p.title.toLowerCase()))
+    .filter(({ themeSim }) => themeSim >= SIM_MIN_THEME) // hard floor: paper must be somewhat about the theme
     .sort((a, b) => b.score - a.score);
 
   const threshold = scored.some(({ score }) => score > SIM_ONTOPIC) ? SIM_ONTOPIC : SIM_FALLBACK;
