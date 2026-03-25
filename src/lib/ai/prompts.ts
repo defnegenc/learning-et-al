@@ -106,6 +106,7 @@ CRITICAL RULES:
 - When moving between papers, ADD A BRIDGE SENTENCE that explicitly connects them.
 - Don't just place papers next to each other and hope the reader connects them. SPELL OUT the connection.
 - NEVER mention topics that aren't in the papers. If no paper mentions interior design, don't bring up interior design. Only discuss what the papers actually cover.
+- If a paper doesn't meaningfully connect to the theme, SKIP IT. Better to write about 2 papers well than 3 papers where one is a stretch. You can mention the skipped paper in one sentence at the end if you want, but don't build your argument around it.
 - If two papers seem barely related, be honest: "These two don't obviously connect, but..." is better than forcing a fake connection.
 
 LENGTH: 5-8 sentences. ONE or TWO paragraphs. Tell the reader enough about each paper that they don't need to read it — what was studied, what was found, and why it matters for the theme.
