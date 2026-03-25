@@ -519,6 +519,13 @@ Return JSON only (no markdown):
   }
   console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (theme: ${scored[0]?.themeSim.toFixed(2)})`);
 
+  // If no papers qualified at all, take the top scored papers regardless of threshold
+  if (qualified.length === 0 && scored.length > 0) {
+    console.log(`[Digest] No papers passed any threshold — taking top ${Math.min(3, scored.length)} by score`);
+    qualified = scored.slice(0, Math.min(3, scored.length));
+    threshold = 0;
+  }
+
   // Dynamic item count: adjust paper:news ratio based on candidate quality (audit 4.4)
   // Count how many papers pass the primary threshold (SIM_ONTOPIC, not fallback)
   const strongPapers = scored.filter(({ themeSim }) => themeSim > SIM_ONTOPIC).length;
@@ -579,13 +586,12 @@ Return JSON only (no markdown):
     mmrCandidates.splice(bestIdx, 1);
   }
 
-  if (widePool.length === 0) {
-    throw new Error(`Could not find relevant papers for "${theme}". Try regenerating or adding more interests.`);
-  }
-
-  // LLM selects best papers for complementarity from the wide pool
+  // If wide pool is empty, skip LLM selection — the fill passes will try harder
   let items: TaggedItem[];
-  if (widePool.length <= targetPapers) {
+  if (widePool.length === 0) {
+    console.log(`[Digest] Wide pool empty — no papers passed threshold. Fill passes will try broader search.`);
+    items = [];
+  } else if (widePool.length <= targetPapers) {
     items = widePool;
     console.log(`[Digest] Wide pool has only ${widePool.length} papers, using all`);
   } else {
