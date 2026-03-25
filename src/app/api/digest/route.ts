@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
         digests: allDigests.map((d) => ({
           ...d,
           keyConcepts: d.keyConcepts ? JSON.parse(d.keyConcepts) : [],
+          suggestedQuestions: d.suggestedQuestions ? JSON.parse(d.suggestedQuestions) : [],
         })),
       });
     }
@@ -60,6 +61,7 @@ export async function GET(req: NextRequest) {
       digest: {
         ...digest,
         keyConcepts: digest.keyConcepts ? JSON.parse(digest.keyConcepts) : [],
+        suggestedQuestions: digest.suggestedQuestions ? JSON.parse(digest.suggestedQuestions) : [],
       },
       papers: digestPapers.map((p) => ({
         ...p,

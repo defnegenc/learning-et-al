@@ -820,14 +820,14 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
   // Stage A: Metadata (items, keywords, findings, keyConcepts)
   console.log(`[Digest] Stage A: generating metadata...`);
   const metadataResp = await aiComplete(aiConfig, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx));
-  let metadata: { items: DigestAIResponse["items"]; keyConcepts: string[] };
+  let metadata: { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
   try {
     const jsonMatch = metadataResp.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON");
     metadata = JSON.parse(jsonMatch[0]);
   } catch {
     console.log(`[Digest] Metadata parse failed, using empty defaults`);
-    metadata = { items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })), keyConcepts: [] };
+    metadata = { items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })), keyConcepts: [], suggestedQuestions: [] };
   }
 
   // Stage B: Skeleton (cross-document relations + argument outline)
@@ -913,6 +913,7 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     theme: finalTheme,
     synthesisContent: parsedAI.synthesis,
     keyConcepts: JSON.stringify(parsedAI.keyConcepts || []),
+    suggestedQuestions: JSON.stringify(metadata.suggestedQuestions || []),
   }).returning();
 
   for (let i = 0; i < items.length; i++) {

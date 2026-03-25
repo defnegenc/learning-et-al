@@ -72,10 +72,20 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
   "items": [
     { "index": 1, "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
   ],
-  "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
+  "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
+  "suggestedQuestions": ["question 1", "question 2", "question 3"]
 }
 
 ${METADATA_RULES(ctx)}
+
+SUGGESTED QUESTIONS RULES:
+- Generate exactly 3 questions a curious reader would ask after reading the synthesis.
+- Each question must be SPECIFIC to these papers, not generic. Reference actual findings or tensions.
+- Questions should pull the reader deeper — "What would happen if...", "Why doesn't...", "How does X square with Y?"
+- BAD: "What are the implications of this research?" (generic, boring)
+- GOOD: "If AI tutors outperform human ones, why do students still prefer human teachers?" (specific, surprising)
+- Keep each question under 15 words.
+- At least one question should highlight a tension BETWEEN the papers.
 
 Papers:
 
