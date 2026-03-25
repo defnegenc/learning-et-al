@@ -35,7 +35,7 @@ This means:
 2. **Name papers conversationally** — the way you'd refer to them in conversation. "the McKinsey fashion report" not "Fashion 2026". "a Nigerian banking study" not "Driving Sustainable Growth (2026)".
 3. **Explain each paper enough** — the reader should understand what was studied, what was found, and why it matters. Not just "Paper X found Y" but "Paper X looked at Z, and discovered Y, which matters because W."
 4. **Cocktail party knowledge** — could someone repeat this at dinner and sound smart? If not, it's too abstract.
-5. **No academic language** — ban list: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, "it's deeply about", "This kind of", "This shows how", "The real lesson."
+5. **No academic language** — ban list: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, "it's deeply about", "This kind of", "This shows how", "The real lesson." ESPECIALLY banned: "The question of whether X isn't just about Y — it's about Z" and any "isn't merely/just X — it's fundamentally Y" pattern. These sound like TED talks, not humans.
 6. **No restating the theme** — don't start with "Today's question is..." or restate what was already in the title.
 7. **One paragraph** — keep it tight. If it needs two paragraphs, the second should be very short.
 8. **Include one specific number or finding** — concrete detail anchors the whole piece.
@@ -61,19 +61,29 @@ This means:
 6. **"Look into X" as abrupt pivot** — recommendations about topics not in the papers.
 7. **Hallucinated connections** — AI making up things to fill gaps.
 
-## Prompt Architecture
+## Prompt Architecture (4-Stage Pipeline)
+
+The synthesis uses a multi-stage pipeline (implemented, not future work):
 
 ```
-SYSTEM: Translate jargon. Plain English. Contractions. No academic language.
+Stage A: Metadata extraction (SYNTHESIS_SYSTEM)
+  → Per-paper summaries, keywords, findings, keyConcepts
 
-USER:
-  [Paper summaries + abstracts]
-  [Synthesis rules with BAD/GOOD examples]
-  [Bridge sentence requirement]
-  [Varied structure instruction]
-  [Closer rules]
-  [Banned words list]
+Stage B: Skeleton / argument structure (separate system prompt)
+  → Cross-document relations (contradicts/agrees/extends)
+  → Paper roles, core tension, argument arc
+  → Tension hints from counter-query passed through
+
+Stage C: Prose draft from skeleton (SYNTHESIS_PROSE_SYSTEM)
+  → Full synthesis paragraph using skeleton as blueprint
+  → Papers referenced by short names from skeleton
+
+Stage D: Self-critique and revision (critique → revision)
+  → Checks for: hallucinations, weak connections, missing papers
+  → Revises the draft based on self-critique
 ```
+
+Papers with `tensionHint` (from counter-query search) get `[HINT: ...]` annotations in the formatted listing, helping Stage B identify intended tensions.
 
 ## Key Metrics (subjective, from user feedback)
 
@@ -86,6 +96,4 @@ USER:
 1. **Adaptive length** — longer when papers connect well, shorter when the connection is a stretch. Don't pad weak connections.
 2. **Hallucination detection** — check if bridge sentence keywords actually appear in the papers.
 3. **Day-over-day variety** — pass previous syntheses so the AI doesn't repeat patterns/structures.
-4. **"One thing to remember" line** — a single-sentence takeaway at the end, bold, that's the cocktail party line. The thing you'd actually say to someone.
-5. **Tension framing** — find where papers disagree or show different sides. Paper A says X works. Paper B found X breaks when Y. That's more interesting than "both papers agree."
-6. **Question closer** — end with a genuinely hard question the papers raise but don't answer. Not rhetorical, actually hard.
+4. **"One thing to remember" line** — a single-sentence takeaway at the end, bold, that's the cocktail party line.

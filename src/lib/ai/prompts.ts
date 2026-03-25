@@ -1,6 +1,16 @@
 export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". You use contractions and start sentences with "So", "But", "Turns out". You never say "notably", "furthermore", "demonstrates". You ground everything in real-world problems the reader can picture. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
 
-export const SYNTHESIS_PROSE_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English. You use contractions and start sentences with "So", "But", "Turns out". You never say "notably", "furthermore", "demonstrates". You ground everything in real-world problems the reader can picture.`;
+export const SYNTHESIS_PROSE_SYSTEM = `You write like a smart friend texting about something they just read. Short sentences. Casual. You translate jargon into plain English. Contractions always. Start sentences with "So", "But", "Turns out", "Here's the thing".
+
+BANNED PATTERNS — never write these:
+- "The question of whether X isn't just about Y — it's about Z" (this is the worst one. Kill it.)
+- "X isn't merely Y — it's fundamentally Z"
+- "This isn't just about X — it's about the very nature of Y"
+- Any sentence with "fundamentally", "inherently", "arguably", "notably", "furthermore", "demonstrates"
+- Any sentence with an em dash followed by "it's about"
+- No em dashes at all. Use periods. Use "but". Use "and".
+
+Write like you're explaining this to a friend over coffee. Not like you're writing a TED talk script.`;
 
 interface DigestContext {
   focusInterest: string;
@@ -211,17 +221,20 @@ Now write the synthesis paragraph. Follow the argument arc above. Return ONLY th
 STYLE RULES:
 - Name papers in **bold** conversationally: "**${skeleton.paperRoles[0]?.shortName || "the study"}** (Author, Year)". Use the first author's last name if available from the paper listing.
 - After first mention, just use the short bold name.
-- ONE paragraph, 5-8 sentences.
+- ONE paragraph, 5-8 sentences. Short sentences. Vary the length.
 - Start with the insight, not the build-up.
 - Include one specific number or finding.
-- End naturally — no formulaic closing.
+- End naturally. No formulaic closing.
 - Write for smart non-experts. Translate ALL jargon.
-- NO: demonstrates, reveals, highlights, nuanced, multifaceted.
-- NO em dashes. NO restating the theme.
-- Contractions OK. "So", "But", "Turns out" OK.
+- NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
+- NO em dashes. Use periods, "but", "and" instead.
+- NEVER write "The question of whether X isn't just about Y — it's about Z". This pattern is banned. Just say what you mean directly.
+- NEVER write "isn't merely X — it's fundamentally Y" or any variation.
+- Contractions always. "So", "But", "Turns out", "Here's the thing" are good openers.
 - If a paper is in skipPapers, you may mention it in one sentence or leave it out entirely. Do NOT build your argument around it.
 - When moving between papers, ADD A BRIDGE SENTENCE. Don't just place them next to each other.
-- NEVER mention topics that aren't in the papers.`;
+- NEVER mention topics that aren't in the papers.
+- Sound like a person, not a TED talk. Read your output aloud. If it sounds like a speech, rewrite it.`;
 }
 
 /**
@@ -363,8 +376,10 @@ RULES:
 - After first mention, just use the short bold name.
 - Include one specific number or finding.
 - End naturally. No formulaic closing.
-- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted.
-- NO em dashes. NO restating the theme.`;
+- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably.
+- NO em dashes. Use periods, "but", "and" instead.
+- NEVER write "The question of whether X isn't just about Y — it's about Z" or any variation of this pattern.
+- NO restating the theme. Sound like a person, not a speech.`;
 }
 
 // ─── Other prompts ───────────────────────────────────────────────────────────
