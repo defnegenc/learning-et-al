@@ -5,6 +5,7 @@ export const users = sqliteTable("users", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   timezone: text("timezone").default("America/New_York"),
   contentMix: integer("content_mix").default(50),
+  cadence: text("cadence", { enum: ["daily", "biweekly", "weekly"] }).default("daily"),
   email: text("email"),
   name: text("name"),
   image: text("image"),
