@@ -936,6 +936,102 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
   );
   synthesis = stripFences(synthesis);
 
+  // Programmatic coverage check: detect missing papers and force a targeted revision
+  const synthLower = synthesis.toLowerCase();
+  const missingPapers = skeleton.paperRoles.filter(r => {
+    const nameWords = r.shortName.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    // A paper counts as "mentioned" if 2+ significant words from its shortName appear in the synthesis
+    const matchCount = nameWords.filter(w => synthLower.includes(w)).length;
+    return matchCount < Math.min(2, nameWords.length);
+  });
+
+  if (missingPapers.length > 0) {
+    const missingDesc = missingPapers.map(r => `"${r.shortName}" (Paper ${r.index}: ${r.coreContribution})`).join(", ");
+    console.log(`[Digest] Coverage gap: ${missingPapers.length} paper(s) missing from synthesis: ${missingDesc}`);
+    try {
+      const coverageRevision = await aiComplete(
+        aiConfig,
+        SYNTHESIS_PROSE_SYSTEM,
+        `The following synthesis is MISSING ${missingPapers.length} paper(s) that must be included. Add them naturally.
+
+Theme: "${finalTheme}"
+Missing papers: ${missingDesc}
+
+Current synthesis:
+"""
+${synthesis}
+"""
+
+Rewrite the synthesis to INCLUDE the missing paper(s) in **bold**. Weave them into the argument naturally — don't just append a sentence at the end. Keep the same tone, length, and style. Return ONLY the revised paragraph.`
+      );
+      const revised = stripFences(coverageRevision);
+      if (revised.length > 50) {
+        synthesis = revised;
+        console.log(`[Digest] Coverage revision applied — added ${missingPapers.length} missing paper(s)`);
+      }
+    } catch (err) {
+      console.log(`[Digest] Coverage revision failed (${err}), proceeding with incomplete synthesis`);
+    }
+  }
+
+  // Factual accuracy check: verify each paper's takeaway is reflected correctly
+  try {
+    const factCheckResp = await aiComplete(
+      aiConfig,
+      "You verify factual accuracy of research synthesis paragraphs. Return only JSON.",
+      `Check if this synthesis ACCURATELY reflects each paper's actual findings. Flag any paper whose contribution is misrepresented, exaggerated, or missing key nuance.
+
+Theme: "${finalTheme}"
+
+Papers and their actual findings:
+${items.map((p, i) => {
+  const aiItem = metadata.items.find(x => x.index === i + 1);
+  return `[${i + 1}] "${p.title}"\nFindings: ${(aiItem?.findings || []).join("; ")}\nSummary: ${aiItem?.summary || p.abstract.slice(0, 200)}`;
+}).join("\n\n")}
+
+Synthesis:
+"""
+${synthesis}
+"""
+
+Return JSON:
+{
+  "accurate": true,
+  "issues": [
+    { "paperIndex": 1, "problem": "what's wrong", "fix": "what the synthesis should say instead" }
+  ]
+}`
+    );
+    const factCheck = extractJson<{ accurate?: boolean; issues?: { paperIndex: number; problem: string; fix: string }[] }>(factCheckResp);
+    if (factCheck && factCheck.issues && factCheck.issues.length > 0 && !factCheck.accurate) {
+      const issueDesc = factCheck.issues.map(i => `Paper ${i.paperIndex}: ${i.problem} → ${i.fix}`).join("; ");
+      console.log(`[Digest] Factual issues found: ${issueDesc}`);
+      const factRevision = await aiComplete(
+        aiConfig,
+        SYNTHESIS_PROSE_SYSTEM,
+        `Fix these factual accuracy issues in the synthesis. Keep the same tone and style.
+
+Issues: ${issueDesc}
+
+Current synthesis:
+"""
+${synthesis}
+"""
+
+Return ONLY the corrected paragraph.`
+      );
+      const revised = stripFences(factRevision);
+      if (revised.length > 50) {
+        synthesis = revised;
+        console.log(`[Digest] Factual accuracy revision applied`);
+      }
+    } else {
+      console.log(`[Digest] Factual accuracy check passed`);
+    }
+  } catch (err) {
+    console.log(`[Digest] Factual accuracy check failed (${err}), proceeding`);
+  }
+
   // Stage D: Self-Refine (critique → revision)
   console.log(`[Digest] Stage D: self-critique...`);
   try {
