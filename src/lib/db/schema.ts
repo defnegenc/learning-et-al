@@ -56,6 +56,7 @@ export const digests = sqliteTable("digests", {
   theme: text("theme"),
   synthesisContent: text("synthesis_content"),
   keyConcepts: text("key_concepts"),
+  suggestedQuestions: text("suggested_questions"),
   starred: integer("starred", { mode: "boolean" }).$default(() => false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });

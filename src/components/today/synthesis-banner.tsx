@@ -243,6 +243,7 @@ interface SynthesisBannerProps {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
+  suggestedQuestions?: string[];
   activeConcept: string | null;
   onConceptClick: (concept: string) => void;
   digestId?: string;
@@ -266,6 +267,7 @@ export function SynthesisBanner({
   synthesis,
   theme,
   keyConcepts,
+  suggestedQuestions,
   activeConcept,
   onConceptClick,
   digestId,
@@ -371,39 +373,13 @@ export function SynthesisBanner({
   }
   const bodyText = bodyLines.join("\n\n");
 
-  // Extract the "look into X" suggestion from the synthesis to use as first dig deeper prompt
-  const lookIntoMatch = useMemo(() => {
-    const match = synthesis.match(/look into\s+(.+?)(?:\s*[,.]|\s+because)/i);
-    return match ? match[1].trim() : null;
-  }, [synthesis]);
-
-  // Dig deeper prompts — one specific question per paper + a cross-cutting question
+  // Dig deeper prompts — prefer LLM-generated, fall back to heuristic
   const digDeeperPrompts = useMemo(() => {
+    if (suggestedQuestions && suggestedQuestions.length > 0) return suggestedQuestions;
     if (papers.length === 0) return [];
-
-    const prompts: string[] = [];
-    for (const p of papers) {
-      // Build a specific question from the paper's content
-      const keywords = p.keywords?.slice(0, 3) || [];
-      const hasAbstract = p.abstract && p.abstract.length > 50;
-      const shortTitle = p.title.length > 60 ? p.title.slice(0, 57) + "..." : p.title;
-
-      if (keywords.length >= 2) {
-        prompts.push(`How does "${shortTitle}" connect ${keywords[0]} to ${keywords[1]}?`);
-      } else if (hasAbstract) {
-        prompts.push(`What's the key finding in "${shortTitle}" and why does it matter?`);
-      } else {
-        prompts.push(`What's surprising about "${shortTitle}"?`);
-      }
-    }
-    // Cross-cutting question tied to the theme
-    if (theme) {
-      prompts.push(`Where do these papers disagree on "${theme}"?`);
-    } else {
-      prompts.push("Where do these papers contradict each other?");
-    }
-    return prompts;
-  }, [papers, theme]);
+    // Fallback: one cross-cutting question
+    return [theme ? `Where do these papers disagree on "${theme}"?` : "Where do these papers contradict each other?"];
+  }, [suggestedQuestions, papers, theme]);
 
   const handleDigDeeper = async (question: string) => {
     if (!session || digDeeperLoading) return;
@@ -574,55 +550,33 @@ export function SynthesisBanner({
       {/* Quick feedback */}
       {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} generating={generating} />}
 
-      {/* Dig deeper */}
+      {/* Dig deeper — no box, just questions + input */}
       {papers.length > 0 && session && (
-        <div
-          style={{
-            border: "2px solid #1a1a1a",
-            boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
-            overflow: "hidden",
-            marginTop: "20px",
-          }}
-        >
-          {/* Header */}
-          <div style={{ background: "#1a1a1a", padding: "14px 20px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "white" }}>
-              Dig Deeper
-            </span>
-          </div>
-
-          {/* Suggested explorations — full-width rows */}
-          {showQuestions && !digDeeperLoading && (
-            <div style={{ padding: "16px 20px" }}>
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#555", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "12px" }}>
-                What do you want to dig deeper into?
-              </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {digDeeperPrompts.map((prompt, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { handleDigDeeper(prompt); setShowQuestions(false); }}
-                    className="hover:translate-x-1 hover:-translate-y-px hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all group"
-                    style={{
-                      width: "100%", padding: "10px 14px", border: "2px solid #1a1a1a", background: "white",
-                      fontSize: "0.82rem", fontWeight: 500,
-                      color: "#1a1a1a", textAlign: "left", cursor: "pointer",
-                      lineHeight: 1.4,
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                    }}
-                  >
-                    <span>{prompt.replace(/\*\*/g, "")}</span>
-                    <span style={{ color: "#1a1a1a", fontSize: "0.85rem" }} className="group-hover:translate-x-1 transition-transform">→</span>
-                  </button>
-                ))}
-              </div>
+        <div style={{ marginTop: "28px" }}>
+          {/* Suggested questions as inline buttons */}
+          {showQuestions && !digDeeperLoading && digDeeperPrompts.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
+              {digDeeperPrompts.map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => { handleDigDeeper(prompt); setShowQuestions(false); }}
+                  className="hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all"
+                  style={{
+                    padding: "8px 14px", border: "2px solid #1a1a1a", background: "white",
+                    fontSize: "0.8rem", fontWeight: 500,
+                    color: "#1a1a1a", textAlign: "left", cursor: "pointer",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {prompt.replace(/\*\*/g, "")}
+                </button>
+              ))}
             </div>
           )}
 
           {/* Conversation history */}
           {digDeeperHistory.length > 0 && (
-            <div style={{ padding: "16px 20px", maxHeight: "400px", overflowY: "auto" }}>
+            <div style={{ marginBottom: "16px", maxHeight: "400px", overflowY: "auto" }}>
               {digDeeperHistory.map((entry, i) => (
                 <div key={i} style={{ marginBottom: i < digDeeperHistory.length - 1 ? "16px" : "0" }}>
                   <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "8px", fontFamily: "var(--font-mono), monospace" }}>
@@ -646,16 +600,16 @@ export function SynthesisBanner({
 
           {/* Loading indicator */}
           {digDeeperLoading && (
-            <div className="flex items-center gap-2 text-[#888]" style={{ padding: "12px 20px" }}>
+            <div className="flex items-center gap-2 text-[#888]" style={{ marginBottom: "12px" }}>
               <Loader2 className="size-3.5 animate-spin" />
               <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono), monospace" }}>Thinking...</span>
             </div>
           )}
 
-          {/* Input */}
+          {/* Text input bar */}
           <div style={{
-            borderTop: "2px solid #1a1a1a", padding: "14px 20px",
-            display: "flex", gap: "10px", alignItems: "center", background: "#fafafa",
+            display: "flex", gap: "10px", alignItems: "center",
+            border: "2px solid #1a1a1a", padding: "10px 14px", background: "white",
           }}>
             <input
               value={customQuestion}

@@ -203,6 +203,7 @@ interface Digest {
   theme: string | null;
   synthesisContent: string | null;
   keyConcepts: string[];
+  suggestedQuestions?: string[];
   starred: boolean | null;
   date: string;
 }
@@ -420,6 +421,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
                 synthesis={digest.synthesisContent}
                 theme={digest.theme ?? undefined}
                 keyConcepts={digest.keyConcepts}
+                suggestedQuestions={digest.suggestedQuestions}
                 digestId={digest.id}
                 digestStarred={!!digest.starred}
                 activeConcept={activeConcept}
