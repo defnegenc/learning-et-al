@@ -2,14 +2,16 @@
 
 ## Part 1: What the Current System Does
 
-The digest pipeline runs in 6 steps, producing 3 items (default: 2 papers + 1 news) with a unifying synthesis.
+The digest pipeline runs in 8+ steps, producing 1-3 items (dynamic: adapts paper:news ratio to candidate quality) with a unifying synthesis.
 
-1. **Interest Selection**: Fetch user interests, decay by 5%, apply recency penalty (-0.5) if words appeared in last 5 themes. Sample 5 candidates via weighted random.
-2. **Central Question**: LLM generates a "wow factor" theme (max 8 words) from candidate interests, plus 3 search queries.
-3. **Paper Search**: Queries run through OpenAlex → Semantic Scholar → arXiv. Papers deduplicated, seen-in-last-30-days excluded. An "explore" slot uses a bridging query (unused interest + theme).
-4. **Multi-Signal Scoring**: Papers embedded with `all-MiniLM-L6-v2` and scored: `cosine_similarity + recency_bonus + citation_velocity + venue_prestige + institution_boost`. Hard floor at 0.12 raw theme similarity.
-5. **Theme Revision**: LLM revises the central question to better fit the papers actually found.
-6. **Synthesis + Metadata**: Single LLM call produces per-paper summaries, keywords, findings, key concepts, and the synthesis paragraph.
+1. **Interest Selection**: Fetch user interests, decay by 5% (once/day), apply recency penalty using actual paper keywords from last 5 digests. Sample 5 candidates via weighted random.
+2. **Central Question**: LLM generates a "wow factor" theme (max 8 words, enforced with retry). Trending headlines injected for temporal awareness. Theme novelty checked against recent themes (>0.7 similarity triggers re-generation).
+3. **Paper Search**: Queries distributed across `focusFields[]` (cross-domain support) via OpenAlex → Semantic Scholar → arXiv. Papers deduplicated, seen-in-last-30-days excluded. Citation floor >=2.
+4. **Hybrid Scoring**: BM25 + embedding (all-MiniLM-L6-v2) fused via Reciprocal Rank Fusion + quality boosts. Hard floor at 0.12 raw theme similarity. MMR diversity selection (λ=0.6) prevents redundant papers.
+4b. **Counter-Query**: LLM generates a counter-query to find papers contradicting/complicating paper 1. Tension hints passed to synthesis.
+4c. **LLM Re-Ranking**: Papers scored 1-5 on "tool to think with" quality. Low-scorers can be swapped.
+5. **Theme Revision**: LLM revises the central question with 600 chars of abstract context per paper.
+6. **Multi-Stage Synthesis**: 4 LLM calls — (A) metadata extraction, (B) skeleton/argument structure, (C) prose draft from skeleton, (D) self-critique and revision.
 
 ---
 

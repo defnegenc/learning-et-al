@@ -8,13 +8,14 @@ interface DigestContext {
   researchAngle: string;
 }
 
-type PaperListing = { title: string; abstract: string; source: string; category?: string; year?: number };
+type PaperListing = { title: string; abstract: string; source: string; category?: string; year?: number; tensionHint?: string };
 
 function formatPapers(items: PaperListing[], maxChars = 2000) {
   return items.map((p, i) => {
     const chars = p.source === "rss" ? 6000 : maxChars;
     const yearStr = p.year ? `, ${p.year}` : "";
-    return `[${i + 1}] "${p.title}" (${p.source}${yearStr}, ${p.category || "unknown"})\n${p.abstract.slice(0, chars)}`;
+    const hint = p.tensionHint ? `\n[HINT: ${p.tensionHint}]` : "";
+    return `[${i + 1}] "${p.title}" (${p.source}${yearStr}, ${p.category || "unknown"})${hint}\n${p.abstract.slice(0, chars)}`;
   }).join("\n\n");
 }
 
@@ -82,9 +83,51 @@ ${listing}`;
 }
 
 /**
- * Stage B: Argument skeleton — cross-document relations + outline.
+ * Stage B: Selection skeleton — pick best papers for complementarity + plan argument.
+ * Given a WIDER pool of candidates (~6), selects the best 2-3 that complement each other
+ * and plans the argument structure.
  * Research: Radev (2000) Cross-Document Structure Theory, Yao (2023) Tree of Thoughts.
  */
+export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number) {
+  const listing = formatPapers(candidates, 1200);
+
+  return `Theme: "${theme}"
+
+You have ${candidates.length} candidate papers. Your job is to pick the BEST ${targetCount} that COMPLEMENT each other for an interesting argument about the theme. Then plan the argument.
+
+Candidates:
+${listing}
+
+SELECTION CRITERIA — pick papers that:
+1. Each contribute something DIFFERENT to the theme (not 3 papers saying the same thing)
+2. Create genuine TENSION (one supports, one complicates, one offers a different mechanism)
+3. Together tell a story the reader couldn't get from any single paper
+4. Are each individually relevant to the theme (no stretches)
+
+BAD selection: 3 papers all about "AI in education" that agree → boring, redundant
+GOOD selection: 1 paper showing AI works in education + 1 showing it fails in a specific context + 1 from a different field that explains WHY → tension, insight, surprise
+
+Return JSON (no markdown fences):
+{
+  "selectedIndices": [1, 3, 5],
+  "selectionReasoning": "Why these 3 complement each other, 1 sentence",
+  "paperRoles": [
+    { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism", "shortName": "the Turkish teacher study", "coreContribution": "what this paper uniquely adds, 10 words max" }
+  ],
+  "coreTension": "The central disagreement or unresolved question, 1 sentence",
+  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z"
+}
+
+RULES:
+- selectedIndices MUST contain exactly ${targetCount} paper indices (1-indexed, matching the candidate list)
+- Every selected paper must have a DISTINCT role — no two papers with the same role
+- The coreTension must be GENUINE, not manufactured
+- shortName: how you'd refer to it talking to a friend
+- If no ${targetCount} papers work well together, pick the best 2 and note it
+- Prefer papers from DIFFERENT fields/methods when quality is comparable`;
+}
+
+/** Simpler skeleton for when papers are already selected (e.g., after selection skeleton). */
 export function skeletonPrompt(items: PaperListing[], theme: string) {
   const listing = formatPapers(items, 1500);
 
@@ -93,7 +136,7 @@ export function skeletonPrompt(items: PaperListing[], theme: string) {
 Papers:
 ${listing}
 
-You are planning the argument structure for a research synthesis paragraph. Before writing anything, ANALYZE the relationships between these papers.
+You are planning the argument structure for a research synthesis paragraph. ANALYZE the relationships between these papers.
 
 Return JSON (no markdown fences):
 {
