@@ -172,21 +172,19 @@ Return JSON (no markdown fences):
     { "paper1": 1, "paper2": 2, "relation": "contradicts|agrees|extends|alternative_mechanism|unrelated", "explanation": "5-10 words" }
   ],
   "paperRoles": [
-    { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism|is_weak_fit", "shortName": "the Turkish teacher study", "coreContribution": "what this paper uniquely adds to the argument, 10 words max" }
+    { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism|provides_context|reinforces", "shortName": "the Turkish teacher study", "coreContribution": "what this paper uniquely adds to the argument, 10 words max" }
   ],
   "coreTension": "The central disagreement or unresolved question these papers surface, 1 sentence",
-  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z",
-  "skipPapers": []
+  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z"
 }
 
 RULES:
-- Be HONEST about paper fit. If a paper barely connects to the theme, mark it "is_weak_fit" and add its index to skipPapers.
-- If two papers make the SAME POINT, mark the weaker one "is_weak_fit" — redundancy is worse than having fewer papers.
+- EVERY paper MUST get a role. With only 2-3 papers, there is no room to skip any. If a paper barely connects, its role is "provides_context" or "provides_contrast" — find an angle.
+- If two papers make the SAME POINT, find what DIFFERS between them — methodology, scale, domain, era. If truly identical, the weaker one's role is "reinforces" with a note about what specifically it adds (a different context, a specific number, etc.)
 - The coreTension should be a GENUINE intellectual tension, not a fake one. "People haven't adopted it" or "there are still challenges" is NOT a tension. A tension is a real DISAGREEMENT or PARADOX between the papers.
-- The argumentArc must show how papers BUILD on each other, not just appear sequentially.
+- The argumentArc MUST reference ALL papers by number. If a paper isn't in the arc, you haven't found its role yet.
 - If you can't find genuine tension, say so honestly in coreTension. "These papers agree; the interesting question is WHY it took so long" is better than manufacturing fake conflict.
 - shortName should be how you'd refer to it talking to a friend: "the McKinsey report", "the Nigerian banking study"
-- If all papers agree, the tension is: "if everyone agrees, why hasn't this been solved?"
 - paperRelations: include one entry per pair of papers (for 3 papers: 3 pairs)`;
 }
 
@@ -201,19 +199,13 @@ export function synthesisFromSkeletonPrompt(
     paperRoles: { index: number; role: string; shortName: string; coreContribution: string }[];
     coreTension: string;
     argumentArc: string;
-    skipPapers?: number[];
   }
 ) {
   const listing = formatPapers(items, 1500);
 
   const roleDesc = skeleton.paperRoles
-    .filter(r => !skeleton.skipPapers?.includes(r.index))
     .map(r => `- Paper ${r.index} ("${r.shortName}"): ${r.role} — ${r.coreContribution}`)
     .join("\n");
-
-  const skippedDesc = skeleton.skipPapers?.length
-    ? `\nPapers to skip or mention only briefly: ${skeleton.skipPapers.map(i => `[${i}]`).join(", ")}`
-    : "";
 
   return `Theme: "${theme}"
 
@@ -224,7 +216,7 @@ ARGUMENT PLAN (follow this structure):
 Core tension: ${skeleton.coreTension}
 Arc: ${skeleton.argumentArc}
 Paper roles:
-${roleDesc}${skippedDesc}
+${roleDesc}
 
 Now write the synthesis paragraph. Follow the argument arc above. Return ONLY the paragraph text (no JSON, no markdown fences).
 
@@ -241,8 +233,7 @@ STYLE RULES:
 - NEVER write "The question of whether X isn't just about Y — it's about Z". This pattern is banned. Just say what you mean directly.
 - NEVER write "isn't merely X — it's fundamentally Y" or any variation.
 - Contractions always. "So", "But", "Turns out", "Here's the thing" are good openers.
-- Every non-skipped paper MUST appear in **bold** at least once. If you can't work a paper into the argument naturally, something is wrong with the argument arc — restructure, don't just drop the paper silently.
-- If a paper is in skipPapers, you may mention it in one sentence or leave it out entirely. Do NOT build your argument around it.
+- EVERY paper MUST appear in **bold** at least once. There are only 2-3 papers — if you can't mention one, your argument arc is wrong. Restructure.
 - When moving between papers, ADD A BRIDGE SENTENCE. Don't just place them next to each other.
 - NEVER mention topics that aren't in the papers.
 - Sound like a person, not a TED talk. Read your output aloud. If it sounds like a speech, rewrite it.`;
