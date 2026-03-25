@@ -208,23 +208,23 @@ The hypothesis prompt gives the LLM no information about what's happening in the
 | 1.4 | Dead `newsNeeded` filter | XS | — | Cleanup | **FIXED** — removed dead filter |
 | 1.5 | Missing citation floor | S | S | Bug | **FIXED** — `cited_by_count:>1` in OA filter |
 | 1.6 | Double-decay on regen | S | M | Bug | **FIXED** — only decays once per day |
-| 2.1 | MiniLM undersized for cross-domain | L | H | Model | Open — LLM re-ranking partially compensates |
+| 2.1 | MiniLM undersized for cross-domain | L | H | Model | **Mitigated** — `EMBEDDING_MODEL` env var available, default still all-MiniLM-L6-v2. Must set explicitly in prod. |
 | 2.2 | ONNX fallback disables all gates | M | H | Reliability | **FIXED** — returns 0.1 (not 0.3), `isEmbeddingDegraded()` flag, warning logs |
 | 2.3 | Article extraction heuristic | M | M | Quality | **FIXED** — paragraph density scoring, paywall detection |
-| 2.4 | DDG HTML scraping fragility | M | M | Reliability | Open — known risk, documented |
-| 2.5 | Hardcoded US tech RSS feeds | S | M | Coverage | Open — documented limitation |
-| 2.6 | Imprecise recency penalty | S | S | Quality | **FIXED** — tracks paper keywords + title words |
+| 2.4 | DDG HTML scraping fragility | M | M | Reliability | **FIXED** — User-Agent rotation, 10s timeout, structured logging when regex breaks |
+| 2.5 | Hardcoded US tech RSS feeds | S | M | Coverage | **FIXED** — field-specific feeds + Google News RSS by topic |
+| 2.6 | Imprecise recency penalty | S | S | Quality | **Partially fixed** — paper keywords are primary signal, but theme words still merged as secondary |
 | 3.1 | Single focusField blocks cross-domain | M | H | Architecture | **FIXED** — `focusFields[]` array, queries distributed across fields |
 | 3.2 | No quality gate on LLM theme | M | H | Quality | **FIXED** — word count enforcement + retry |
 | 3.3 | Revision sees truncated abstracts | XS | M | Quality | **FIXED** — 600 chars (was 300) |
 | 3.4 | No diversity in paper selection (MMR) | M | H | Algorithm | **FIXED** — MMR with λ=0.6 |
-| 3.5 | Weak serendipity mechanism | L | H | Algorithm | **FIXED** — counter-query for tension replaces simple adjacent search |
-| 3.6 | Coarse engagement feedback | L | M | Learning | Open — future work |
+| 3.5 | Weak serendipity mechanism | L | H | Algorithm | **FIXED** — LLM complementarity selection from wide MMR pool (replaced counter-query approach) |
+| 3.6 | Coarse engagement feedback | L | M | Learning | **Partially fixed** — contextual features stored with events, but weight update logic unchanged. Data available for future richer learning. |
 | 4.1 | Embeddings ≠ "tools to think with" | L | H | Philosophy | **FIXED** — LLM re-ranking scores shortlist on aspectual relevance |
-| 4.2 | No inter-paper tension seeking | L | H | Philosophy | **FIXED** — counter-query asks for contradicting/complicating papers |
+| 4.2 | No inter-paper tension seeking | L | H | Philosophy | **FIXED** — `selectionSkeletonPrompt` picks complementary papers from wide pool, identifies `coreTension` |
 | 4.3 | Wow factor unmeasured | M | H | Philosophy | **FIXED** — theme novelty scoring vs recent themes (sim > 0.7 triggers retry) |
-| 4.4 | Fixed 3-item format | M | M | Philosophy | Open — future work |
-| 4.5 | No temporal awareness | M | M | Philosophy | Open — future work |
+| 4.4 | Fixed 3-item format | M | M | Philosophy | **FIXED** — dynamic paper:news ratio adapts to candidate quality (3p+0n / 2p+1n / 1p+2n) |
+| 4.5 | No temporal awareness | M | M | Philosophy | **FIXED** — trending headlines injected into hypothesis prompt as optional context |
 
 **Effort:** XS = < 30 min, S = 1-2 hrs, M = half day, L = multi-day
 **Impact:** S = polish, M = noticeable quality lift, H = step change in digest quality
@@ -233,16 +233,21 @@ The hypothesis prompt gives the LLM no information about what's happening in the
 
 ## Implementation Status
 
-**Implemented (2026-03-24):** 17 of 23 issues fixed across all 4 waves.
+**Implemented (2026-03-24):** 23 issues addressed. 18 fully fixed, 3 partially fixed, 2 mitigated.
 
-**Remaining open issues:**
-- 2.1 — Model upgrade (requires threshold recalibration, multi-day effort)
-- 2.4 — DDG HTML fragility (monitoring, no fix without switching to paid API)
-- 2.5 — RSS feed diversity (needs dynamic feed discovery)
-- 3.6 — Richer engagement feedback (future feature)
-- 4.4 — Dynamic item count (future feature)
-- 4.5 — Temporal awareness (future feature)
+**Summary:**
+- 6 bugs fixed (Wave 1)
+- 6 reliability improvements (Wave 2) — 2.1 mitigated (env var available, default unchanged), 2.6 partially fixed (theme words still secondary signal)
+- 5 cross-domain quality improvements (Wave 3) — 3.5 fixed via LLM complementarity selection (replaced counter-query approach), 3.6 partially fixed (data stored, not yet consumed)
+- 6 scoring philosophy changes (Wave 4) — 4.2 fixed via `selectionSkeletonPrompt` picking complementary papers
 
-**New AI calls added:** counter-query (+1), LLM re-ranking (+1), theme shortening (conditional), theme novelty retry (conditional). Typical digest now uses 5-6 calls (was 3). The conditional calls usually don't fire.
+**New AI calls added:** complementarity selection (+1), LLM re-ranking (+1), theme shortening (conditional), theme novelty retry (conditional). Typical digest now uses 8-9 calls (was 3). Calls 2, 3, and 10 are conditional.
 
-**Academic domain detection** added to news pipeline — filters 20+ publisher domains (nature.com, springer.com, frontiersin.org, etc.) from news results, fixing the long-standing Known Limitation #5.
+**Note:** The original counter-query approach was superseded by the synthesis uplift's `selectionSkeletonPrompt`, which picks complementary papers from a wider MMR pool.
+
+**Prompt tightening (2026-03-24, post-audit):**
+Based on observing a bad digest ("Can better architecture solve computational bottlenecks?" — jargon theme, two redundant papers, no tension), three prompts were tightened:
+1. **Hypothesis prompt**: banned technical jargon, added "dinner table test" ("would your grandma understand the question?"), added bad examples of jargon themes
+2. **Selection skeleton prompt**: added explicit rule "if two papers make the SAME POINT, drop one", rejected manufactured tensions ("people haven't adopted it" is not a tension), added staleness guard (>5yr old papers must justify inclusion)
+3. **Re-ranking prompt**: expanded scoring rubric, score ≤2 for redundancy or staleness, score ≤2 if "a non-expert would say 'isn't that the same thing as paper N?'"
+4. **Skeleton prompt (Stage B)**: added redundancy detection, honest tension instruction ("if you can't find genuine tension, say so")
