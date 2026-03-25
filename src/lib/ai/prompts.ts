@@ -124,8 +124,12 @@ SELECTION CRITERIA — pick papers that:
 3. Together tell a story the reader couldn't get from any single paper
 4. Are each individually relevant to the theme (no stretches)
 
+CRITICAL: If two papers make the SAME POINT (both say "X is faster" or "X works well"), you MUST drop one. Two papers agreeing is the #1 failure mode. Replace the redundant paper with one that CONTRADICTS, COMPLICATES, or EXPLAINS WHY.
+
+BAD selection: "Vision Mamba is efficient" + "Faster R-CNN is efficient" → SAME POINT. Both say "better architecture = faster." Drop one, find a paper showing WHERE efficiency breaks down or WHY adoption lags.
 BAD selection: 3 papers all about "AI in education" that agree → boring, redundant
-GOOD selection: 1 paper showing AI works in education + 1 showing it fails in a specific context + 1 from a different field that explains WHY → tension, insight, surprise
+GOOD selection: 1 paper showing AI works in education + 1 showing it FAILS in a specific context + 1 from a different field that explains WHY → tension, insight, surprise
+GOOD selection: 1 paper proving a new method works + 1 paper from industry showing nobody uses it yet + 1 paper from a different angle entirely
 
 Return JSON (no markdown fences):
 {
@@ -141,8 +145,10 @@ Return JSON (no markdown fences):
 RULES:
 - selectedIndices MUST contain exactly ${targetCount} paper indices (1-indexed, matching the candidate list)
 - Every selected paper must have a DISTINCT role — no two papers with the same role
-- The coreTension must be GENUINE, not manufactured
+- NO TWO PAPERS WITH THE SAME CONCLUSION. If papers A and B both conclude "X is better/faster/works", drop one.
+- The coreTension must be GENUINE, not manufactured. "Some people haven't adopted it yet" is NOT a tension — it's just a fact. A tension is: "Paper A says X works, Paper B says X fails when Y."
 - shortName: how you'd refer to it talking to a friend
+- If a paper is >5 years old, it must offer something a newer paper can't (historical perspective, foundational insight). Don't pick old papers just because they're highly cited.
 - If no ${targetCount} papers work well together, pick the best 2 and note it
 - Prefer papers from DIFFERENT fields/methods when quality is comparable`;
 }
@@ -173,8 +179,10 @@ Return JSON (no markdown fences):
 
 RULES:
 - Be HONEST about paper fit. If a paper barely connects to the theme, mark it "is_weak_fit" and add its index to skipPapers.
-- The coreTension should be a GENUINE intellectual tension, not a fake one.
+- If two papers make the SAME POINT, mark the weaker one "is_weak_fit" — redundancy is worse than having fewer papers.
+- The coreTension should be a GENUINE intellectual tension, not a fake one. "People haven't adopted it" or "there are still challenges" is NOT a tension. A tension is a real DISAGREEMENT or PARADOX between the papers.
 - The argumentArc must show how papers BUILD on each other, not just appear sequentially.
+- If you can't find genuine tension, say so honestly in coreTension. "These papers agree; the interesting question is WHY it took so long" is better than manufacturing fake conflict.
 - shortName should be how you'd refer to it talking to a friend: "the McKinsey report", "the Nigerian banking study"
 - If all papers agree, the tension is: "if everyone agrees, why hasn't this been solved?"
 - paperRelations: include one entry per pair of papers (for 3 papers: 3 pairs)`;

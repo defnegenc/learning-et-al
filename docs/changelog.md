@@ -69,3 +69,14 @@
 | 2026-03-24 | Counter-query for tension: LLM generates queries to find contradicting papers | Done |
 | 2026-03-24 | LLM re-ranking: shortlisted papers scored 1-5 on "tool to think with" quality | Done |
 | 2026-03-24 | Theme revision abstracts extended to 600 chars (was 300) | Done |
+| 2026-03-24 | DDG hardened: User-Agent rotation, 10s timeout, structured error logging | Done |
+| 2026-03-24 | Dynamic RSS feeds: field-specific feeds + Google News RSS by topic | Done |
+| 2026-03-24 | Richer feedback: events store paper category, source, year, keywords, cross-domain flag | Done |
+| 2026-03-24 | Dynamic item count: paper:news ratio adapts to candidate quality (3+0 / 2+1 / 1+2) | Done |
+| 2026-03-24 | Temporal awareness: trending headlines injected into theme generation prompt | Done |
+| 2026-03-24 | Configurable embedding model via EMBEDDING_MODEL env var (bge-small-en-v1.5 available) | Done |
+| 2026-03-24 | Prompt tightening: ban jargon in themes, dinner table test, anti-redundancy in selection | Done |
+| 2026-03-24 | Selection skeleton: explicit "drop papers that agree" + staleness guard for >5yr papers | Done |
+| 2026-03-24 | Re-ranking: expanded scoring rubric, penalizes redundancy and staleness | Done |
+| 2026-03-24 | Stage B skeleton: redundancy detection, honest tension instruction | Done |
+| 2026-03-24 | Full cross-audit: algorithm.md, synthesis.md, synthesis-review.md, algo-audit.md reconciled with actual code | Done |

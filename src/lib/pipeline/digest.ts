@@ -8,7 +8,6 @@ import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
@@ -283,13 +282,17 @@ GOOD themes are SHORT and PUNCHY — like a magazine cover headline. Can be a qu
 - "Do machines have taste?" (question)
 
 BAD themes are wordy, academic, or just topic labels:
+- "Can better architecture solve computational bottlenecks?" — JARGON. No normal person talks like this. "Why are AI models still so slow?" is the same idea but human.
 - "When fakes become indistinguishable from reality?" — drop the question mark, it's stronger as a statement
 - "Can AI out-create humans, or will it expand our artistic horizons?" — TOO LONG
 - "Recent advances in AI" — not interesting, zero surprise
 - "The question of whether generative AI..." — NO. Never start with "The question of"
+- "Optimizing neural network architectures" — TECHNICAL DESCRIPTION, not a question anyone wonders about
 
 Rules:
 - MAX 8 WORDS. Shorten ruthlessly.
+- NO JARGON in the theme. If it contains words like "computational", "architecture", "optimization", "framework", "methodology", "paradigm", "scalability" — REWRITE in plain English. Your grandma should understand the question.
+- The theme must pass the DINNER TABLE TEST: would a smart non-expert actually wonder about this? "Why can't robots fold laundry?" passes. "Can better architecture solve computational bottlenecks?" fails — nobody talks like that.
 - For beginner interests: concrete and real-world, avoid pure theory
 - For a single interest: find the unexpected angle within it
 - Only combine 2 interests if they NATURALLY connect (AI + design, robotics + cooking, biology + fashion-tech). If interests are truly unrelated (like microbiome + cryptocurrency), just pick ONE and find a great angle within it.
@@ -716,8 +719,16 @@ Return JSON only (no markdown):
 
 Rate each paper 1-5 on: "How much does this offer a SURPRISING or USEFUL lens on the theme?" (not just topical relevance)
 - 5 = This paper changes how you think about the question
-- 3 = It's related but doesn't add a new angle
-- 1 = It's topically adjacent but contributes nothing to the question
+- 4 = Genuinely useful perspective, different from the other papers
+- 3 = Related but doesn't add a new angle the other papers don't already cover
+- 2 = Redundant with another paper (makes the same point) OR too old to offer a fresh perspective
+- 1 = Topically adjacent but contributes nothing to the question
+
+SCORE 2 OR LOWER if:
+- The paper makes the SAME CONCLUSION as another paper in the list (both say "X is faster/better/works")
+- The paper is >5 years old AND a newer paper in the list covers the same ground
+- The paper's abstract reads like a generic survey with no specific finding
+- A non-expert would say "wait, isn't that the same thing as paper N?"
 
 Papers:
 ${rerankList}
