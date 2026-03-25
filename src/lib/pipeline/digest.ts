@@ -981,44 +981,6 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
   );
   synthesis = stripFences(synthesis);
 
-  // Programmatic coverage check: detect missing papers and force a targeted revision
-  const synthLower = synthesis.toLowerCase();
-  const missingPapers = skeleton.paperRoles.filter(r => {
-    const nameWords = r.shortName.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    // A paper counts as "mentioned" if 2+ significant words from its shortName appear in the synthesis
-    const matchCount = nameWords.filter(w => synthLower.includes(w)).length;
-    return matchCount < Math.min(2, nameWords.length);
-  });
-
-  if (missingPapers.length > 0) {
-    const missingDesc = missingPapers.map(r => `"${r.shortName}" (Paper ${r.index}: ${r.coreContribution})`).join(", ");
-    console.log(`[Digest] Coverage gap: ${missingPapers.length} paper(s) missing from synthesis: ${missingDesc}`);
-    try {
-      const coverageRevision = await aiComplete(
-        aiConfig,
-        SYNTHESIS_PROSE_SYSTEM,
-        `The following synthesis is MISSING ${missingPapers.length} paper(s) that must be included. Add them naturally.
-
-Theme: "${finalTheme}"
-Missing papers: ${missingDesc}
-
-Current synthesis:
-"""
-${synthesis}
-"""
-
-Rewrite the synthesis to INCLUDE the missing paper(s) in **bold**. Weave them into the argument naturally — don't just append a sentence at the end. Keep the same tone, length, and style. Return ONLY the revised paragraph.`
-      );
-      const revised = stripFences(coverageRevision);
-      if (revised.length > 50) {
-        synthesis = revised;
-        console.log(`[Digest] Coverage revision applied — added ${missingPapers.length} missing paper(s)`);
-      }
-    } catch (err) {
-      console.log(`[Digest] Coverage revision failed (${err}), proceeding with incomplete synthesis`);
-    }
-  }
-
   // Factual accuracy check: verify each paper's takeaway is reflected correctly
   try {
     const factCheckResp = await aiComplete(
@@ -1112,6 +1074,51 @@ Return ONLY the corrected paragraph.`
     }
   } catch (err) {
     console.log(`[Digest] Self-refine failed (${err}), keeping draft synthesis`);
+  }
+
+  // ─── Final coverage gate: ensure ALL papers are mentioned (runs AFTER self-critique) ───
+  // This is the last check — nothing can overwrite the synthesis after this.
+  const finalSynthLower = synthesis.toLowerCase();
+  const findMissing = () => skeleton.paperRoles.filter(r => {
+    // Check shortName words (lenient: 1+ word match)
+    const nameWords = r.shortName.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const nameMatch = nameWords.some(w => finalSynthLower.includes(w));
+    if (nameMatch) return false;
+    // Also check against the actual paper title
+    const paperTitle = items[r.index - 1]?.title?.toLowerCase() || "";
+    const titleWords = paperTitle.split(/\s+/).filter(w => w.length > 4);
+    const titleMatch = titleWords.filter(w => finalSynthLower.includes(w)).length >= 2;
+    return !titleMatch;
+  });
+
+  const missingPapers = findMissing();
+  if (missingPapers.length > 0) {
+    const missingDesc = missingPapers.map(r => `"${r.shortName}" (Paper ${r.index}: ${r.coreContribution})`).join(", ");
+    console.log(`[Digest] Final coverage gap: ${missingPapers.length} paper(s) missing: ${missingDesc}`);
+    try {
+      const coverageRevision = await aiComplete(
+        aiConfig,
+        SYNTHESIS_PROSE_SYSTEM,
+        `This synthesis is MISSING ${missingPapers.length} paper(s). You MUST add them.
+
+Theme: "${finalTheme}"
+Missing papers that MUST appear in **bold**: ${missingDesc}
+
+Current synthesis:
+"""
+${synthesis}
+"""
+
+Rewrite to INCLUDE the missing paper(s) in **bold**. Weave them into the argument naturally. Keep the same tone and length. Return ONLY the revised paragraph.`
+      );
+      const revised = stripFences(coverageRevision);
+      if (revised.length > 50) {
+        synthesis = revised;
+        console.log(`[Digest] Final coverage revision applied — added ${missingPapers.length} missing paper(s)`);
+      }
+    } catch (err) {
+      console.log(`[Digest] Final coverage revision failed (${err})`);
+    }
   }
 
   const parsedAI: DigestAIResponse = {
