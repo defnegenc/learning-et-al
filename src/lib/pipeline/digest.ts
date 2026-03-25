@@ -684,20 +684,20 @@ Return JSON only (no markdown):
     console.log(`[Digest] Found ${newsFound}/${newsNeeded} news items`);
   }
 
-  // Fill remaining slots with papers
+  // Fill remaining slots — progressively relax constraints to guarantee TOTAL_ITEMS
+  // Pass 1: use third search query with moderate threshold
   if (items.length < TOTAL_ITEMS) {
-    const remaining = TOTAL_ITEMS - items.length;
-    console.log(`[Digest] Filling ${remaining} remaining slot(s) with papers...`);
+    console.log(`[Digest] Filling ${TOTAL_ITEMS - items.length} remaining slot(s)...`);
     await delay(500);
     const fillQuery = searchQueries[2] || `${focusInterest} applications`;
-    const fillResults = await searchPapers(fillQuery, 8, "citationCount", focusFields[0]);
+    const fillResults = await searchPapers(fillQuery, 10, "citationCount", focusFields[0]);
     const fillEmbs = await embedBatch(fillResults.map(paperText));
     for (let fi = 0; fi < fillResults.length; fi++) {
       if (items.length >= TOTAL_ITEMS) break;
       const paper = fillResults[fi];
       if (seenTitles.has(paper.title.toLowerCase())) continue;
       const sim = cosineSimilarity(themeEmb, fillEmbs[fi]);
-      if (sim > SIM_ONTOPIC) {
+      if (sim > SIM_FALLBACK) { // use FALLBACK, not ONTOPIC — this is a fill, be less strict
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
@@ -710,18 +710,18 @@ Return JSON only (no markdown):
     }
   }
 
-  // Final broad fill if still under target
+  // Pass 2: broad search on focus interest, no field filter, lowest threshold
   if (items.length < TOTAL_ITEMS) {
-    console.log(`[Digest] Only ${items.length} items, trying broad fill...`);
+    console.log(`[Digest] Still ${items.length}/${TOTAL_ITEMS}, broad fill without field filter...`);
     await delay(500);
-    const broadResults = await searchPapers(focusInterest, 12, "publicationDate", focusFields[0]);
+    const broadResults = await searchPapers(focusInterest, 12, "publicationDate", undefined); // no field filter
     const broadEmbs = await embedBatch(broadResults.map(paperText));
     for (let bi = 0; bi < broadResults.length; bi++) {
       if (items.length >= TOTAL_ITEMS) break;
       const paper = broadResults[bi];
       if (seenTitles.has(paper.title.toLowerCase())) continue;
       const sim = cosineSimilarity(themeEmb, broadEmbs[bi]);
-      if (sim > SIM_FALLBACK) {
+      if (sim > SIM_MIN_THEME) { // hard floor — accept anything somewhat related
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
@@ -730,6 +730,29 @@ Return JSON only (no markdown):
         });
         seenTitles.add(paper.title.toLowerCase());
         console.log(`[Digest] Broad fill: "${paper.title}" (sim ${sim.toFixed(2)})`);
+      }
+    }
+  }
+
+  // Pass 3: search using the theme itself as query (last resort)
+  if (items.length < TOTAL_ITEMS) {
+    console.log(`[Digest] Still ${items.length}/${TOTAL_ITEMS}, searching with theme text...`);
+    await delay(300);
+    const themeResults = await searchPapers(theme, 10, "publicationDate", undefined);
+    const themeResultEmbs = await embedBatch(themeResults.map(paperText));
+    for (let ti = 0; ti < themeResults.length; ti++) {
+      if (items.length >= TOTAL_ITEMS) break;
+      const paper = themeResults[ti];
+      if (seenTitles.has(paper.title.toLowerCase())) continue;
+      const sim = cosineSimilarity(themeEmb, themeResultEmbs[ti]);
+      if (sim > SIM_MIN_THEME) {
+        items.push({
+          title: paper.title, authors: paper.authors, abstract: paper.abstract,
+          sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
+          source: paper.source, year: paper.year, category: "recent",
+        });
+        seenTitles.add(paper.title.toLowerCase());
+        console.log(`[Digest] Theme fill: "${paper.title}" (sim ${sim.toFixed(2)})`);
       }
     }
   }
