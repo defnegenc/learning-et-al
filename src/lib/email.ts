@@ -98,7 +98,7 @@ function dailyEmail(data: DigestEmailData): string {
 
       <!-- CTA -->
       <div style="text-align:center;margin:24px 0 8px;">
-        <a href="${SITE_URL}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:white;text-decoration:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;font-family:monospace;border:2px solid #1a1a1a;box-shadow:4px 4px 0px 0px rgba(0,0,0,1);">
+        <a href="${SITE_URL}/digest/${data.digestId}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:white;text-decoration:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;font-family:monospace;border:2px solid #1a1a1a;box-shadow:4px 4px 0px 0px rgba(0,0,0,1);">
           Dig Deeper →
         </a>
       </div>
@@ -121,7 +121,7 @@ function bestOfEmail(digests: DigestSummary[], bestDigest: DigestEmailData, cade
   const archiveList = digests.map(d => `
     <tr>
       <td style="padding:6px 0;border-bottom:1px solid #eee;">
-        <a href="${SITE_URL}" style="font-size:13px;font-weight:600;color:#1a1a1a;text-decoration:none;">
+        <a href="${SITE_URL}/digest/${d.digestId}" style="font-size:13px;font-weight:600;color:#1a1a1a;text-decoration:none;">
           ${d.theme}
         </a>
         <span style="font-size:10px;color:#aaa;font-family:monospace;margin-left:6px;">${d.date}</span>
@@ -168,7 +168,7 @@ function bestOfEmail(digests: DigestSummary[], bestDigest: DigestEmailData, cade
       </div>
 
       <div style="text-align:center;margin:24px 0 8px;">
-        <a href="${SITE_URL}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:white;text-decoration:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;font-family:monospace;border:2px solid #1a1a1a;box-shadow:4px 4px 0px 0px rgba(0,0,0,1);">
+        <a href="${SITE_URL}/digest/${bestDigest.digestId}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:white;text-decoration:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;font-family:monospace;border:2px solid #1a1a1a;box-shadow:4px 4px 0px 0px rgba(0,0,0,1);">
           Dig Deeper →
         </a>
       </div>
