@@ -333,16 +333,13 @@ export function VaultPage({ session }: VaultPageProps) {
             <button
               onClick={() => setStarFilter(true)}
               style={{
-                flex: 1, padding: "5px 0", border: "none", borderLeft: "2px solid #1a1a1a", cursor: "pointer",
+                padding: "5px 10px", border: "none", borderLeft: "2px solid #1a1a1a", cursor: "pointer",
                 background: starFilter ? "#1a1a1a" : "transparent",
                 color: starFilter ? "#f59e0b" : "#999",
-                fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-                letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "4px",
+                display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
-              <Star size={10} className={starFilter ? "fill-current" : ""} />
-              Starred
+              <Star size={12} className={starFilter ? "fill-current" : ""} />
             </button>
           </div>
         </div>
