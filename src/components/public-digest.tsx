@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { SynthesisBanner } from "@/components/today/synthesis-banner";
-import { PaperCard, type PaperItem } from "@/components/today/paper-card";
+import { type PaperItem } from "@/components/today/paper-card";
 
 interface Digest {
   id: string;
@@ -222,18 +222,10 @@ export function PublicDigest({ onSignIn }: { onSignIn: () => void }) {
       </div>
 
       {/* Mobile: sources below */}
-      <div className="block md:hidden px-4 pb-8 space-y-2">
+      <div className="block md:hidden px-4 pb-8 space-y-3">
         <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "3px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Sources</span>
         {papers.map((paper, idx) => (
-          <PaperCard
-            key={paper.id}
-            paper={paper}
-            index={idx}
-            compact
-            onSelect={openSource}
-            onStar={() => {}}
-            onDislike={() => {}}
-          />
+          <PaperSourceTab key={paper.id} paper={paper} index={idx} />
         ))}
       </div>
     </div>

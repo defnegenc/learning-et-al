@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus, LogOut, ChevronDown, ChevronRight } from "lucide-react";
+import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus, LogOut, ChevronDown, ChevronRight, X } from "lucide-react";
 import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
@@ -137,7 +137,8 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
       setTestResult(null);
       loadInterests();
     }
-  }, [open, session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   async function loadInterests() {
     setLoadingInterests(true);
@@ -277,6 +278,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
       <DialogContent
         className="flex flex-col p-0 gap-0"
         style={{ width: "100vw", height: "100vh", maxWidth: "100vw", maxHeight: "100vh", borderRadius: 0 }}
+        showCloseButton={false}
       >
         {/* ── Top bar: Settings title + tabs + sign out ── */}
         <div style={{ borderBottom: "3px solid #1a1a1a", background: "white", padding: "0 12px", display: "flex", alignItems: "stretch", justifyContent: "space-between", flexShrink: 0, minHeight: "48px" }}>
@@ -290,24 +292,26 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               <button
                 key={item.key}
                 onClick={() => setTab(item.key)}
-                className={tab !== item.key ? "hover:bg-gray-50" : ""}
+                className={tab !== item.key ? "hover:bg-gray-100" : ""}
                 style={{
                   display: "flex", alignItems: "center", padding: "12px 14px",
-                  fontSize: "0.8rem", fontWeight: tab === item.key ? 800 : 500,
-                  background: "transparent",
-                  color: tab === item.key ? "#1a1a1a" : "#888",
-                  border: "none", borderBottom: tab === item.key ? "3px solid #1a1a1a" : "3px solid transparent",
+                  fontSize: "0.8rem", fontWeight: 700,
+                  background: tab === item.key ? "#1a1a1a" : "transparent",
+                  color: tab === item.key ? "white" : "#888",
+                  border: "none", borderBottom: "3px solid transparent",
                   cursor: "pointer", transition: "all 0.1s",
                   marginBottom: "-3px", whiteSpace: "nowrap",
+                  fontFamily: "var(--font-mono), monospace",
+                  textTransform: "uppercase", letterSpacing: "1px",
                 }}
               >
                 {item.label}
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {authSession?.user && (
-              <div className="hidden md:flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-2" style={{ marginRight: "4px" }}>
                 {authSession.user.image && (
                   <img src={authSession.user.image} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", border: "1.5px solid #ddd" }} />
                 )}
@@ -320,10 +324,19 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 window.location.href = "/api/logout";
               }}
               className="flex items-center gap-1.5 text-[#888] hover:text-[#1a1a1a] transition-colors"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px" }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 8px", fontSize: "0.65rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px" }}
               title="Sign out"
             >
-              <LogOut className="size-4" />
+              <LogOut className="size-3.5" />
+              <span className="hidden md:inline">Sign out</span>
+            </button>
+            <button
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center text-[#888] hover:text-[#1a1a1a] hover:bg-gray-100 transition-colors"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "8px", borderRadius: "4px" }}
+              title="Close"
+            >
+              <X className="size-5" />
             </button>
           </div>
         </div>

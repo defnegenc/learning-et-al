@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
 // Quick digest feedback — was this interesting?
-function DigestFeedback({ digestId, onRegenerate }: { digestId: string; onRegenerate?: () => void }) {
+function DigestFeedback({ digestId, onRegenerate, generating = false }: { digestId: string; onRegenerate?: () => void; generating?: boolean }) {
   const [reaction, setReaction] = useState<"up" | "down" | null>(null);
   const [comment, setComment] = useState("");
   const [showComment, setShowComment] = useState(false);
@@ -52,25 +52,42 @@ function DigestFeedback({ digestId, onRegenerate }: { digestId: string; onRegene
   }
 
   if (showComment) {
+    const triggerRegenerate = () => {
+      if (comment.trim() && !generating) {
+        onRegenerate?.();
+      }
+    };
     return (
       <div style={{ marginTop: "16px" }}>
-        <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "10px" }}>
-          What didn&apos;t work? We&apos;ll generate a new digest based on your feedback.
-        </p>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <input
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            placeholder="e.g. topics weren't relevant, too technical..."
-            autoFocus
-            style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.85rem", outline: "none" }}
-            onKeyDown={e => { if (e.key === "Enter" && comment.trim()) { setShowComment(false); onRegenerate?.(); } }}
-          />
-          <button onClick={() => { setShowComment(false); if (comment.trim()) onRegenerate?.(); }}
-            style={{ padding: "10px 16px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace" }}>
-            Regenerate
-          </button>
-        </div>
+        {generating ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Loader2 size={16} className="animate-spin" style={{ color: "#888" }} />
+            <span style={{ fontSize: "0.9rem", color: "#555" }}>
+              Regenerating your digest — this may take a minute...
+            </span>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "10px" }}>
+              What didn&apos;t work? We&apos;ll generate a new digest based on your feedback.
+            </p>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+                placeholder="e.g. topics weren't relevant, too technical..."
+                autoFocus
+                style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.85rem", outline: "none" }}
+                onKeyDown={e => { if (e.key === "Enter") triggerRegenerate(); }}
+              />
+              <button onClick={triggerRegenerate}
+                disabled={!comment.trim()}
+                style={{ padding: "10px 16px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", opacity: comment.trim() ? 1 : 0.5 }}>
+                Regenerate
+              </button>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -360,23 +377,33 @@ export function SynthesisBanner({
     return match ? match[1].trim() : null;
   }, [synthesis]);
 
-  // Dig deeper prompts — one per source + a cross-cutting question
+  // Dig deeper prompts — one specific question per paper + a cross-cutting question
   const digDeeperPrompts = useMemo(() => {
     if (papers.length === 0) return [];
-    const shortName = (p: PaperItem) => {
-      const words = p.title.split(/\s+/).slice(0, 5).join(" ");
-      return words.length > 40 ? words.slice(0, 37) + "..." : words;
-    };
 
     const prompts: string[] = [];
-    // One question per source
     for (const p of papers) {
-      prompts.push(`Tell me more about "${shortName(p)}"`);
+      // Build a specific question from the paper's content
+      const keywords = p.keywords?.slice(0, 3) || [];
+      const hasAbstract = p.abstract && p.abstract.length > 50;
+      const shortTitle = p.title.length > 60 ? p.title.slice(0, 57) + "..." : p.title;
+
+      if (keywords.length >= 2) {
+        prompts.push(`How does "${shortTitle}" connect ${keywords[0]} to ${keywords[1]}?`);
+      } else if (hasAbstract) {
+        prompts.push(`What's the key finding in "${shortTitle}" and why does it matter?`);
+      } else {
+        prompts.push(`What's surprising about "${shortTitle}"?`);
+      }
     }
-    // Cross-cutting
-    prompts.push("What would a skeptic say about all this?");
+    // Cross-cutting question tied to the theme
+    if (theme) {
+      prompts.push(`Where do these papers disagree on "${theme}"?`);
+    } else {
+      prompts.push("Where do these papers contradict each other?");
+    }
     return prompts;
-  }, [papers]);
+  }, [papers, theme]);
 
   const handleDigDeeper = async (question: string) => {
     if (!session || digDeeperLoading) return;
@@ -451,22 +478,43 @@ export function SynthesisBanner({
             ),
             strong: ({ children }) => {
               const text = String(children).toLowerCase();
-              // Match bold text to a paper — handle plurals, stems, and short names
+              // Strip parenthetical source info like "(Semantic Scholar, 2026)" for matching
+              const cleanText = text.replace(/\s*\(.*?\)\s*/g, " ").trim();
+              // Match bold text to a paper by scoring against title, summary, abstract, authors, keywords
+              const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "research", "study", "paper", "analysis", "review", "report", "found", "shows"]);
               const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-              const matchedPaper = papers.find(p => {
+              const boldWords = cleanText.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+              const boldStems = boldWords.map(stem);
+
+              let bestPaper: (typeof papers)[number] | null = null;
+              let bestScore = 0;
+
+              for (const p of papers) {
+                let score = 0;
                 const title = p.title.toLowerCase();
-                // Direct substring match
-                if (title.includes(text) || text.includes(title.slice(0, 30))) return true;
-                // Keyword match (from paper's keywords)
-                // Check keyword overlap (any keyword word appears in bold text)
-                const kwWords = p.keywords.flatMap(kw => kw.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-                if (kwWords.some(w => text.includes(w))) return true;
-                // Stem-based word overlap
-                const boldStems = text.split(/\s+/).filter(w => w.length > 3).map(stem);
-                const titleStems = title.split(/\s+/).filter(w => w.length > 3).map(stem);
-                const overlap = boldStems.filter(bs => titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts)));
-                return overlap.length >= 1;
-              });
+                const summary = (p.summary || "").toLowerCase();
+                const abstract = (p.abstract || "").toLowerCase();
+                const authorStr = p.authors.join(" ").toLowerCase();
+                const kwStr = p.keywords.join(" ").toLowerCase();
+
+                // Direct substring match in title — strong signal
+                if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) { score += 10; }
+
+                // Check each bold word against all paper fields
+                for (const bs of boldStems) {
+                  const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
+                  if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
+                  if (summary.includes(bs)) score += 1;
+                  if (abstract.includes(bs)) score += 1;
+                  if (authorStr.includes(bs)) score += 4; // Author name match is very strong
+                  if (kwStr.includes(bs)) score += 2;
+                }
+
+                if (score > bestScore) { bestScore = score; bestPaper = p; }
+              }
+
+              // Require a minimum score to avoid false matches
+              const matchedPaper = bestScore >= 3 ? bestPaper : null;
               // Highlight colors from paper card blob palettes
               const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.3)", "rgba(147,197,253,0.3)", "rgba(196,181,253,0.3)"];
               const HIGHLIGHT_HOVER = ["rgba(249,168,212,0.5)", "rgba(147,197,253,0.5)", "rgba(196,181,253,0.5)"];
@@ -524,7 +572,7 @@ export function SynthesisBanner({
       )}
 
       {/* Quick feedback */}
-      {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} />}
+      {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} generating={generating} />}
 
       {/* Dig deeper */}
       {papers.length > 0 && session && (
