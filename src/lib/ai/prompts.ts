@@ -131,6 +131,8 @@ BAD selection: 3 papers all about "AI in education" that agree → boring, redun
 GOOD selection: 1 paper showing AI works in education + 1 showing it FAILS in a specific context + 1 from a different field that explains WHY → tension, insight, surprise
 GOOD selection: 1 paper proving a new method works + 1 paper from industry showing nobody uses it yet + 1 paper from a different angle entirely
 
+CRITICAL: Do NOT select a paper that is only tangentially related to the theme. A paper about "tech-business analytics in service industries" does NOT belong in a digest about "why we ignore logic in decisions" just because both involve business. The paper must DIRECTLY inform the theme question.
+
 Return JSON (no markdown fences):
 {
   "selectedIndices": [1, 3, 5],
@@ -239,6 +241,7 @@ STYLE RULES:
 - NEVER write "The question of whether X isn't just about Y — it's about Z". This pattern is banned. Just say what you mean directly.
 - NEVER write "isn't merely X — it's fundamentally Y" or any variation.
 - Contractions always. "So", "But", "Turns out", "Here's the thing" are good openers.
+- Every non-skipped paper MUST appear in **bold** at least once. If you can't work a paper into the argument naturally, something is wrong with the argument arc — restructure, don't just drop the paper silently.
 - If a paper is in skipPapers, you may mention it in one sentence or leave it out entirely. Do NOT build your argument around it.
 - When moving between papers, ADD A BRIDGE SENTENCE. Don't just place them next to each other.
 - NEVER mention topics that aren't in the papers.
@@ -272,7 +275,8 @@ Return JSON (no markdown fences):
     "argument": 0,
     "connection": 0,
     "accessibility": 0,
-    "specificity": 0
+    "specificity": 0,
+    "coverage": 0
   },
   "weakestPoint": "Which sentence is weakest and why, in 15 words",
   "revision": "Specific rewrite instruction in 1-2 sentences. Be concrete: 'Move the finding about X to the opening' not 'make it better'"
@@ -283,6 +287,9 @@ Scoring guide:
 - connection: Are ALL mentioned papers necessary? Or is one just... there? 1=forced, 5=essential
 - accessibility: Would a smart non-expert find this clear and interesting? 1=jargon soup, 5=coffee conversation
 - specificity: Specific findings/numbers vs vague claims? 1=all vague, 5=concrete throughout
+- coverage: Are ALL papers from the list mentioned in **bold**? If a paper is completely absent from the synthesis, score 1. Every paper should be referenced. 1=paper missing entirely, 5=all papers woven in
+
+CRITICAL: If ANY paper from the list is not mentioned at all in the synthesis, coverage MUST be 1 and the revision instruction MUST say which paper is missing and how to include it.
 
 Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
 }

@@ -890,8 +890,8 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     if (critiqueMatch) {
       const critique = JSON.parse(critiqueMatch[0]);
       const scores = critique.scores || {};
-      const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.specificity || 5);
-      console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} spec=${scores.specificity}`);
+      const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.specificity || 5, scores.coverage || 5);
+      console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} spec=${scores.specificity} cov=${scores.coverage}`);
 
       if (minScore < 4 && critique.weakestPoint && critique.revision) {
         console.log(`[Digest] Revising (weakest: ${critique.weakestPoint})...`);
