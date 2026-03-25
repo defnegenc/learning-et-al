@@ -251,10 +251,25 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     `"${i.keyword}" (${i.level ?? "beginner"} level, field: ${i.field ?? "general"})`
   ).join("\n");
 
+  // Temporal awareness: fetch a few trending headlines to give the LLM current-event context (audit 4.5)
+  let trendingContext = "";
+  try {
+    const trendQuery = candidateInterests.slice(0, 2).map(i => i.keyword).join(" ");
+    const trendResults = await webSearch(`${trendQuery} latest news ${new Date().getFullYear()}`, 5);
+    if (trendResults.length > 0) {
+      const headlines = trendResults.slice(0, 4).map(r => `- "${r.title}" (${r.source})`).join("\n");
+      trendingContext = `\n\nWhat's trending RIGHT NOW (optional — connect to these if any naturally relate):
+${headlines}\n`;
+      console.log(`[Digest] Temporal context: ${trendResults.length} trending headlines injected`);
+    }
+  } catch {
+    // Non-critical — proceed without temporal context
+  }
+
   const hypothesisPrompt = `You curate a daily research digest. Your job: pick 1-3 of these user interests and generate a central question with genuine surprise value.
 
 User interests (sorted by priority):
-${interestList}
+${interestList}${trendingContext}
 
 GOOD themes are SHORT and PUNCHY — like a magazine cover headline. Can be a question OR a statement:
 - "When fakes become indistinguishable from reality" (statement)

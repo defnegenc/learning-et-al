@@ -15,9 +15,10 @@ Brutalist research archive. Information-dense, no decoration for decoration's sa
 - **Accent colors are ONLY used in tags and badges.** Never as backgrounds, blobs, or decoration in content areas.
 
 ## Typography
-- **Body:** Inter, 0.9-1.1rem, line-height 1.6-1.7
-- **System labels:** Courier New, 0.65-0.7rem, uppercase, letter-spacing 2px
-- **Titles:** Inter, 1.1-1.2rem, bold, uppercase
+- **Body:** Apercu Pro (fallback: Inter), 0.9-1.1rem, line-height 1.6-1.7
+- **Display:** Space Grotesk, bold, geometric
+- **System labels:** IBM Plex Mono, 0.65-0.7rem, uppercase, letter-spacing 2px
+- **Titles:** Apercu Pro, 1.1-1.2rem, bold, uppercase
 - **Card titles:** 1rem, bold, uppercase, line-height 1.2
 
 ## Borders & Spacing

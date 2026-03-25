@@ -117,7 +117,7 @@ export async function searchOpenAlex(
 ): Promise<OpenAlexPaper[]> {
   try {
     // type:article|preprint excludes dissertations, book chapters, reports, datasets, etc.
-    const filters: string[] = ["has_abstract:true", "type:article|preprint"];
+    const filters: string[] = ["has_abstract:true", "type:article|preprint", "cited_by_count:>1"];
 
     if (fieldsOfStudy) {
       const concept = OA_CONCEPT_MAP[fieldsOfStudy] ?? fieldsOfStudy.toLowerCase();
