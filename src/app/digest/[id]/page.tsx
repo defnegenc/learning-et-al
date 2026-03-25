@@ -164,6 +164,8 @@ export default function DigestPermalink() {
               synthesis={digest.synthesisContent}
               theme={digest.theme ?? undefined}
               keyConcepts={digest.keyConcepts}
+              activeConcept={null}
+              onConceptClick={() => {}}
               papers={papers}
               onSelectPaper={openSource}
             />
