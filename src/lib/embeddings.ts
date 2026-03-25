@@ -5,9 +5,6 @@
  * Model selection via EMBEDDING_MODEL env var:
  * - "all-MiniLM-L6-v2" (default) — 384-dim, symmetric, good general-purpose
  * - "bge-small-en-v1.5" — 384-dim, asymmetric, better cross-domain & query-doc retrieval
- *
- * IMPORTANT: When running in fallback mode, all quality gates in the pipeline
- * are degraded. The pipeline checks `isEmbeddingDegraded()` and logs warnings.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,16 +14,12 @@ let embeddingsAvailable = true;
 let _degraded = false;
 let _modelName = "";
 
-// Model registry: Xenova model ID → Hugging Face model name
 const MODEL_REGISTRY: Record<string, string> = {
   "all-MiniLM-L6-v2": "Xenova/all-MiniLM-L6-v2",
   "bge-small-en-v1.5": "Xenova/bge-small-en-v1.5",
 };
 
-/** True when ONNX failed to load and we're using keyword fallback */
 export function isEmbeddingDegraded(): boolean { return _degraded; }
-
-/** Returns the active model name (for logging) */
 export function getActiveModel(): string { return _modelName || "keyword-fallback"; }
 
 async function getModel() {
@@ -39,12 +32,9 @@ async function getModel() {
       const { pipeline: createPipeline, env } = await import("@xenova/transformers");
       env.cacheDir = "./.cache/transformers";
       env.allowRemoteModels = true;
-
-      // Select model from env var, default to all-MiniLM-L6-v2
       const requestedModel = process.env.EMBEDDING_MODEL || "all-MiniLM-L6-v2";
       const modelId = MODEL_REGISTRY[requestedModel] || MODEL_REGISTRY["all-MiniLM-L6-v2"];
       _modelName = requestedModel;
-
       pipeline = await createPipeline("feature-extraction", modelId, { quantized: true });
       console.log(`[Embeddings] Loaded ${requestedModel} (${modelId})`);
     } catch (err) {
@@ -58,11 +48,13 @@ async function getModel() {
   return pipeline;
 }
 
-// Track original text for each embedding so fallback can do keyword comparison
-const embTextMap = new Map<number[], string>();
+// Fallback text lookup — keyed by sequential ID stored in dummy[0], not array reference
+let _fallbackId = 0;
+const embTextMap = new Map<number, string>();
+
+const FALLBACK_STOP = new Set(["the", "a", "an", "in", "of", "to", "and", "for", "is", "on", "with", "that", "this", "are", "was", "by", "as", "at", "from", "or", "be", "it", "has", "have", "had", "been", "not", "but", "can", "will", "its", "all", "also", "more", "than", "into", "each", "may", "our", "new"]);
 
 export function cosineSimilarity(a: number[], b: number[]): number {
-  // Real embeddings: standard cosine similarity
   if (a.length > 1 && b.length > 1) {
     let dot = 0, normA = 0, normB = 0;
     for (let i = 0; i < a.length; i++) {
@@ -74,27 +66,25 @@ export function cosineSimilarity(a: number[], b: number[]): number {
     return dot / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
-  // Fallback: keyword overlap similarity
-  const textA = embTextMap.get(a) || "";
-  const textB = embTextMap.get(b) || "";
-  if (!textA || !textB) return 0.1; // unknown → conservative (was 0.3, which bypassed all gates)
+  // Fallback: keyword overlap similarity (keyed by ID in dummy[0])
+  const textA = embTextMap.get(a[0]) || "";
+  const textB = embTextMap.get(b[0]) || "";
+  if (!textA || !textB) return 0.1;
 
-  const stop = new Set(["the", "a", "an", "in", "of", "to", "and", "for", "is", "on", "with", "that", "this", "are", "was", "by", "as", "at", "from", "or", "be", "it", "has", "have", "had", "been", "not", "but", "can", "will", "its", "all", "also", "more", "than", "into", "each", "may", "our", "new"]);
-  const wordsA = new Set(textA.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !stop.has(w)));
-  const wordsB = new Set(textB.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !stop.has(w)));
+  const wordsA = new Set(textA.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !FALLBACK_STOP.has(w)));
+  const wordsB = new Set(textB.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !FALLBACK_STOP.has(w)));
   if (wordsA.size === 0 || wordsB.size === 0) return 0.1;
   let overlap = 0;
   for (const w of wordsA) if (wordsB.has(w)) overlap++;
-  // Scale to match embedding similarity range (0-1, typically 0.1-0.6 for this model)
   return Math.min(0.8, (overlap / Math.min(wordsA.size, wordsB.size)) * 0.6 + 0.1);
 }
 
 export async function embedText(text: string): Promise<number[]> {
   const model = await getModel();
   if (!model) {
-    const dummy = [0]; // sentinel: length 1 = fallback mode
-    embTextMap.set(dummy, text);
-    return dummy;
+    const id = ++_fallbackId;
+    embTextMap.set(id, text);
+    return [id]; // sentinel: length 1 = fallback mode, value = lookup key
   }
   const output = await model(text, { pooling: "mean", normalize: true });
   return Array.from(output.data as Float32Array);
@@ -104,9 +94,9 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
   const model = await getModel();
   if (!model) {
     return texts.map(t => {
-      const dummy = [0];
-      embTextMap.set(dummy, t);
-      return dummy;
+      const id = ++_fallbackId;
+      embTextMap.set(id, t);
+      return [id];
     });
   }
   const output = await model(texts, { pooling: "mean", normalize: true });

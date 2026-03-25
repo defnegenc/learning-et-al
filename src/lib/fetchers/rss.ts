@@ -94,21 +94,19 @@ export async function fetchRssArticles(
   // Deduplicate feed URLs
   const uniqueFeeds = [...new Set(feedUrls)];
 
-  for (const feedUrl of uniqueFeeds) {
-    try {
-      const feed = await parser.parseURL(feedUrl);
-      const items = feed.items.slice(0, maxPerFeed);
-
-      for (const item of items) {
-        articles.push({
-          title: item.title || "Untitled",
-          authors: item.creator ? [item.creator] : [],
-          abstract: item.contentSnippet || item.content || "",
-          sourceUrl: item.link || "",
-        });
-      }
-    } catch (e) {
-      console.error(`[RSS] Failed to fetch ${feedUrl}:`, e);
+  const feedResults = await Promise.allSettled(uniqueFeeds.map(url => parser.parseURL(url)));
+  for (const [i, result] of feedResults.entries()) {
+    if (result.status === "rejected") {
+      console.error(`[RSS] Failed to fetch ${uniqueFeeds[i]}:`, result.reason);
+      continue;
+    }
+    for (const item of result.value.items.slice(0, maxPerFeed)) {
+      articles.push({
+        title: item.title || "Untitled",
+        authors: item.creator ? [item.creator] : [],
+        abstract: item.contentSnippet || item.content || "",
+        sourceUrl: item.link || "",
+      });
     }
   }
 
