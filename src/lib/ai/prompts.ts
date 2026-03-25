@@ -218,6 +218,9 @@ Arc: ${skeleton.argumentArc}
 Paper roles:
 ${roleDesc}
 
+You MUST reference ALL of these papers in **bold** (no exceptions):
+${skeleton.paperRoles.map(r => `- **${r.shortName}**`).join("\n")}
+
 Now write the synthesis paragraph. Follow the argument arc above. Return ONLY the paragraph text (no JSON, no markdown fences).
 
 STYLE RULES:
