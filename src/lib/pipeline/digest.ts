@@ -957,12 +957,25 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     paperRoles: { index: number; role: string; shortName: string; coreContribution: string }[];
     coreTension: string;
     argumentArc: string;
+    skipPapers?: number[];
   };
   try {
     const skelParsed = extractJson<typeof skeleton>(skeletonResp);
     if (!skelParsed) throw new Error("No JSON");
     skeleton = skelParsed;
     console.log(`[Digest] Skeleton: tension="${skeleton.coreTension}"`);
+
+    // Drop papers the skeleton says are weak fits — better 2 good papers than 3 with one forced
+    if (skeleton.skipPapers && skeleton.skipPapers.length > 0 && items.length - skeleton.skipPapers.length >= 2) {
+      const skipSet = new Set(skeleton.skipPapers);
+      const kept = items.filter((_, i) => !skipSet.has(i + 1));
+      const dropped = items.filter((_, i) => skipSet.has(i + 1));
+      console.log(`[Digest] Dropping ${dropped.length} weak-fit paper(s): ${dropped.map(p => p.title.slice(0, 50)).join(", ")}`);
+      items = kept;
+      // Re-index skeleton roles to match new items array
+      skeleton.paperRoles = skeleton.paperRoles.filter(r => !skipSet.has(r.index));
+      skeleton.paperRoles.forEach((r, i) => { r.index = i + 1; });
+    }
   } catch {
     console.log(`[Digest] Skeleton parse failed, using simple fallback`);
     skeleton = {

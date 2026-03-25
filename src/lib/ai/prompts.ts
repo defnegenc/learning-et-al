@@ -131,7 +131,13 @@ BAD selection: 3 papers all about "AI in education" that agree → boring, redun
 GOOD selection: 1 paper showing AI works in education + 1 showing it FAILS in a specific context + 1 from a different field that explains WHY → tension, insight, surprise
 GOOD selection: 1 paper proving a new method works + 1 paper from industry showing nobody uses it yet + 1 paper from a different angle entirely
 
-CRITICAL: Do NOT select a paper that is only tangentially related to the theme. A paper about "tech-business analytics in service industries" does NOT belong in a digest about "why we ignore logic in decisions" just because both involve business. The paper must DIRECTLY inform the theme question.
+CRITICAL: Do NOT select a paper that is only tangentially related to the theme. For each paper, ask: "If I removed the theme title, would a reader understand why this paper is here?" If not, skip it.
+
+BAD: A "COVID-19 NLP corpus" paper in a digest about "Can machines think for themselves?" — it's about annotating text, not autonomous reasoning
+BAD: A "tech-business analytics" paper in a digest about "why we ignore logic" — both involve business but the connection stops there
+GOOD: Every selected paper should make a reader say "oh, I see how this connects"
+
+If fewer than ${targetCount} papers genuinely fit the theme, select only the ones that do. It's better to return 2 great papers than 3 where one is a stretch.
 
 Return JSON (no markdown fences):
 {
@@ -175,11 +181,12 @@ Return JSON (no markdown fences):
     { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism|provides_context|reinforces", "shortName": "2-4 word nickname: 'the polyphenols study', 'the Turkish teacher research', 'the epilepsy review'", "coreContribution": "what this paper uniquely adds to the argument, 10 words max" }
   ],
   "coreTension": "The central disagreement or unresolved question these papers surface, 1 sentence",
-  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z"
+  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z",
+  "skipPapers": []
 }
 
 RULES:
-- EVERY paper MUST get a role. With only 2-3 papers, there is no room to skip any. If a paper barely connects, its role is "provides_context" or "provides_contrast" — find an angle.
+- EVERY paper should get a role if possible. If a paper genuinely doesn't connect to the theme or other papers, add its index to skipPapers. Better to have 2 great papers than 3 with one forced.
 - If two papers make the SAME POINT, find what DIFFERS between them — methodology, scale, domain, era. If truly identical, the weaker one's role is "reinforces" with a note about what specifically it adds (a different context, a specific number, etc.)
 - The coreTension should be a GENUINE intellectual tension, not a fake one. "People haven't adopted it" or "there are still challenges" is NOT a tension. A tension is a real DISAGREEMENT or PARADOX between the papers.
 - The argumentArc MUST reference ALL papers by number. If a paper isn't in the arc, you haven't found its role yet.
