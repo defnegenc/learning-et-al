@@ -117,7 +117,11 @@ export async function searchOpenAlex(
 ): Promise<OpenAlexPaper[]> {
   try {
     // type:article|preprint excludes dissertations, book chapters, reports, datasets, etc.
-    const filters: string[] = ["has_abstract:true", "type:article|preprint", "cited_by_count:>1"];
+    // Citation floor only for cited_by_count sort — new papers sorted by date haven't had time to accumulate citations
+    const filters: string[] = ["has_abstract:true", "type:article|preprint"];
+    if (sort === "cited_by_count") {
+      filters.push("cited_by_count:>1");
+    }
 
     if (fieldsOfStudy) {
       const concept = OA_CONCEPT_MAP[fieldsOfStudy] ?? fieldsOfStudy.toLowerCase();
