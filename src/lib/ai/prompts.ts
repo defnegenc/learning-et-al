@@ -1,21 +1,31 @@
 export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". You use contractions and start sentences with "So", "But", "Turns out". You never say "notably", "furthermore", "demonstrates". You ground everything in real-world problems the reader can picture. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
 
+export const SYNTHESIS_PROSE_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English. You use contractions and start sentences with "So", "But", "Turns out". You never say "notably", "furthermore", "demonstrates". You ground everything in real-world problems the reader can picture.`;
+
 interface DigestContext {
   focusInterest: string;
   focusLevel: "beginner" | "intermediate" | "expert";
   researchAngle: string;
 }
 
+type PaperListing = { title: string; abstract: string; source: string; category?: string; year?: number };
+
+function formatPapers(items: PaperListing[], maxChars = 2000) {
+  return items.map((p, i) => {
+    const chars = p.source === "rss" ? 6000 : maxChars;
+    const yearStr = p.year ? `, ${p.year}` : "";
+    return `[${i + 1}] "${p.title}" (${p.source}${yearStr}, ${p.category || "unknown"})\n${p.abstract.slice(0, chars)}`;
+  }).join("\n\n");
+}
+
+// ─── Legacy single-call prompt (kept as fallback) ────────────────────────────
+
 export function digestPrompt(
-  items: { title: string; abstract: string; source: string; category?: string; year?: number }[],
+  items: PaperListing[],
   theme: string,
   ctx?: DigestContext
 ) {
-  const listing = items.map((p, i) => {
-    const maxChars = p.source === "rss" ? 6000 : 2000;
-    const yearStr = p.year ? `, ${p.year}` : "";
-    return `[${i + 1}] "${p.title}" (${p.source}${yearStr}, ${p.category || "unknown"})\n${p.abstract.slice(0, maxChars)}`;
-  }).join("\n\n");
+  const listing = formatPapers(items);
 
   const contextBlock = ctx
     ? `User's interest: "${ctx.focusInterest}" (level: ${ctx.focusLevel})
@@ -35,7 +45,200 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
 }
 
-CONNECTION TO THEME RULES:
+${METADATA_RULES(ctx)}
+
+${SYNTHESIS_RULES(theme, ctx)}
+
+Papers:
+
+${listing}`;
+}
+
+// ─── Multi-stage prompts ─────────────────────────────────────────────────────
+
+/** Stage A: Metadata only (items, keywords, findings, keyConcepts) */
+export function metadataPrompt(items: PaperListing[], theme: string, ctx?: DigestContext) {
+  const listing = formatPapers(items);
+  const contextBlock = ctx
+    ? `User's interest: "${ctx.focusInterest}" (level: ${ctx.focusLevel})\nResearch angle for today: "${ctx.researchAngle}"\n`
+    : "";
+
+  return `${contextBlock}Today's theme: "${theme}"
+
+Here are ${items.length} items. Produce JSON (no markdown fences):
+
+{
+  "items": [
+    { "index": 1, "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
+  ],
+  "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
+}
+
+${METADATA_RULES(ctx)}
+
+Papers:
+
+${listing}`;
+}
+
+/**
+ * Stage B: Argument skeleton — cross-document relations + outline.
+ * Research: Radev (2000) Cross-Document Structure Theory, Yao (2023) Tree of Thoughts.
+ */
+export function skeletonPrompt(items: PaperListing[], theme: string) {
+  const listing = formatPapers(items, 1500);
+
+  return `Theme: "${theme}"
+
+Papers:
+${listing}
+
+You are planning the argument structure for a research synthesis paragraph. Before writing anything, ANALYZE the relationships between these papers.
+
+Return JSON (no markdown fences):
+{
+  "paperRelations": [
+    { "paper1": 1, "paper2": 2, "relation": "contradicts|agrees|extends|alternative_mechanism|unrelated", "explanation": "5-10 words" }
+  ],
+  "paperRoles": [
+    { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism|is_weak_fit", "shortName": "the Turkish teacher study", "coreContribution": "what this paper uniquely adds to the argument, 10 words max" }
+  ],
+  "coreTension": "The central disagreement or unresolved question these papers surface, 1 sentence",
+  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z",
+  "skipPapers": []
+}
+
+RULES:
+- Be HONEST about paper fit. If a paper barely connects to the theme, mark it "is_weak_fit" and add its index to skipPapers.
+- The coreTension should be a GENUINE intellectual tension, not a fake one.
+- The argumentArc must show how papers BUILD on each other, not just appear sequentially.
+- shortName should be how you'd refer to it talking to a friend: "the McKinsey report", "the Nigerian banking study"
+- If all papers agree, the tension is: "if everyone agrees, why hasn't this been solved?"
+- paperRelations: include one entry per pair of papers (for 3 papers: 3 pairs)`;
+}
+
+/**
+ * Stage C: Write synthesis from the argument skeleton.
+ * The skeleton ensures the model argues rather than summarizes.
+ */
+export function synthesisFromSkeletonPrompt(
+  items: PaperListing[],
+  theme: string,
+  skeleton: {
+    paperRoles: { index: number; role: string; shortName: string; coreContribution: string }[];
+    coreTension: string;
+    argumentArc: string;
+    skipPapers?: number[];
+  }
+) {
+  const listing = formatPapers(items, 1500);
+
+  const roleDesc = skeleton.paperRoles
+    .filter(r => !skeleton.skipPapers?.includes(r.index))
+    .map(r => `- Paper ${r.index} ("${r.shortName}"): ${r.role} — ${r.coreContribution}`)
+    .join("\n");
+
+  const skippedDesc = skeleton.skipPapers?.length
+    ? `\nPapers to skip or mention only briefly: ${skeleton.skipPapers.map(i => `[${i}]`).join(", ")}`
+    : "";
+
+  return `Theme: "${theme}"
+
+Papers:
+${listing}
+
+ARGUMENT PLAN (follow this structure):
+Core tension: ${skeleton.coreTension}
+Arc: ${skeleton.argumentArc}
+Paper roles:
+${roleDesc}${skippedDesc}
+
+Now write the synthesis paragraph. Follow the argument arc above. Return ONLY the paragraph text (no JSON, no markdown fences).
+
+STYLE RULES:
+- Name papers in **bold** conversationally: "**${skeleton.paperRoles[0]?.shortName || "the study"}** (Author, Year)". Use the first author's last name if available from the paper listing.
+- After first mention, just use the short bold name.
+- ONE paragraph, 5-8 sentences.
+- Start with the insight, not the build-up.
+- Include one specific number or finding.
+- End naturally — no formulaic closing.
+- Write for smart non-experts. Translate ALL jargon.
+- NO: demonstrates, reveals, highlights, nuanced, multifaceted.
+- NO em dashes. NO restating the theme.
+- Contractions OK. "So", "But", "Turns out" OK.
+- If a paper is in skipPapers, you may mention it in one sentence or leave it out entirely. Do NOT build your argument around it.
+- When moving between papers, ADD A BRIDGE SENTENCE. Don't just place them next to each other.
+- NEVER mention topics that aren't in the papers.`;
+}
+
+/**
+ * Stage D-1: Self-critique of synthesis.
+ * Research: Madaan et al. (2023) Self-Refine — ~20% quality improvement.
+ */
+export function synthesisCritiquePrompt(
+  synthesis: string,
+  theme: string,
+  paperTitles: string[]
+) {
+  return `You are a tough editor reviewing a research synthesis paragraph.
+
+Theme: "${theme}"
+Papers referenced: ${paperTitles.map((t, i) => `[${i + 1}] "${t}"`).join(", ")}
+
+Synthesis:
+"""
+${synthesis}
+"""
+
+Score each dimension 1-5 and give specific, actionable feedback.
+
+Return JSON (no markdown fences):
+{
+  "scores": {
+    "argument": 0,
+    "connection": 0,
+    "accessibility": 0,
+    "specificity": 0
+  },
+  "weakestPoint": "Which sentence is weakest and why, in 15 words",
+  "revision": "Specific rewrite instruction in 1-2 sentences. Be concrete: 'Move the finding about X to the opening' not 'make it better'"
+}
+
+Scoring guide:
+- argument: Does it make an ARGUMENT (not just summarize)? Is there genuine tension? 1=book report, 5=op-ed
+- connection: Are ALL mentioned papers necessary? Or is one just... there? 1=forced, 5=essential
+- accessibility: Would a smart non-expert find this clear and interesting? 1=jargon soup, 5=coffee conversation
+- specificity: Specific findings/numbers vs vague claims? 1=all vague, 5=concrete throughout
+
+Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
+}
+
+/** Stage D-2: Revision based on critique feedback. */
+export function synthesisRevisionPrompt(
+  originalSynthesis: string,
+  critique: { weakestPoint: string; revision: string },
+  theme: string
+) {
+  return `Revise this synthesis based on the editor's feedback.
+
+Theme: "${theme}"
+
+Original:
+"""
+${originalSynthesis}
+"""
+
+Editor's feedback:
+- Weakest point: ${critique.weakestPoint}
+- Revision instruction: ${critique.revision}
+
+Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the same **bold paper names**. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.`;
+}
+
+// ─── Shared rule blocks ──────────────────────────────────────────────────────
+
+function METADATA_RULES(ctx?: DigestContext) {
+  return `CONNECTION TO THEME RULES:
 - Each item needs a "connectionToTheme" — a SHORT phrase (5-10 words) explaining why it's here
 - NO prefixes like "Directly answers..." or "A bit of a stretch..."
 - Just the reason: "shows what happens when you remove human teachers" or "the tech behind the trust problem"
@@ -47,10 +250,8 @@ SUMMARY RULES:
 - Focus on what the paper FOUND, not what it set out to do.
 - BAD (too long): "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..."
 - GOOD (scannable): "Fine-tuning just 1% of an AI model's parameters cut training costs 10x with only a 3% accuracy drop."
-- BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches for sentiment classification tasks"
 - BAD: "This industry report outlines key trends in AI agent development" — WHICH trends? NAME THEM.
-- GOOD: "Researchers tested whether you could fine-tune a large AI model cheaply by only updating a tiny fraction of its parameters. On social media text, this cut training costs 10x with only a 3% accuracy drop."
-- GOOD: "FintechNews reports that multi-agent collaboration, agentic RAG, and vertical AI agents (specialized for healthcare, legal, finance) are the three biggest AI agent trends heading into 2026."
+- GOOD: "FintechNews reports that multi-agent collaboration, agentic RAG, and vertical AI agents are the three biggest AI agent trends heading into 2026."
 
 FINDINGS RULES:
 - 3 findings per paper. Each one answers: "what did they FIND OUT?" not "what did they DO?"
@@ -61,29 +262,29 @@ BAD findings (these describe the STUDY, not the RESULTS):
 - "Five gamified versions were created and tested with 13 experts" — that's the METHOD, not what they found
 - "The paper examines how AI affects creativity" — tells me nothing
 - "Researchers surveyed 381 students about emoji use" — that's what they DID, not what they LEARNED
-- "Expert interviews revealed design principles" — WHICH principles? Say them.
 
 GOOD findings (these tell me WHAT WORKED, WHAT HAPPENED, WHAT'S TRUE):
 - "Leaderboards boosted student attention by 40% but badges had no measurable effect"
 - "The podcast group's motivation jumped massively (1.33 effect size) while the control group showed zero change"
-- "Salesforce's Agentforce processed 1 billion agent actions in December 2024"
 - "Multi-agent collaboration is the #1 AI agent trend for 2026 according to the report"
 
-For NEWS: name the specific companies, products, numbers, trends. The reader should learn the actual content from your 3 findings.
+For NEWS: name the specific companies, products, numbers, trends.
 
 KEYWORD RULES:
-- Keywords should describe what the PAPER is actually about, not the user's interest. If the paper is about nutrition, say "precision nutrition" not "fashion tech"
+- Keywords should describe what the PAPER is actually about, not the user's interest
 - Keywords should be terms a curious person could Google and learn something from
-- For ${ctx?.focusLevel === "beginner" ? "beginners" : "this level"}: avoid pure jargon acronyms (HMC, ELBO). Use plain-ish terms: "Bayesian inference" not "MCMC sampling"
+- For ${ctx?.focusLevel === "beginner" ? "beginners" : "this level"}: avoid pure jargon acronyms. Use plain-ish terms.
 - 3 DISTINCT terms per paper — not variations of the same thing
 
 KEYCONCEPTS RULES:
 - 5 concepts that span all papers
 - MUST include at least 1 concept that explains the user's core interest: "${ctx?.focusInterest ?? "the main topic"}"
-- Format MUST be "term: definition" — e.g. "AI agents: AI systems that take sequences of actions to complete a goal autonomously"
-- Definitions must be one plain sentence, as if explaining to a curious 20-year-old with no domain background
+- Format MUST be "term: definition"
+- Definitions must be one plain sentence, as if explaining to a curious 20-year-old`;
+}
 
-SYNTHESIS — make an ARGUMENT about "${theme}", using the papers as evidence.
+function SYNTHESIS_RULES(theme: string, _ctx?: DigestContext) {
+  return `SYNTHESIS — make an ARGUMENT about "${theme}", using the papers as evidence.
 
 You are NOT summarizing papers. You are making a point about the theme question, and the papers are your proof. Think of it like a short op-ed, not a book report.
 
@@ -94,41 +295,26 @@ This is boring. Don't do this.
 GOOD (argument with papers as evidence, SHORT paper names, GROUNDED in real life):
 "Making airplane wings is basically expensive guesswork right now. **the composites review** found that AI can turn that guesswork into predictable science by standardizing how manufacturers pick their materials. But here's the thing: smarter tech doesn't always win. **the solar shading study** found that fancy movable panels don't beat simple fixed ones. What matters is matching the design to your specific climate. And **Duolingo** proves the ultimate version of this: 50 million people practice vocabulary daily because a cartoon owl made repetition addictive. The lesson across all three? The smartest design isn't the most complex one. It's the one that actually fits the problem."
 
-Notice what the GOOD version does:
-1. STARTS with a real-world problem the reader can picture ("making airplane wings is guesswork")
-2. Explains technical papers in PLAIN terms the reader already understands
-3. Each paper adds something NEW to the argument, not just "another example"
-4. Never assumes the reader knows jargon — "composite materials" becomes "airplane wings and race car parts"
-5. Paper names are SHORT (2-5 words)
-
 CRITICAL RULES:
-- The reader should never have to Google a term to understand your point. Translate jargon into things a smart non-expert already knows.
-- When moving between papers, ADD A BRIDGE SENTENCE that explicitly connects them.
-- Don't just place papers next to each other and hope the reader connects them. SPELL OUT the connection.
-- NEVER mention topics that aren't in the papers. If no paper mentions interior design, don't bring up interior design. Only discuss what the papers actually cover.
-- If a paper doesn't meaningfully connect to the theme, SKIP IT. Better to write about 2 papers well than 3 papers where one is a stretch. You can mention the skipped paper in one sentence at the end if you want, but don't build your argument around it.
-- If two papers seem barely related, be honest: "These two don't obviously connect, but..." is better than forcing a fake connection.
+- Translate jargon into things a smart non-expert already knows.
+- When moving between papers, ADD A BRIDGE SENTENCE.
+- NEVER mention topics that aren't in the papers.
+- If a paper doesn't meaningfully connect to the theme, SKIP IT. Better 2 papers well than 3 with one forced.
+- If two papers seem barely related, be honest about it.
 
-LENGTH: 5-8 sentences. ONE or TWO paragraphs. Tell the reader enough about each paper that they don't need to read it — what was studied, what was found, and why it matters for the theme.
-
-START with the point, not the build-up. Lead with the insight, then back it up with the papers.
+LENGTH: 5-8 sentences. ONE paragraph.
+START with the point, not the build-up.
 
 RULES:
-- Name papers CONVERSATIONALLY in **bold** — the way you'd refer to them talking to a friend. "**the McKinsey fashion report**" not "**Fashion 2026**". "**Nigerian banking research**" not "**Driving Sustainable Growth**". Include a short parenthetical with source and year: "**Nigerian banking research** (Iwedi, 2026)".
+- Name papers CONVERSATIONALLY in **bold** with parenthetical source/year: "**the McKinsey fashion report** (Iwedi, 2026)"
 - After first mention, just use the short bold name.
-- ONE paragraph. No multi-paragraph essays.
-- Start with the insight, not "Turns out" or "The big question."
 - Include one specific number or finding.
-- End naturally. No formulaic "The core tension is..." or forced "look into."
+- End naturally. No formulaic closing.
 - NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted.
-- NO: "it's deeply about", "This kind of", "This shows how", "The real lesson."
-- NO em dashes. NO restating the theme.
-- Only mention topics actually in the papers. Never hallucinate connections.
-
-Papers:
-
-${listing}`;
+- NO em dashes. NO restating the theme.`;
 }
+
+// ─── Other prompts ───────────────────────────────────────────────────────────
 
 export function qaPrompt(paperTitle: string, fullText: string, question: string) {
   return `Answer this question about the paper. Be specific, cite sections when you can. Write casually.
