@@ -407,17 +407,46 @@ Return JSON only (no markdown):
   const focusInterestObj = candidateInterests.find(i => i.keyword === focusInterest) ?? candidateInterests[0];
   const focusLevel = (focusInterestObj.level ?? "beginner") as "beginner" | "intermediate" | "expert";
 
-  // Embed the central question — this is our relevance anchor for all paper scoring
+  // ─── Theme → Search → Score loop: retry with new theme if papers don't match ───
+  const MAX_THEME_RETRIES = 2;
+  let themeEmb: number[] = [];
+  let allResults: PaperSearchResult[] = [];
+  let resultEmbs: number[][] = [];
+  let scored: { p: PaperSearchResult; themeSim: number; score: number }[] = [];
+  let qualified: typeof scored = [];
+  let threshold = SIM_ONTOPIC;
+  const SIM_MIN_THEME = 0.12; // hard floor on raw embedding similarity
+
+  for (let themeAttempt = 0; themeAttempt <= MAX_THEME_RETRIES; themeAttempt++) {
+  if (themeAttempt > 0) {
+    console.log(`[Digest] Theme "${theme}" produced too few papers — generating new theme (attempt ${themeAttempt + 1})...`);
+    try {
+      const retryResp = await aiComplete(aiConfig,
+        "You generate surprising research questions. Return only JSON.",
+        `The theme "${theme}" didn't find enough academic papers. Generate a COMPLETELY DIFFERENT theme that is more likely to have published research.\n\nInterests: ${interestList}\nFailed themes (avoid these topics entirely): ${[theme].join(", ")}\n\nPick a concrete, researchable angle — not abstract philosophy. "How does X affect Y?" finds papers. "Do machines dream?" does not.\n\nReturn JSON: {"theme": "MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords", "focusFields": ["field1"]}`
+      );
+      const retryParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string; focusFields?: string[] }>(retryResp);
+      if (retryParsed?.theme) {
+        theme = retryParsed.theme;
+        if (retryParsed.searchQueries && retryParsed.searchQueries.length > 0) searchQueries = retryParsed.searchQueries;
+        if (retryParsed.newsQuery) newsQuery = retryParsed.newsQuery;
+        if (retryParsed.focusFields && retryParsed.focusFields.length > 0) focusFields = retryParsed.focusFields;
+        console.log(`[Digest] New theme: "${theme}"`);
+      }
+    } catch { /* keep current theme if retry fails */ }
+  }
+
+  // Embed the central question
   console.log(`[Digest] Embedding central question...`);
-  const themeEmb = await embedText(theme);
-  if (isEmbeddingDegraded()) {
+  themeEmb = await embedText(theme);
+  if (themeAttempt === 0 && isEmbeddingDegraded()) {
     console.warn(`[Digest] ⚠ ONNX unavailable — running in DEGRADED mode. Similarity gates use keyword fallback.`);
   }
 
   // ─── Step 2: Search for papers using all generated queries ───────────────────
   // When cross-domain (2+ fields), split queries across fields for better coverage
   console.log(`[Digest] Step 2: searching papers with ${searchQueries.length} queries across ${focusFields.length} field(s)...`);
-  const allResults: PaperSearchResult[] = [];
+  allResults = [];
   const seenSearchTitles = new Set<string>();
 
   for (let qi = 0; qi < searchQueries.length; qi++) {
@@ -466,12 +495,13 @@ Return JSON only (no markdown):
   }
 
   if (allResults.length === 0) {
-    throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
+    console.log(`[Digest] No papers found for "${theme}" — will retry with new theme`);
+    continue; // retry with new theme
   }
 
   // ─── Step 3: Hybrid scoring — BM25 + embeddings + RRF ───────────────────────
   // Research: Cormack et al. (2009) RRF, Kotkov et al. (2016) serendipity factors
-  const resultEmbs = await embedBatch(allResults.map(paperText));
+  resultEmbs = await embedBatch(allResults.map(paperText));
   const currentYear = new Date().getFullYear();
 
   // Signal 1: Embedding similarity (semantic meaning)
@@ -481,8 +511,7 @@ Return JSON only (no markdown):
   // Fuse with Reciprocal Rank Fusion
   const rrfScores = rrfFuse([embeddingSims, bm25Scores]);
 
-  const SIM_MIN_THEME = 0.12; // hard floor on raw embedding similarity
-  const scored = allResults
+  scored = allResults
     .map((p, i) => {
       const themeSim = embeddingSims[i];
       const rrfScore = rrfScores[i];
@@ -503,8 +532,8 @@ Return JSON only (no markdown):
 
   // Use raw themeSim for qualification (not RRF score) — keeps thresholds interpretable
   // Cascade: try SIM_ONTOPIC first, then SIM_FALLBACK, then SIM_MIN_THEME as last resort
-  let threshold = SIM_ONTOPIC;
-  let qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+  threshold = SIM_ONTOPIC;
+  qualified = scored.filter(({ themeSim }) => themeSim > threshold);
   if (qualified.length < 2) {
     threshold = SIM_FALLBACK;
     qualified = scored.filter(({ themeSim }) => themeSim > threshold);
@@ -519,11 +548,21 @@ Return JSON only (no markdown):
   }
   console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (theme: ${scored[0]?.themeSim.toFixed(2)})`);
 
-  // If no papers qualified at all, take the top scored papers regardless of threshold
-  if (qualified.length === 0 && scored.length > 0) {
-    console.log(`[Digest] No papers passed any threshold — taking top ${Math.min(3, scored.length)} by score`);
-    qualified = scored.slice(0, Math.min(3, scored.length));
-    threshold = 0;
+  // If we have enough qualified papers, break the retry loop
+  if (qualified.length >= 2) break;
+
+  // On last attempt, take whatever we have
+  if (themeAttempt === MAX_THEME_RETRIES) {
+    if (qualified.length === 0 && scored.length > 0) {
+      console.log(`[Digest] Final attempt — taking top ${Math.min(3, scored.length)} by score`);
+      qualified = scored.slice(0, Math.min(3, scored.length));
+    }
+    break;
+  }
+  } // end theme retry loop
+
+  if (qualified.length === 0 && allResults.length === 0) {
+    throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
   }
 
   // Dynamic item count: adjust paper:news ratio based on candidate quality (audit 4.4)
@@ -763,10 +802,10 @@ Return JSON only (no markdown):
     }
   }
 
-  if (items.length < 2) {
-    throw new Error(`Could only find ${items.length} relevant item(s) for "${theme}". Try regenerating or add more interests.`);
+  if (items.length === 0) {
+    throw new Error(`Couldn't find any relevant content for "${theme}". Try regenerating or add more interests.`);
   }
-  console.log(`[Digest] ${items.length} items ready.`);
+  console.log(`[Digest] ${items.length} items ready (target was ${TOTAL_ITEMS}).`);
 
   // ─── Step 4b: LLM re-ranking — score papers as "tools to think with" ─────────
   // Embedding similarity finds topically related papers, but the product goal is
