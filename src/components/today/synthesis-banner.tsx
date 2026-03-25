@@ -110,8 +110,26 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
   bg: string; bgHover: string; summary: string | null; onClick: () => void; children: React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+  const ref = React.useRef<HTMLSpanElement>(null);
+
+  const updateTooltip = React.useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    // Show above if there's room, otherwise below
+    const above = rect.top > 120;
+    setTooltipStyle({
+      position: "fixed",
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 288)),
+      top: above ? rect.top - 8 : rect.bottom + 8,
+      transform: above ? "translateY(-100%)" : "none",
+      zIndex: 9999,
+    });
+  }, []);
+
   return (
     <span
+      ref={ref}
       style={{
         position: "relative",
         color: "#111", fontSize: "1.1em", fontWeight: 700,
@@ -119,19 +137,19 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
         padding: "1px 4px", margin: "0 -2px",
         cursor: "pointer", transition: "background 0.15s", borderRadius: "2px",
       }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => { setHovered(true); updateTooltip(); }}
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
     >
       {children}
       {hovered && summary && (
         <span style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: "0",
+          ...tooltipStyle,
           background: "#1a1a1a", color: "white",
           fontSize: "0.75rem", fontWeight: 400, lineHeight: 1.5,
           padding: "10px 14px", width: "280px", whiteSpace: "normal",
-          zIndex: 50, boxShadow: "4px 4px 0px 0px rgba(0,0,0,0.3)",
-          borderRadius: "0",
+          boxShadow: "4px 4px 0px 0px rgba(0,0,0,0.3)",
+          pointerEvents: "none",
         }}>
           {summary.length > 150 ? summary.slice(0, 147) + "..." : summary}
         </span>
