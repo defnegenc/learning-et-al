@@ -35,17 +35,14 @@ function DigestFeedback({ digestId, onRegenerate, generating = false }: { digest
 
   if (submitted && !showComment) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
         {reaction === "up" ? (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38b000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38b000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
         ) : (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff007f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff007f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
         )}
-        <span style={{ fontSize: "0.95rem", color: "#555" }}>
-          {reaction === "up" ? "Glad you liked it!" : "Noted — we'll do better next time"}
-        </span>
-        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.8rem", color: "#bbb", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-          Undo
+        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.6rem", color: "#ccc", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono), monospace" }}>
+          undo
         </button>
       </div>
     );
@@ -58,32 +55,30 @@ function DigestFeedback({ digestId, onRegenerate, generating = false }: { digest
       }
     };
     return (
-      <div style={{ marginTop: "16px" }}>
+      <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", zIndex: 40, background: "white", border: "2px solid #1a1a1a", padding: "12px", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", width: "320px" }}>
         {generating ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <Loader2 size={16} className="animate-spin" style={{ color: "#888" }} />
-            <span style={{ fontSize: "0.9rem", color: "#555" }}>
-              Regenerating your digest — this may take a minute...
-            </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} />
+            <span style={{ fontSize: "0.75rem", color: "#555" }}>Regenerating...</span>
           </div>
         ) : (
           <>
-            <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "10px" }}>
-              What didn&apos;t work? We&apos;ll generate a new digest based on your feedback.
+            <p style={{ fontSize: "0.75rem", color: "#555", marginBottom: "8px" }}>
+              What didn&apos;t work?
             </p>
-            <div style={{ display: "flex", gap: "8px" }}>
+            <div style={{ display: "flex", gap: "6px" }}>
               <input
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="e.g. topics weren't relevant, too technical..."
+                placeholder="e.g. too technical..."
                 autoFocus
-                style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.85rem", outline: "none" }}
+                style={{ flex: 1, padding: "6px 8px", border: "2px solid #1a1a1a", fontSize: "0.75rem", outline: "none" }}
                 onKeyDown={e => { if (e.key === "Enter") triggerRegenerate(); }}
               />
               <button onClick={triggerRegenerate}
                 disabled={!comment.trim()}
-                style={{ padding: "10px 16px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", opacity: comment.trim() ? 1 : 0.5 }}>
-                Regenerate
+                style={{ padding: "6px 10px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.6rem", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", opacity: comment.trim() ? 1 : 0.5 }}>
+                Go
               </button>
             </div>
           </>
@@ -93,13 +88,12 @@ function DigestFeedback({ digestId, onRegenerate, generating = false }: { digest
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "14px", marginTop: "16px" }}>
-      <span style={{ fontSize: "0.95rem", color: "#999" }}>Did you find this interesting?</span>
-      <button onClick={() => submit("up")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "7px 12px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#38b000] transition-colors">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+      <button onClick={() => submit("up")} style={{ background: "none", border: "none", padding: "4px", cursor: "pointer", lineHeight: 1, color: "#ccc" }} className="hover:text-[#38b000] transition-colors">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
       </button>
-      <button onClick={() => submit("down")} style={{ background: "none", border: "1.5px solid #e5e7eb", padding: "7px 12px", cursor: "pointer", lineHeight: 1 }} className="hover:border-[#ff007f] transition-colors">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+      <button onClick={() => submit("down")} style={{ background: "none", border: "none", padding: "4px", cursor: "pointer", lineHeight: 1, color: "#ccc" }} className="hover:text-[#ff007f] transition-colors">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
       </button>
     </div>
   );
@@ -447,18 +441,21 @@ export function SynthesisBanner({
         </h1>
       )}
 
-      {/* Date under theme */}
-      <span
-        style={{
-          fontSize: "0.75rem",
-          color: "#aaa",
-          fontFamily: "var(--font-mono), monospace",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-        }}
-      >
-        {today}
-      </span>
+      {/* Date + feedback inline */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+        <span
+          style={{
+            fontSize: "0.75rem",
+            color: "#aaa",
+            fontFamily: "var(--font-mono), monospace",
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+          }}
+        >
+          {today}
+        </span>
+        {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} generating={generating} />}
+      </div>
 
       {/* Synthesis body */}
       <div
@@ -564,9 +561,6 @@ export function SynthesisBanner({
           })}
         </div>
       )}
-
-      {/* Quick feedback */}
-      {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} generating={generating} />}
 
       {/* Dig deeper — no box, just questions + input */}
       {papers.length > 0 && session && (
