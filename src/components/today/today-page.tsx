@@ -378,10 +378,10 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       {/* ── Main area: digest left, sources+notes right ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[5fr_minmax(340px,2fr)] flex-1 overflow-hidden mx-auto w-full" style={{ maxWidth: "1500px" }}>
+      <div className="grid grid-cols-1 md:grid-cols-[5fr_minmax(340px,2fr)] flex-1 overflow-hidden w-full">
         {/* Left: digest content */}
         <div className="overflow-y-auto px-4 md:px-10 pt-6 md:pt-8 pb-6 md:pb-8">
-          {/* Today's Digest label + Regen */}
+          {/* Today's Digest label + Regen + Save */}
           <div className="flex items-center gap-3 mb-6">
             <span style={{ fontSize: "0.7rem", color: "#555", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 700 }}>
               Today&apos;s Digest
@@ -397,22 +397,24 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
                 <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regenerate</span>
               </button>
             )}
-          </div>
-          {/* Save aligned with theme title */}
-          {digest.id && (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "-2rem", position: "relative", zIndex: 5 }}>
+            {generateError && (
+              <span style={{ fontSize: "0.6rem", color: "#ff007f", fontFamily: "var(--font-mono), monospace", maxWidth: "400px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
+                {generateError}
+              </span>
+            )}
+            {digest.id && (
               <button
                 onClick={async () => {
                   setStarred(!starred);
                   try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setStarred(starred); }
                 }}
-                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s" }}
+                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s", marginLeft: "auto" }}
               >
                 <Star size={16} className={starred ? "fill-current" : ""} />
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>{starred ? "Saved" : "Save"}</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}

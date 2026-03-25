@@ -24,12 +24,12 @@ interface AppShellProps {
 
 export function AppShell({ session, updateSession }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<"today" | "vault" | "admin">("today");
-  const isAdmin = session.userId === (typeof window !== "undefined" ? undefined : process.env.ADMIN_USER_ID);
-  // Check admin via API on mount
+  // Check admin via lightweight API on mount
   const [adminVerified, setAdminVerified] = useState(false);
   useEffect(() => {
-    fetch("/api/admin").then(r => { if (r.ok) setAdminVerified(true); }).catch(() => {});
-  }, []);
+    if (!session.userId) return;
+    fetch("/api/admin/check").then(r => { if (r.ok) setAdminVerified(true); }).catch(() => {});
+  }, [session.userId]);
   const refreshDigestRef = useRef<(() => void) | null>(null);
 
   return (

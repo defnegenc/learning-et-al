@@ -13,11 +13,21 @@ export async function POST(req: NextRequest) {
   try {
     const { apiKey, provider, model, baseUrl, force } = await req.json();
 
-    if (!apiKey || !provider) {
-      return NextResponse.json({ error: "apiKey and provider are required" }, { status: 400 });
+    // Fall back to shared CRON_AI config if user doesn't have their own key
+    const cronProvider = process.env.CRON_AI_PROVIDER || "gemini";
+    const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-20250514"
+      : cronProvider === "openai" ? "gpt-4o"
+      : "gemini-2.5-flash";
+    const resolvedKey = apiKey || process.env.CRON_AI_KEY || "";
+    const resolvedProvider = provider || cronProvider;
+    const resolvedModel = model || process.env.CRON_AI_MODEL || cronDefaultModel;
+    const resolvedBaseUrl = baseUrl || process.env.CRON_AI_BASE_URL || "";
+
+    if (!resolvedKey || !resolvedProvider) {
+      return NextResponse.json({ error: "No API key configured. Add one in Settings or ask for an invite code." }, { status: 400 });
     }
 
-    const aiConfig: AIConfig = { apiKey, provider, model, baseUrl };
+    const aiConfig: AIConfig = { apiKey: resolvedKey, provider: resolvedProvider, model: resolvedModel, baseUrl: resolvedBaseUrl };
     const digest = await generateDigest(userId, aiConfig, force);
 
     trackEvent(userId, "digest_generate", { metadata: { force: !!force } });
