@@ -5,10 +5,43 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getAuthUser } from "@/lib/get-user";
 
+export async function PATCH(req: NextRequest) {
+  try {
+    const userId = await getAuthUser(req);
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await req.json();
+    const updates: Record<string, unknown> = {};
+    if (body.cadence && ["daily", "biweekly", "weekly"].includes(body.cadence)) {
+      updates.cadence = body.cadence;
+    }
+    if (body.timezone) updates.timezone = body.timezone;
+    if (typeof body.contentMix === "number") updates.contentMix = body.contentMix;
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(users).set(updates).where(eq(users.id, userId));
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Settings update error:", error);
+    return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { timezone, contentMix } = body;
+
+    // Handle cadence-only update
+    if (body.cadence && !body.interests && !body.interestStrings) {
+      const userId = await getAuthUser(req);
+      if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (["daily", "biweekly", "weekly"].includes(body.cadence)) {
+        await db.update(users).set({ cadence: body.cadence }).where(eq(users.id, userId));
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     let interestItems: { keyword: string; field?: string; level: string }[];
     if (body.interests && Array.isArray(body.interests)) {

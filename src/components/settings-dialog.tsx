@@ -252,6 +252,12 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
           }),
         });
       }
+      // Save cadence
+      await fetch("/api/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cadence }),
+      }).catch(() => {});
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
