@@ -443,6 +443,26 @@ Return JSON only (no markdown):
   }
   console.log(`[Digest] ${allResults.length} total candidates across all queries`);
 
+  // Retry without field filter if first pass found too few papers
+  if (allResults.length < 3) {
+    console.log(`[Digest] Only ${allResults.length} results — retrying without field filter...`);
+    for (const query of searchQueries) {
+      const adjustedQuery = focusLevel === "beginner" ? `${query} introduction overview applications` : query;
+      try {
+        const results = await searchPapers(adjustedQuery, 10, "publicationDate", undefined);
+        for (const p of results) {
+          const key = p.title.toLowerCase();
+          if (!seenSearchTitles.has(key)) {
+            seenSearchTitles.add(key);
+            allResults.push(p);
+          }
+        }
+      } catch { /* already logged */ }
+      await delay(300);
+    }
+    console.log(`[Digest] After retry: ${allResults.length} total candidates`);
+  }
+
   if (allResults.length === 0) {
     throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
   }
@@ -480,8 +500,21 @@ Return JSON only (no markdown):
     .sort((a, b) => b.score - a.score);
 
   // Use raw themeSim for qualification (not RRF score) — keeps thresholds interpretable
-  const threshold = scored.some(({ themeSim }) => themeSim > SIM_ONTOPIC) ? SIM_ONTOPIC : SIM_FALLBACK;
-  const qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+  // Cascade: try SIM_ONTOPIC first, then SIM_FALLBACK, then SIM_MIN_THEME as last resort
+  let threshold = SIM_ONTOPIC;
+  let qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+  if (qualified.length < 2) {
+    threshold = SIM_FALLBACK;
+    qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+  }
+  if (qualified.length < 2) {
+    // Last resort: take anything above the hard floor
+    threshold = SIM_MIN_THEME;
+    qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+    if (qualified.length > 0) {
+      console.log(`[Digest] Using hard-floor threshold (${SIM_MIN_THEME}) — only ${qualified.length} papers passed`);
+    }
+  }
   console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (theme: ${scored[0]?.themeSim.toFixed(2)})`);
 
   // Dynamic item count: adjust paper:news ratio based on candidate quality (audit 4.4)
