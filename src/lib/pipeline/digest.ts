@@ -346,7 +346,7 @@ Return JSON only (no markdown):
   const resultEmbs = await embedBatch(allResults.map(paperText));
   const currentYear = new Date().getFullYear();
 
-  const SIM_MIN_THEME = 0.18; // minimum raw theme similarity — no amount of boosts can compensate for irrelevance
+  const SIM_MIN_THEME = 0.12; // minimum raw theme similarity — filters only truly irrelevant papers, keeps creative cross-domain picks
   const scored = allResults
     .map((p, i) => {
       const themeSim = cosineSimilarity(themeEmb, resultEmbs[i]);
