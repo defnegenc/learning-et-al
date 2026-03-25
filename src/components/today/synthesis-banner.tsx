@@ -472,7 +472,8 @@ export function SynthesisBanner({
               // Strip parenthetical source info like "(Semantic Scholar, 2026)" for matching
               const cleanText = text.replace(/\s*\(.*?\)\s*/g, " ").trim();
               // Match bold text to a paper by scoring against title, summary, abstract, authors, keywords
-              const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "research", "study", "paper", "analysis", "review", "report", "found", "shows"]);
+              // Don't stop-word "study", "report", "review", "research" — these appear in paper nicknames like "the Brookings report"
+              const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows"]);
               const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
               const boldWords = cleanText.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
               const boldStems = boldWords.map(stem);
@@ -487,9 +488,18 @@ export function SynthesisBanner({
                 const abstract = (p.abstract || "").toLowerCase();
                 const authorStr = p.authors.join(" ").toLowerCase();
                 const kwStr = p.keywords.join(" ").toLowerCase();
+                const connectionStr = (p.connectionReason || "").toLowerCase();
+                // For news items, authors[0] is the publisher (e.g. "Edweek", "Straitstimes")
+                const publisherStr = p.authors[0]?.toLowerCase() || "";
+                // Extract hostname for matching (e.g. "brookings" from brookings.edu)
+                let hostname = "";
+                try { hostname = new URL(p.sourceUrl || "").hostname.replace(/^www\./, "").split(".")[0]; } catch { /* ignore */ }
 
                 // Direct substring match in title — strong signal
                 if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) { score += 10; }
+                // Publisher/source name match (e.g. "Brookings" in "the Brookings report")
+                if (publisherStr && cleanText.includes(publisherStr)) { score += 6; }
+                if (hostname && cleanText.includes(hostname)) { score += 5; }
 
                 // Check each bold word against all paper fields
                 for (const bs of boldStems) {
@@ -497,7 +507,8 @@ export function SynthesisBanner({
                   if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
                   if (summary.includes(bs)) score += 1;
                   if (abstract.includes(bs)) score += 1;
-                  if (authorStr.includes(bs)) score += 4; // Author name match is very strong
+                  if (connectionStr.includes(bs)) score += 2;
+                  if (authorStr.includes(bs)) score += 4;
                   if (kwStr.includes(bs)) score += 2;
                 }
 
