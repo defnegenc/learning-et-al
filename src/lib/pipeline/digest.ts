@@ -9,6 +9,7 @@ import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
+import { extractJson, stripFences } from "@/lib/ai/parse";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, institutionBoost } from "@/lib/venue-quality";
@@ -148,10 +149,11 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   const todayStart = new Date(today + "T00:00:00");
   const alreadyDecayed = userInterests.some(i => i.updatedAt && i.updatedAt >= todayStart);
   if (!alreadyDecayed) {
-    for (const interest of userInterests) {
-      const decayed = (interest.weight ?? 1.0) * 0.95;
-      await db.update(interests).set({ weight: decayed, updatedAt: new Date() }).where(eq(interests.id, interest.id));
-    }
+    await Promise.all(userInterests.map(interest =>
+      db.update(interests)
+        .set({ weight: (interest.weight ?? 1.0) * 0.95, updatedAt: new Date() })
+        .where(eq(interests.id, interest.id))
+    ));
   }
 
   const seen = new Map<string, string>();
@@ -165,38 +167,43 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   // Interest rotation: find which interests were used in recent digests so we can
   // deprioritize them. We track the actual papers' keywords from recent digests
   // rather than just theme words, for more precise rotation.
-  const recentDigestsForRotation = await db.query.digests.findMany({
+  // Single query for all past digests — used for both rotation and dedup
+  const allPastDigests = await db.query.digests.findMany({
     where: eq(digests.userId, userId),
     orderBy: desc(digests.createdAt),
-    limit: 5,
   });
-  const recentDigestIdsForRotation = recentDigestsForRotation.map(d => d.id);
+  const recentDigestsForRotation = allPastDigests.slice(0, 5);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const recentDigestIds = allPastDigests.filter(d => d.date >= thirtyDaysAgo).map(d => d.id);
+
+  // Fetch papers for both rotation keywords and dedup in one query
+  const seenPaperTitles = new Set<string>();
   const recentlyUsedKeywords = new Set<string>();
-  if (recentDigestIdsForRotation.length > 0) {
-    const recentPapers = await db.query.papers.findMany({
-      where: inArray(papers.digestId, recentDigestIdsForRotation),
-    });
-    for (const p of recentPapers) {
-      // Extract keywords from recent papers' stored keywords
-      try {
-        const kws = JSON.parse(p.keywords || "[]") as string[];
-        kws.forEach(kw => recentlyUsedKeywords.add(kw.toLowerCase()));
-      } catch { /* ignore parse errors */ }
-      // Also add significant title words
-      p.title.toLowerCase().split(/\s+/)
-        .filter(w => w.length > 4 && !STOP_WORDS.has(w))
-        .forEach(w => recentlyUsedKeywords.add(w));
+  if (recentDigestIds.length > 0) {
+    const allRecentPapers = await db.query.papers.findMany({ where: inArray(papers.digestId, recentDigestIds) });
+    const rotationDigestIds = new Set(recentDigestsForRotation.map(d => d.id));
+    for (const p of allRecentPapers) {
+      seenPaperTitles.add(p.title.toLowerCase());
+      // Only use rotation keywords from the last 5 digests
+      if (rotationDigestIds.has(p.digestId)) {
+        try {
+          const kws = JSON.parse(p.keywords || "[]") as string[];
+          kws.forEach(kw => recentlyUsedKeywords.add(kw.toLowerCase()));
+        } catch { /* ignore */ }
+        p.title.toLowerCase().split(/\s+/)
+          .filter(w => w.length > 4 && !STOP_WORDS.has(w))
+          .forEach(w => recentlyUsedKeywords.add(w));
+      }
     }
   }
-  // Also track theme words as a secondary signal
   for (const d of recentDigestsForRotation) {
     if (!d.theme) continue;
     d.theme.toLowerCase().split(/\s+/)
       .filter(w => w.length > 3 && !STOP_WORDS.has(w))
       .forEach(w => recentlyUsedKeywords.add(w));
   }
+  console.log(`[Digest] Cross-digest dedup: ${seenPaperTitles.size} seen, ${recentlyUsedKeywords.size} rotation keywords`);
 
-  // Score each interest: base weight + penalty if recently used
   const scoredPool = deduped.map(interest => {
     const words = interest.keyword.toLowerCase().split(/\s+/);
     const recentOverlap = words.filter(w => recentlyUsedKeywords.has(w)).length;
@@ -204,11 +211,9 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     return { interest, score: (interest.weight ?? 1.0) - recentPenalty };
   });
 
-  // Pick 5 candidates: weighted random from the scored pool
   const candidateInterests: typeof deduped = [];
   const pool = [...scoredPool];
   while (candidateInterests.length < 5 && pool.length > 0) {
-    // Ensure all scores are positive for sampling
     const minScore = Math.min(...pool.map(p => p.score));
     const adjusted = pool.map(p => ({ ...p, adj: p.score - minScore + 0.1 }));
     const total = adjusted.reduce((s, p) => s + p.adj, 0);
@@ -223,19 +228,6 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   }
   if (candidateInterests.length === 0) throw new Error("No interests found. Add some first.");
   console.log(`[Digest] Candidate interests: [${candidateInterests.map(i => i.keyword).join(", ")}]`);
-
-  // Cross-digest dedup: only last 30 days to avoid pool exhaustion
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const pastDigests = await db.query.digests.findMany({ where: eq(digests.userId, userId) });
-  const recentDigestIds = pastDigests
-    .filter(d => d.date >= thirtyDaysAgo)
-    .map(d => d.id);
-  const seenPaperTitles = new Set<string>();
-  if (recentDigestIds.length > 0) {
-    const pastPapers = await db.query.papers.findMany({ where: inArray(papers.digestId, recentDigestIds) });
-    for (const p of pastPapers) seenPaperTitles.add(p.title.toLowerCase());
-  }
-  console.log(`[Digest] Cross-digest dedup (last 30 days + current): ${seenPaperTitles.size} previously seen`);
 
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   // Dynamic paper:news ratio — starts at 2+1, adjusted after scoring (audit 4.4)
@@ -332,19 +324,18 @@ Return JSON only (no markdown):
       "You generate surprising, curiosity-provoking central questions for a daily research digest. Return only JSON.",
       hypothesisPrompt
     );
-    const hypothesisJson = hypothesisResp.match(/\{[\s\S]*\}/);
-    if (!hypothesisJson) throw new Error("No JSON in hypothesis response");
-    const parsed = JSON.parse(hypothesisJson[0]);
+    type HypothesisResult = { theme?: string; searchQueries?: string[]; newsQuery?: string; focusFields?: string[]; focusField?: string; selectedInterests?: string[] };
+    const parsed = extractJson<HypothesisResult>(hypothesisResp);
+    if (!parsed) throw new Error("No JSON in hypothesis response");
     if (parsed.theme) theme = parsed.theme;
-    if (parsed.searchQueries?.length > 0) searchQueries = parsed.searchQueries;
+    if (parsed.searchQueries && parsed.searchQueries.length > 0) searchQueries = parsed.searchQueries;
     if (parsed.newsQuery) newsQuery = parsed.newsQuery;
-    // Support both focusFields (array, new) and focusField (string, legacy)
-    if (parsed.focusFields?.length > 0) {
+    if (parsed.focusFields && parsed.focusFields.length > 0) {
       focusFields = parsed.focusFields;
     } else if (parsed.focusField) {
       focusFields = [parsed.focusField];
     }
-    if (parsed.selectedInterests?.length > 0) selectedInterestKeywords = parsed.selectedInterests;
+    if (parsed.selectedInterests && parsed.selectedInterests.length > 0) selectedInterestKeywords = parsed.selectedInterests;
 
     // Theme validation: enforce max 8 words, retry once if violated
     const wordCount = theme.split(/\s+/).length;
@@ -355,9 +346,8 @@ Return JSON only (no markdown):
           "You shorten headlines. Return only JSON.",
           `Shorten this to MAX 8 WORDS while keeping the surprise value. Return JSON: {"theme": "shorter version"}\n\nOriginal: "${theme}"`
         );
-        const retryJson = retryResp.match(/\{[\s\S]*\}/);
-        if (retryJson) {
-          const retryParsed = JSON.parse(retryJson[0]);
+        const retryParsed = extractJson<{ theme?: string }>(retryResp);
+        if (retryParsed) {
           if (retryParsed.theme && retryParsed.theme.split(/\s+/).length <= 8) {
             console.log(`[Digest] Theme shortened: "${retryParsed.theme}"`);
             theme = retryParsed.theme;
@@ -380,12 +370,11 @@ Return JSON only (no markdown):
             "You generate surprising research questions. Return only JSON.",
             `This theme is too similar to a recent one. Generate a COMPLETELY DIFFERENT angle using the same interests.\n\nToo-similar theme: "${theme}"\nRecent themes: ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n\nReturn JSON: {"theme": "fresh angle MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
           );
-          const noveltyJson = noveltyResp.match(/\{[\s\S]*\}/);
-          if (noveltyJson) {
-            const noveltyParsed = JSON.parse(noveltyJson[0]);
+          const noveltyParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(noveltyResp);
+          if (noveltyParsed) {
             if (noveltyParsed.theme) {
               theme = noveltyParsed.theme;
-              if (noveltyParsed.searchQueries?.length > 0) searchQueries = noveltyParsed.searchQueries;
+              if (noveltyParsed.searchQueries && noveltyParsed.searchQueries.length > 0) searchQueries = noveltyParsed.searchQueries;
               if (noveltyParsed.newsQuery) newsQuery = noveltyParsed.newsQuery;
               console.log(`[Digest] Fresh theme: "${theme}"`);
             }
@@ -598,9 +587,8 @@ Return JSON only (no markdown):
           targetPapers
         )
       );
-      const selectionMatch = selectionResp.match(/\{[\s\S]*\}/);
-      if (selectionMatch) {
-        const selection = JSON.parse(selectionMatch[0]);
+      const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreTension?: string }>(selectionResp);
+      if (selection) {
         const indices: number[] = selection.selectedIndices || [];
         if (indices.length >= 2) {
           items = indices
@@ -630,7 +618,6 @@ Return JSON only (no markdown):
 
   // ─── Step 4: Fill remaining slots (news and/or papers) ───────────────────────
   const newsNeeded = targetNews;
-  const papersNeeded = TOTAL_ITEMS - items.length - newsNeeded;
 
   // Find news items if needed
   if (newsNeeded > 0) {
@@ -691,10 +678,12 @@ Return JSON only (no markdown):
     await delay(500);
     const fillQuery = searchQueries[2] || `${focusInterest} applications`;
     const fillResults = await searchPapers(fillQuery, 8, "citationCount", focusFields[0]);
-    for (const paper of fillResults) {
+    const fillEmbs = await embedBatch(fillResults.map(paperText));
+    for (let fi = 0; fi < fillResults.length; fi++) {
       if (items.length >= TOTAL_ITEMS) break;
+      const paper = fillResults[fi];
       if (seenTitles.has(paper.title.toLowerCase())) continue;
-      const sim = cosineSimilarity(themeEmb, await embedText(paperText(paper)));
+      const sim = cosineSimilarity(themeEmb, fillEmbs[fi]);
       if (sim > SIM_ONTOPIC) {
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
@@ -713,10 +702,12 @@ Return JSON only (no markdown):
     console.log(`[Digest] Only ${items.length} items, trying broad fill...`);
     await delay(500);
     const broadResults = await searchPapers(focusInterest, 12, "publicationDate", focusFields[0]);
-    for (const paper of broadResults) {
+    const broadEmbs = await embedBatch(broadResults.map(paperText));
+    for (let bi = 0; bi < broadResults.length; bi++) {
       if (items.length >= TOTAL_ITEMS) break;
+      const paper = broadResults[bi];
       if (seenTitles.has(paper.title.toLowerCase())) continue;
-      const sim = cosineSimilarity(themeEmb, await embedText(paperText(paper)));
+      const sim = cosineSimilarity(themeEmb, broadEmbs[bi]);
       if (sim > SIM_FALLBACK) {
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
@@ -768,10 +759,10 @@ ${rerankList}
 
 Return JSON: {"scores": [{"index": 1, "score": N, "reason": "brief reason"}]}`
       );
-      const rerankJson = rerankResp.match(/\{[\s\S]*\}/);
-      if (rerankJson) {
-        const { scores } = JSON.parse(rerankJson[0]);
-        if (scores?.length > 0) {
+      const rerankParsed = extractJson<{ scores?: { index: number; score: number; reason?: string }[] }>(rerankResp);
+      if (rerankParsed) {
+        const { scores } = rerankParsed;
+        if (scores && scores.length > 0) {
           for (const { index, score: llmScore, reason } of scores) {
             const itemIdx = items.indexOf(paperItems[index - 1]);
             if (itemIdx < 0) continue;
@@ -841,12 +832,11 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
 
     console.log(`[Digest] Step 5: revising theme to fit actual papers...`);
     const reviseResp = await aiComplete(aiConfig, "You refine central questions for research digests. Return only JSON.", revisePrompt);
-    const reviseJson = reviseResp.match(/\{[\s\S]*\}/);
-    if (reviseJson) {
-      const parsed = JSON.parse(reviseJson[0]);
-      if (parsed.theme) {
-        console.log(`[Digest] Theme revised: "${parsed.theme}" (was: "${theme}")`);
-        finalTheme = parsed.theme;
+    const reviseParsed = extractJson<{ theme?: string }>(reviseResp);
+    if (reviseParsed) {
+      if (reviseParsed.theme) {
+        console.log(`[Digest] Theme revised: "${reviseParsed.theme}" (was: "${theme}")`);
+        finalTheme = reviseParsed.theme;
       }
     }
   } catch (err) {
@@ -866,9 +856,9 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
   const metadataResp = await aiComplete(aiConfig, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx));
   let metadata: { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
   try {
-    const jsonMatch = metadataResp.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON");
-    metadata = JSON.parse(jsonMatch[0]);
+    const metaParsed = extractJson<typeof metadata>(metadataResp);
+    if (!metaParsed) throw new Error("No JSON");
+    metadata = metaParsed;
   } catch {
     console.log(`[Digest] Metadata parse failed, using empty defaults`);
     metadata = { items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })), keyConcepts: [], suggestedQuestions: [] };
@@ -889,9 +879,9 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     skipPapers?: number[];
   };
   try {
-    const jsonMatch = skeletonResp.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON");
-    skeleton = JSON.parse(jsonMatch[0]);
+    const skelParsed = extractJson<typeof skeleton>(skeletonResp);
+    if (!skelParsed) throw new Error("No JSON");
+    skeleton = skelParsed;
     console.log(`[Digest] Skeleton: tension="${skeleton.coreTension}", skip=${skeleton.skipPapers?.length || 0} papers`);
   } catch {
     console.log(`[Digest] Skeleton parse failed, using simple fallback`);
@@ -909,7 +899,7 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     SYNTHESIS_PROSE_SYSTEM,
     synthesisFromSkeletonPrompt(paperListing, finalTheme, skeleton)
   );
-  synthesis = synthesis.replace(/^```[\s\S]*?\n/, "").replace(/\n```\s*$/, "").trim();
+  synthesis = stripFences(synthesis);
 
   // Stage D: Self-Refine (critique → revision)
   console.log(`[Digest] Stage D: self-critique...`);
@@ -919,9 +909,8 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
       "You are a tough editor who evaluates research synthesis quality. Return only JSON.",
       synthesisCritiquePrompt(synthesis, finalTheme, items.map(p => p.title))
     );
-    const critiqueMatch = critiqueResp.match(/\{[\s\S]*\}/);
-    if (critiqueMatch) {
-      const critique = JSON.parse(critiqueMatch[0]);
+    const critique = extractJson<{ scores?: Record<string, number>; weakestPoint?: string; revision?: string }>(critiqueResp);
+    if (critique) {
       const scores = critique.scores || {};
       const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.specificity || 5, scores.coverage || 5);
       console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} spec=${scores.specificity} cov=${scores.coverage}`);
@@ -931,9 +920,9 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
         const revised = await aiComplete(
           aiConfig,
           SYNTHESIS_PROSE_SYSTEM,
-          synthesisRevisionPrompt(synthesis, critique, finalTheme)
+          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision! }, finalTheme)
         );
-        const cleanRevised = revised.replace(/^```[\s\S]*?\n/, "").replace(/\n```\s*$/, "").trim();
+        const cleanRevised = stripFences(revised);
         if (cleanRevised.length > 50) {
           synthesis = cleanRevised;
           console.log(`[Digest] Revision applied (${cleanRevised.length} chars)`);
@@ -960,22 +949,23 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     suggestedQuestions: JSON.stringify(metadata.suggestedQuestions || []),
   }).returning();
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "" };
-    await db.insert(papers).values({
-      digestId: digest.id,
-      title: item.title, authors: JSON.stringify(item.authors),
-      abstract: item.abstract, fullText: item.abstract,
-      summary: aiItem.summary, source: item.source,
-      sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
-      keywords: JSON.stringify(aiItem.keywords),
-      keyFindings: JSON.stringify(aiItem.findings || []),
-      connectionReason: aiItem.connectionToTheme || null,
-      category: item.category,
-      year: item.year,
-    });
-  }
+  await db.insert(papers).values(
+    items.map((item, i) => {
+      const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "" };
+      return {
+        digestId: digest.id,
+        title: item.title, authors: JSON.stringify(item.authors),
+        abstract: item.abstract, fullText: item.abstract,
+        summary: aiItem.summary, source: item.source,
+        sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
+        keywords: JSON.stringify(aiItem.keywords),
+        keyFindings: JSON.stringify(aiItem.findings || []),
+        connectionReason: aiItem.connectionToTheme || null,
+        category: item.category,
+        year: item.year,
+      };
+    })
+  );
 
   return digest;
 }

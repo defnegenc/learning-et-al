@@ -11,7 +11,6 @@ const PAYWALL_SIGNALS = [
   "start your free trial", "unlock this article",
 ];
 
-// Academic publisher domains — these should be reclassified as papers, not news
 const ACADEMIC_DOMAINS = new Set([
   "frontiersin.org", "nature.com", "sciencedirect.com", "springer.com",
   "wiley.com", "cell.com", "pnas.org", "science.org", "oup.com",
@@ -22,11 +21,19 @@ const ACADEMIC_DOMAINS = new Set([
 export function isAcademicDomain(url: string): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
+    if (ACADEMIC_DOMAINS.has(hostname)) return true;
+    // Check subdomains (e.g., www.nature.com)
     for (const domain of ACADEMIC_DOMAINS) {
-      if (hostname === domain || hostname.endsWith(`.${domain}`)) return true;
+      if (hostname.endsWith(`.${domain}`)) return true;
     }
   } catch { /* ignore */ }
   return false;
+}
+
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, " ");
 }
 
 export async function fetchArticleText(url: string, maxChars = 10000): Promise<string> {
@@ -36,8 +43,7 @@ export async function fetchArticleText(url: string, maxChars = 10000): Promise<s
 
     const res = await fetch(url, {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; LearningEtAl/1.0; +https://learningeteal.app)",
+        "User-Agent": "Mozilla/5.0 (compatible; LearningEtAl/1.0; +https://learningeteal.app)",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "en-US,en;q=0.9",
       },
@@ -51,48 +57,36 @@ export async function fetchArticleText(url: string, maxChars = 10000): Promise<s
 
     const html = await res.text();
 
-    // Check for paywall before investing in parsing
     const lowerHtml = html.toLowerCase();
     const paywallHits = PAYWALL_SIGNALS.filter(s => lowerHtml.includes(s));
     if (paywallHits.length >= 2) {
       console.log(`[Article] Paywall detected on ${new URL(url).hostname} (${paywallHits.length} signals)`);
-      return ""; // Return empty so pipeline falls back to snippet
+      return "";
     }
 
-    // Remove entire blocks that are never article content
     const stripped = html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
       .replace(/<(nav|header|footer|aside|form|figure|figcaption|iframe|noscript|svg|button|input|select|textarea|menu)[^>]*>[\s\S]*?<\/\1>/gi, " ")
       .replace(/<!--[\s\S]*?-->/g, " ");
 
-    // Extract <p> tag content specifically — most reliable signal for article text
+    // Extract <p> tag content — most reliable signal for article text
     const paragraphs: string[] = [];
     const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
     let match;
     while ((match = pRegex.exec(stripped)) !== null) {
-      const text = match[1]
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      // Only keep paragraphs with real content (>40 chars, >5 words)
+      const text = decodeHtmlEntities(match[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
       if (text.length >= 40 && text.split(/\s+/).length >= 5) {
         paragraphs.push(text);
       }
     }
 
-    // If <p> extraction found enough content, use it
     if (paragraphs.length >= 2) {
       return paragraphs.join("\n\n").slice(0, maxChars);
     }
 
     // Fallback: strip all tags and find the densest text region
-    const plainText = stripped
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, " ")
+    const plainText = decodeHtmlEntities(stripped.replace(/<[^>]+>/g, " "))
       .replace(/\s{3,}/g, "\n\n")
       .trim();
 
@@ -107,8 +101,7 @@ export async function fetchArticleText(url: string, maxChars = 10000): Promise<s
         curLen = 0;
       }
     }
-    const articleLines = lines.slice(bestStart, bestStart + bestLen);
-    return articleLines.join("\n\n").slice(0, maxChars);
+    return lines.slice(bestStart, bestStart + bestLen).join("\n\n").slice(0, maxChars);
   } catch {
     return "";
   }
