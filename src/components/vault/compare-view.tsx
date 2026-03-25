@@ -72,25 +72,25 @@ export function CompareView({ content, papers, onBack, session }: CompareViewPro
         &larr; Back to vault
       </button>
 
-      <h1 style={{ fontSize: "1.4rem", fontWeight: 700, lineHeight: 1.3, marginBottom: "16px" }}>
-        Comparison
-      </h1>
+      <span style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#999", fontFamily: "var(--font-mono), monospace" }}>
+        Paper Comparison
+      </span>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "32px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "12px", marginBottom: "28px" }}>
         {papers.map((paper, idx) => (
           <KeywordTag
             key={paper.id}
-            keyword={paper.title.length > 40 ? paper.title.slice(0, 39) + "\u2026" : paper.title}
+            keyword={paper.title.length > 50 ? paper.title.slice(0, 49) + "\u2026" : paper.title}
             color={PASTEL_COLORS[idx % PASTEL_COLORS.length]}
           />
         ))}
       </div>
 
-      <div style={{ fontSize: "1rem", lineHeight: 1.75, color: "#333" }}>
+      <div style={{ fontSize: "1rem", lineHeight: 1.75, color: "#333", fontFamily: "'Apercu Pro', var(--font-inter), sans-serif" }}>
         <ReactMarkdown
           components={{
             p: ({ children }) => <p style={{ marginBottom: "16px" }}>{children}</p>,
-            h2: ({ children }) => <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginTop: "24px", marginBottom: "12px" }}>{children}</h2>,
+            h2: ({ children }) => <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginTop: "28px", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-display), sans-serif" }}>{children}</h2>,
             h3: ({ children }) => <h3 style={{ fontSize: "1rem", fontWeight: 600, marginTop: "20px", marginBottom: "10px" }}>{children}</h3>,
             strong: ({ children }) => <strong style={{ color: "#1a1a1a" }}>{children}</strong>,
             li: ({ children }) => <li style={{ marginBottom: "6px" }}>{children}</li>,
@@ -101,11 +101,11 @@ export function CompareView({ content, papers, onBack, session }: CompareViewPro
       </div>
 
       {session && papers.length > 0 && (
-        <div style={{ borderTop: "1px solid rgba(26,26,26,0.1)", paddingTop: "24px", marginTop: "32px" }}>
+        <div style={{ borderTop: "4px solid #1a1a1a", paddingTop: "24px", marginTop: "32px" }}>
           <span
-            style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px", color: "#999", display: "block", marginBottom: "12px" }}
+            style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#555", display: "block", marginBottom: "12px" }}
           >
-            Dig deeper
+            Dig Deeper
           </span>
           <div className="flex gap-2 items-start" style={{ maxWidth: "500px" }}>
             <input
@@ -113,12 +113,12 @@ export function CompareView({ content, papers, onBack, session }: CompareViewPro
               onChange={(e) => setCustomQuestion(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && customQuestion.trim()) { handleDigDeeper(customQuestion); setCustomQuestion(""); } }}
               placeholder="Ask about this comparison..."
-              style={{ flex: 1, border: "1px solid rgba(26,26,26,0.15)", padding: "6px 10px", fontSize: "0.8rem", background: "white", outline: "none" }}
+              style={{ flex: 1, border: "2px solid #1a1a1a", padding: "8px 12px", fontSize: "0.85rem", background: "white", outline: "none", fontFamily: "'Apercu Pro', var(--font-inter), sans-serif" }}
             />
             <button
               onClick={() => { if (customQuestion.trim()) { handleDigDeeper(customQuestion); setCustomQuestion(""); } }}
               disabled={!customQuestion.trim() || digDeeperLoading}
-              style={{ padding: "6px 14px", border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", opacity: !customQuestion.trim() || digDeeperLoading ? 0.4 : 1 }}
+              style={{ padding: "8px 16px", border: "2px solid #1a1a1a", background: "#1a1a1a", color: "white", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", opacity: !customQuestion.trim() || digDeeperLoading ? 0.4 : 1, boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)" }}
             >
               Ask
             </button>
@@ -126,11 +126,11 @@ export function CompareView({ content, papers, onBack, session }: CompareViewPro
           {digDeeperLoading && (
             <div className="flex items-center gap-2 mt-3 text-[#666]">
               <Loader2 className="size-3 animate-spin" />
-              <span style={{ fontSize: "0.75rem" }}>Thinking...</span>
+              <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono), monospace" }}>Thinking...</span>
             </div>
           )}
           {digDeeperAnswer && (
-            <div style={{ marginTop: "12px", padding: "16px", border: "1px solid rgba(26,26,26,0.1)", background: "#fafafa", fontSize: "0.9rem", lineHeight: 1.7, color: "#333" }}>
+            <div style={{ marginTop: "12px", padding: "16px", border: "2px solid #1a1a1a", background: "#fafafa", fontSize: "0.95rem", lineHeight: 1.7, color: "#333", fontFamily: "'Apercu Pro', var(--font-inter), sans-serif" }}>
               <ReactMarkdown>{digDeeperAnswer}</ReactMarkdown>
             </div>
           )}

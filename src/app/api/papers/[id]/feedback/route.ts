@@ -61,7 +61,21 @@ export async function POST(
       // Don't create new interests — the user picks their interests in settings
     }
 
-    trackEvent(userId, "paper_feedback", { paperId: id, metadata: { type } });
+    // Store contextual features with feedback for richer learning (audit 3.6)
+    const isCrossDomain = paper.category === "recent" && paper.source !== "rss";
+    trackEvent(userId, "paper_feedback", {
+      paperId: id,
+      digestId: paper.digestId,
+      metadata: {
+        type,
+        reason: reason || undefined,
+        paperCategory: paper.category,
+        paperSource: paper.source,
+        paperYear: paper.year,
+        keywords: paperKeywords.slice(0, 5),
+        isCrossDomain,
+      },
+    });
 
     return NextResponse.json({ feedback: fb });
   } catch (error) {
