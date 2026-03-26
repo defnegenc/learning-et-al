@@ -104,13 +104,13 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
   bg: string; bgHover: string; summary: string | null; onClick: () => void; children: React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [tapped, setTapped] = useState(false);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
   const ref = React.useRef<HTMLSpanElement>(null);
 
   const updateTooltip = React.useCallback(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    // Show above if there's room, otherwise below
     const above = rect.top > 120;
     setTooltipStyle({
       position: "fixed",
@@ -121,22 +121,48 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
     });
   }, []);
 
+  // Dismiss mobile tooltip when tapping elsewhere
+  React.useEffect(() => {
+    if (!tapped) return;
+    const dismiss = (e: TouchEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setTapped(false);
+    };
+    document.addEventListener("touchstart", dismiss);
+    return () => document.removeEventListener("touchstart", dismiss);
+  }, [tapped]);
+
+  const showTooltip = hovered || tapped;
+
   return (
     <span
       ref={ref}
       style={{
         position: "relative",
         color: "#111", fontSize: "1.1em", fontWeight: 700,
-        background: hovered ? bgHover : bg,
+        background: showTooltip ? bgHover : bg,
         padding: "1px 4px", margin: "0 -2px",
         cursor: "pointer", transition: "background 0.15s", borderRadius: "2px",
+        WebkitBoxDecorationBreak: "clone",
+        boxDecorationBreak: "clone" as React.CSSProperties["boxDecorationBreak"],
+        borderBottom: "2px solid currentColor",
       }}
       onMouseEnter={() => { setHovered(true); updateTooltip(); }}
       onMouseLeave={() => setHovered(false)}
-      onClick={onClick}
+      onClick={(e) => {
+        // On touch devices: first tap shows tooltip, second tap navigates
+        if ("ontouchstart" in window) {
+          if (!tapped) {
+            e.preventDefault();
+            setTapped(true);
+            updateTooltip();
+            return;
+          }
+        }
+        onClick();
+      }}
     >
       {children}
-      {hovered && summary && (
+      {showTooltip && summary && (
         <span style={{
           ...tooltipStyle,
           background: "#1a1a1a", color: "white",
@@ -467,76 +493,55 @@ export function SynthesisBanner({
             p: ({ children }) => (
               <p style={{ marginBottom: "1.25em" }}>{annotateText(children, conceptDefs)}</p>
             ),
-            strong: ({ children, node }) => {
-              const text = String(children).toLowerCase();
-              // Strip parenthetical source info like "(Semantic Scholar, 2026)" for matching
-              const cleanText = text.replace(/\s*\(.*?\)\s*/g, " ").trim();
+            strong: ({ children }) => {
+              const text = String(children);
+              const textLower = text.toLowerCase();
 
-              // Get surrounding context: words near the bold text in the synthesis
-              // This helps match "**AI tools study** showing ChatGPT and DeepSeek..." → paper about ChatGPT
-              let contextWords: string[] = [];
-              try {
-                const fullText = bodyText.toLowerCase();
-                const boldIdx = fullText.indexOf(cleanText);
-                if (boldIdx >= 0) {
-                  const contextWindow = fullText.slice(boldIdx, Math.min(boldIdx + 150, fullText.length));
-                  contextWords = contextWindow.split(/\s+/).filter(w => w.length > 3);
+              // Primary: match by "[N]" prefix — e.g. "**[1] the Alzheimer's study**"
+              // The synthesis prompt tells the LLM to prefix with [Source N].
+              // We strip the prefix before rendering.
+              const indexMatch = text.match(/^\[(?:source\s*)?(\d+)\]\s*/i);
+              let matchedPaper: (typeof papers)[number] | null = null;
+              let displayText = text;
+
+              if (indexMatch) {
+                const idx = parseInt(indexMatch[1], 10) - 1; // 0-indexed
+                if (idx >= 0 && idx < papers.length) {
+                  matchedPaper = papers[idx];
+                  displayText = text.slice(indexMatch[0].length); // strip "[N] " prefix
                 }
-              } catch { /* ignore */ }
-
-              const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows"]);
-              const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-              const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
-              const boldStems = boldWords.map(stem);
-
-              let bestPaper: (typeof papers)[number] | null = null;
-              let bestScore = 0;
-
-              for (const p of papers) {
-                let score = 0;
-                const title = p.title.toLowerCase();
-                const summary = (p.summary || "").toLowerCase();
-                const abstract = (p.abstract || "").toLowerCase();
-                const authorStr = p.authors.join(" ").toLowerCase();
-                const kwStr = p.keywords.join(" ").toLowerCase();
-                const connectionStr = (p.connectionReason || "").toLowerCase();
-                const publisherStr = p.authors[0]?.toLowerCase() || "";
-                let hostname = "";
-                try { hostname = new URL(p.sourceUrl || "").hostname.replace(/^www\./, "").split(".")[0]; } catch { /* ignore */ }
-
-                // Direct substring match in title — strong signal
-                if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) { score += 10; }
-                // Publisher/source name match
-                if (publisherStr && cleanText.includes(publisherStr)) { score += 6; }
-                if (hostname && cleanText.includes(hostname)) { score += 5; }
-
-                // Check each bold word against all paper fields
-                for (const bs of boldStems) {
-                  const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
-                  if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
-                  if (summary.includes(bs)) score += 1;
-                  if (abstract.includes(bs)) score += 1;
-                  if (connectionStr.includes(bs)) score += 2;
-                  if (authorStr.includes(bs)) score += 4;
-                  if (kwStr.includes(bs)) score += 2;
-                }
-
-                // Context window: check words near the bold text against paper title/keywords
-                // e.g., "**AI tools study** showing ChatGPT..." → "chatgpt" matches paper keyword
-                for (const cw of contextWords) {
-                  if (kwStr.includes(cw)) score += 3;
-                  if (title.includes(cw)) score += 2;
-                  if (authorStr.includes(cw)) score += 3;
-                }
-
-                if (score > bestScore) { bestScore = score; bestPaper = p; }
               }
 
-              // Require a minimum score to avoid false matches
-              const matchedPaper = bestScore >= 3 ? bestPaper : null;
+              // Fallback: fuzzy match for syntheses generated before the [N] format
+              if (!matchedPaper) {
+                const cleanText = textLower.replace(/\s*\(.*?\)\s*/g, " ").trim();
+                let bestPaper: (typeof papers)[number] | null = null;
+                let bestScore = 0;
+                const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
+                const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows"]);
+                const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
+                const boldStems = boldWords.map(stem);
+
+                for (const p of papers) {
+                  let score = 0;
+                  const title = p.title.toLowerCase();
+                  const kwStr = p.keywords.join(" ").toLowerCase();
+                  const authorStr = p.authors.join(" ").toLowerCase();
+
+                  if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
+                  for (const bs of boldStems) {
+                    const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
+                    if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
+                    if (authorStr.includes(bs)) score += 4;
+                    if (kwStr.includes(bs)) score += 2;
+                  }
+                  if (score > bestScore) { bestScore = score; bestPaper = p; }
+                }
+                matchedPaper = bestScore >= 3 ? bestPaper : null;
+              }
               // Highlight colors from paper card blob palettes
-              const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.3)", "rgba(147,197,253,0.3)", "rgba(196,181,253,0.3)"];
-              const HIGHLIGHT_HOVER = ["rgba(249,168,212,0.5)", "rgba(147,197,253,0.5)", "rgba(196,181,253,0.5)"];
+              const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.45)", "rgba(147,197,253,0.45)", "rgba(196,181,253,0.45)"];
+              const HIGHLIGHT_HOVER = ["rgba(249,168,212,0.65)", "rgba(147,197,253,0.65)", "rgba(196,181,253,0.65)"];
               if (matchedPaper && onSelectPaper) {
                 const paperIdx = papers.indexOf(matchedPaper);
                 const bg = HIGHLIGHT_COLORS[paperIdx % HIGHLIGHT_COLORS.length];
@@ -548,11 +553,11 @@ export function SynthesisBanner({
                     summary={matchedPaper.summary}
                     onClick={() => onSelectPaper(matchedPaper)}
                   >
-                    {children}
+                    {displayText}
                   </PaperHighlight>
                 );
               }
-              return <strong style={{ color: "#111", fontWeight: 700 }}>{children}</strong>;
+              return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
             },
           }}
         >
