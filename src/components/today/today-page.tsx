@@ -218,12 +218,13 @@ interface Session {
 }
 
 interface TodayPageProps {
-  session: Session;
+  session?: Session;
   isAdmin?: boolean;
   onRegisterRefresh?: (fn: () => void) => void;
+  onSignIn?: () => void;
 }
 
-export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: TodayPageProps) {
+export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignIn }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,7 +236,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
 
   const fetchDigest = useCallback(async () => {
     try {
-      const res = await fetch("/api/digest");
+      const endpoint = session ? "/api/digest" : "/api/public/digest";
+      const res = await fetch(endpoint);
       if (!res.ok) return;
       const data = await res.json();
       setDigest(data.digest);
@@ -244,7 +246,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
     } catch (err) {
       console.error("Failed to fetch digest:", err);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     fetchDigest().finally(() => setLoading(false));
@@ -259,6 +261,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
   }, [onRegisterRefresh]);
 
   const handleGenerate = async (force = false) => {
+    if (!session) return;
     setGenerating(true);
     setGenerateError(null);
     try {
@@ -291,6 +294,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
   };
 
   const handleFeedback = async (paperId: string, type: "star" | "dislike") => {
+    if (!session) return;
     try {
       await fetch(`/api/papers/${paperId}/feedback`, {
         method: "POST",
@@ -326,39 +330,41 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
 
   if (!digest) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 px-4">
-        <p
-          className="text-[0.75rem] uppercase tracking-[2px] text-[#666]"
-          style={{ fontFamily: "var(--font-mono), monospace" }}
-        >
-          No digest found for today
+      <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
+        <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
+          Today&apos;s digest is brewing
+        </h1>
+        <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
+          Check back soon — a fresh research digest is generated every day.
         </p>
-        {generateError && (
+        {session && generateError && (
           <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">
             {generateError}
           </p>
         )}
-        <button
-          onClick={() => handleGenerate(true)}
-          disabled={generating}
-          className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
-          style={{
-            borderWidth: "1.5px",
-            fontFamily: "var(--font-mono), monospace",
-          }}
-        >
-          {generating ? (
-            <span className="flex items-center gap-2">
-              <Loader2 className="size-3 animate-spin" />
-              GENERATING (THIS MAY TAKE A MINUTE)...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <RefreshCw className="size-3" />
-              {generateError ? "Try again" : "Generate today's digest"}
-            </span>
-          )}
-        </button>
+        {session && (
+          <button
+            onClick={() => handleGenerate(true)}
+            disabled={generating}
+            className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
+            style={{
+              borderWidth: "1.5px",
+              fontFamily: "var(--font-mono), monospace",
+            }}
+          >
+            {generating ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-3 animate-spin" />
+                GENERATING (THIS MAY TAKE A MINUTE)...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <RefreshCw className="size-3" />
+                {generateError ? "Try again" : "Generate today's digest"}
+              </span>
+            )}
+          </button>
+        )}
       </div>
     );
   }
@@ -387,7 +393,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
             <span style={{ fontSize: "0.7rem", color: "#555", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 700 }}>
               Today&apos;s Digest
             </span>
-            {isAdmin && (
+            {session && isAdmin && (
               <button
                 onClick={() => handleGenerate(true)}
                 disabled={generating}
@@ -398,12 +404,12 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
                 <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regenerate</span>
               </button>
             )}
-            {generateError && (
+            {session && generateError && (
               <span style={{ fontSize: "0.6rem", color: "#ff007f", fontFamily: "var(--font-mono), monospace", maxWidth: "400px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
                 {generateError}
               </span>
             )}
-            {digest.id && (
+            {session && digest.id && (
               <button
                 onClick={async () => {
                   setStarred(!starred);
@@ -435,13 +441,15 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh }: Today
             ) : (
               <div className="flex flex-col items-center gap-3 py-16">
                 <p className="text-[0.65rem] uppercase tracking-[2px] text-[#888]" style={{ fontFamily: "var(--font-mono), monospace" }}>
-                  {generateError || "No digest found for today"}
+                  {(session && generateError) || "No digest found for today"}
                 </p>
-                <button onClick={() => handleGenerate(true)} disabled={generating}
-                  className="flex items-center gap-2 px-4 py-2 text-[0.7rem] uppercase tracking-[2px] bg-[#1a1a1a] text-white disabled:opacity-50"
-                  style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}>
-                  {generating ? <><Loader2 className="size-3 animate-spin" /> Generating...</> : <><RefreshCw className="size-3" /> Generate digest</>}
-                </button>
+                {session && (
+                  <button onClick={() => handleGenerate(true)} disabled={generating}
+                    className="flex items-center gap-2 px-4 py-2 text-[0.7rem] uppercase tracking-[2px] bg-[#1a1a1a] text-white disabled:opacity-50"
+                    style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}>
+                    {generating ? <><Loader2 className="size-3 animate-spin" /> Generating...</> : <><RefreshCw className="size-3" /> Generate digest</>}
+                  </button>
+                )}
               </div>
             )}
         </div>
