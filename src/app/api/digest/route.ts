@@ -43,10 +43,18 @@ export async function GET(req: NextRequest) {
         orderBy: desc(digests.createdAt),
       });
     } else {
+      // Default: show today's digest if it exists, otherwise most recent
+      const today = new Date().toISOString().split("T")[0];
       digest = await db.query.digests.findFirst({
-        where: eq(digests.userId, userId),
+        where: and(eq(digests.userId, userId), eq(digests.date, today)),
         orderBy: desc(digests.createdAt),
       });
+      if (!digest) {
+        digest = await db.query.digests.findFirst({
+          where: eq(digests.userId, userId),
+          orderBy: desc(digests.createdAt),
+        });
+      }
     }
 
     if (!digest) {
