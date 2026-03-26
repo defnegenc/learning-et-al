@@ -467,15 +467,26 @@ export function SynthesisBanner({
             p: ({ children }) => (
               <p style={{ marginBottom: "1.25em" }}>{annotateText(children, conceptDefs)}</p>
             ),
-            strong: ({ children }) => {
+            strong: ({ children, node }) => {
               const text = String(children).toLowerCase();
               // Strip parenthetical source info like "(Semantic Scholar, 2026)" for matching
               const cleanText = text.replace(/\s*\(.*?\)\s*/g, " ").trim();
-              // Match bold text to a paper by scoring against title, summary, abstract, authors, keywords
-              // Don't stop-word "study", "report", "review", "research" — these appear in paper nicknames like "the Brookings report"
+
+              // Get surrounding context: words near the bold text in the synthesis
+              // This helps match "**AI tools study** showing ChatGPT and DeepSeek..." → paper about ChatGPT
+              let contextWords: string[] = [];
+              try {
+                const fullText = bodyText.toLowerCase();
+                const boldIdx = fullText.indexOf(cleanText);
+                if (boldIdx >= 0) {
+                  const contextWindow = fullText.slice(boldIdx, Math.min(boldIdx + 150, fullText.length));
+                  contextWords = contextWindow.split(/\s+/).filter(w => w.length > 3);
+                }
+              } catch { /* ignore */ }
+
               const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows"]);
               const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-              const boldWords = cleanText.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+              const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
               const boldStems = boldWords.map(stem);
 
               let bestPaper: (typeof papers)[number] | null = null;
@@ -489,15 +500,13 @@ export function SynthesisBanner({
                 const authorStr = p.authors.join(" ").toLowerCase();
                 const kwStr = p.keywords.join(" ").toLowerCase();
                 const connectionStr = (p.connectionReason || "").toLowerCase();
-                // For news items, authors[0] is the publisher (e.g. "Edweek", "Straitstimes")
                 const publisherStr = p.authors[0]?.toLowerCase() || "";
-                // Extract hostname for matching (e.g. "brookings" from brookings.edu)
                 let hostname = "";
                 try { hostname = new URL(p.sourceUrl || "").hostname.replace(/^www\./, "").split(".")[0]; } catch { /* ignore */ }
 
                 // Direct substring match in title — strong signal
                 if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) { score += 10; }
-                // Publisher/source name match (e.g. "Brookings" in "the Brookings report")
+                // Publisher/source name match
                 if (publisherStr && cleanText.includes(publisherStr)) { score += 6; }
                 if (hostname && cleanText.includes(hostname)) { score += 5; }
 
@@ -510,6 +519,14 @@ export function SynthesisBanner({
                   if (connectionStr.includes(bs)) score += 2;
                   if (authorStr.includes(bs)) score += 4;
                   if (kwStr.includes(bs)) score += 2;
+                }
+
+                // Context window: check words near the bold text against paper title/keywords
+                // e.g., "**AI tools study** showing ChatGPT..." → "chatgpt" matches paper keyword
+                for (const cw of contextWords) {
+                  if (kwStr.includes(cw)) score += 3;
+                  if (title.includes(cw)) score += 2;
+                  if (authorStr.includes(cw)) score += 3;
                 }
 
                 if (score > bestScore) { bestScore = score; bestPaper = p; }
