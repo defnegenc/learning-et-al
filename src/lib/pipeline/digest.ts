@@ -126,7 +126,7 @@ function isNewsRelevant(article: { title: string; abstract: string }, themeWords
 }
 
 // Embedding similarity thresholds for all-MiniLM-L6-v2
-const SIM_ONTOPIC  = 0.30; // minimum similarity to theme to be included
+const SIM_ONTOPIC  = 0.25; // minimum similarity to theme to be included
 const SIM_FALLBACK = 0.15; // last-resort fallback threshold
 
 export async function generateDigest(userId: string, aiConfig: AIConfig, force?: boolean) {
@@ -415,7 +415,7 @@ Return JSON only (no markdown):
   let scored: { p: PaperSearchResult; themeSim: number; score: number }[] = [];
   let qualified: typeof scored = [];
   let threshold = SIM_ONTOPIC;
-  const SIM_MIN_THEME = 0.20; // hard floor — a Bhagavad Gita paper should NOT pass for an AI theme
+  const SIM_MIN_THEME = 0.15; // hard floor — filters truly unrelated papers while allowing cross-domain picks
 
   for (let themeAttempt = 0; themeAttempt <= MAX_THEME_RETRIES; themeAttempt++) {
   if (themeAttempt > 0) {
