@@ -239,7 +239,21 @@ STYLE RULES:
 - Write for smart non-experts. Translate ALL jargon.
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
 - NO em dashes. Use periods, "but", "and" instead.
-- NEVER write "The question of whether X isn't just about Y — it's about Z". This pattern is banned. Just say what you mean directly.
+
+BANNED PATTERNS (these make every digest sound the same):
+- "X don't just Y — they Z" or "isn't just X — it's Y" → This is the #1 AI crutch. Never use it.
+- "Here's where it gets [interesting/scary/tricky]" → Overused. Just state the finding.
+- "The real question is..." or "The bigger picture is..." → Formulaic. Drop it.
+- "It turns out that..." at the start of every other sentence → Once per digest max.
+
+GOOD TRANSITIONS (vary these — never repeat the same pattern twice):
+- "You'd think X, but Y says otherwise."
+- "Despite decades of research on X, Y found..."
+- "Unexpectedly, Y showed that..."
+- "What Y actually found was the opposite:"
+- "Y complicates this — their data shows..."
+- Just start with the finding. "87% of students who..."
+- Ask a rhetorical question mid-paragraph. "So why doesn't it work?"
 - NEVER write "isn't merely X — it's fundamentally Y" or any variation.
 - Contractions always. "So", "But", "Turns out", "Here's the thing" are good openers.
 - EVERY paper MUST appear in **bold** at least once. There are only 2-3 papers — if you can't mention one, your argument arc is wrong. Restructure.
