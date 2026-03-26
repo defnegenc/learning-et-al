@@ -223,7 +223,7 @@ export async function sendDigestEmail(
   }
 
   const subject = cadence === "daily"
-    ? bestDigest.theme
+    ? "Your Daily Digest"
     : `★ Best of ${cadence === "biweekly" ? "the half-week" : "the week"}: ${bestDigest.theme}`;
 
   try {
