@@ -985,12 +985,18 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     };
   }
 
+  // Rebuild paperListing after skeleton may have dropped papers
+  const finalPaperListing = items.map(p => ({
+    title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year,
+    tensionHint: p.tensionHint,
+  }));
+
   // Stage C: Draft synthesis from skeleton
   console.log(`[Digest] Stage C: drafting synthesis from skeleton...`);
   let synthesis = await aiComplete(
     aiConfig,
     SYNTHESIS_PROSE_SYSTEM,
-    synthesisFromSkeletonPrompt(paperListing, finalTheme, skeleton)
+    synthesisFromSkeletonPrompt(finalPaperListing, finalTheme, skeleton)
   );
   synthesis = stripFences(synthesis);
 
@@ -1026,10 +1032,13 @@ Return JSON:
     if (factCheck && factCheck.issues && factCheck.issues.length > 0 && !factCheck.accurate) {
       const issueDesc = factCheck.issues.map(i => `Paper ${i.paperIndex}: ${i.problem} → ${i.fix}`).join("; ");
       console.log(`[Digest] Factual issues found: ${issueDesc}`);
+      const paperNames = skeleton.paperRoles.map(r => `**${r.shortName}**`).join(", ");
       const factRevision = await aiComplete(
         aiConfig,
         SYNTHESIS_PROSE_SYSTEM,
         `Fix these factual accuracy issues in the synthesis. Keep the same tone and style.
+
+CRITICAL: ALL these papers MUST remain referenced in bold: ${paperNames}. Do NOT drop any paper.
 
 Issues: ${issueDesc}
 
@@ -1074,7 +1083,7 @@ Return ONLY the corrected paragraph.`
         const revised = await aiComplete(
           aiConfig,
           SYNTHESIS_PROSE_SYSTEM,
-          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision! }, finalTheme)
+          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision! }, finalTheme, skeleton.paperRoles.map(r => `**${r.shortName}**`))
         );
         const cleanRevised = stripFences(revised);
         if (cleanRevised.length > 50) {

@@ -308,8 +308,13 @@ Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
 export function synthesisRevisionPrompt(
   originalSynthesis: string,
   critique: { weakestPoint: string; revision: string },
-  theme: string
+  theme: string,
+  paperNames?: string[]
 ) {
+  const coverageRule = paperNames && paperNames.length > 0
+    ? `\n\nCRITICAL: ALL these papers MUST remain referenced in **bold**: ${paperNames.join(", ")}. Do NOT drop any paper from the synthesis.`
+    : "";
+
   return `Revise this synthesis based on the editor's feedback.
 
 Theme: "${theme}"
@@ -323,7 +328,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}
 
-Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the same **bold paper names**. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.`;
+Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the same **bold paper names**. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}`;
 }
 
 // ─── Shared rule blocks ──────────────────────────────────────────────────────
