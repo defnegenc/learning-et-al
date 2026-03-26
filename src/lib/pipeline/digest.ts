@@ -802,6 +802,33 @@ Return JSON only (no markdown):
     }
   }
 
+  // Last resort: if we have only 1 item, try one more broad news search to hit minimum 2
+  if (items.length === 1) {
+    console.log(`[Digest] Only 1 item — trying broad news search for a second source...`);
+    try {
+      const broadNewsResults = await webSearch(`${theme} ${focusInterest}`, 6);
+      const broadNewsEmbs = broadNewsResults.length > 0 ? await embedBatch(broadNewsResults.map(r => `${r.title}. ${r.snippet}`)) : [];
+      for (let i = 0; i < broadNewsResults.length && items.length < 2; i++) {
+        const r = broadNewsResults[i];
+        if (seenTitles.has(r.title.toLowerCase())) continue;
+        if (isListicle(r.title, r.source)) continue;
+        const sim = cosineSimilarity(themeEmb, broadNewsEmbs[i]);
+        if (sim > 0.10) { // very lenient for the second source
+          const articleText = await fetchArticleText(r.link);
+          items.push({
+            title: r.title, authors: [r.source],
+            abstract: articleText.length > 200 ? articleText : r.snippet,
+            sourceUrl: r.link, source: "rss", category: "news", year: new Date().getFullYear(),
+          });
+          seenTitles.add(r.title.toLowerCase());
+          console.log(`[Digest] Broad news fill: "${r.title}" (sim ${sim.toFixed(2)})`);
+        }
+      }
+    } catch (err) {
+      console.log(`[Digest] Broad news search failed (${err})`);
+    }
+  }
+
   if (items.length === 0) {
     throw new Error(`Couldn't find any relevant content for "${theme}". Try regenerating or add more interests.`);
   }
@@ -965,17 +992,10 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     skeleton = skelParsed;
     console.log(`[Digest] Skeleton: tension="${skeleton.coreTension}"`);
 
-    // Drop papers the skeleton says are weak fits — better 2 good papers than 3 with one forced
-    if (skeleton.skipPapers && skeleton.skipPapers.length > 0 && items.length - skeleton.skipPapers.length >= 2) {
-      const skipSet = new Set(skeleton.skipPapers);
-      const kept = items.filter((_, i) => !skipSet.has(i + 1));
-      const dropped = items.filter((_, i) => skipSet.has(i + 1));
-      console.log(`[Digest] Dropping ${dropped.length} weak-fit paper(s): ${dropped.map(p => p.title.slice(0, 50)).join(", ")}`);
-      items = kept;
-      // Re-index skeleton roles to match new items array
-      skeleton.paperRoles = skeleton.paperRoles.filter(r => !skipSet.has(r.index));
-      skeleton.paperRoles.forEach((r, i) => { r.index = i + 1; });
-    }
+    // Note: we no longer drop papers here — the LLM selection step earlier handles quality.
+    // Dropping at this stage caused digests to shrink to 1 item with no way to refill.
+    // The skeleton can still flag weak papers, and the synthesis prompt will handle them
+    // (mention briefly or skip in the text, but keep them in the digest sources).
   } catch {
     console.log(`[Digest] Skeleton parse failed, using simple fallback`);
     skeleton = {
