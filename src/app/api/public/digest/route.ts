@@ -31,6 +31,7 @@ export async function GET() {
       digest: {
         ...digest,
         keyConcepts: digest.keyConcepts ? JSON.parse(digest.keyConcepts) : [],
+        suggestedQuestions: digest.suggestedQuestions ? JSON.parse(digest.suggestedQuestions) : [],
       },
       papers: digestPapers.map((p) => ({
         ...p,

@@ -5,7 +5,8 @@ import { useSession } from "@/lib/hooks/use-session";
 import { useSession as useAuthSession, signIn } from "next-auth/react";
 import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
-import { PublicDigest } from "@/components/public-digest";
+import { TodayPage } from "@/components/today/today-page";
+import { NoiseOverlay } from "@/components/noise-overlay";
 
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
@@ -83,20 +84,37 @@ export default function Home() {
     );
   }
 
-  // Not signed in — public digest with auth overlay
+  // Not signed in — show same today page layout as logged-in users
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
+      <NoiseOverlay />
+
+      {/* Header — matches AppShell header */}
       <header
-        className="sticky top-0 z-40 flex items-center justify-between px-5 md:px-8"
-        style={{ borderBottom: "4px solid #1a1a1a", background: "white", height: "64px" }}
+        className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
+        style={{ borderBottom: "4px solid #1a1a1a", background: "white", height: "56px" }}
       >
-        <h1 style={{
-          fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em",
-          textTransform: "uppercase", color: "#1a1a1a",
-          fontFamily: "var(--font-display), sans-serif",
-        }}>
+        <h1
+          className="hidden md:block"
+          style={{
+            fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em",
+            textTransform: "uppercase", color: "#1a1a1a",
+            fontFamily: "var(--font-display), sans-serif",
+          }}
+        >
           LEARNING ET AL.
         </h1>
+        <span
+          className="block md:hidden"
+          style={{
+            fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase",
+            letterSpacing: "0.15em", color: "#1a1a1a",
+            fontFamily: "var(--font-display), sans-serif",
+          }}
+        >
+          Learning et al.
+        </span>
+
         <button
           onClick={() => { setShowAuthModal(true); }}
           style={{
@@ -111,8 +129,8 @@ export default function Home() {
         </button>
       </header>
 
-      <main className="flex-1">
-        <PublicDigest onSignIn={() => { setShowAuthModal(true); }} />
+      <main className="relative z-10 flex-1">
+        <TodayPage onSignIn={() => { setShowAuthModal(true); }} />
       </main>
 
       {/* Auth modal */}
