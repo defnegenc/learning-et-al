@@ -1098,20 +1098,51 @@ Return ONLY the corrected paragraph.`
     console.log(`[Digest] Self-refine failed (${err}), keeping draft synthesis`);
   }
 
-  // ─── Final coverage gate: ensure ALL papers are mentioned (runs AFTER self-critique) ───
+  // ─── Final coverage gate: ensure ALL papers are mentioned in **bold** ────────
   // This is the last check — nothing can overwrite the synthesis after this.
-  const finalSynthLower = synthesis.toLowerCase();
-  const findMissing = () => skeleton.paperRoles.filter(r => {
-    // Check shortName words (lenient: 1+ word match)
-    const nameWords = r.shortName.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const nameMatch = nameWords.some(w => finalSynthLower.includes(w));
-    if (nameMatch) return false;
-    // Also check against the actual paper title
-    const paperTitle = items[r.index - 1]?.title?.toLowerCase() || "";
-    const titleWords = paperTitle.split(/\s+/).filter(w => w.length > 4);
-    const titleMatch = titleWords.filter(w => finalSynthLower.includes(w)).length >= 2;
-    return !titleMatch;
-  });
+  // We check for bold markdown (**text**) specifically, not just word presence.
+  const findMissing = () => {
+    // Extract all bold phrases from the synthesis
+    const boldPhrases = [...synthesis.matchAll(/\*\*([^*]+)\*\*/g)].map(m => m[1].toLowerCase());
+    const synthLower = synthesis.toLowerCase();
+
+    return skeleton.paperRoles.filter(r => {
+      const shortNameLower = r.shortName.toLowerCase();
+      const nameWords = shortNameLower.split(/\s+/).filter(w => w.length > 3);
+
+      // Check 1: Is the shortName (or a significant part) inside any bold phrase?
+      const inBold = boldPhrases.some(bp => {
+        // Direct match: bold phrase contains the shortName or vice versa
+        if (bp.includes(shortNameLower) || shortNameLower.includes(bp)) return true;
+        // Word overlap: 2+ significant words from shortName appear in a bold phrase
+        const matchCount = nameWords.filter(w => bp.includes(w)).length;
+        return matchCount >= Math.min(2, nameWords.length);
+      });
+      if (inBold) return false;
+
+      // Check 2: Paper title words in any bold phrase (fallback)
+      const paperTitle = items[r.index - 1]?.title?.toLowerCase() || "";
+      const titleWords = paperTitle.split(/\s+/).filter(w => w.length > 4);
+      const titleInBold = boldPhrases.some(bp => {
+        return titleWords.filter(w => bp.includes(w)).length >= 2;
+      });
+      if (titleInBold) return false;
+
+      // Check 3: Author last name in any bold phrase
+      const authors = items[r.index - 1]?.authors || [];
+      const authorLastNames = authors.slice(0, 2).map(a => a.split(/\s+/).pop()?.toLowerCase() || "").filter(n => n.length > 2);
+      const authorInBold = boldPhrases.some(bp => authorLastNames.some(n => bp.includes(n)));
+      if (authorInBold) return false;
+
+      // Check 4: Last resort — is the shortName mentioned anywhere (not just bold)?
+      // This catches cases where the LLM forgot the ** formatting
+      const nameInText = nameWords.filter(w => synthLower.includes(w)).length >= Math.min(2, nameWords.length);
+      if (nameInText) {
+        console.log(`[Digest] Paper "${r.shortName}" found in text but NOT in bold — will request bold formatting`);
+      }
+      return !nameInText;
+    });
+  };
 
   const missingPapers = findMissing();
   if (missingPapers.length > 0) {
