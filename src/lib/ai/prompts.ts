@@ -225,13 +225,15 @@ Arc: ${skeleton.argumentArc}
 Paper roles:
 ${roleDesc}
 
-You MUST reference ALL of these papers in **bold** (no exceptions):
-${skeleton.paperRoles.map(r => `- **${r.shortName}**`).join("\n")}
+You MUST reference ALL of these papers in **bold** using EXACTLY this format:
+${skeleton.paperRoles.map(r => `- First mention: **[Source ${r.index}] ${r.shortName}** — then after: **[Source ${r.index}] ${r.shortName}**`).join("\n")}
+
+The [Source N] prefix is REQUIRED in every bold reference. It maps the name to the correct paper. Never write a bold paper name without the [Source N] prefix.
 
 Now write the synthesis paragraph. Follow the argument arc above. Return ONLY the paragraph text (no JSON, no markdown fences).
 
 STYLE RULES:
-- Name papers using their SHORT NICKNAMES from the plan above: "**${skeleton.paperRoles[0]?.shortName || "the study"}** (Author, Year)" on first mention, then just "**${skeleton.paperRoles[0]?.shortName || "the study"}**" after. MAX 4 WORDS for the name. "the polyphenols study" YES. "The Brain-Gut-Microbiome Axis review" NO — too long.
+- ALWAYS prefix bold paper names with [Source N]: "**[Source 1] the polyphenols study**". MAX 4 WORDS for the name after the prefix.
 - ONE paragraph, 5-8 sentences. Short sentences. Vary the length.
 - Start with the insight, not the build-up.
 - Include one specific number or finding.
