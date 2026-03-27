@@ -1118,49 +1118,18 @@ Return ONLY the corrected paragraph.`
     console.log(`[Digest] Self-refine failed (${err}), keeping draft synthesis`);
   }
 
-  // ─── Final coverage gate: ensure ALL papers are mentioned in **bold** ────────
-  // This is the last check — nothing can overwrite the synthesis after this.
-  // We check for bold markdown (**text**) specifically, not just word presence.
+  // ─── Final coverage gate: ensure ALL papers are mentioned with [Source N] ────
+  // Simple check: does "**[Source N]" appear for each paper index?
   const findMissing = () => {
-    // Extract all bold phrases from the synthesis
-    const boldPhrases = [...synthesis.matchAll(/\*\*([^*]+)\*\*/g)].map(m => m[1].toLowerCase());
-    const synthLower = synthesis.toLowerCase();
-
     return skeleton.paperRoles.filter(r => {
+      // Primary: check for [Source N] tag
+      const sourceTag = `[source ${r.index}]`;
+      if (synthesis.toLowerCase().includes(sourceTag)) return false;
+      // Fallback for older syntheses: check shortName in bold
+      const boldPhrases = [...synthesis.matchAll(/\*\*([^*]+)\*\*/g)].map(m => m[1].toLowerCase());
       const shortNameLower = r.shortName.toLowerCase();
       const nameWords = shortNameLower.split(/\s+/).filter(w => w.length > 3);
-
-      // Check 1: Is the shortName (or a significant part) inside any bold phrase?
-      const inBold = boldPhrases.some(bp => {
-        // Direct match: bold phrase contains the shortName or vice versa
-        if (bp.includes(shortNameLower) || shortNameLower.includes(bp)) return true;
-        // Word overlap: 2+ significant words from shortName appear in a bold phrase
-        const matchCount = nameWords.filter(w => bp.includes(w)).length;
-        return matchCount >= Math.min(2, nameWords.length);
-      });
-      if (inBold) return false;
-
-      // Check 2: Paper title words in any bold phrase (fallback)
-      const paperTitle = items[r.index - 1]?.title?.toLowerCase() || "";
-      const titleWords = paperTitle.split(/\s+/).filter(w => w.length > 4);
-      const titleInBold = boldPhrases.some(bp => {
-        return titleWords.filter(w => bp.includes(w)).length >= 2;
-      });
-      if (titleInBold) return false;
-
-      // Check 3: Author last name in any bold phrase
-      const authors = items[r.index - 1]?.authors || [];
-      const authorLastNames = authors.slice(0, 2).map(a => a.split(/\s+/).pop()?.toLowerCase() || "").filter(n => n.length > 2);
-      const authorInBold = boldPhrases.some(bp => authorLastNames.some(n => bp.includes(n)));
-      if (authorInBold) return false;
-
-      // Check 4: Last resort — is the shortName mentioned anywhere (not just bold)?
-      // This catches cases where the LLM forgot the ** formatting
-      const nameInText = nameWords.filter(w => synthLower.includes(w)).length >= Math.min(2, nameWords.length);
-      if (nameInText) {
-        console.log(`[Digest] Paper "${r.shortName}" found in text but NOT in bold — will request bold formatting`);
-      }
-      return !nameInText;
+      return !boldPhrases.some(bp => nameWords.some(w => bp.includes(w)));
     });
   };
 
@@ -1175,14 +1144,15 @@ Return ONLY the corrected paragraph.`
         `This synthesis is MISSING ${missingPapers.length} paper(s). You MUST add them.
 
 Theme: "${finalTheme}"
-Missing papers that MUST appear in **bold**: ${missingDesc}
+Missing papers — use EXACTLY these bold references:
+${missingPapers.map(r => `- **[Source ${r.index}] ${r.shortName}**`).join("\n")}
 
 Current synthesis:
 """
 ${synthesis}
 """
 
-Rewrite to INCLUDE the missing paper(s) in **bold**. Weave them into the argument naturally. Keep the same tone and length. Return ONLY the revised paragraph.`
+Rewrite to INCLUDE the missing paper(s) using the exact **[Source N] name** format above. Weave them into the argument naturally. Keep the same tone and length. Return ONLY the revised paragraph.`
       );
       const revised = stripFences(coverageRevision);
       if (revised.length > 50) {
