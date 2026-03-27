@@ -89,13 +89,15 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 ${METADATA_RULES(ctx)}
 
 SUGGESTED QUESTIONS RULES:
-- Generate exactly 3 questions a curious reader would ask after reading the synthesis.
-- Each question must be SPECIFIC to these papers, not generic. Reference actual findings or tensions.
-- Questions should pull the reader deeper — "What would happen if...", "Why doesn't...", "How does X square with Y?"
-- BAD: "What are the implications of this research?" (generic, boring)
-- GOOD: "If AI tutors outperform human ones, why do students still prefer human teachers?" (specific, surprising)
-- Keep each question under 15 words.
-- At least one question should highlight a tension BETWEEN the papers.
+- Generate exactly 3 questions based on GAPS — things the synthesis hints at but doesn't fully explain.
+- Each question should come from a specific moment where the reader would think "wait, but what about...?" or "how does that work exactly?"
+- One question per paper roughly, tied to the most intriguing detail.
+- BAD: "What are the implications of this research?" (generic, no gap)
+- BAD: "How does AI affect education?" (too broad, reader already knows this)
+- GOOD: "If GPT-4 can hack 83% of Linux systems, why didn't the researchers test it on Windows?" (specific gap — makes you want to know the answer)
+- GOOD: "The rat study found roommate genes change your gut bacteria — but does it work the other way too?" (natural follow-up from a specific finding)
+- GOOD: "If worked examples teach better strategy but problem-solving produces better results, which should teachers actually use?" (tension the reader can't resolve alone)
+- Keep under 15 words. Phrase as something a curious person would actually say out loud.
 
 Papers:
 
@@ -236,7 +238,7 @@ STYLE RULES:
 - ALWAYS prefix bold paper names with [Source N]: "**[Source 1] the polyphenols study**". MAX 4 WORDS for the name after the prefix.
 - ONE paragraph, 5-8 sentences. Short sentences. Vary the length.
 - Start with the insight, not the build-up.
-- Include one specific number or finding.
+- For EACH paper, include one "wait, what?" detail — a specific method, number, or setup that makes the reader curious. Not just the conclusion ("AI can hack systems") but HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% of the vulnerabilities without human help"). The reader should think "I want to know more about this."
 - End naturally. No formulaic closing.
 - Write for smart non-experts. Translate ALL jargon.
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
@@ -359,11 +361,13 @@ function METADATA_RULES(ctx?: DigestContext) {
 SUMMARY RULES:
 - MAX 40 WORDS. 1-2 sentences. The reader scans this on a card — it must fit without truncation.
 - Write for a smart person who is NOT a domain expert.
-- Focus on what the paper FOUND, not what it set out to do.
-- BAD (too long): "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..."
-- GOOD (scannable): "Fine-tuning just 1% of an AI model's parameters cut training costs 10x with only a 3% accuracy drop."
-- BAD: "This industry report outlines key trends in AI agent development" — WHICH trends? NAME THEM.
-- GOOD: "FintechNews reports that multi-agent collaboration, agentic RAG, and vertical AI agents are the three biggest AI agent trends heading into 2026."
+- Include the SETUP and the SURPRISE. Not just what they found, but enough about what they did that the reader thinks "oh, interesting approach."
+- BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..." (boring, tells nothing)
+- BAD: "AI tracked 350 students' behaviors and predicted grades." (too vague — WHAT behaviors? HOW accurately?)
+- GOOD: "Researchers logged every click, login time, and assignment submission for 350 online students — and predicted who'd fail with 87% accuracy."
+- GOOD: "They gave GPT-4 real Linux servers with known vulnerabilities. It exploited 33-83% of them autonomously, matching human hackers."
+- GOOD: "FintechNews reports multi-agent collaboration, agentic RAG, and vertical AI agents are the three biggest trends heading into 2026."
+- The reader should think "wait, they actually did that?" or "huh, I didn't know that was possible."
 
 FINDINGS RULES:
 - 3 findings per paper. Each one answers: "what did they FIND OUT?" not "what did they DO?"
