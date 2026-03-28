@@ -645,7 +645,7 @@ Return JSON only (no markdown):
           targetPapers
         )
       );
-      const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreTension?: string }>(selectionResp);
+      const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreInsight?: string }>(selectionResp);
       if (selection) {
         const indices: number[] = selection.selectedIndices || [];
         if (indices.length >= 2) {
@@ -653,7 +653,7 @@ Return JSON only (no markdown):
             .filter((i: number) => i >= 1 && i <= widePool.length)
             .map((i: number) => widePool[i - 1]);
           console.log(`[Digest] LLM selected ${items.length} papers: ${selection.selectionReasoning || ""}`);
-          console.log(`[Digest] Tension: ${selection.coreTension || "none identified"}`);
+          console.log(`[Digest] Tension: ${selection.coreInsight || "none identified"}`);
         } else {
           items = widePool.slice(0, targetPapers);
           console.log(`[Digest] LLM returned too few indices, using top ${targetPapers}`);
@@ -982,7 +982,7 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
   let skeleton: {
     paperRelations?: { paper1: number; paper2: number; relation: string; explanation: string }[];
     paperRoles: { index: number; role: string; shortName: string; coreContribution: string }[];
-    coreTension: string;
+    coreInsight: string;
     argumentArc: string;
     skipPapers?: number[];
   };
@@ -990,7 +990,7 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     const skelParsed = extractJson<typeof skeleton>(skeletonResp);
     if (!skelParsed) throw new Error("No JSON");
     skeleton = skelParsed;
-    console.log(`[Digest] Skeleton: tension="${skeleton.coreTension}"`);
+    console.log(`[Digest] Skeleton: tension="${skeleton.coreInsight}"`);
 
     // Note: we no longer drop papers here — the LLM selection step earlier handles quality.
     // Dropping at this stage caused digests to shrink to 1 item with no way to refill.
@@ -1000,7 +1000,7 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     console.log(`[Digest] Skeleton parse failed, using simple fallback`);
     skeleton = {
       paperRoles: items.map((p, i) => ({ index: i + 1, role: "supports", shortName: p.title.split(/\s+/).slice(0, 4).join(" "), coreContribution: "evidence" })),
-      coreTension: `What "${finalTheme}" really means according to these papers`,
+      coreInsight: `What "${finalTheme}" really means according to these papers`,
       argumentArc: "Present each paper's perspective, then find the thread",
     };
   }

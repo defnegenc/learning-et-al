@@ -148,15 +148,15 @@ Return JSON (no markdown fences):
   "paperRoles": [
     { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism", "shortName": "the Turkish teacher study", "coreContribution": "what this paper uniquely adds, 10 words max" }
   ],
-  "coreTension": "The central disagreement or unresolved question, 1 sentence",
-  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z"
+  "coreInsight": "The most interesting connection, surprise, or question these papers surface TOGETHER, 1 sentence",
+  "argumentArc": "First establish X (paper N), then add depth with Y (paper N), then open up with Z"
 }
 
 RULES:
 - selectedIndices MUST contain exactly ${targetCount} paper indices (1-indexed, matching the candidate list)
 - Every selected paper must have a DISTINCT role — no two papers with the same role
 - NO TWO PAPERS WITH THE SAME CONCLUSION. If papers A and B both conclude "X is better/faster/works", drop one.
-- The coreTension must be GENUINE, not manufactured. "Some people haven't adopted it yet" is NOT a tension — it's just a fact. A tension is: "Paper A says X works, Paper B says X fails when Y."
+- coreInsight can be a tension, a surprise, a paradox, OR a beautiful complementary insight. NOT everything needs to be a conflict. Papers that agree from different angles are great too.
 - shortName: how you'd refer to it talking to a friend
 - If a paper is >5 years old, it must offer something a newer paper can't (historical perspective, foundational insight). Don't pick old papers just because they're highly cited.
 - If no ${targetCount} papers work well together, pick the best 2 and note it
@@ -182,17 +182,21 @@ Return JSON (no markdown fences):
   "paperRoles": [
     { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism|provides_context|reinforces", "shortName": "2-4 word nickname: 'the polyphenols study', 'the Turkish teacher research', 'the epilepsy review'", "coreContribution": "what this paper uniquely adds to the argument, 10 words max" }
   ],
-  "coreTension": "The central disagreement or unresolved question these papers surface, 1 sentence",
-  "argumentArc": "First establish X (paper N), then complicate with Y (paper N), resolve/leave open with Z",
+  "coreInsight": "The most interesting thing these papers reveal TOGETHER that you wouldn't get from any single one, 1 sentence",
+  "argumentArc": "First establish X (paper N), then add depth with Y (paper N), then open up with Z",
   "skipPapers": []
 }
 
 RULES:
 - EVERY paper should get a role if possible. If a paper genuinely doesn't connect to the theme or other papers, add its index to skipPapers. Better to have 2 great papers than 3 with one forced.
 - If two papers make the SAME POINT, find what DIFFERS between them — methodology, scale, domain, era. If truly identical, the weaker one's role is "reinforces" with a note about what specifically it adds (a different context, a specific number, etc.)
-- The coreTension should be a GENUINE intellectual tension, not a fake one. "People haven't adopted it" or "there are still challenges" is NOT a tension. A tension is a real DISAGREEMENT or PARADOX between the papers.
+- coreInsight does NOT have to be a conflict. Great insights include:
+  - Papers that AGREE from wildly different angles ("a biologist and an economist both found X")
+  - Papers where one explains WHY something another paper observed happens
+  - A genuine surprise or paradox
+  - A finding that changes how you think about the topic
+  - Do NOT default to "it's messy" or "it's complicated." If the research points somewhere clear, say so.
 - The argumentArc MUST reference ALL papers by number. If a paper isn't in the arc, you haven't found its role yet.
-- If you can't find genuine tension, say so honestly in coreTension. "These papers agree; the interesting question is WHY it took so long" is better than manufacturing fake conflict.
 - shortName: MAX 4 WORDS. How you'd refer to it at a bar: "the polyphenols study", "the McKinsey report", "the epilepsy paper". NOT "The Brain-Gut-Microbiome Axis Across the Life Continuum review" — that's the title, not a nickname. Use the topic keyword: "the gut-brain review", "the seizure inflammation study".
 - paperRelations: include one entry per pair of papers (for 3 papers: 3 pairs)`;
 }
@@ -206,11 +210,13 @@ export function synthesisFromSkeletonPrompt(
   theme: string,
   skeleton: {
     paperRoles: { index: number; role: string; shortName: string; coreContribution: string }[];
-    coreTension: string;
+    coreTension?: string;
+    coreInsight?: string;
     argumentArc: string;
   }
 ) {
   const listing = formatPapers(items, 1500);
+  const insight = skeleton.coreInsight || skeleton.coreTension || "find the thread";
 
   const roleDesc = skeleton.paperRoles
     .map(r => `- Paper ${r.index} ("${r.shortName}"): ${r.role} — ${r.coreContribution}`)
@@ -222,7 +228,7 @@ Papers:
 ${listing}
 
 ARGUMENT PLAN (follow this structure):
-Core tension: ${skeleton.coreTension}
+Core insight: ${insight}
 Arc: ${skeleton.argumentArc}
 Paper roles:
 ${roleDesc}
