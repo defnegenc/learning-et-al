@@ -352,7 +352,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}
 
-Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the same **bold paper names**. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}`;
+Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the EXACT same **[Source N] name** format for bold paper references — the [Source N] prefix is required for every bold paper name. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}`;
 }
 
 // ─── Shared rule blocks ──────────────────────────────────────────────────────
