@@ -1103,7 +1103,7 @@ Return ONLY the corrected paragraph.`
         const revised = await aiComplete(
           aiConfig,
           SYNTHESIS_PROSE_SYSTEM,
-          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision! }, finalTheme, skeleton.paperRoles.map(r => `**${r.shortName}**`))
+          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision! }, finalTheme, skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`))
         );
         const cleanRevised = stripFences(revised);
         if (cleanRevised.length > 50) {
@@ -1119,17 +1119,12 @@ Return ONLY the corrected paragraph.`
   }
 
   // ─── Final coverage gate: ensure ALL papers are mentioned with [Source N] ────
-  // Simple check: does "**[Source N]" appear for each paper index?
+  // Strictly require [Source N] prefix — shortName in bold without prefix doesn't count,
+  // because the frontend relies on the prefix to map highlights to the correct paper.
   const findMissing = () => {
     return skeleton.paperRoles.filter(r => {
-      // Primary: check for [Source N] tag
       const sourceTag = `[source ${r.index}]`;
-      if (synthesis.toLowerCase().includes(sourceTag)) return false;
-      // Fallback for older syntheses: check shortName in bold
-      const boldPhrases = [...synthesis.matchAll(/\*\*([^*]+)\*\*/g)].map(m => m[1].toLowerCase());
-      const shortNameLower = r.shortName.toLowerCase();
-      const nameWords = shortNameLower.split(/\s+/).filter(w => w.length > 3);
-      return !boldPhrases.some(bp => nameWords.some(w => bp.includes(w)));
+      return !synthesis.toLowerCase().includes(sourceTag);
     });
   };
 

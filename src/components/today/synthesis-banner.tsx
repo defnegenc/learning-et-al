@@ -494,7 +494,15 @@ export function SynthesisBanner({
               <p style={{ marginBottom: "1.25em" }}>{annotateText(children, conceptDefs)}</p>
             ),
             strong: ({ children }) => {
-              const text = String(children);
+              // Extract text robustly — String(children) breaks on React element arrays
+              const extractText = (node: React.ReactNode): string => {
+                if (typeof node === "string") return node;
+                if (typeof node === "number") return String(node);
+                if (Array.isArray(node)) return node.map(extractText).join("");
+                if (node && typeof node === "object" && "props" in node) return extractText((node as React.ReactElement<{ children?: React.ReactNode }>).props.children);
+                return "";
+              };
+              const text = extractText(children);
               const textLower = text.toLowerCase();
 
               // Primary: match by "[N]" prefix — e.g. "**[1] the Alzheimer's study**"
