@@ -11,7 +11,7 @@ import { NoiseOverlay } from "@/components/noise-overlay";
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
   const { data: authSession, status: authStatus } = useAuthSession();
-  const [showAuthModal, setShowAuthModal] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Re-validate invite code on load to pick up server-side config changes
   useEffect(() => {

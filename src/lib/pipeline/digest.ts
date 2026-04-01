@@ -1165,12 +1165,36 @@ Rewrite to INCLUDE the missing paper(s) using the exact **[Source N] name** form
     keyConcepts: metadata.keyConcepts || [],
   };
 
+  // Pre-generate answers for suggested questions (used in logged-out experience)
+  const suggestedQuestions = metadata.suggestedQuestions || [];
+  let suggestedAnswers: string[] = [];
+  if (suggestedQuestions.length > 0) {
+    console.log(`[Digest] Generating answers for ${suggestedQuestions.length} suggested questions...`);
+    const papersContext = items.map((p, i) => {
+      const aiItem = parsedAI.items.find(x => x.index === i + 1);
+      return `PAPER ${i + 1}: ${p.title} (${p.year ?? "n/a"})\nAuthors: ${p.authors.slice(0, 3).join(", ")}\nSummary: ${aiItem?.summary ?? ""}\nKey findings: ${(aiItem?.findings || []).join("; ")}\nAbstract: ${(p.abstract ?? "").slice(0, 600)}`;
+    }).join("\n\n");
+    const answerSystem = `Answer in 3-4 sentences MAX. Be direct and specific. No bullet points, no lists, no headers. Just a short paragraph like you're replying in a group chat. Connect the papers to each other and to the question.\n\nToday's synthesis:\n${synthesis}\n\n${papersContext}`;
+    try {
+      suggestedAnswers = await Promise.all(
+        suggestedQuestions.map(q =>
+          aiComplete(aiConfig, answerSystem, `Keep your answer to 3-4 sentences max. Be specific and concrete.\n\n${q}`)
+            .catch(() => "")
+        )
+      );
+      console.log(`[Digest] Generated ${suggestedAnswers.filter(a => a).length} answers`);
+    } catch (err) {
+      console.log(`[Digest] Answer generation failed (${err}), continuing without`);
+    }
+  }
+
   const [digest] = await db.insert(digests).values({
     userId, date: today,
     theme: finalTheme,
     synthesisContent: parsedAI.synthesis,
     keyConcepts: JSON.stringify(parsedAI.keyConcepts || []),
-    suggestedQuestions: JSON.stringify(metadata.suggestedQuestions || []),
+    suggestedQuestions: JSON.stringify(suggestedQuestions),
+    suggestedAnswers: JSON.stringify(suggestedAnswers),
   }).returning();
 
   await db.insert(papers).values(

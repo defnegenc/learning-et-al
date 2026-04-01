@@ -204,6 +204,7 @@ interface Digest {
   synthesisContent: string | null;
   keyConcepts: string[];
   suggestedQuestions?: string[];
+  suggestedAnswers?: string[];
   starred: boolean | null;
   date: string;
 }
@@ -428,6 +429,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                 theme={digest.theme ?? undefined}
                 keyConcepts={digest.keyConcepts}
                 suggestedQuestions={digest.suggestedQuestions}
+                suggestedAnswers={digest.suggestedAnswers}
                 digestId={digest.id}
                 digestStarred={!!digest.starred}
                 activeConcept={activeConcept}
@@ -437,6 +439,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                 onRegenerate={() => handleGenerate(true)}
                 generating={generating}
                 session={session}
+                onSignIn={onSignIn}
               />
             ) : (
               <div className="flex flex-col items-center gap-3 py-16">
