@@ -282,6 +282,7 @@ interface SynthesisBannerProps {
   theme?: string;
   keyConcepts: string[];
   suggestedQuestions?: string[];
+  suggestedAnswers?: string[];
   activeConcept: string | null;
   onConceptClick: (concept: string) => void;
   digestId?: string;
@@ -297,6 +298,91 @@ interface SynthesisBannerProps {
     model: string;
     baseUrl: string;
   };
+  onSignIn?: () => void;
+}
+
+// Guest dig deeper — shows pre-generated Q&A, prompts sign-in for more
+function GuestDigDeeper({ questions, answers, onSignIn }: {
+  questions: string[];
+  answers: string[];
+  onSignIn?: () => void;
+}) {
+  const [revealedCount, setRevealedCount] = useState(0);
+
+  return (
+    <div style={{ marginTop: "28px" }}>
+      {/* Show revealed Q&A pairs */}
+      {revealedCount > 0 && (
+        <div style={{ marginBottom: "16px" }}>
+          {questions.slice(0, revealedCount).map((q, i) => (
+            <div key={i} style={{ marginBottom: i < revealedCount - 1 ? "16px" : "0" }}>
+              <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "8px", fontFamily: "var(--font-mono), monospace" }}>
+                {q.replace(/\*\*/g, "")}
+              </p>
+              {answers[i] && (
+                <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
+                      strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
+                    }}
+                  >
+                    {answers[i]}
+                  </ReactMarkdown>
+                </div>
+              )}
+              {i < revealedCount - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Remaining questions as clickable buttons */}
+      {revealedCount < questions.length && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
+          {questions.slice(revealedCount).map((prompt, i) => (
+            <button
+              key={revealedCount + i}
+              onClick={() => setRevealedCount(revealedCount + 1)}
+              className="hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all"
+              style={{
+                padding: "8px 14px", border: "2px solid #1a1a1a", background: "white",
+                fontSize: "0.8rem", fontWeight: 500,
+                color: "#1a1a1a", textAlign: "left", cursor: "pointer",
+                lineHeight: 1.4,
+              }}
+            >
+              {prompt.replace(/\*\*/g, "")}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Sign-in CTA after all questions revealed */}
+      {revealedCount >= questions.length && (
+        <button
+          onClick={onSignIn}
+          style={{
+            display: "flex", gap: "10px", alignItems: "center", width: "100%",
+            border: "2px solid #1a1a1a", padding: "12px 14px", background: "white",
+            cursor: "pointer",
+          }}
+          className="hover:bg-[#fafafa] transition-colors"
+        >
+          <span style={{ flex: 1, fontSize: "0.85rem", color: "#888", textAlign: "left" }}>
+            Sign in to ask your own questions...
+          </span>
+          <span style={{
+            padding: "6px 14px", background: "#1a1a1a", color: "white",
+            fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
+            letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
+          }}>
+            Sign In
+          </span>
+        </button>
+      )}
+    </div>
+  );
 }
 
 const PASTEL_COLORS = ["#fce7f3", "#dcfce7", "#dbeafe", "#fef9c3", "#ede9fe"];
@@ -306,6 +392,7 @@ export function SynthesisBanner({
   theme,
   keyConcepts,
   suggestedQuestions,
+  suggestedAnswers,
   activeConcept,
   onConceptClick,
   digestId,
@@ -316,6 +403,7 @@ export function SynthesisBanner({
   onRegenerate,
   generating = false,
   session,
+  onSignIn,
 }: SynthesisBannerProps) {
   // Build concept definition map from keyConcepts ("term: definition" format)
   const conceptDefs = useMemo(() => {
@@ -603,7 +691,14 @@ export function SynthesisBanner({
         </div>
       )}
 
-      {/* Dig deeper — no box, just questions + input */}
+      {/* Dig deeper — logged-in: live Q&A, logged-out: pre-generated answers */}
+      {papers.length > 0 && !session && digDeeperPrompts.length > 0 && (
+        <GuestDigDeeper
+          questions={digDeeperPrompts}
+          answers={suggestedAnswers || []}
+          onSignIn={onSignIn}
+        />
+      )}
       {papers.length > 0 && session && (
         <div style={{ marginTop: "28px" }}>
           {/* Suggested questions as inline buttons */}
