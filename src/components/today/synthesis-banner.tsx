@@ -618,7 +618,7 @@ export function SynthesisBanner({
                 let bestPaper: (typeof papers)[number] | null = null;
                 let bestScore = 0;
                 const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-                const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows"]);
+                const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows", "study", "paper", "research", "report", "review"]);
                 const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
                 const boldStems = boldWords.map(stem);
 
@@ -627,6 +627,8 @@ export function SynthesisBanner({
                   const title = p.title.toLowerCase();
                   const kwStr = p.keywords.join(" ").toLowerCase();
                   const authorStr = p.authors.join(" ").toLowerCase();
+                  const summaryStr = (p.summary || "").toLowerCase();
+                  const connectionStr = (p.connectionReason || "").toLowerCase();
 
                   if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
                   for (const bs of boldStems) {
@@ -634,10 +636,12 @@ export function SynthesisBanner({
                     if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
                     if (authorStr.includes(bs)) score += 4;
                     if (kwStr.includes(bs)) score += 2;
+                    if (summaryStr.includes(bs)) score += 2;
+                    if (connectionStr.includes(bs)) score += 2;
                   }
                   if (score > bestScore) { bestScore = score; bestPaper = p; }
                 }
-                matchedPaper = bestScore >= 3 ? bestPaper : null;
+                matchedPaper = bestScore >= 2 ? bestPaper : null;
               }
               // Highlight colors from paper card blob palettes
               const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.45)", "rgba(147,197,253,0.45)", "rgba(196,181,253,0.45)"];
