@@ -112,11 +112,15 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const above = rect.top > 120;
+    const vw = window.innerWidth;
+    const pad = 8;
+    const tooltipW = Math.min(280, vw - pad * 2);
     setTooltipStyle({
       position: "fixed",
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - 288)),
+      left: Math.max(pad, Math.min(rect.left, vw - tooltipW - pad)),
       top: above ? rect.top - 8 : rect.bottom + 8,
       transform: above ? "translateY(-100%)" : "none",
+      width: tooltipW,
       zIndex: 9999,
     });
   }, []);
@@ -167,7 +171,7 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
           ...tooltipStyle,
           background: "#1a1a1a", color: "white",
           fontSize: "0.75rem", fontWeight: 400, lineHeight: 1.5,
-          padding: "10px 14px", width: "280px", whiteSpace: "normal",
+          padding: "10px 14px", whiteSpace: "normal",
           boxShadow: "4px 4px 0px 0px rgba(0,0,0,0.3)",
           pointerEvents: "none",
         }}>
