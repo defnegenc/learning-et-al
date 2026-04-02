@@ -21,6 +21,12 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth
 - `AUTH_SECRET` — NextAuth.js secret
 - `ADMIN_USER_ID` — User ID whose digest is shown to logged-out visitors
+- `CRON_AI_KEY` — API key used by cron for server-side digest generation
+- `CRON_AI_PROVIDER` — Provider for cron (default: `gemini`)
+- `CRON_AI_MODEL` — Model for cron (default: provider-appropriate)
+- `RESEND_API_KEY` — Resend API key for digest emails
+- `INVITE_CODE` — Optional invite code for gated access
+- `EMBEDDING_MODEL` — Optional override (default: `all-MiniLM-L6-v2`, alt: `bge-small-en-v1.5`)
 
 ## Architecture
 ```
@@ -41,6 +47,7 @@ src/
     ├── fetchers/           # Paper sources (OpenAlex, Semantic Scholar, arXiv) + web search
     ├── db/                 # Drizzle schema + queries (schema.ts, queries.ts)
     ├── embeddings.ts       # Local embedding via @xenova/transformers (all-MiniLM-L6-v2)
+    ├── email.ts            # Digest email via Resend (daily/biweekly/weekly cadence)
     └── auth.ts             # NextAuth config with DrizzleAdapter
 ```
 
@@ -50,25 +57,10 @@ src/
 - A great digest feels like a curious friend explaining something over coffee, not an abstract delivery service.
 - Accessible ≠ dumbed down. Define jargon, connect to intuition, respect the user's intelligence.
 
-## THE CORE ALGORITHM SPIKE — DO NOT DEVIATE
-Every digest is built around a single **central question** with wow factor (max 8 words, enforced).
+## THE CORE ALGORITHM — DO NOT DEVIATE
+Theme-first, not paper-first. Every digest starts with a provocative **central question** (max 8 words) generated *before* any paper search. Papers are selected as "tools to think with" for that question, not answers to it. Cross-domain combinations are the goal. MMR ensures diversity. Multi-stage synthesis (skeleton → prose → critique → revision → coverage gate) produces arguments, not book reports.
 
-1. **Central question first**: Before searching for a single paper, an LLM picks 1-3 of the user's interests and generates a catchy, surprising question. NOT "Recent AI advances" — YES "Can AI agents be fashionable?" or "What if buildings could sense your mood?"
-2. **Cross-domain is the goal**: The best questions combine interests from different domains (AI agents + fashion, robotics + cooking). Queries are distributed across `focusFields[]` so the secondary domain's papers are actually found.
-3. **Papers inform, not answer**: Papers don't have to answer the central question. They give the reader TOOLS TO THINK WITH in relation to it. An LLM re-ranking step scores papers on "tool to think with" quality, not just topical similarity.
-4. **Tension over agreement**: Paper 2 is found via a counter-query that seeks papers contradicting or complicating paper 1. This creates genuine intellectual tension for synthesis.
-5. **Diversity over redundancy**: Papers are selected via MMR (Maximal Marginal Relevance) — balancing theme relevance against inter-paper diversity. No two papers from the same lab/method.
-6. **Synthesis = lenses, not sequential**: The synthesis frames each paper as a different angle on the central question, not as a linear story from paper A to B to C.
-7. **Theme revision**: After papers are found, the LLM revises the central question to better thread the actual papers together. Theme novelty scoring prevents repetitive patterns across days.
-
-**Examples of great central questions:**
-- "Can AI agents be fashionable?" (AI agents + fashion)
-- "When will robots cook dinner?" (robotics + cooking)
-- "Is code the new poetry?" (programming + creative writing)
-- "What if buildings could sense your mood?" (architecture + psychology)
-- "Can a machine develop taste?" (AI + aesthetics)
-
-**ALWAYS reference `docs/algorithm.md` before modifying the digest pipeline.**
+**ALWAYS read `docs/algorithm.md` before modifying the digest pipeline.** It has the full spec, thresholds, and examples.
 
 ## Design Principles
 - **Act as a UX expert** when designing flows — intuitive, minimal friction, delightful interactions
@@ -89,12 +81,13 @@ Every digest is built around a single **central question** with wow factor (max 
 - Tech stack: Next.js 16, Turso (libsql) for prod DB, local SQLite for dev, Drizzle ORM, Tailwind + shadcn/ui
 - **Relevance scoring: embedding + LLM hybrid** (`@xenova/transformers` all-MiniLM-L6-v2 for recall, LLM re-ranking for precision). Embeddings find candidates, LLM scores "tool to think with" quality. Do NOT revert to keyword counting.
 - **Typography**: Apercu Pro for body text, Space Grotesk for display, IBM Plex Mono for labels
-- Daily digest: Auto-generated at 5am user's local time (cron not yet implemented — manual "Generate" button)
+- Daily digest: Vercel Cron at 4am UTC (`vercel.json`), generates for all users + emails based on cadence (daily/biweekly/weekly). Manual "Generate" button for admin.
+- Email: Resend integration, cadence-aware (daily = every digest, biweekly = best-of Tue+Fri, weekly = best-of Sunday). "Best" = starred digest if any, else most recent.
 - Feedback: Users can dislike a paper with optional reason, no control over recommendations
-- Auth: Google OAuth via Auth.js (next-auth v5) with DrizzleAdapter. Public logged-out experience showing admin's digest.
-- AI: User-provided API key, model-agnostic (Claude, GPT, Gemini, etc.)
+- Auth: Google OAuth via Auth.js (next-auth v5) with DrizzleAdapter. Public logged-out experience showing admin's digest with pre-generated Q&A.
+- AI: BYOK (user-provided API key), model-agnostic (Claude, GPT, Gemini, etc.). Cron uses server-side `CRON_AI_*` env vars.
 - Deployment: Vercel, learningetal.com domain
-- **Not yet implemented**: cron scheduler (5am auto-generation), content mix slider (stored in DB but hardcoded to 2 papers + 1 news), dynamic item count, temporal awareness in themes
+- **Not yet implemented**: temporal awareness in themes
 
 ## Gotchas
 - **NEVER create routes inside `/api/auth/`** — the `[...nextauth]` catch-all owns that entire path. Put custom auth-adjacent routes elsewhere (e.g. `/api/logout`).
@@ -103,6 +96,9 @@ Every digest is built around a single **central question** with wow factor (max 
 - **Only call `res.json()` once** per request — second call gets empty body.
 - **When adding a new option** (provider, feature flag, etc.), grep for ALL places it needs to appear — config, UI, types.
 - **`pdf-parse` is broken with Turbopack** — use `unpdf` instead.
+- **Synthesis must use `[Source N]` prefix in bold paper names** — e.g. `**[Source 1] the polyphenols study**`. The frontend relies on this prefix to map highlights to the correct paper. If a pipeline step (especially revision) drops the prefix, highlights break on the site. The coverage gate enforces this.
+- **`drizzle-kit push` fails on SQLite schema changes involving primary keys** — SQLite can't ALTER TABLE to drop/recreate PKs. For simple column additions, run `sqlite3 paper-processor.db "ALTER TABLE X ADD COLUMN Y TEXT;"` manually, then push schema to Turso prod separately.
+- **Pre-generated answers for logged-out experience** — `suggestedAnswers` are generated at the end of the digest pipeline. If you modify the chat system prompt, also update the answer-generation block in `digest.ts` to stay consistent.
 
 ## Docs Reference
 | Doc | When to read | When to update |
