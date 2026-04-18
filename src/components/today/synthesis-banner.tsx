@@ -367,37 +367,53 @@ function GuestDigDeeper({ questions, answers, onSignIn }: {
   );
 }
 
+// Renders a text segment with [N] citation markers as superscript links.
+// Also handles **bold** inline so we don't need ReactMarkdown for simple answer text.
 function CitedAnswer({ text, paperLinks }: { text: string; paperLinks?: { title: string; sourceUrl: string | null }[] }) {
-  if (!paperLinks || paperLinks.length === 0) return <>{text}</>;
-  const parts: React.ReactNode[] = [];
-  const regex = /\[(\d+)\]/g;
-  let last = 0;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    const n = parseInt(match[1], 10);
-    const paper = paperLinks[n - 1];
-    if (match.index > last) parts.push(text.slice(last, match.index));
-    if (paper) {
-      const badge = (
-        <sup key={match.index} style={{
-          fontSize: "0.6em", fontWeight: 700, color: "white",
-          background: "#1a1a1a", padding: "1px 4px",
-          fontFamily: "var(--font-mono), monospace",
-          letterSpacing: "0.5px", lineHeight: 1,
-        }}>{n}</sup>
-      );
-      parts.push(paper.sourceUrl ? (
-        <a key={match.index} href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" title={paper.title} style={{ textDecoration: "none" }}>
-          {badge}
-        </a>
-      ) : badge);
-    } else {
-      parts.push(match[0]);
-    }
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  return <>{parts}</>;
+  // Split on **bold** and [N] citations together
+  const segments = text.split(/(\*\*[^*]+\*\*|\[\d+\])/g);
+  return (
+    <>
+      {segments.map((seg, i) => {
+        if (seg.startsWith("**") && seg.endsWith("**")) {
+          return <strong key={i} style={{ fontWeight: 700, color: "#111" }}>{seg.slice(2, -2)}</strong>;
+        }
+        const citMatch = seg.match(/^\[(\d+)\]$/);
+        if (citMatch && paperLinks && paperLinks.length > 0) {
+          const n = parseInt(citMatch[1], 10);
+          const paper = paperLinks[n - 1];
+          if (paper) {
+            const badge = (
+              <sup key={i} style={{
+                fontSize: "0.6em", fontWeight: 700, color: "white",
+                background: "#1a1a1a", padding: "1px 4px",
+                fontFamily: "var(--font-mono), monospace",
+                letterSpacing: "0.5px", lineHeight: 1,
+              }}>{n}</sup>
+            );
+            return paper.sourceUrl ? (
+              <a key={i} href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" title={paper.title} style={{ textDecoration: "none" }}>{badge}</a>
+            ) : badge;
+          }
+        }
+        return seg;
+      })}
+    </>
+  );
+}
+
+// Renders a full dig deeper answer — paragraphs split on newlines, CitedAnswer handles inline markup.
+function AnswerBlock({ text, paperLinks }: { text: string; paperLinks?: { title: string; sourceUrl: string | null }[] }) {
+  const paragraphs = text.split(/\n+/).filter(p => p.trim());
+  return (
+    <>
+      {paragraphs.map((para, i) => (
+        <p key={i} style={{ marginBottom: i < paragraphs.length - 1 ? "0.5em" : 0 }}>
+          <CitedAnswer text={para} paperLinks={paperLinks} />
+        </p>
+      ))}
+    </>
+  );
 }
 
 const PASTEL_COLORS = ["#fce7f3", "#dcfce7", "#dbeafe", "#fef9c3", "#ede9fe"];
@@ -764,22 +780,7 @@ export function SynthesisBanner({
                     {entry.q}
                   </p>
                   <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }) => {
-                          // Intercept plain text nodes to inject citation links
-                          const processed = React.Children.map(children, child =>
-                            typeof child === "string"
-                              ? <CitedAnswer text={child} paperLinks={entry.paperLinks} />
-                              : child
-                          );
-                          return <p style={{ marginBottom: "0.5em" }}>{processed}</p>;
-                        },
-                        strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
-                      }}
-                    >
-                      {entry.a}
-                    </ReactMarkdown>
+                    <AnswerBlock text={entry.a} paperLinks={entry.paperLinks} />
                   </div>
                   {i < digDeeperHistory.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
                 </div>
