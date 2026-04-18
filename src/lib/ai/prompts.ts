@@ -18,14 +18,22 @@ interface DigestContext {
   researchAngle: string;
 }
 
-type PaperListing = { title: string; abstract: string; source: string; category?: string; year?: number; tensionHint?: string };
+type PaperListing = { title: string; abstract: string; source: string; category?: string; year?: number; tensionHint?: string; authors?: string[] };
+
+function formatAuthors(authors?: string[]): string {
+  if (!authors || authors.length === 0) return "";
+  const last = (name: string) => name.split(/\s+/).pop() ?? name;
+  if (authors.length === 1) return ` — ${last(authors[0])}`;
+  return ` — ${last(authors[0])} et al.`;
+}
 
 function formatPapers(items: PaperListing[], maxChars = 2000) {
   return items.map((p, i) => {
     const chars = p.source === "rss" ? 6000 : maxChars;
     const yearStr = p.year ? `, ${p.year}` : "";
+    const authorStr = formatAuthors(p.authors);
     const hint = p.tensionHint ? `\n[HINT: ${p.tensionHint}]` : "";
-    return `[${i + 1}] "${p.title}" (${p.source}${yearStr}, ${p.category || "unknown"})${hint}\n${p.abstract.slice(0, chars)}`;
+    return `[${i + 1}] "${p.title}"${authorStr} (${p.source}${yearStr}, ${p.category || "unknown"})${hint}\n${p.abstract.slice(0, chars)}`;
   }).join("\n\n");
 }
 

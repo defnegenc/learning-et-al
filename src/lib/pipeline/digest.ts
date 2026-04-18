@@ -1006,7 +1006,7 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
   // Research: Yao 2023 (Tree of Thoughts), Radev 2000 (CST), Madaan 2023 (Self-Refine)
   const paperListing = items.map(p => ({
     title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year,
-    tensionHint: p.tensionHint,
+    tensionHint: p.tensionHint, authors: p.authors,
   }));
   const synthesisCtx = { focusInterest, focusLevel, researchAngle: finalTheme };
 
