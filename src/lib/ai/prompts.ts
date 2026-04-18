@@ -139,12 +139,18 @@ BAD: A "COVID-19 NLP corpus" paper in a digest about "Can machines think for the
 BAD: A "tech-business analytics" paper in a digest about "why we ignore logic" — both involve business but the connection stops there
 GOOD: Every selected paper should make a reader say "oh, I see how this connects"
 
-If fewer than ${targetCount} papers genuinely fit the theme, select only the ones that do. It's better to return 2 great papers than 3 where one is a stretch.
+RELEVANCE TEST — before selecting any paper, ask: "Does this paper directly address the theme question, or is it just nearby the topic?" Only include papers that pass.
+
+BAD: "Picturing Herakles in ancient Athens" for "Can external tools rewire human behavior?" — Greek art is not about behavioral rewiring
+BAD: "Plywood waste management review" for "Can bacteria eat our industrial waste?" — waste management ≠ microbial upcycling
+GOOD: A paper about how language shapes legal outcomes for "Do words change what we see as fair?" — directly speaks to the question
+
+Aim for ${targetCount} papers. But 2 strong papers beats ${targetCount} where one is a stretch — if only 2 genuinely fit, return 2.
 
 Return JSON (no markdown fences):
 {
   "selectedIndices": [1, 3, 5],
-  "selectionReasoning": "Why these 3 complement each other, 1 sentence",
+  "selectionReasoning": "Why these complement each other, 1 sentence",
   "paperRoles": [
     { "index": 1, "role": "supports|complicates|provides_evidence|provides_mechanism", "shortName": "the Turkish teacher study", "coreContribution": "what this paper uniquely adds, 10 words max" }
   ],
@@ -153,13 +159,12 @@ Return JSON (no markdown fences):
 }
 
 RULES:
-- selectedIndices MUST contain exactly ${targetCount} paper indices (1-indexed, matching the candidate list)
+- selectedIndices should ideally contain ${targetCount} indices (1-indexed) — but may contain fewer if not enough papers genuinely fit
 - Every selected paper must have a DISTINCT role — no two papers with the same role
 - NO TWO PAPERS WITH THE SAME CONCLUSION. If papers A and B both conclude "X is better/faster/works", drop one.
-- coreInsight can be a tension, a surprise, a paradox, OR a beautiful complementary insight. NOT everything needs to be a conflict. Papers that agree from different angles are great too.
+- coreInsight can be a tension, a surprise, a paradox, OR a complementary insight. NOT everything needs conflict — papers agreeing from different angles are great too.
 - shortName: how you'd refer to it talking to a friend
-- If a paper is >5 years old, it must offer something a newer paper can't (historical perspective, foundational insight). Don't pick old papers just because they're highly cited.
-- If no ${targetCount} papers work well together, pick the best 2 and note it
+- If a paper is >5 years old, it must offer something newer papers can't (historical perspective, foundational insight). Don't pick old papers just because they're highly cited.
 - Prefer papers from DIFFERENT fields/methods when quality is comparable`;
 }
 

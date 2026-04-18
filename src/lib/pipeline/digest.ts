@@ -126,8 +126,9 @@ function isNewsRelevant(article: { title: string; abstract: string }, themeWords
 }
 
 // Embedding similarity thresholds for all-MiniLM-L6-v2
-const SIM_ONTOPIC  = 0.25; // minimum similarity to theme to be included
-const SIM_FALLBACK = 0.15; // last-resort fallback threshold
+const SIM_ONTOPIC  = 0.25; // strong match — clearly about the theme
+const SIM_MIDPOINT = 0.20; // moderate match — related but not directly on-topic
+const SIM_FALLBACK = 0.18; // last-resort fallback (raised from 0.15 — 0.15 lets in too much)
 
 export async function generateDigest(userId: string, aiConfig: AIConfig, force?: boolean) {
   const today = new Date().toISOString().split("T")[0];
@@ -531,15 +532,26 @@ Return JSON only (no markdown):
     .sort((a, b) => b.score - a.score);
 
   // Use raw themeSim for qualification (not RRF score) — keeps thresholds interpretable
-  // Cascade: try SIM_ONTOPIC first, then SIM_FALLBACK, then SIM_MIN_THEME as last resort
+  // Cascade: SIM_ONTOPIC (strong) → SIM_MIDPOINT (moderate) → SIM_FALLBACK (last resort)
+  // Only break the theme retry loop early when papers pass SIM_ONTOPIC — weaker matches
+  // mean the theme and paper pool don't align well, so prefer a fresh theme over bad papers.
   threshold = SIM_ONTOPIC;
   qualified = scored.filter(({ themeSim }) => themeSim > threshold);
   if (qualified.length < 2) {
-    threshold = SIM_FALLBACK;
+    threshold = SIM_MIDPOINT;
     qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+    if (qualified.length >= 2) {
+      console.log(`[Digest] Fell back to SIM_MIDPOINT (${SIM_MIDPOINT}) — ${qualified.length} papers`);
+    }
   }
   if (qualified.length < 2) {
-    // Last resort: take anything above the hard floor
+    threshold = SIM_FALLBACK;
+    qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+    if (qualified.length >= 2) {
+      console.log(`[Digest] Fell back to SIM_FALLBACK (${SIM_FALLBACK}) — ${qualified.length} papers (weak match, prefer retry)`);
+    }
+  }
+  if (qualified.length < 2) {
     threshold = SIM_MIN_THEME;
     qualified = scored.filter(({ themeSim }) => themeSim > threshold);
     if (qualified.length > 0) {
@@ -548,8 +560,15 @@ Return JSON only (no markdown):
   }
   console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (theme: ${scored[0]?.themeSim.toFixed(2)})`);
 
-  // If we have enough qualified papers, break the retry loop
-  if (qualified.length >= 2) break;
+  // Break only if we have strong matches — weak matches (below SIM_MIDPOINT) should
+  // trigger a theme retry if we haven't exhausted attempts yet.
+  const hasStrongMatch = qualified.length >= 2 && threshold >= SIM_MIDPOINT;
+  const hasFallbackMatch = qualified.length >= 2 && threshold < SIM_MIDPOINT;
+  if (hasStrongMatch) break;
+  if (hasFallbackMatch && themeAttempt >= MAX_THEME_RETRIES - 1) {
+    console.log(`[Digest] Accepting fallback-quality papers (exhausted theme retries)`);
+    break;
+  }
 
   // On last attempt, take whatever we have
   if (themeAttempt === MAX_THEME_RETRIES) {
@@ -849,48 +868,71 @@ Return JSON only (no markdown):
         "You evaluate research papers. Return only JSON.",
         `Theme: "${theme}"
 
-Rate each paper 1-5 on: "How much does this offer a SURPRISING or USEFUL lens on the theme?" (not just topical relevance)
-- 5 = This paper changes how you think about the question
-- 4 = Genuinely useful perspective, different from the other papers
-- 3 = Related but doesn't add a new angle the other papers don't already cover
-- 2 = Redundant with another paper (makes the same point) OR too old to offer a fresh perspective
-- 1 = Topically adjacent but contributes nothing to the question
+Score each paper on TWO dimensions:
 
-SCORE 2 OR LOWER if:
-- The paper makes the SAME CONCLUSION as another paper in the list (both say "X is faster/better/works")
-- The paper is >5 years old AND a newer paper in the list covers the same ground
-- The paper's abstract reads like a generic survey with no specific finding
-- A non-expert would say "wait, isn't that the same thing as paper N?"
+RELEVANCE (1-3): Does this paper directly address the theme question?
+- 3 = Directly speaks to the theme — a reader would immediately understand why it's here
+- 2 = Related topic but the connection to the theme question requires some stretching
+- 1 = Off-topic — shares surface words with the theme but doesn't illuminate the question at all
+
+INSIGHT (1-3): Does this offer a surprising or useful lens (beyond just being relevant)?
+- 3 = Changes how you think about the question or adds a genuinely unexpected angle
+- 2 = Useful but fairly expected given the theme
+- 1 = Relevant but adds nothing beyond confirming the obvious
+
+SCORE RELEVANCE=1 when:
+- The paper is about a topic that merely shares keywords with the theme but doesn't address the core question
+- A smart reader would say "wait, what does this have to do with [theme]?"
+- Example: "Plywood waste management" in "Can bacteria eat our waste?" — waste is there but bacteria aren't
+- Example: "Classical Greek art history" in "Can external tools rewire behavior?" — too far a stretch
+
+SCORE RELEVANCE=2 when:
+- The paper is in the right area but the connection to the theme's specific question is indirect
 
 Papers:
 ${rerankList}
 
-Return JSON: {"scores": [{"index": 1, "score": N, "reason": "brief reason"}]}`
+Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "one sentence"}]}`
       );
-      const rerankParsed = extractJson<{ scores?: { index: number; score: number; reason?: string }[] }>(rerankResp);
+      const rerankParsed = extractJson<{ scores?: { index: number; relevance?: number; insight?: number; score?: number; reason?: string }[] }>(rerankResp);
       if (rerankParsed) {
         const { scores } = rerankParsed;
         if (scores && scores.length > 0) {
-          for (const { index, score: llmScore, reason } of scores) {
+          // Process worst papers first (by combined score) so best replacements go to worst slots
+          const scoredItems = scores
+            .map(s => ({ ...s, combined: (s.relevance ?? s.score ?? 3) + (s.insight ?? 3) }))
+            .sort((a, b) => a.combined - b.combined);
+
+          for (const { index, relevance, insight, score: legacyScore, reason, combined } of scoredItems) {
+            const effectiveRelevance = relevance ?? (legacyScore != null ? Math.ceil(legacyScore / 2) : 3);
             const itemIdx = items.indexOf(paperItems[index - 1]);
             if (itemIdx < 0) continue;
-            console.log(`[Digest] Re-rank: paper ${index} score=${llmScore} ("${reason?.slice(0, 50)}")`);
-            if (llmScore <= 2 && qualified.length > 0) {
-              const replacement = qualified.find(({ p }) =>
+            console.log(`[Digest] Re-rank: paper ${index} relevance=${effectiveRelevance} insight=${insight ?? "?"} combined=${combined} ("${reason?.slice(0, 60)}")`);
+
+            const isOffTopic = effectiveRelevance <= 1;
+            const isWeak = combined <= 3; // relevance=2 + insight=1 or similar
+
+            if (isOffTopic || isWeak) {
+              const replacement = qualified.find(({ p, themeSim }) =>
                 !seenTitles.has(p.title.toLowerCase()) &&
-                !items.some(it => it.title === p.title)
+                !items.some(it => it.title === p.title) &&
+                themeSim > SIM_MIN_THEME
               );
               if (replacement) {
                 const originalCategory = items[itemIdx].category;
-                console.log(`[Digest] Swapping low-scored paper for "${replacement.p.title.slice(0, 40)}"`);
+                console.log(`[Digest] Swapping ${isOffTopic ? "off-topic" : "weak"} paper for "${replacement.p.title.slice(0, 40)}"`);
                 items[itemIdx] = {
                   title: replacement.p.title, authors: replacement.p.authors,
                   abstract: replacement.p.abstract, sourceUrl: replacement.p.sourceUrl,
                   pdfUrl: replacement.p.pdfUrl || undefined,
                   source: replacement.p.source, year: replacement.p.year,
-                  category: originalCategory, // preserve slot's original category
+                  category: originalCategory,
                 };
                 seenTitles.add(replacement.p.title.toLowerCase());
+              } else if (isOffTopic && items.filter(it => it.category !== "news").length > 2) {
+                // No replacement available and paper is truly off-topic — drop it rather than keep garbage
+                console.log(`[Digest] Dropping off-topic paper "${items[itemIdx].title.slice(0, 40)}" (no replacement, have ${items.length} total)`);
+                items.splice(itemIdx, 1);
               }
             }
           }
@@ -915,37 +957,46 @@ Return JSON: {"scores": [{"index": 1, "score": N, "reason": "brief reason"}]}`
 Papers we actually found:
 ${paperList}
 
-Read the papers carefully. What is the REAL thread connecting them? It might NOT be what the original theme says.
+Does the original theme genuinely thread ALL the papers at their core? Be honest.
 
-If the papers are about research methodology, reproducibility, and adoption — the theme is about EVIDENCE and TRUST, not about AI. Don't force an AI angle when the papers are really about something deeper.
+KEEP the original theme (with minor wording cleanup only) if:
+- All papers directly address the question the theme poses
+- The theme captures what the papers are actually about, not just their surface topic
+- A reader seeing the theme and papers together would say "yes, these obviously go together"
 
-BAD: "Does AI hype match real classroom results?" — when the papers are really about research reproducibility and academic visions (AI is just the context, not the point)
+REVISE the theme if:
+- The papers collectively reveal a deeper or different angle the original theme misses
+- One or more papers feel like a stretch under the original framing
+- The papers are really about X but the theme says Y
+
+BAD revision: warping the theme to justify a loosely-related paper that should have been cut
+GOOD revision: recognizing the papers are actually about evidence and trust, not just AI
+
+BAD: "Does AI hype match real classroom results?" — when the papers are really about research reproducibility
 GOOD: "Can we trust the research behind the hype?" — captures what ALL three papers actually share
 
 BAD: "Can AI achieve consciousness?" — only connects to one paper
 GOOD: "Can AI agents care for you?" — threads all papers
-
-The theme should capture what the papers are ACTUALLY about at their core, not the surface-level topic they happen to mention.
 
 Rules:
 - MAX 8 WORDS
 - Must connect ALL papers at their CORE, not their surface topic
 - Punchy, magazine-cover energy
 - A normal person should want to click on it
-- Drop the original framing entirely if the papers tell a different story
+- If the original already works well, return it unchanged (or with minor cleanup)
 
-ALWAYS revise. The original was written before seeing the papers so it almost certainly doesn't fit well.
-
-Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or statement"}`;
+Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or statement", "kept_original": true|false}`;
 
     console.log(`[Digest] Step 5: revising theme to fit actual papers...`);
     const reviseResp = await aiComplete(aiConfig, "You refine central questions for research digests. Return only JSON.", revisePrompt);
-    const reviseParsed = extractJson<{ theme?: string }>(reviseResp);
-    if (reviseParsed) {
-      if (reviseParsed.theme) {
+    const reviseParsed = extractJson<{ theme?: string; kept_original?: boolean }>(reviseResp);
+    if (reviseParsed?.theme) {
+      if (reviseParsed.kept_original) {
+        console.log(`[Digest] Theme kept: "${reviseParsed.theme}" (original fits papers well)`);
+      } else {
         console.log(`[Digest] Theme revised: "${reviseParsed.theme}" (was: "${theme}")`);
-        finalTheme = reviseParsed.theme;
       }
+      finalTheme = reviseParsed.theme;
     }
   } catch (err) {
     console.log(`[Digest] Theme revision failed (${err}), keeping original`);
