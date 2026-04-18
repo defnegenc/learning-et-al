@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers, interests } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { aiComplete } from "@/lib/ai/provider";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
 
     const digestPapers = await db.query.papers.findMany({
       where: eq(papers.digestId, digestId),
+      orderBy: asc(papers.sourceIndex),
     });
 
     // Build context
@@ -63,6 +64,8 @@ Abstract: ${(p.abstract ?? "").slice(0, 600)}`;
     }).join("\n\n");
 
     const systemPrompt = `Answer in 3-4 sentences MAX. Be direct and specific. No bullet points, no lists, no headers. Just a short paragraph like you're replying in a group chat. Connect the papers to each other and to the question. Don't say "That's not in today's papers" — the user is asking about the papers below, so answer from what's there.
+
+When you reference a paper, cite it inline as [1], [2], etc. matching the PAPER numbers below. Use citations naturally mid-sentence, not just at the end.
 
 Today's synthesis:
 ${digest.synthesisContent ?? ""}
@@ -107,7 +110,10 @@ ${papersContext}`;
       // Engagement tracking is non-critical — never fail the response over it
     }
 
-    return NextResponse.json({ answer });
+    return NextResponse.json({
+      answer,
+      paperLinks: digestPapers.map(p => ({ title: p.title, sourceUrl: p.sourceUrl })),
+    });
   } catch (error) {
     console.error("Chat error:", error);
     const message = error instanceof Error ? error.message : "Chat failed";

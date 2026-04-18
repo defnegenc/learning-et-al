@@ -305,88 +305,99 @@ interface SynthesisBannerProps {
   onSignIn?: () => void;
 }
 
-// Guest dig deeper — shows pre-generated Q&A, prompts sign-in for more
+// Guest dig deeper — shows all pre-generated Q&A inline, prompts sign-in for more
 function GuestDigDeeper({ questions, answers, onSignIn }: {
   questions: string[];
   answers: string[];
   onSignIn?: () => void;
 }) {
-  const [revealedCount, setRevealedCount] = useState(0);
+  // Only render Q&A pairs where we actually have an answer
+  const pairs = questions
+    .map((q, i) => ({ q, a: answers[i] || "" }))
+    .filter(p => p.a.trim().length > 0);
 
   return (
     <div style={{ marginTop: "28px" }}>
-      {/* Show revealed Q&A pairs */}
-      {revealedCount > 0 && (
+      {pairs.length > 0 && (
         <div style={{ marginBottom: "16px" }}>
-          {questions.slice(0, revealedCount).map((q, i) => (
-            <div key={i} style={{ marginBottom: i < revealedCount - 1 ? "16px" : "0" }}>
+          {pairs.map(({ q, a }, i) => (
+            <div key={i} style={{ marginBottom: i < pairs.length - 1 ? "16px" : "0" }}>
               <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "8px", fontFamily: "var(--font-mono), monospace" }}>
                 {q.replace(/\*\*/g, "")}
               </p>
-              {answers[i] && (
-                <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
-                  <ReactMarkdown
-                    components={{
-                      p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
-                      strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
-                    }}
-                  >
-                    {answers[i]}
-                  </ReactMarkdown>
-                </div>
-              )}
-              {i < revealedCount - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
+              <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
+                  }}
+                >
+                  {a}
+                </ReactMarkdown>
+              </div>
+              {i < pairs.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
             </div>
           ))}
         </div>
       )}
 
-      {/* Remaining questions as clickable buttons */}
-      {revealedCount < questions.length && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
-          {questions.slice(revealedCount).map((prompt, i) => (
-            <button
-              key={revealedCount + i}
-              onClick={() => setRevealedCount(revealedCount + 1)}
-              className="hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all"
-              style={{
-                padding: "8px 14px", border: "2px solid #1a1a1a", background: "white",
-                fontSize: "0.8rem", fontWeight: 500,
-                color: "#1a1a1a", textAlign: "left", cursor: "pointer",
-                lineHeight: 1.4,
-              }}
-            >
-              {prompt.replace(/\*\*/g, "")}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Sign-in CTA after all questions revealed */}
-      {revealedCount >= questions.length && (
-        <button
-          onClick={onSignIn}
-          style={{
-            display: "flex", gap: "10px", alignItems: "center", width: "100%",
-            border: "2px solid #1a1a1a", padding: "12px 14px", background: "white",
-            cursor: "pointer",
-          }}
-          className="hover:bg-[#fafafa] transition-colors"
-        >
-          <span style={{ flex: 1, fontSize: "0.85rem", color: "#888", textAlign: "left" }}>
-            Sign in to ask your own questions...
-          </span>
-          <span style={{
-            padding: "6px 14px", background: "#1a1a1a", color: "white",
-            fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
-          }}>
-            Sign In
-          </span>
-        </button>
-      )}
+      {/* Sign-in CTA — always visible under the answers */}
+      <button
+        onClick={onSignIn}
+        style={{
+          display: "flex", gap: "10px", alignItems: "center", width: "100%",
+          border: "2px solid #1a1a1a", padding: "12px 14px", background: "white",
+          cursor: "pointer",
+          marginTop: pairs.length > 0 ? "16px" : "0",
+        }}
+        className="hover:bg-[#fafafa] transition-colors"
+      >
+        <span style={{ flex: 1, fontSize: "0.85rem", color: "#888", textAlign: "left" }}>
+          Sign in to ask your own questions...
+        </span>
+        <span style={{
+          padding: "6px 14px", background: "#1a1a1a", color: "white",
+          fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
+          letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
+        }}>
+          Sign In
+        </span>
+      </button>
     </div>
   );
+}
+
+function CitedAnswer({ text, paperLinks }: { text: string; paperLinks?: { title: string; sourceUrl: string | null }[] }) {
+  if (!paperLinks || paperLinks.length === 0) return <>{text}</>;
+  const parts: React.ReactNode[] = [];
+  const regex = /\[(\d+)\]/g;
+  let last = 0;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const n = parseInt(match[1], 10);
+    const paper = paperLinks[n - 1];
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (paper) {
+      const badge = (
+        <sup key={match.index} style={{
+          fontSize: "0.6em", fontWeight: 700, color: "white",
+          background: "#1a1a1a", padding: "1px 4px",
+          fontFamily: "var(--font-mono), monospace",
+          letterSpacing: "0.5px", lineHeight: 1,
+        }}>{n}</sup>
+      );
+      parts.push(paper.sourceUrl ? (
+        <a key={match.index} href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" title={paper.title} style={{ textDecoration: "none" }}>
+          {badge}
+        </a>
+      ) : badge);
+    } else {
+      parts.push(match[0]);
+    }
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
 }
 
 const PASTEL_COLORS = ["#fce7f3", "#dcfce7", "#dbeafe", "#fef9c3", "#ede9fe"];
@@ -421,7 +432,7 @@ export function SynthesisBanner({
     return defs;
   }, [keyConcepts]);
 
-  const [digDeeperHistory, setDigDeeperHistory] = useState<{ q: string; a: string }[]>([]);
+  const [digDeeperHistory, setDigDeeperHistory] = useState<{ q: string; a: string; paperLinks?: { title: string; sourceUrl: string | null }[] }[]>([]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
   const [showQuestions, setShowQuestions] = useState(true);
@@ -530,7 +541,7 @@ export function SynthesisBanner({
       });
       const data = await res.json();
       const answer = data.answer || data.error || "Couldn't get an answer.";
-      const newHistory = [...digDeeperHistory, { q: question, a: answer }];
+      const newHistory = [...digDeeperHistory, { q: question, a: answer, paperLinks: data.paperLinks }];
       setDigDeeperHistory(newHistory);
       if (historyKey) localStorage.setItem(historyKey, JSON.stringify(newHistory));
     } catch {
@@ -622,6 +633,17 @@ export function SynthesisBanner({
                 const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
                 const boldStems = boldWords.map(stem);
 
+                // Check if any word in the bold text is an uppercase acronym (e.g. "JIT", "XAI")
+                const acronyms = cleanText.split(/\s+/).filter(w => /^[A-Z]{2,6}$/.test(w));
+                const matchesAcronym = (acronym: string, title: string) => {
+                  const words = title.split(/[\s\-]+/).filter(w => w.length > 0);
+                  for (let start = 0; start <= words.length - acronym.length; start++) {
+                    const initials = words.slice(start, start + acronym.length).map(w => w[0].toUpperCase()).join("");
+                    if (initials === acronym) return true;
+                  }
+                  return false;
+                };
+
                 for (const p of papers) {
                   let score = 0;
                   const title = p.title.toLowerCase();
@@ -631,6 +653,9 @@ export function SynthesisBanner({
                   const connectionStr = (p.connectionReason || "").toLowerCase();
 
                   if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
+                  for (const acronym of acronyms) {
+                    if (matchesAcronym(acronym, p.title)) score += 8;
+                  }
                   for (const bs of boldStems) {
                     const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
                     if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
@@ -700,9 +725,9 @@ export function SynthesisBanner({
       )}
 
       {/* Dig deeper — logged-in: live Q&A, logged-out: pre-generated answers */}
-      {papers.length > 0 && !session && digDeeperPrompts.length > 0 && (
+      {papers.length > 0 && !session && (
         <GuestDigDeeper
-          questions={digDeeperPrompts}
+          questions={suggestedQuestions || []}
           answers={suggestedAnswers || []}
           onSignIn={onSignIn}
         />
@@ -741,7 +766,15 @@ export function SynthesisBanner({
                   <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
                     <ReactMarkdown
                       components={{
-                        p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
+                        p: ({ children }) => {
+                          // Intercept plain text nodes to inject citation links
+                          const processed = React.Children.map(children, child =>
+                            typeof child === "string"
+                              ? <CitedAnswer text={child} paperLinks={entry.paperLinks} />
+                              : child
+                          );
+                          return <p style={{ marginBottom: "0.5em" }}>{processed}</p>;
+                        },
                         strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
                       }}
                     >

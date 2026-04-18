@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 
 /**
  * Public endpoint — no auth required.
@@ -25,6 +25,7 @@ export async function GET() {
 
     const digestPapers = await db.query.papers.findMany({
       where: eq(papers.digestId, digest.id),
+      orderBy: asc(papers.sourceIndex),
     });
 
     return NextResponse.json({

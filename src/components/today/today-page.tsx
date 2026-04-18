@@ -77,6 +77,23 @@ function NoteCard({ digestId }: { digestId: string }) {
 const TAB_DOT_COLORS = ["#f9a8d4", "#93c5fd", "#a3a3a3"];
 const TAB_TAG_COLORS = [["#fce7f3", "#dcfce7"], ["#dbeafe", "#fef9c3"], ["#ede9fe", "#fee2e2"]];
 
+// Blob styles per card — matches PaperCard palette so the right-column sources
+// carry the same aura as the detail cards.
+const TAB_BLOBS: { color: string; w: number; h: number; top?: string; right?: string; bottom?: string; left?: string }[][] = [
+  [
+    { color: "#f9a8d4", w: 80, h: 80, top: "-25px", right: "-20px" },
+    { color: "#86efac", w: 60, h: 60, bottom: "-15px", left: "-15px" },
+  ],
+  [
+    { color: "#93c5fd", w: 75, h: 75, bottom: "-20px", left: "-20px" },
+    { color: "#fde68a", w: 65, h: 65, top: "-20px", left: "55%" },
+  ],
+  [
+    { color: "#c4b5fd", w: 80, h: 80, top: "-15px", left: "-15px" },
+    { color: "#fca5a5", w: 60, h: 60, bottom: "-15px", right: "-15px" },
+  ],
+];
+
 function getJournalName(sourceUrl: string | null): string | null {
   if (!sourceUrl) return null;
   try {
@@ -136,6 +153,7 @@ function getJournalName(sourceUrl: string | null): string | null {
 function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
   const dot = TAB_DOT_COLORS[index % TAB_DOT_COLORS.length];
   const tagColors = TAB_TAG_COLORS[index % TAB_TAG_COLORS.length];
+  const blobs = TAB_BLOBS[index % TAB_BLOBS.length];
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "ARXIV" : paper.source === "rss" ? "NEWS" : "PAPER";
   const journalName = getJournalName(paper.sourceUrl);
@@ -154,9 +172,32 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
         gap: "10px",
         width: "100%",
         textAlign: "left",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* Aura blobs — unique position per card, sit behind content */}
+      {blobs.map((blob, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            width: `${blob.w}px`,
+            height: `${blob.h}px`,
+            background: blob.color,
+            borderRadius: "50%",
+            filter: "blur(36px)",
+            opacity: 0.6,
+            top: blob.top,
+            right: blob.right,
+            bottom: blob.bottom,
+            left: blob.left,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      ))}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: dot, flexShrink: 0 }} />
           <span style={{ fontSize: "0.55rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#999" }}>
@@ -165,12 +206,12 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
         </div>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#1a1a1a] transition-colors"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </div>
-      <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
+      <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif", position: "relative", zIndex: 1 }}
         className="group-hover:underline">
         {paper.title}
       </span>
       {(paper.authors.length > 0 || journalName) && (
-        <span style={{ fontSize: "0.65rem", color: "#888", fontStyle: "italic", lineHeight: 1.4 }}>
+        <span style={{ fontSize: "0.65rem", color: "#888", fontStyle: "italic", lineHeight: 1.4, position: "relative", zIndex: 1 }}>
           {paper.authors.length > 0 && (
             paper.authors.length <= 2
               ? paper.authors.join(" & ")
@@ -181,12 +222,12 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
         </span>
       )}
       {paper.summary && (
-        <p style={{ fontSize: "0.75rem", color: "#555", lineHeight: 1.5, borderLeft: "3px solid #e5e7eb", paddingLeft: "10px", margin: 0 }}>
+        <p style={{ fontSize: "0.75rem", color: "#555", lineHeight: 1.5, borderLeft: "3px solid #e5e7eb", paddingLeft: "10px", margin: 0, position: "relative", zIndex: 1 }}>
           {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
         </p>
       )}
       {paper.keywords.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", position: "relative", zIndex: 1 }}>
           {paper.keywords.slice(0, 2).map((kw, ki) => (
             <span key={kw} style={{ padding: "3px 10px", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", background: tagColors[ki % tagColors.length], border: "1.5px solid #1a1a1a" }}>
               {kw}
@@ -386,43 +427,48 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       {/* ── Main area: digest left, sources+notes right ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[5fr_minmax(340px,2fr)] flex-1 overflow-hidden w-full">
+      <div className="grid grid-cols-1 md:grid-cols-[5fr_minmax(340px,2fr)] items-start w-full">
         {/* Left: digest content */}
-        <div className="overflow-y-auto px-4 md:px-10 pt-6 md:pt-8 pb-6 md:pb-8">
-          {/* Today's Digest label + Regen + Save */}
-          <div className="flex items-center gap-3 mb-6">
+        <div className="px-4 md:px-10 pt-6 md:pt-8 pb-6 md:pb-8 relative">
+          {/* Today's Digest label — plain div to exactly match right column */}
+          <div style={{ marginBottom: "20px" }}>
             <span style={{ fontSize: "0.7rem", color: "#555", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 700 }}>
               Today&apos;s Digest
             </span>
-            {session && isAdmin && (
-              <button
-                onClick={() => handleGenerate(true)}
-                disabled={generating}
-                style={{ background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer", padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px" }}
-                className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
-              >
-                {generating ? <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} /> : <RefreshCw size={12} style={{ color: "#888" }} />}
-                <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regenerate</span>
-              </button>
-            )}
-            {session && generateError && (
-              <span style={{ fontSize: "0.6rem", color: "#ff007f", fontFamily: "var(--font-mono), monospace", maxWidth: "400px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
-                {generateError}
-              </span>
-            )}
-            {session && digest.id && (
-              <button
-                onClick={async () => {
-                  setStarred(!starred);
-                  try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setStarred(starred); }
-                }}
-                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s", marginLeft: "auto" }}
-              >
-                <Star size={16} className={starred ? "fill-current" : ""} />
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>{starred ? "Saved" : "Save"}</span>
-              </button>
-            )}
           </div>
+          {/* Action buttons — absolutely positioned at top-right of the left column */}
+          {session && (isAdmin || digest.id || generateError) && (
+            <div className="absolute top-6 md:top-8 right-4 md:right-10 flex items-center gap-3">
+              {isAdmin && (
+                <button
+                  onClick={() => handleGenerate(true)}
+                  disabled={generating}
+                  style={{ background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer", padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px" }}
+                  className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
+                >
+                  {generating ? <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} /> : <RefreshCw size={12} style={{ color: "#888" }} />}
+                  <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regenerate</span>
+                </button>
+              )}
+              {generateError && (
+                <span style={{ fontSize: "0.6rem", color: "#ff007f", fontFamily: "var(--font-mono), monospace", maxWidth: "400px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
+                  {generateError}
+                </span>
+              )}
+              {digest.id && (
+                <button
+                  onClick={async () => {
+                    setStarred(!starred);
+                    try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setStarred(starred); }
+                  }}
+                  style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#aaa", transition: "all 0.15s" }}
+                >
+                  <Star size={16} className={starred ? "fill-current" : ""} />
+                  <span style={{ fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>{starred ? "Saved" : "Save"}</span>
+                </button>
+              )}
+            </div>
+          )}
             {digest.synthesisContent ? (
               <SynthesisBanner
                 synthesis={digest.synthesisContent}
@@ -458,9 +504,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         </div>
 
         {/* Right: sources + notes (desktop only) */}
-        <div className="hidden md:block overflow-y-auto pt-8 pb-8 px-4">
+        <div className="hidden md:block pt-6 md:pt-8 pb-8 px-4">
           <div style={{ marginBottom: "20px" }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#555" }}>Referenced Sources</span>
+            <span style={{ fontSize: "0.7rem", color: "#555", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 700 }}>Referenced Sources</span>
           </div>
           <div className="space-y-3">
             {allPapers.map((paper, idx) => (
