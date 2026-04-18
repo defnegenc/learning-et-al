@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 
 export async function GET(req: NextRequest) {
@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
 
     const digestPapers = await db.query.papers.findMany({
       where: eq(papers.digestId, digest.id),
+      orderBy: asc(papers.sourceIndex),
     });
 
     return NextResponse.json({

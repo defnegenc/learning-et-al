@@ -79,6 +79,7 @@ export const papers = sqliteTable("papers", {
   connectionReason: text("connection_reason"),
   category: text("category", { enum: ["foundational", "recent", "news"] }),
   year: integer("year"),
+  sourceIndex: integer("source_index"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

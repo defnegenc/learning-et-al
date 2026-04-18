@@ -1211,6 +1211,7 @@ Rewrite to INCLUDE the missing paper(s) using the exact **[Source N] name** form
         connectionReason: aiItem.connectionToTheme || null,
         category: item.category,
         year: item.year,
+        sourceIndex: i,
       };
     })
   );
