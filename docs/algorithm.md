@@ -55,7 +55,9 @@ Quality boosts (scaled to RRF range):
 
 Hard floor: `SIM_MIN_THEME = 0.15` (raw embedding similarity).
 
-**Threshold cascade**: try `SIM_ONTOPIC` (0.25) first. If <2 papers pass, try `SIM_FALLBACK` (0.15). If still <2, take top papers by score.
+**Threshold cascade**: try `SIM_ONTOPIC` (0.25) → `SIM_MIDPOINT` (0.20) → `SIM_FALLBACK` (0.18) → hard floor (0.15). If still <2, take top papers by score.
+
+**Theme retry on weak match**: only breaks the theme retry loop early when papers pass `SIM_MIDPOINT` or higher. If papers only pass below `SIM_MIDPOINT`, the pipeline retries with a new theme before accepting weak-match papers.
 
 **Dynamic item count** (lines ~568-581): counts papers above `SIM_ONTOPIC`.
 - ≥3 strong papers → 3 papers + 0 news
@@ -96,19 +98,19 @@ Minimum target: 2 sources. 1 is acceptable if nothing else fits.
 
 ### Step 4b: LLM Re-Ranking (AI call 5, lines ~830-900)
 
-After all items are assembled, papers are scored 1-5 on **"tool to think with" quality**:
-- 5 = changes how you think about the question
-- 3 = related but no new angle
-- 1 = topically adjacent, contributes nothing
+After all items are assembled, papers are scored on two dimensions:
+- **Relevance** (1-3): does the paper directly address the theme question?
+- **Insight** (1-3): does it offer a surprising or useful lens?
 
-Papers scoring ≤2 are swapped with the next-best from the qualified pool. Graceful degradation: if LLM fails, embedding-ranked papers are kept.
+Combined score ≤3 → attempt swap with next-best from qualified pool. Relevance=1 (off-topic) → drop the paper even without a replacement, provided at least 2 other papers remain. Worst papers are processed first so the best replacements go to the worst slots. Graceful degradation: if LLM fails, embedding-ranked papers are kept.
 
 ### Step 5: Theme Revision (AI call 6, lines ~900-925)
 
-LLM sees actual papers (600 chars of abstract each) and revises the central question.
+LLM sees actual papers (600 chars of abstract each) and conditionally revises the central question.
+- **Keep** the original theme if all papers genuinely fit it — prevents the theme from being warped to accommodate a loosely-related paper that should have been cut.
+- **Revise** if the papers collectively suggest a different, better-fitting angle.
 - Max 8 words, punchy magazine-cover energy.
-- Instruction: "ALWAYS revise" — learned from experience that opt-out always results in no revision.
-- Must capture what papers are ACTUALLY about at their core, not surface topic.
+- Returns `kept_original: true|false` for logging.
 
 ### Step 6: Multi-Stage Synthesis (AI calls 7-13)
 
