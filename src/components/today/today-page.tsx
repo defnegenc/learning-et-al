@@ -81,16 +81,16 @@ const TAB_TAG_COLORS = [["#fce7f3", "#dcfce7"], ["#dbeafe", "#fef9c3"], ["#ede9f
 // carry the same aura as the detail cards.
 const TAB_BLOBS: { color: string; w: number; h: number; top?: string; right?: string; bottom?: string; left?: string }[][] = [
   [
-    { color: "#f9a8d4", w: 80, h: 80, top: "-25px", right: "-20px" },
-    { color: "#86efac", w: 60, h: 60, bottom: "-15px", left: "-15px" },
+    { color: "#f9a8d4", w: 100, h: 100, top: "-30px", right: "-20px" },
+    { color: "#86efac", w: 80, h: 80, bottom: "-15px", left: "-20px" },
   ],
   [
-    { color: "#93c5fd", w: 75, h: 75, bottom: "-20px", left: "-20px" },
-    { color: "#fde68a", w: 65, h: 65, top: "-20px", left: "55%" },
+    { color: "#93c5fd", w: 90, h: 90, bottom: "-20px", left: "-25px" },
+    { color: "#fde68a", w: 85, h: 85, top: "-25px", left: "60%" },
   ],
   [
-    { color: "#c4b5fd", w: 80, h: 80, top: "-15px", left: "-15px" },
-    { color: "#fca5a5", w: 60, h: 60, bottom: "-15px", right: "-15px" },
+    { color: "#c4b5fd", w: 95, h: 95, top: "-20px", left: "-15px" },
+    { color: "#fca5a5", w: 75, h: 75, bottom: "-15px", right: "-20px" },
   ],
 ];
 
@@ -186,8 +186,8 @@ function PaperSourceTab({ paper, index }: { paper: PaperItem; index: number }) {
             height: `${blob.h}px`,
             background: blob.color,
             borderRadius: "50%",
-            filter: "blur(36px)",
-            opacity: 0.6,
+            filter: "blur(40px)",
+            opacity: 0.7,
             top: blob.top,
             right: blob.right,
             bottom: blob.bottom,
