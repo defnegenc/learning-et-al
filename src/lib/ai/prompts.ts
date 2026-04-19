@@ -147,6 +147,8 @@ BAD: A "COVID-19 NLP corpus" paper in a digest about "Can machines think for the
 BAD: A "tech-business analytics" paper in a digest about "why we ignore logic" — both involve business but the connection stops there
 GOOD: Every selected paper should make a reader say "oh, I see how this connects"
 
+RELEVANCE GATE (HARD RULE) — before considering any paper for selection, answer this question first: "Is this paper's SUBJECT MATTER (not just vocabulary) directly about what the theme asks?" If the paper is about a different domain (e.g. education when theme is about hiring, web links when theme is about reading comprehension), it FAILS the gate. Do NOT include it — no matter how interesting the methodological contrast would be. A paper fails the gate if, when you strip away the theme title, a reader would not guess it belongs in this digest.
+
 RELEVANCE TEST — before selecting any paper, ask: "Does this paper directly address the theme question, or is it just nearby the topic?" Only include papers that pass.
 
 BAD: "Picturing Herakles in ancient Athens" for "Can external tools rewire human behavior?" — Greek art is not about behavioral rewiring
@@ -235,11 +237,21 @@ export function synthesisFromSkeletonPrompt(
     .map(r => `- Paper ${r.index} ("${r.shortName}"): ${r.role} — ${r.coreContribution}`)
     .join("\n");
 
+  // Era-aware guidance: when 2+ papers are >10 years old, explicitly instruct the
+  // synthesis to situate them in their era and contrast with what's changed.
+  const currentYear = new Date().getFullYear();
+  const datedPapers = items.filter(p => p.year && currentYear - p.year >= 10);
+  const eraBlock = datedPapers.length >= Math.min(2, items.length)
+    ? `
+ERA AWARENESS: ${datedPapers.length} of these papers are from ${datedPapers.map(p => p.year).sort().join(", ")} — more than a decade old. Don't present them as if they're the latest word. Instead: acknowledge the era ("Back when touchscreens were new..." / "In the early days of X..."), explain why they still matter (foundational finding, underlying principle), AND briefly contrast with what's changed or where the frontier is now. Example: "Dyson's 2004 finding that shorter lines helped reading still holds — but today the question is different: how do dynamic layouts and responsive breakpoints reshape that?" ONE sentence of contrast is enough — don't turn the whole synthesis into a history lesson.
+`
+    : "";
+
   return `Theme: "${theme}"
 
 Papers:
 ${listing}
-
+${eraBlock}
 ARGUMENT PLAN (follow this structure):
 Core insight: ${insight}
 Arc: ${skeleton.argumentArc}
@@ -382,6 +394,8 @@ SUMMARY RULES:
 - MAX 40 WORDS. 1-2 sentences. The reader scans this on a card — it must fit without truncation.
 - Write for a smart person who is NOT a domain expert.
 - Include the SETUP and the SURPRISE. Not just what they found, but enough about what they did that the reader thinks "oh, interesting approach."
+- CRITICAL ANTI-HALLUCINATION: Each item's summary MUST describe ONLY the paper at that index number. Do NOT mix content across papers. If paper [1] is about reading behavior and paper [2] is about link visibility, item 1's summary must be about reading behavior — not about links. Before writing each summary, re-read the abstract for that exact index number. The summary must contain at least one concrete noun or finding that appears in that paper's abstract.
+- If the abstract is thin or unclear, write a shorter, more cautious summary. Never fabricate findings to fill the word count.
 - BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..." (boring, tells nothing)
 - BAD: "AI tracked 350 students' behaviors and predicted grades." (too vague — WHAT behaviors? HOW accurately?)
 - GOOD: "Researchers logged every click, login time, and assignment submission for 350 online students — and predicted who'd fail with 87% accuracy."
