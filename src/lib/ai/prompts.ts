@@ -282,6 +282,7 @@ GOOD TRANSITIONS (vary these — never repeat the same pattern twice):
 - EVERY paper MUST appear in **bold** at least once. There are only 2-3 papers — if you can't mention one, your argument arc is wrong. Restructure.
 - When moving between papers, ADD A BRIDGE SENTENCE. Don't just place them next to each other.
 - NEVER mention topics that aren't in the papers.
+- NEVER use a paper as an analogy or bridge if it's from a different domain than the theme. A paper about AI in education belongs in an education digest — it cannot "illuminate" an AI hiring theme just because both involve AI. Each paper must earn its place by directly contributing evidence or mechanism to the central question.
 - Sound like a person, not a TED talk. Read your output aloud. If it sounds like a speech, rewrite it.`;
 }
 
@@ -434,6 +435,7 @@ CRITICAL RULES:
 - Translate jargon into things a smart non-expert already knows.
 - When moving between papers, ADD A BRIDGE SENTENCE.
 - NEVER mention topics that aren't in the papers.
+- NEVER use a paper as an analogy or bridge if it's from a different domain than the theme. Each paper must earn its place by directly contributing evidence or mechanism to the central question — not by being a "conceptual parallel."
 - If a paper doesn't meaningfully connect to the theme, SKIP IT. Better 2 papers well than 3 with one forced.
 - If two papers seem barely related, be honest about it.
 
