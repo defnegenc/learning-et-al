@@ -43,6 +43,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - All results deduplicated by title.
 - Cross-digest dedup: skip papers seen in last 30 days.
 - **Citation floor**: OpenAlex filters `cited_by_count:>1`.
+- **Predatory venue filter**: papers from venues on the `PREDATORY_VENUES` list in `lib/venue-quality.ts` (SciRP, OMICS, Bentham Open, IJARCCE, etc.) are dropped at scoring. Soft penalty (-0.05 to quality boost) applied to high-volume controversial publishers (MDPI, Hindawi, "Frontiers in X" journals).
 
 ### Step 3: Hybrid Scoring + Wide Pool (lines ~430-540)
 
@@ -102,7 +103,7 @@ After all items are assembled, papers are scored on two dimensions:
 - **Relevance** (1-3): does the paper directly address the theme question?
 - **Insight** (1-3): does it offer a surprising or useful lens?
 
-Combined score ≤3 → attempt swap with next-best from qualified pool. Relevance=1 (off-topic) → drop the paper even without a replacement, provided at least 2 other papers remain. Worst papers are processed first so the best replacements go to the worst slots. Graceful degradation: if LLM fails, embedding-ranked papers are kept.
+Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists, the paper is kept** — dropping-without-refill collapsed digests to 2 items and stretched the synthesis thin. Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
 
 ### Step 5: Theme Revision (AI call 6, lines ~900-925)
 

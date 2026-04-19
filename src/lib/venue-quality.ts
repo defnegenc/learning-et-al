@@ -68,6 +68,32 @@ const VENUE_TIERS: Record<string, Set<string>> = {
   ]),
 };
 
+// Predatory or low-quality publishers — papers from these get filtered out at scoring.
+// These are either on Beall's list or widely flagged for weak peer review.
+const PREDATORY_VENUES = new Set([
+  "scirp", "scientific research publishing",
+  "omics international", "omics publishing",
+  "bentham open", "bentham science",
+  "ijarcce", "ijcsit", "ijarcsse",
+  "academic journals inc", "aj publishing",
+  "ibima", "ibimapublishing",
+  "sciencedomain",
+  "ashdin", "ashdin publishing",
+  "longdom",
+  "walsh medical media",
+  "peertechz",
+  "oatext",
+]);
+
+// Controversial high-volume publishers — not rejected outright, but get a similarity penalty
+// so they only pass if they're strong matches. Covers MDPI, Hindawi, Frontiers. Individual
+// flagship journals (e.g. Nature Communications, Cell Reports) are allowlisted via VENUE_TIERS.
+const SOFT_PENALTY_PUBLISHERS = [
+  "mdpi",
+  "hindawi",
+  "frontiers in ", // matches "Frontiers in X" journal titles, not the publisher "Frontiers Media"
+];
+
 // Top institutions — papers from these get a smaller boost
 const TOP_INSTITUTIONS = new Set([
   "mit", "stanford", "harvard", "oxford", "cambridge", "eth zurich",
@@ -90,6 +116,11 @@ export function venueQualityBoost(venueName: string | undefined, field: string |
   if (!venueName || !field) return 0;
   const v = venueName.toLowerCase();
 
+  // Soft penalty for controversial high-volume publishers
+  for (const pub of SOFT_PENALTY_PUBLISHERS) {
+    if (v.includes(pub)) return -0.05;
+  }
+
   // Check field-specific venues
   const fieldVenues = VENUE_TIERS[field];
   if (fieldVenues) {
@@ -106,6 +137,19 @@ export function venueQualityBoost(venueName: string | undefined, field: string |
   }
 
   return 0;
+}
+
+/**
+ * Hard filter: is this venue on a predatory publisher list?
+ * Papers from these venues should be dropped entirely, not just penalized.
+ */
+export function isPredatoryVenue(venueName: string | undefined): boolean {
+  if (!venueName) return false;
+  const v = venueName.toLowerCase();
+  for (const junk of PREDATORY_VENUES) {
+    if (v.includes(junk)) return true;
+  }
+  return false;
 }
 
 /**

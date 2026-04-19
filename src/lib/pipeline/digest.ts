@@ -12,7 +12,7 @@ import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromS
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
-import { venueQualityBoost, institutionBoost } from "@/lib/venue-quality";
+import { venueQualityBoost, institutionBoost, isPredatoryVenue } from "@/lib/venue-quality";
 
 // See docs/algorithm.md for the full algorithm design.
 
@@ -528,6 +528,7 @@ Return JSON only (no markdown):
       return { p, themeSim, score };
     })
     .filter(({ p }) => !seenPaperTitles.has(p.title.toLowerCase()))
+    .filter(({ p }) => !isPredatoryVenue(p.venueName))
     .filter(({ themeSim }) => themeSim >= SIM_MIN_THEME)
     .sort((a, b) => b.score - a.score);
 
@@ -929,10 +930,11 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
                   category: originalCategory,
                 };
                 seenTitles.add(replacement.p.title.toLowerCase());
-              } else if (isOffTopic && items.filter(it => it.category !== "news").length > 2) {
-                // No replacement available and paper is truly off-topic — drop it rather than keep garbage
-                console.log(`[Digest] Dropping off-topic paper "${items[itemIdx].title.slice(0, 40)}" (no replacement, have ${items.length} total)`);
-                items.splice(itemIdx, 1);
+              } else {
+                // No replacement available. Keep the paper — dropping without a refill
+                // collapses digests to 2 papers, which the synthesis then has to stretch
+                // across anyway. Let the synthesis prompt decide how much airtime to give it.
+                console.log(`[Digest] Keeping ${isOffTopic ? "off-topic" : "weak"} paper "${items[itemIdx].title.slice(0, 40)}" — no replacement in qualified pool`);
               }
             }
           }
@@ -1022,6 +1024,29 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
     console.log(`[Digest] Metadata parse failed, using empty defaults`);
     metadata = { items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })), keyConcepts: [], suggestedQuestions: [] };
   }
+
+  // Sanity check: each summary must share content words with its paper's abstract+title.
+  // If not, the LLM hallucinated or swapped content across papers — fall back to a safe
+  // auto-summary built from the abstract's first sentence.
+  const metaStop = new Set(["the", "this", "that", "with", "from", "about", "their", "these", "those", "been", "have", "will", "what", "when", "where", "which", "there", "into", "over", "under", "more", "most", "than", "then", "also", "just", "other", "study", "paper", "research", "found", "shows", "result", "results", "method"]);
+  const contentWords = (s: string) => new Set(
+    s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+      .filter(w => w.length > 3 && !metaStop.has(w))
+  );
+  metadata.items = metadata.items.map((aiItem) => {
+    const paperIdx = aiItem.index - 1;
+    const paper = items[paperIdx];
+    if (!paper || !aiItem.summary) return aiItem;
+    const paperWords = contentWords(`${paper.title} ${paper.abstract}`);
+    const summaryWords = [...contentWords(aiItem.summary)];
+    const overlap = summaryWords.filter(w => paperWords.has(w)).length;
+    if (overlap < 2 && summaryWords.length >= 3) {
+      const fallback = (paper.abstract.match(/[^.!?]+[.!?]/)?.[0] ?? paper.abstract.slice(0, 180)).trim();
+      console.log(`[Digest] Summary for paper ${aiItem.index} looked disconnected from abstract (overlap=${overlap}). Falling back to abstract lead.`);
+      return { ...aiItem, summary: fallback };
+    }
+    return aiItem;
+  });
 
   // Stage B: Skeleton (cross-document relations + argument outline)
   console.log(`[Digest] Stage B: building argument skeleton...`);

@@ -660,6 +660,7 @@ export function SynthesisBanner({
                   return false;
                 };
 
+                let secondBestScore = 0;
                 for (const p of papers) {
                   let score = 0;
                   const title = p.title.toLowerCase();
@@ -672,17 +673,27 @@ export function SynthesisBanner({
                   for (const acronym of acronyms) {
                     if (matchesAcronym(acronym, p.title)) score += 8;
                   }
+                  // Title-only matching — skip summary/connection/keyword matches in the fallback
+                  // because those fields can leak content across papers (e.g. a swapped summary),
+                  // causing two different bold phrases to match the same paper by coincidence.
                   for (const bs of boldStems) {
                     const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
                     if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
                     if (authorStr.includes(bs)) score += 4;
-                    if (kwStr.includes(bs)) score += 2;
-                    if (summaryStr.includes(bs)) score += 2;
-                    if (connectionStr.includes(bs)) score += 2;
+                    if (kwStr.includes(bs)) score += 1;
                   }
-                  if (score > bestScore) { bestScore = score; bestPaper = p; }
+                  if (score > bestScore) {
+                    secondBestScore = bestScore;
+                    bestScore = score;
+                    bestPaper = p;
+                  } else if (score > secondBestScore) {
+                    secondBestScore = score;
+                  }
                 }
-                matchedPaper = bestScore >= 2 ? bestPaper : null;
+                // Require a clear winner (≥4 points AND at least 2 points above the runner-up).
+                // This prevents ambiguous matches from assigning two different bold phrases
+                // to the same paper by coincidence.
+                matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
               }
               // Highlight colors from paper card blob palettes
               const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.45)", "rgba(147,197,253,0.45)", "rgba(196,181,253,0.45)"];
