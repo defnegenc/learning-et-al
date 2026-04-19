@@ -263,6 +263,8 @@ ${skeleton.paperRoles.map(r => `- First mention: **[Source ${r.index}] ${r.short
 
 The [Source N] prefix is REQUIRED in every bold reference. It maps the name to the correct paper. Never write a bold paper name without the [Source N] prefix.
 
+BEFORE WRITING, read each paper's abstract in the listing above. For any claim you make about a paper — especially anything framed as a "barrier", "limitation", "factor", "constraint", or "problem" — you MUST anchor it in a specific detail from that paper's abstract. If the abstract is vague, find a concrete method, number, or example elsewhere in the abstract. If there is genuinely nothing concrete, drop that claim rather than filling with jargon.
+
 Now write the synthesis paragraph. Follow the argument arc above. Return ONLY the paragraph text (no JSON, no markdown fences).
 
 STYLE RULES:
@@ -275,11 +277,34 @@ STYLE RULES:
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
 - NO em dashes. Use periods, "but", "and" instead.
 
-BANNED PATTERNS (these make every digest sound the same):
-- "X don't just Y — they Z" or "isn't just X — it's Y" → This is the #1 AI crutch. Never use it.
-- "Here's where it gets [interesting/scary/tricky]" → Overused. Just state the finding.
-- "The real question is..." or "The bigger picture is..." → Formulaic. Drop it.
-- "It turns out that..." at the start of every other sentence → Once per digest max.
+SPECIFICITY GATE (hard rule) — when the synthesis mentions any of these words, it MUST name a CONCRETE instance from the paper within the same sentence or the next: barrier, barriers, limitation, limitations, challenge, challenges, problem, problems, constraint, constraints, issue, issues, gap, gaps, factor, factors. Vague claims are forbidden.
+  BAD: "current structural limitations prevent this potential from being realized for people who don't have traditional access." — what limitations? for whom?
+  GOOD: "robo-advisors still require a $10K minimum balance, which locks out the 40% of Americans who'd benefit most."
+  BAD: "specialized accessibility tools often fail due to performative development responses." — what does performative mean? what failed?
+  GOOD: "PDF screen readers still can't parse equations or two-column layouts, which is 80% of published papers."
+
+WEAVE RULE — when moving between papers, the bridge must cite a shared mechanism, a contrasting number, or an echoed phrase. NOT "similar X barriers" or "this parallel issue." Make the connection physical.
+  BAD bridge: "The financial sector has similar access barriers — [Source 2] points out..."
+  GOOD bridge: "The same pattern shows up in money. [Source 2] found that the 40% of Americans without a financial advisor lose an average of $130K in lifetime returns — not because they're bad investors, but because the tools built for them come with minimum balances most can't clear."
+
+CLOSING RULE — the last sentence must NOT:
+- Restate the theme question or its answer ("the pattern's clear: X are the most Y")
+- Summarize what the papers collectively show ("together they reveal", "the lesson here")
+- Use tautological structure ("the [adjective-est] X are the ones who [description of X]")
+Instead: end on a specific image, an unresolved tension, a stat, or a concrete open question. The paragraph should feel like it stopped at an interesting place, not wrapped with a bow.
+
+BANNED PATTERNS (these make every digest sound the same — zero tolerance):
+- "X don't just Y — they Z" / "isn't just X — it's Y" — #1 AI crutch. Never.
+- "Here's where it gets [ANY adjective: messier, worse, complicated, tricky, interesting, scary, weirder, strange, real, etc.]" — ALL variants banned, not just the specific ones.
+- "But here's where..." / "This is where..." — same pattern, different opener. Also banned.
+- "The pattern's clear" / "The [X] is clear" / "What we see is" / "The lesson here" / "The bigger picture" / "The real question" / "Together they show" / "What these papers reveal" — formulaic meta-commentary.
+- "It turns out that..." at the start of multiple sentences — max once per paragraph.
+- Ending with "the most vulnerable / the most [X] are the ones who [need Y the most]" — tautology that restates the theme.
+- "structural limitations" / "systemic issues" / "performative [anything]" without naming what they are — see SPECIFICITY GATE.
+
+RHETORICAL QUESTIONS — allowed, but MAX ONE per paragraph. Use only when the next sentence gives the surprising answer. Don't ask questions to sound thoughtful.
+  GOOD: "Most people have no idea their AI chats could become evidence. Why would ChatGPT be different from a notes app? Because legal privilege requires a licensed attorney — the bot doesn't count."
+  BAD: "But what does this really mean?" / "So what do we make of this?" — filler questions with no concrete answer.
 
 GOOD TRANSITIONS (vary these — never repeat the same pattern twice):
 - "You'd think X, but Y says otherwise."
@@ -288,9 +313,8 @@ GOOD TRANSITIONS (vary these — never repeat the same pattern twice):
 - "What Y actually found was the opposite:"
 - "Y complicates this — their data shows..."
 - Just start with the finding. "87% of students who..."
-- Ask a rhetorical question mid-paragraph. "So why doesn't it work?"
 - NEVER write "isn't merely X — it's fundamentally Y" or any variation.
-- Contractions always. "So", "But", "Turns out", "Here's the thing" are good openers.
+- Contractions always. "So", "But", "Turns out" are good openers.
 - EVERY paper MUST appear in **bold** at least once. There are only 2-3 papers — if you can't mention one, your argument arc is wrong. Restructure.
 - When moving between papers, ADD A BRIDGE SENTENCE. Don't just place them next to each other.
 - NEVER mention topics that aren't in the papers.
@@ -335,21 +359,32 @@ Return JSON (no markdown fences):
     "connection": 0,
     "accessibility": 0,
     "specificity": 0,
-    "coverage": 0
+    "coverage": 0,
+    "freshness": 0
   },
   "missingPapers": [],
+  "bannedPhrasesFound": [],
   "weakestPoint": "Which sentence is weakest and why, in 15 words",
-  "revision": "Specific rewrite instruction in 1-2 sentences. Be concrete: 'Add the polyphenols paper by noting how plant compounds provide a third pathway' not 'make it better'"
+  "revision": "Specific rewrite instruction in 1-2 sentences. Be concrete: 'Replace \"structural limitations\" in sentence 5 with the paper's specific barrier: only 12% of branches offer AI-assisted accounts.' NOT 'make it better'"
 }
 
 Scoring guide:
 - argument: Does it make an ARGUMENT (not just summarize)? Is there genuine tension? 1=book report, 5=op-ed
 - connection: Are ALL mentioned papers necessary? Or is one just... there? 1=forced, 5=essential
 - accessibility: Would a smart non-expert find this clear and interesting? 1=jargon soup, 5=coffee conversation
-- specificity: Specific findings/numbers vs vague claims? 1=all vague, 5=concrete throughout
+- specificity: Specific findings/numbers vs vague claims? 1=all vague, 5=concrete throughout. CRITICAL: if the text says "barriers", "limitations", "challenges", "structural [X]", "systemic [X]", "performative [X]" WITHOUT naming a concrete instance from the paper, specificity is AT MOST 2.
 - coverage: How many of the ${paperTitles.length} papers are mentioned in bold? ${paperTitles.length}/${paperTitles.length} = 5, missing 1 = 1, missing 2+ = 1. List missing papers in "missingPapers" array by index.
+- freshness: Does it sound AI-written or human-written? Check for these banned phrases and add each one found to "bannedPhrasesFound":
+  * "here's where it gets [ANY adjective]" / "but here's where..." / "this is where..."
+  * "the pattern's clear" / "the [X] is clear" / "what we see is" / "the lesson here" / "the bigger picture" / "together they show" / "what these papers reveal"
+  * tautological closings like "the most vulnerable are the ones who..." / "the [X]est are the ones who need [Y] most"
+  * vague buzzwords without specifics: "structural limitations", "systemic issues", "performative [anything]"
+  * "it turns out that" used more than once
+  Score: 5=zero banned phrases, 4=one minor slip, 3=one major phrase, 2=two+ phrases, 1=multiple + formulaic closing.
 
 CRITICAL COVERAGE RULE: There are EXACTLY ${paperTitles.length} papers. If the synthesis mentions fewer than ${paperTitles.length} in bold, coverage is 1. The "revision" instruction MUST name the missing paper and explain how to weave it into the argument. This is the MOST IMPORTANT dimension — a synthesis that ignores a paper is broken.
+
+CRITICAL CLOSING CHECK: Read the LAST sentence. Does it restate the theme or summarize the papers with meta-commentary? If yes, "argument" is at most 3 and "revision" must say "Replace the final sentence with a specific image, stat, or open question — don't restate the theme."
 
 Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
 }
@@ -357,12 +392,16 @@ Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
 /** Stage D-2: Revision based on critique feedback. */
 export function synthesisRevisionPrompt(
   originalSynthesis: string,
-  critique: { weakestPoint: string; revision: string },
+  critique: { weakestPoint: string; revision: string; bannedPhrasesFound?: string[] },
   theme: string,
   paperNames?: string[]
 ) {
   const coverageRule = paperNames && paperNames.length > 0
     ? `\n\nCRITICAL: ALL these papers MUST remain referenced in **bold**: ${paperNames.join(", ")}. Do NOT drop any paper from the synthesis.`
+    : "";
+
+  const bannedBlock = critique.bannedPhrasesFound && critique.bannedPhrasesFound.length > 0
+    ? `\n\nBANNED PHRASES FOUND — you MUST remove or rewrite every instance of these in the original. Do not just swap the words; rewrite the sentence so the meaning survives without the crutch:\n${critique.bannedPhrasesFound.map(p => `  • ${p}`).join("\n")}`
     : "";
 
   return `Revise this synthesis based on the editor's feedback.
@@ -376,9 +415,13 @@ ${originalSynthesis}
 
 Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
-- Revision instruction: ${critique.revision}
+- Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the EXACT same **[Source N] name** format for bold paper references — the [Source N] prefix is required for every bold paper name. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}`;
+Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the EXACT same **[Source N] name** format for bold paper references — the [Source N] prefix is required for every bold paper name. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+
+If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
+
+If the critique flagged a formulaic closing, rewrite the final sentence so it ends on a specific image, stat, or open question — NOT a summary of what the papers "collectively reveal" or a restatement of the theme.`;
 }
 
 // ─── Shared rule blocks ──────────────────────────────────────────────────────

@@ -1168,18 +1168,19 @@ Return ONLY the corrected paragraph.`
         skeleton.paperRoles.map(r => r.shortName)
       )
     );
-    const critique = extractJson<{ scores?: Record<string, number>; weakestPoint?: string; revision?: string }>(critiqueResp);
+    const critique = extractJson<{ scores?: Record<string, number>; weakestPoint?: string; revision?: string; bannedPhrasesFound?: string[] }>(critiqueResp);
     if (critique) {
       const scores = critique.scores || {};
-      const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.specificity || 5, scores.coverage || 5);
-      console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} spec=${scores.specificity} cov=${scores.coverage}`);
+      const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.specificity || 5, scores.coverage || 5, scores.freshness || 5);
+      const banned = critique.bannedPhrasesFound || [];
+      console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} spec=${scores.specificity} cov=${scores.coverage} fresh=${scores.freshness}${banned.length ? ` bannedPhrases=[${banned.slice(0, 3).join(", ")}]` : ""}`);
 
       if (minScore < 4 && critique.weakestPoint && critique.revision) {
         console.log(`[Digest] Revising (weakest: ${critique.weakestPoint})...`);
         const revised = await aiComplete(
           aiConfig,
           SYNTHESIS_PROSE_SYSTEM,
-          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision! }, finalTheme, skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`))
+          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision!, bannedPhrasesFound: banned }, finalTheme, skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`))
         );
         const cleanRevised = stripFences(revised);
         if (cleanRevised.length > 50) {
