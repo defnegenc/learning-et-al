@@ -26,9 +26,29 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Learning et al.",
-  description: "Your AI research companion",
-  icons: { icon: "/favicon.png" },
+  metadataBase: new URL("https://learningetal.com"),
+  title: {
+    default: "Learning et al.",
+    template: "%s — Learning et al.",
+  },
+  description:
+    "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests. One provocative question a day.",
+  applicationName: "Learning et al.",
+  keywords: ["research digest", "AI", "papers", "synthesis", "daily reading"],
+  openGraph: {
+    type: "website",
+    url: "https://learningetal.com",
+    siteName: "Learning et al.",
+    title: "Learning et al. — Your AI research companion",
+    description:
+      "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests. One provocative question a day.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Learning et al. — Your AI research companion",
+    description:
+      "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests.",
+  },
 };
 
 export default function RootLayout({
