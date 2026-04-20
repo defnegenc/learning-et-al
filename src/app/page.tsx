@@ -77,15 +77,22 @@ export default function Home() {
   }
 
   // Signed in but no interests yet — onboard
-  // Admin skips the API key step: server falls back to CRON_AI_* env credentials.
-  // Also skip when an invite code already populated session.apiKey.
+  // All users skip the API key step: server falls back to CRON_AI_* env credentials.
+  // Users who want to bring their own key can add it later in Settings.
   if (session.userId) {
     return (
       <Onboarding
-        skipApiKey={!!session.apiKey || isAdmin === true}
+        skipApiKey
         defaultApiKey={session.apiKey}
         defaultProvider={(session.provider || "gemini") as "openai" | "anthropic" | "gemini" | "other"}
-        onComplete={({ apiKey, provider, model, baseUrl, userId, contentMix }) => {
+        onComplete={async ({ apiKey, provider, model, baseUrl, userId, contentMix }) => {
+          // Kick off first digest generation with shared server-side credentials.
+          // Fire-and-forget: users land on the Today page and see "brewing" while it runs.
+          fetch("/api/digest/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey, provider, model, baseUrl, force: true }),
+          }).catch(() => {});
           updateSession({ apiKey, provider, model, baseUrl, userId, isSetUp: true, contentMix });
         }}
       />
