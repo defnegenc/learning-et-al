@@ -294,6 +294,18 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     fetchDigest().finally(() => setLoading(false));
   }, [fetchDigest]);
 
+  // Poll when signed-in and waiting for the very first digest to finish generating.
+  // First-generation runs in the background after onboarding, typically 60-120s.
+  useEffect(() => {
+    if (!session || digest) return;
+    const deadline = Date.now() + 4 * 60 * 1000; // stop polling after 4 minutes
+    const id = setInterval(() => {
+      if (Date.now() > deadline) { clearInterval(id); return; }
+      fetchDigest();
+    }, 10000);
+    return () => clearInterval(id);
+  }, [session, digest, fetchDigest]);
+
   useEffect(() => {
     handleGenerateRef.current = handleGenerate;
   });
