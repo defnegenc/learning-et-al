@@ -782,16 +782,15 @@ export function VaultPage({ session }: VaultPageProps) {
             <div
               style={{
                 display: "grid",
-                gap: "20px",
+                gap: "24px",
               }}
-              className="grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"
+              className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
               {filteredPapers.map((paper, cardIdx) => (
                 <PaperCard
                   key={paper.id}
                   paper={paper}
                   index={cardIdx}
-                  compact
                   compareMode={compareMode}
                   isCompareSelected={selectedIds.has(paper.id)}
                   onSelect={(p) => compareMode ? toggleSelect(p.id) : setSelectedPaper(p)}
