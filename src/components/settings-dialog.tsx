@@ -7,10 +7,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, Plus, LogOut, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, LogOut, X } from "lucide-react";
 import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
+import { InterestLedger, type CustomTopics } from "@/components/interest-ledger";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
 type SettingsTab = "api" | "interests" | "account";
@@ -41,64 +42,6 @@ interface SelectedTopic {
   color: string;
 }
 
-function SettingsInterestPicker({ selectedTopics, setSelectedTopics, customFieldKey, setCustomFieldKey, customInput, setCustomInput, toggleTopic, addCustomTopicToCategory }: {
-  selectedTopics: SelectedTopic[]; setSelectedTopics: (fn: (prev: SelectedTopic[]) => SelectedTopic[]) => void;
-  customFieldKey: string | null; setCustomFieldKey: (v: string | null) => void;
-  customInput: string; setCustomInput: (v: string) => void;
-  toggleTopic: (kw: string, fk: string) => void; addCustomTopicToCategory: (fk: string) => void;
-}) {
-  const [expandedField, setExpandedField] = useState<string | null>(null);
-  return (
-    <div>
-      {Object.entries(FIELD_HIERARCHY).map(([fieldKey, fieldDef]) => {
-        const isExpanded = expandedField === fieldKey;
-        const selectedInField = selectedTopics.filter(t => t.field === fieldDef.s2Field).length;
-        const isCustomOpen = customFieldKey === fieldKey;
-        return (
-          <div key={fieldKey} style={{ borderBottom: "1px solid #eee" }}>
-            <button onClick={() => setExpandedField(isExpanded ? null : fieldKey)}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", background: "none", border: "none", cursor: "pointer" }}>
-              <div className="flex items-center gap-2">
-                <div style={{ width: "10px", height: "10px", background: fieldDef.color, border: "1.5px solid #1a1a1a" }} />
-                <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>{fieldKey}</span>
-                {selectedInField > 0 && <span style={{ fontSize: "0.6rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>{selectedInField} selected</span>}
-              </div>
-              {isExpanded ? <ChevronDown size={14} color="#888" /> : <ChevronRight size={14} color="#888" />}
-            </button>
-            {isExpanded && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingBottom: "12px" }}>
-                {fieldDef.topics.map(topic => {
-                  const isSelected = selectedTopics.some(t => t.keyword === topic);
-                  return (
-                    <button key={topic} onClick={() => toggleTopic(topic, fieldKey)} style={{
-                      padding: "5px 12px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px solid #1a1a1a",
-                      background: isSelected ? "#1a1a1a" : "white", color: isSelected ? "white" : "#1a1a1a",
-                      cursor: "pointer", boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
-                    }}>{topic}</button>
-                  );
-                })}
-                {isCustomOpen ? (
-                  <div style={{ display: "inline-flex" }}>
-                    <input autoFocus value={customInput} onChange={e => setCustomInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") addCustomTopicToCategory(fieldKey); if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); } }}
-                      onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
-                      placeholder="add topic..." style={{ padding: "5px 10px", fontSize: "0.75rem", border: "1.5px solid #1a1a1a", borderRight: "none", background: fieldDef.color, outline: "none", width: "130px" }} />
-                    <button onClick={() => addCustomTopicToCategory(fieldKey)} style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", cursor: "pointer" }}>Add</button>
-                  </div>
-                ) : (
-                  <button onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
-                    style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px dashed #bbb", background: fieldDef.color, color: "#888", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                    <Plus size={10} /> custom
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export function SettingsDialog({ session, updateSession, onRefreshDigest }: SettingsDialogProps) {
   const [open, setOpen] = useState(false);
@@ -122,8 +65,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
 
   // Interests state
   const [selectedTopics, setSelectedTopics] = useState<SelectedTopic[]>([]);
-  const [customFieldKey, setCustomFieldKey] = useState<string | null>(null);
-  const [customInput, setCustomInput] = useState("");
+  const [customTopics, setCustomTopics] = useState<CustomTopics>({});
   const [loadingInterests, setLoadingInterests] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -146,18 +88,23 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
       const res = await fetch("/api/interests");
       if (!res.ok) return;
       const data = await res.json();
-      const entries: SelectedTopic[] = (data.interests ?? []).map(
-        (i: { keyword: string; field: string; level: string }) => {
-          const fieldEntry = Object.entries(FIELD_HIERARCHY).find(([, f]) => f.s2Field === i.field);
-          return {
-            keyword: i.keyword,
-            field: (i.field || "Computer Science") as S2Field,
-            fieldLabel: fieldEntry ? fieldEntry[1].label : "CS",
-            color: fieldEntry ? fieldEntry[1].color : "#e5e7eb",
-          };
+      const entries: SelectedTopic[] = [];
+      const customByField: CustomTopics = {};
+      for (const i of (data.interests ?? []) as { keyword: string; field: string; level: string }[]) {
+        const fieldEntry = Object.entries(FIELD_HIERARCHY).find(([, f]) => f.s2Field === i.field);
+        entries.push({
+          keyword: i.keyword,
+          field: (i.field || "Computer Science") as S2Field,
+          fieldLabel: fieldEntry ? fieldEntry[1].label : "CS",
+          color: fieldEntry ? fieldEntry[1].color : "#e5e7eb",
+        });
+        if (fieldEntry && !fieldEntry[1].topics.includes(i.keyword)) {
+          const key = fieldEntry[0];
+          (customByField[key] ||= []).push(i.keyword);
         }
-      );
+      }
       setSelectedTopics(entries);
+      setCustomTopics(customByField);
     } finally {
       setLoadingInterests(false);
     }
@@ -218,6 +165,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
 
   function toggleTopic(keyword: string, fieldKey: string) {
     const fieldDef = FIELD_HIERARCHY[fieldKey];
+    if (!fieldDef) return;
     const exists = selectedTopics.findIndex(t => t.keyword === keyword);
     if (exists > -1) {
       setSelectedTopics(prev => prev.filter(t => t.keyword !== keyword));
@@ -228,15 +176,30 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
     }
   }
 
-  function addCustomTopicToCategory(fieldKey: string) {
-    const val = customInput.trim();
+  function addCustom(fieldKey: string, topic: string) {
+    const val = topic.trim();
     if (!val || selectedTopics.length >= 20) return;
     const fieldDef = FIELD_HIERARCHY[fieldKey];
-    setSelectedTopics(prev => [...prev, {
-      keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
-    }]);
-    setCustomInput("");
-    setCustomFieldKey(null);
+    if (!fieldDef) return;
+    setCustomTopics(prev => {
+      const existing = prev[fieldKey] || [];
+      if (existing.some(x => x.toLowerCase() === val.toLowerCase())) return prev;
+      return { ...prev, [fieldKey]: [...existing, val] };
+    });
+    setSelectedTopics(prev => {
+      if (prev.some(t => t.keyword === val)) return prev;
+      return [...prev, {
+        keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
+      }];
+    });
+  }
+
+  function removeCustom(fieldKey: string, topic: string) {
+    setCustomTopics(prev => ({
+      ...prev,
+      [fieldKey]: (prev[fieldKey] || []).filter(x => x !== topic),
+    }));
+    setSelectedTopics(prev => prev.filter(t => t.keyword !== topic));
   }
 
   async function handleSave() {
@@ -497,15 +460,12 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                 {loadingInterests ? (
                   <div className="flex items-center justify-center py-16"><Loader2 className="size-5 animate-spin text-[#888]" /></div>
                 ) : (
-                  <SettingsInterestPicker
-                    selectedTopics={selectedTopics}
-                    setSelectedTopics={setSelectedTopics}
-                    customFieldKey={customFieldKey}
-                    setCustomFieldKey={setCustomFieldKey}
-                    customInput={customInput}
-                    setCustomInput={setCustomInput}
-                    toggleTopic={toggleTopic}
-                    addCustomTopicToCategory={addCustomTopicToCategory}
+                  <InterestLedger
+                    selected={selectedTopics}
+                    custom={customTopics}
+                    onToggle={toggleTopic}
+                    onAddCustom={addCustom}
+                    onRemoveCustom={removeCustom}
                   />
                 )}
               </div>

@@ -1,19 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, ArrowRight, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { NoiseOverlay } from "@/components/noise-overlay";
-import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
-import type { S2Field } from "@/lib/field-hierarchy";
+import { InterestLedger, useInterestLedger } from "@/components/interest-ledger";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
-
-interface SelectedTopic {
-  keyword: string;
-  field: S2Field;
-  fieldLabel: string;
-  color: string;
-}
 
 interface OnboardingProps {
   skipApiKey?: boolean;
@@ -37,10 +29,7 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
 
-  const [selectedTopics, setSelectedTopics] = useState<SelectedTopic[]>([]);
-  const [expandedField, setExpandedField] = useState<string | null>(null);
-  const [customFieldKey, setCustomFieldKey] = useState<string | null>(null);
-  const [customInput, setCustomInput] = useState("");
+  const { selected: selectedTopics, custom, toggle, addCustom, removeCustom } = useInterestLedger();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -59,29 +48,6 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
     setProvider(p);
     setModel(providerDefaults[p].model);
     setBaseUrl(providerDefaults[p].baseUrl);
-  }
-
-  function toggleTopic(keyword: string, fieldKey: string) {
-    const fieldDef = FIELD_HIERARCHY[fieldKey];
-    const exists = selectedTopics.findIndex(t => t.keyword === keyword);
-    if (exists > -1) {
-      setSelectedTopics(prev => prev.filter(t => t.keyword !== keyword));
-    } else if (selectedTopics.length < 20) {
-      setSelectedTopics(prev => [...prev, {
-        keyword, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
-      }]);
-    }
-  }
-
-  function addCustomTopicToCategory(fieldKey: string) {
-    const val = customInput.trim();
-    if (!val || selectedTopics.length >= 20) return;
-    const fieldDef = FIELD_HIERARCHY[fieldKey];
-    setSelectedTopics(prev => [...prev, {
-      keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
-    }]);
-    setCustomInput("");
-    setCustomFieldKey(null);
   }
 
   async function handleCodeSubmit() {
@@ -143,8 +109,8 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
       <div
         className="relative z-10 w-full flex flex-col"
         style={{
-          maxWidth: step === 2 ? "600px" : "480px",
-          maxHeight: "90vh",
+          maxWidth: step === 2 ? "860px" : "480px",
+          maxHeight: "92vh",
           border: "4px solid #1a1a1a",
           background: "white",
           boxShadow: "8px 8px 0px 0px rgba(0,0,0,1)",
@@ -208,88 +174,21 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
           </div>
         )}
 
-        {/* STEP 2 — expandable categories */}
+        {/* STEP 2 — ledger */}
         {step === 2 && (
           <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "12px 24px" }}>
-              {Object.entries(FIELD_HIERARCHY).map(([fieldKey, fieldDef]) => {
-                const isExpanded = expandedField === fieldKey;
-                const selectedInField = selectedTopics.filter(t => t.field === fieldDef.s2Field).length;
-                const isCustomOpen = customFieldKey === fieldKey;
-                return (
-                  <div key={fieldKey} style={{ borderBottom: "1px solid #eee" }}>
-                    <button
-                      onClick={() => setExpandedField(isExpanded ? null : fieldKey)}
-                      style={{
-                        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "12px 0", background: "none", border: "none", cursor: "pointer",
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div style={{ width: "10px", height: "10px", background: fieldDef.color, border: "1.5px solid #1a1a1a" }} />
-                        <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>{fieldKey}</span>
-                        {selectedInField > 0 && (
-                          <span style={{ fontSize: "0.6rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
-                            {selectedInField} selected
-                          </span>
-                        )}
-                      </div>
-                      {isExpanded ? <ChevronDown size={14} color="#888" /> : <ChevronRight size={14} color="#888" />}
-                    </button>
-                    {isExpanded && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingBottom: "12px" }}>
-                        {fieldDef.topics.map(topic => {
-                          const isSelected = selectedTopics.some(t => t.keyword === topic);
-                          return (
-                            <button key={topic} onClick={() => toggleTopic(topic, fieldKey)} style={{
-                              padding: "5px 12px", fontSize: "0.75rem", fontWeight: 600,
-                              border: "1.5px solid #1a1a1a",
-                              background: isSelected ? "#1a1a1a" : "white",
-                              color: isSelected ? "white" : "#1a1a1a",
-                              cursor: "pointer",
-                              boxShadow: isSelected ? "none" : "2px 2px 0px 0px rgba(0,0,0,1)",
-                            }}>
-                              {topic}
-                            </button>
-                          );
-                        })}
-                        {isCustomOpen ? (
-                          <div style={{ display: "inline-flex" }}>
-                            <input autoFocus value={customInput}
-                              onChange={e => setCustomInput(e.target.value)}
-                              onKeyDown={e => { if (e.key === "Enter") addCustomTopicToCategory(fieldKey); if (e.key === "Escape") { setCustomFieldKey(null); setCustomInput(""); } }}
-                              onBlur={() => { if (!customInput.trim()) { setCustomFieldKey(null); setCustomInput(""); } }}
-                              placeholder="add topic..."
-                              style={{ padding: "5px 10px", fontSize: "0.75rem", border: "1.5px solid #1a1a1a", borderRight: "none", background: fieldDef.color, outline: "none", width: "130px" }} />
-                            <button onClick={() => addCustomTopicToCategory(fieldKey)} style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 700, border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white", cursor: "pointer" }}>
-                              Add
-                            </button>
-                          </div>
-                        ) : (
-                          <button onClick={() => { setCustomFieldKey(fieldKey); setCustomInput(""); }}
-                            style={{ padding: "5px 10px", fontSize: "0.75rem", fontWeight: 600, border: "1.5px dashed #bbb", background: fieldDef.color, color: "#888", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                            <Plus size={10} /> custom
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="flex-1 overflow-y-auto" style={{ padding: "20px 24px" }}>
+              <InterestLedger
+                selected={selectedTopics}
+                custom={custom}
+                onToggle={toggle}
+                onAddCustom={addCustom}
+                onRemoveCustom={removeCustom}
+              />
             </div>
 
             {/* Footer */}
             <div style={{ borderTop: "3px solid #1a1a1a", padding: "12px 24px", background: "#fafafa" }}>
-              {selectedTopics.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "10px", maxHeight: "60px", overflowY: "auto" }}>
-                  {selectedTopics.map(t => (
-                    <span key={t.keyword} style={{ display: "inline-flex", alignItems: "center", border: "1.5px solid #1a1a1a", fontSize: "0.65rem", fontWeight: 600, background: t.color }}>
-                      <span style={{ padding: "3px 8px" }}>{t.keyword}</span>
-                      <button onClick={() => setSelectedTopics(prev => prev.filter(x => x.keyword !== t.keyword))} className="hover:bg-[#1a1a1a] hover:text-white transition-colors" style={{ padding: "3px 6px", borderLeft: "1px solid #1a1a1a", background: "none", cursor: "pointer" }}>×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
               {error && <p style={{ fontSize: "0.75rem", color: "#ff007f", marginBottom: "6px" }}>{error}</p>}
               <div className="flex gap-2">
                 {!skipApiKey && (
