@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Star, ThumbsDown, Bookmark } from "lucide-react";
+import React, { useState } from "react";
+import { Bookmark } from "lucide-react";
 import { KeywordTag } from "@/components/keyword-tag";
 
 export interface PaperItem {
@@ -33,30 +33,34 @@ interface PaperCardProps {
   onDislike: (paperId: string) => void;
 }
 
-// Each card: white bg, two small blobs in contrasting colors, matching tag colors
-const CARD_STYLES = [
-  {
-    blobs: [
-      { color: "#f9a8d4", w: 100, h: 100, top: "-30px", right: "-20px", left: "auto", bottom: "auto" },
-      { color: "#86efac", w: 80, h: 80, top: "auto", right: "auto", left: "-20px", bottom: "-15px" },
-    ],
-    tags: ["#fce7f3", "#dcfce7"],  // pink tint, green tint
-  },
-  {
-    blobs: [
-      { color: "#93c5fd", w: 90, h: 90, top: "auto", right: "auto", left: "-25px", bottom: "-20px" },
-      { color: "#fde68a", w: 85, h: 85, top: "-25px", right: "auto", left: "60%", bottom: "auto" },
-    ],
-    tags: ["#dbeafe", "#fef9c3"],  // blue tint, yellow tint
-  },
-  {
-    blobs: [
-      { color: "#c4b5fd", w: 95, h: 95, top: "-20px", right: "auto", left: "-15px", bottom: "auto" },
-      { color: "#fca5a5", w: 75, h: 75, top: "auto", right: "-20px", left: "auto", bottom: "-15px" },
-    ],
-    tags: ["#ede9fe", "#fee2e2"],  // purple tint, red tint
-  },
+const CARD_PALETTES: [string, string][] = [
+  ["#C8F0D8", "#F0F5A8"],
+  ["#FFD6E0", "#FFE89A"],
+  ["#D0E3F7", "#E2D6F7"],
+  ["#FFE89A", "#FFD6E0"],
 ];
+
+const CARD_TAGS = [
+  ["#fce7f3", "#dcfce7"],
+  ["#dbeafe", "#fef9c3"],
+  ["#ede9fe", "#fee2e2"],
+  ["#fef9c3", "#fce7f3"],
+];
+
+function dispersedWashCard(palette: [string, string], intensity = 0.5): React.CSSProperties {
+  const a = Math.min(255, Math.round(intensity * 255)).toString(16).padStart(2, "0");
+  const b = Math.min(255, Math.round(intensity * 0.6 * 255)).toString(16).padStart(2, "0");
+  const [h1, h2] = palette;
+  return {
+    background: `
+      radial-gradient(circle 170px at 2% 2%, ${h1}${a} 0%, transparent 62%),
+      radial-gradient(circle 160px at 98% 6%, ${h2}${a} 0%, transparent 62%),
+      radial-gradient(circle 150px at 96% 100%, ${h1}${b} 0%, transparent 62%),
+      radial-gradient(circle 170px at 2% 98%, ${h2}${b} 0%, transparent 62%),
+      #fff`,
+    backgroundBlendMode: "multiply, multiply, multiply, multiply, normal",
+  } as React.CSSProperties;
+}
 
 const PASTEL_COLORS = ["#fef3c7", "#bae6fd", "#d8b4fe", "#fed7aa", "#a5f3fc"];
 
@@ -128,7 +132,8 @@ export function PaperCard({
   onDislike,
 }: PaperCardProps) {
   const [bookmarked, setBookmarked] = useState(false);
-  const cardStyle = CARD_STYLES[index % CARD_STYLES.length];
+  const palette = CARD_PALETTES[index % CARD_PALETTES.length];
+  const tags = CARD_TAGS[index % CARD_TAGS.length];
   const borderStyle = isCompareSelected ? "4px solid #1a1a1a" : highlighted ? "4px solid #1a1a1a" : "3px solid #1a1a1a";
   const shadowStyle = isCompareSelected || highlighted
     ? "4px 4px 0px 0px rgba(0,0,0,1)"
@@ -139,7 +144,6 @@ export function PaperCard({
       className="group relative"
       style={{
         aspectRatio: compact ? "auto" : "1 / 1",
-        background: "white",
         border: borderStyle,
         boxShadow: shadowStyle,
         padding: compact ? "12px" : "16px",
@@ -150,6 +154,7 @@ export function PaperCard({
         overflow: "hidden",
         transition: "transform 0.15s ease, box-shadow 0.15s ease",
         cursor: "pointer",
+        ...dispersedWashCard(palette),
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translate(-2px, -2px)";
@@ -170,26 +175,6 @@ export function PaperCard({
       >
         <Bookmark size={compact ? 12 : 14} className={bookmarked ? "fill-current" : ""} />
       </button>
-      {/* Aura blobs — unique position per card */}
-      {cardStyle.blobs.map((blob, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            width: `${blob.w}px`,
-            height: `${blob.h}px`,
-            background: blob.color,
-            borderRadius: "50%",
-            filter: "blur(40px)",
-            opacity: 0.7,
-            top: blob.top,
-            right: blob.right,
-            bottom: blob.bottom,
-            left: blob.left,
-            pointerEvents: "none",
-          }}
-        />
-      ))}
 
       {/* Top: source label + compare badge */}
       <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: compact ? "6px" : "12px" }}>
@@ -278,7 +263,7 @@ export function PaperCard({
               <KeywordTag
                 key={kw}
                 keyword={kw}
-                color={cardStyle.tags[idx % cardStyle.tags.length]}
+                color={tags[idx % tags.length]}
                 definition={conceptDefs?.[kw.toLowerCase()]}
               />
             ))}

@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 
 // Quick digest feedback — was this interesting?
-function DigestFeedback({ digestId, onRegenerate, generating = false }: { digestId: string; onRegenerate?: () => void; generating?: boolean }) {
+export function DigestFeedback({ digestId, onRegenerate, generating = false }: { digestId: string; onRegenerate?: () => void; generating?: boolean }) {
   const [reaction, setReaction] = useState<"up" | "down" | null>(null);
   const [comment, setComment] = useState("");
   const [showComment, setShowComment] = useState(false);
@@ -303,10 +303,12 @@ interface SynthesisBannerProps {
     baseUrl: string;
   };
   onSignIn?: () => void;
+  hideHeader?: boolean;
+  hideInteractionUI?: boolean;
 }
 
 // Guest dig deeper — shows all pre-generated Q&A inline, prompts sign-in for more
-function GuestDigDeeper({ questions, answers, onSignIn }: {
+export function GuestDigDeeper({ questions, answers, onSignIn }: {
   questions: string[];
   answers: string[];
   onSignIn?: () => void;
@@ -369,7 +371,7 @@ function GuestDigDeeper({ questions, answers, onSignIn }: {
 
 // Renders a text segment with [N] citation markers as superscript links.
 // Also handles **bold** inline so we don't need ReactMarkdown for simple answer text.
-function CitedAnswer({ text, paperLinks }: { text: string; paperLinks?: { title: string; sourceUrl: string | null }[] }) {
+export function CitedAnswer({ text, paperLinks }: { text: string; paperLinks?: { title: string; sourceUrl: string | null }[] }) {
   // Split on **bold** and [N] citations together
   const segments = text.split(/(\*\*[^*]+\*\*|\[\d+\])/g);
   return (
@@ -403,7 +405,7 @@ function CitedAnswer({ text, paperLinks }: { text: string; paperLinks?: { title:
 }
 
 // Renders a full dig deeper answer — paragraphs split on newlines, CitedAnswer handles inline markup.
-function AnswerBlock({ text, paperLinks }: { text: string; paperLinks?: { title: string; sourceUrl: string | null }[] }) {
+export function AnswerBlock({ text, paperLinks }: { text: string; paperLinks?: { title: string; sourceUrl: string | null }[] }) {
   const paragraphs = text.split(/\n+/).filter(p => p.trim());
   return (
     <>
@@ -435,6 +437,8 @@ export function SynthesisBanner({
   generating = false,
   session,
   onSignIn,
+  hideHeader = false,
+  hideInteractionUI = false,
 }: SynthesisBannerProps) {
   // Build concept definition map from keyConcepts ("term: definition" format)
   const conceptDefs = useMemo(() => {
@@ -570,7 +574,7 @@ export function SynthesisBanner({
   return (
     <div className="space-y-5">
       {/* Theme — big, bold, Space Grotesk */}
-      {displayTheme && (
+      {!hideHeader && displayTheme && (
         <h1
           style={{
             fontSize: "clamp(2.5rem, 5.5vw, 3.75rem)",
@@ -587,20 +591,22 @@ export function SynthesisBanner({
       )}
 
       {/* Date + feedback inline */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
-        <span
-          style={{
-            fontSize: "0.75rem",
-            color: "#aaa",
-            fontFamily: "var(--font-mono), monospace",
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-          }}
-        >
-          {today}
-        </span>
-        {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} generating={generating} />}
-      </div>
+      {!hideHeader && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+          <span
+            style={{
+              fontSize: "0.75rem",
+              color: "#aaa",
+              fontFamily: "var(--font-mono), monospace",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+            }}
+          >
+            {today}
+          </span>
+          {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} generating={generating} />}
+        </div>
+      )}
 
       {/* Synthesis body */}
       <div
@@ -752,14 +758,14 @@ export function SynthesisBanner({
       )}
 
       {/* Dig deeper — logged-in: live Q&A, logged-out: pre-generated answers */}
-      {papers.length > 0 && !session && (
+      {!hideInteractionUI && papers.length > 0 && !session && (
         <GuestDigDeeper
           questions={suggestedQuestions || []}
           answers={suggestedAnswers || []}
           onSignIn={onSignIn}
         />
       )}
-      {papers.length > 0 && session && (
+      {!hideInteractionUI && papers.length > 0 && session && (
         <div style={{ marginTop: "28px" }}>
           {/* Suggested questions as inline buttons */}
           {showQuestions && !digDeeperLoading && digDeeperPrompts.length > 0 && (

@@ -44,9 +44,9 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <h1
           className="hidden md:block"
           style={{
-            fontSize: "1.25rem",
+            fontSize: "1.6rem",
             fontWeight: 900,
-            letterSpacing: "0.2em",
+            letterSpacing: "0.18em",
             textTransform: "uppercase",
             color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
