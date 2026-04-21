@@ -47,6 +47,8 @@ src/
     ├── fetchers/           # Paper sources (OpenAlex, Semantic Scholar, arXiv) + web search
     ├── db/                 # Drizzle schema + queries (schema.ts, queries.ts)
     ├── embeddings.ts       # Local embedding via @xenova/transformers (all-MiniLM-L6-v2)
+    ├── bm25.ts             # BM25 + RRF scoring utilities
+    ├── venue-quality.ts    # Venue/predatory journal filters and quality boosts
     ├── email.ts            # Digest email via Resend (daily/biweekly/weekly cadence)
     └── auth.ts             # NextAuth config with DrizzleAdapter
 ```
@@ -85,12 +87,14 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - Email: Resend integration, cadence-aware (daily = every digest, biweekly = best-of Tue+Fri, weekly = best-of Sunday). "Best" = starred digest if any, else most recent.
 - Feedback: Users can dislike a paper with optional reason, no control over recommendations
 - Auth: Google OAuth via Auth.js (next-auth v5) with DrizzleAdapter. Public logged-out experience showing admin's digest with pre-generated Q&A.
-- AI: BYOK (user-provided API key), model-agnostic (Claude, GPT, Gemini, etc.). Cron uses server-side `CRON_AI_*` env vars.
+- AI: Signed-in users generate without entering an API key (server-side `CRON_AI_*` used). BYOK still supported in settings for power users.
 - Deployment: Vercel, learningetal.com domain
-- **Not yet implemented**: temporal awareness in themes
 
 ## Gotchas
 - **NEVER create routes inside `/api/auth/`** — the `[...nextauth]` catch-all owns that entire path. Put custom auth-adjacent routes elsewhere (e.g. `/api/logout`).
+- **`shortName` rules live in TWO places** — `selectionSkeletonPrompt` AND `skeletonPrompt` in `src/lib/ai/prompts.ts`. If you change one, change the other. They must require the author's last name (or most specific title noun) as anchor.
+- **`focusLevel` belongs in synthesis, not retrieval.** It's passed via `synthesisCtx` to affect tone and keyword jargon. Do NOT use it to modify search queries — that biases paper type rather than letting the LLM selection decide.
+- **Upstream scoring is a filter, not a ranker.** The LLM in `selectionSkeletonPrompt` makes the real quality call. Embedding threshold + MMR just need to deliver a diverse on-topic pool of 6. Don't add heavy signals (institution prestige, topic-trending context) to the scoring chain — they don't move outcomes.
 - **HttpOnly cookies CANNOT be cleared from JavaScript.** Always use a server-side route.
 - **Default model must match provider.** When returning config from env vars, validate consistency (e.g. don't return a gemini model with anthropic provider).
 - **Only call `res.json()` once** per request — second call gets empty body.
@@ -99,6 +103,7 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **Synthesis must use `[Source N]` prefix in bold paper names** — e.g. `**[Source 1] the polyphenols study**`. The frontend relies on this prefix to map highlights to the correct paper. If a pipeline step (especially revision) drops the prefix, highlights break on the site. The coverage gate enforces this.
 - **`drizzle-kit push` fails on SQLite schema changes involving primary keys** — SQLite can't ALTER TABLE to drop/recreate PKs. For simple column additions, run `sqlite3 paper-processor.db "ALTER TABLE X ADD COLUMN Y TEXT;"` manually, then push schema to Turso prod separately.
 - **Pre-generated answers for logged-out experience** — `suggestedAnswers` are generated at the end of the digest pipeline. If you modify the chat system prompt, also update the answer-generation block in `digest.ts` to stay consistent.
+- **To manually trigger a digest locally**: POST `/api/digest/generate` with `{"force":true}` and a valid session cookie, or use the Generate button in the admin UI.
 
 ## Docs Reference
 | Doc | When to read | When to update |

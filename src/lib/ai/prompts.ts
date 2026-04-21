@@ -173,7 +173,7 @@ RULES:
 - Every selected paper must have a DISTINCT role — no two papers with the same role
 - NO TWO PAPERS WITH THE SAME CONCLUSION. If papers A and B both conclude "X is better/faster/works", drop one.
 - coreInsight can be a tension, a surprise, a paradox, OR a complementary insight. NOT everything needs conflict — papers agreeing from different angles are great too.
-- shortName: how you'd refer to it talking to a friend
+- shortName: MAX 4 WORDS. Use the first author's last name as the anchor: "the Smith chatbot study", "the García voting paper", "the Liu epilepsy review". If no author is listed, use the most SPECIFIC noun from the title — the word that distinguishes THIS paper from all similar ones: "the polyphenol study" not "the nutrition study", "the McKinsey report" not "the consulting study". NEVER use only generic method/topic words like "the chatbot study" or "the branding research" without a distinguishing name or specific noun.
 - If a paper is >5 years old, it must offer something newer papers can't (historical perspective, foundational insight). Don't pick old papers just because they're highly cited.
 - Prefer papers from DIFFERENT fields/methods when quality is comparable`;
 }
@@ -212,7 +212,7 @@ RULES:
   - A finding that changes how you think about the topic
   - Do NOT default to "it's messy" or "it's complicated." If the research points somewhere clear, say so.
 - The argumentArc MUST reference ALL papers by number. If a paper isn't in the arc, you haven't found its role yet.
-- shortName: MAX 4 WORDS. How you'd refer to it at a bar: "the polyphenols study", "the McKinsey report", "the epilepsy paper". NOT "The Brain-Gut-Microbiome Axis Across the Life Continuum review" — that's the title, not a nickname. Use the topic keyword: "the gut-brain review", "the seizure inflammation study".
+- shortName: MAX 4 WORDS. Use the first author's last name as the anchor: "the Smith chatbot study", "the García voting paper". If no author, use the most SPECIFIC noun from the title — the word that sets THIS paper apart: "the polyphenols study" not "the nutrition study", "the McKinsey report" not "the consulting study". NEVER "the chatbot study" or "the branding research" — generic method words alone are not shortNames. The name must let a reader find the right card on sight.
 - paperRelations: include one entry per pair of papers (for 3 papers: 3 pairs)`;
 }
 

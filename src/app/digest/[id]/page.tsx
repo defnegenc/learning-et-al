@@ -147,7 +147,7 @@ export default function DigestPermalink() {
           </span>
         </a>
         <span style={{ fontSize: "0.6rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace", color: "#888" }}>
-          Archive
+          Vault
         </span>
       </header>
 

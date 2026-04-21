@@ -12,7 +12,7 @@ import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromS
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
-import { venueQualityBoost, institutionBoost, isPredatoryVenue } from "@/lib/venue-quality";
+import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
 
 // See docs/algorithm.md for the full algorithm design.
 
@@ -259,25 +259,10 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     `"${i.keyword}" (${i.level ?? "beginner"} level, field: ${i.field ?? "general"})`
   ).join("\n");
 
-  // Temporal awareness: fetch a few trending headlines to give the LLM current-event context (audit 4.5)
-  let trendingContext = "";
-  try {
-    const trendQuery = candidateInterests.slice(0, 2).map(i => i.keyword).join(" ");
-    const trendResults = await webSearch(`${trendQuery} latest news ${new Date().getFullYear()}`, 5);
-    if (trendResults.length > 0) {
-      const headlines = trendResults.slice(0, 4).map(r => `- "${r.title}" (${r.source})`).join("\n");
-      trendingContext = `\n\nWhat's trending RIGHT NOW (optional — connect to these if any naturally relate):
-${headlines}\n`;
-      console.log(`[Digest] Temporal context: ${trendResults.length} trending headlines injected`);
-    }
-  } catch {
-    // Non-critical — proceed without temporal context
-  }
-
   const hypothesisPrompt = `You curate a daily research digest. Your job: pick 1-3 of these user interests and generate a central question with genuine surprise value.
 
 User interests (sorted by priority):
-${interestList}${trendingContext}
+${interestList}
 
 GOOD themes are SHORT and PUNCHY — like a magazine cover headline. Can be a question OR a statement:
 - "When fakes become indistinguishable from reality" (statement)
@@ -370,28 +355,29 @@ Return JSON only (no markdown):
       } catch { /* keep the original if retry fails */ }
     }
 
-    // Theme novelty: check against recent themes to avoid repetitive patterns
+    // Theme novelty: skip if too many keywords overlap with a recent theme
     const recentThemeTexts = recentDigestsForRotation
       .map(d => d.theme).filter(Boolean) as string[];
     if (recentThemeTexts.length > 0) {
-      const themeEmbCheck = await embedText(theme);
-      const recentThemeEmbs = await embedBatch(recentThemeTexts);
-      const maxSim = Math.max(...recentThemeEmbs.map(e => cosineSimilarity(themeEmbCheck, e)));
-      if (maxSim > 0.5) {
-        console.log(`[Digest] Theme "${theme}" too similar to recent theme (sim ${maxSim.toFixed(2)}), requesting fresh angle...`);
+      const themeWords = new Set(theme.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w)));
+      const tooSimilar = recentThemeTexts.some(rt => {
+        const rtWords = rt.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
+        const overlap = rtWords.filter(w => themeWords.has(w)).length;
+        return overlap >= 2;
+      });
+      if (tooSimilar) {
+        console.log(`[Digest] Theme "${theme}" overlaps with a recent theme — requesting fresh angle...`);
         try {
           const noveltyResp = await aiComplete(aiConfig,
             "You generate surprising research questions. Return only JSON.",
-            `This theme is too similar to a recent one. Generate a COMPLETELY DIFFERENT angle — different TOPIC, not just different phrasing.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat any of these topics): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n\nPick DIFFERENT interests from the ones used in recent themes. If recent themes were about biology/gut, pick something from a completely different domain.\n\nReturn JSON: {"theme": "fresh angle MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+            `This theme is too similar to a recent one. Generate a COMPLETELY DIFFERENT angle — different TOPIC, not just different phrasing.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat any of these topics): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n\nReturn JSON: {"theme": "fresh angle MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
           );
           const noveltyParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(noveltyResp);
-          if (noveltyParsed) {
-            if (noveltyParsed.theme) {
-              theme = noveltyParsed.theme;
-              if (noveltyParsed.searchQueries && noveltyParsed.searchQueries.length > 0) searchQueries = noveltyParsed.searchQueries;
-              if (noveltyParsed.newsQuery) newsQuery = noveltyParsed.newsQuery;
-              console.log(`[Digest] Fresh theme: "${theme}"`);
-            }
+          if (noveltyParsed?.theme) {
+            theme = noveltyParsed.theme;
+            if (noveltyParsed.searchQueries && noveltyParsed.searchQueries.length > 0) searchQueries = noveltyParsed.searchQueries;
+            if (noveltyParsed.newsQuery) newsQuery = noveltyParsed.newsQuery;
+            console.log(`[Digest] Fresh theme: "${theme}"`);
           }
         } catch { /* keep original if novelty retry fails */ }
       }
@@ -452,15 +438,11 @@ Return JSON only (no markdown):
 
   for (let qi = 0; qi < searchQueries.length; qi++) {
     const query = searchQueries[qi];
-    // For beginner interests: pull survey/overview papers by appending accessibility terms
-    const adjustedQuery = focusLevel === "beginner"
-      ? `${query} introduction overview applications`
-      : query;
     // Distribute queries across fields: query 0 → field 0, query 1 → field 1, etc.
     const fieldForQuery = focusFields[qi % focusFields.length];
-    console.log(`[Digest] Query: "${adjustedQuery}" [field: ${fieldForQuery}]`);
+    console.log(`[Digest] Query: "${query}" [field: ${fieldForQuery}]`);
     try {
-      const results = await searchPapers(adjustedQuery, 10, "publicationDate", fieldForQuery);
+      const results = await searchPapers(query, 10, "publicationDate", fieldForQuery);
       for (const p of results) {
         const key = p.title.toLowerCase();
         if (!seenSearchTitles.has(key)) {
@@ -479,9 +461,8 @@ Return JSON only (no markdown):
   if (allResults.length < 3) {
     console.log(`[Digest] Only ${allResults.length} results — retrying without field filter...`);
     for (const query of searchQueries) {
-      const adjustedQuery = focusLevel === "beginner" ? `${query} introduction overview applications` : query;
       try {
-        const results = await searchPapers(adjustedQuery, 10, "publicationDate", undefined);
+        const results = await searchPapers(query, 10, "publicationDate", undefined);
         for (const p of results) {
           const key = p.title.toLowerCase();
           if (!seenSearchTitles.has(key)) {
@@ -516,14 +497,12 @@ Return JSON only (no markdown):
     .map((p, i) => {
       const themeSim = embeddingSims[i];
       const rrfScore = rrfScores[i];
-      // Quality boosts (scaled to RRF range ~0.01-0.03)
       const age = p.year ? currentYear - p.year : 2;
       const recencyBonus = age <= 0 ? 0.003 : age === 1 ? 0.0015 : 0;
       const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.03;
-      const instBoost = institutionBoost(p.institutions || []) * 0.03;
-      const score = rrfScore + recencyBonus + venueBoost + instBoost;
-      if (venueBoost > 0 || instBoost > 0) {
-        console.log(`[Digest] Quality boost: "${p.title.slice(0, 50)}" venue=${venueBoost.toFixed(4)} inst=${instBoost.toFixed(4)} (${p.venueName || "unknown"})`);
+      const score = rrfScore + recencyBonus + venueBoost;
+      if (venueBoost > 0) {
+        console.log(`[Digest] Venue boost: "${p.title.slice(0, 50)}" +${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
       }
       return { p, themeSim, score };
     })
