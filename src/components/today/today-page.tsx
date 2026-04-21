@@ -70,67 +70,103 @@ function getJournalName(sourceUrl: string | null): string | null {
   } catch { return null; }
 }
 
-/* ── Source Card (dispersedWash) ── */
+/* ── Source Card (dispersedWash, design-accurate) ── */
 function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   const palette = SOURCE_PALETTES[index % SOURCE_PALETTES.length];
   const url = (paper.sourceUrl || "").toLowerCase();
-  const sourceType = url.includes("arxiv") ? "ARXIV" : paper.source === "rss" ? "NEWS" : "PAPER";
+  const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
   const journalName = getJournalName(paper.sourceUrl);
+  const ruleRef = React.useRef<HTMLDivElement>(null);
+
+  const baseWash = dispersedWash(palette, 0.5);
+  const hoverWash = dispersedWash(palette, 0.74);
 
   return (
-    <button
-      onClick={() => paper.sourceUrl && window.open(paper.sourceUrl, "_blank", "noopener,noreferrer")}
-      className="group transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+    <a
+      href={paper.sourceUrl || "#"}
+      onClick={e => { if (!paper.sourceUrl) e.preventDefault(); }}
+      target={paper.sourceUrl ? "_blank" : undefined}
+      rel="noopener noreferrer"
       style={{
-        border: "2px solid #1a1a1a",
-        boxShadow: "6px 6px 0px 0px rgba(0,0,0,1)",
-        padding: "18px 20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px",
-        width: "100%",
-        textAlign: "left",
+        ...baseWash,
+        border: "1px solid #1a1a1a",
+        display: "block",
+        padding: "16px 18px 18px",
+        textDecoration: "none",
+        color: "inherit",
         position: "relative",
         overflow: "hidden",
-        ...dispersedWash(palette),
+        transition: "background 320ms",
+        height: "100%",
+      }}
+      onMouseEnter={e => {
+        Object.assign((e.currentTarget as HTMLElement).style, hoverWash);
+        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(1)";
+      }}
+      onMouseLeave={e => {
+        Object.assign((e.currentTarget as HTMLElement).style, baseWash);
+        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(0)";
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "0.55rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace", color: "#888" }}>
-          {sourceType} · {paper.year || "2025"}
-        </span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:stroke-[#1a1a1a] transition-colors"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      {/* Venue + year + ext-link */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+        <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.625rem", letterSpacing: "0.12em", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span>{sourceType}</span>
+          <span style={{ color: "#aaa" }}>·</span>
+          <span>{paper.year || "2025"}</span>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M6 3h7v7M12.5 3.5L6.5 9.5M11 8v4.5H3.5V5H8" stroke="#1a1a1a" strokeWidth="1.4" strokeLinecap="square" />
+        </svg>
       </div>
-      <span
-        className="group-hover:underline"
-        style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", lineHeight: 1.3, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}
-      >
+
+      {/* Hover ink rule */}
+      <div ref={ruleRef} style={{ height: 1, background: "#1a1a1a", transform: "scaleX(0)", transformOrigin: "left center", transition: "transform 360ms cubic-bezier(.2,.7,.2,1)", margin: "-8px 0 10px" }} />
+
+      {/* Title */}
+      <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
         {paper.title}
-      </span>
+      </h3>
+
+      {/* Authors + journal */}
       {(paper.authors.length > 0 || journalName) && (
-        <span style={{ fontSize: "0.65rem", color: "#666", fontStyle: "italic", lineHeight: 1.4 }}>
+        <div style={{ fontStyle: "italic", color: "#666", fontSize: "0.75rem", lineHeight: 1.4, marginBottom: "10px" }}>
           {paper.authors.length > 0 && (
             paper.authors.length <= 2 ? paper.authors.join(" & ") : `${paper.authors[0]}${paper.authors[1] ? `, ${paper.authors[1]}` : ""} et al.`
           )}
           {paper.authors.length > 0 && journalName ? " — " : ""}
           {journalName && <em>{journalName}</em>}
-        </span>
+        </div>
       )}
+
+      {/* Summary — hairline separator */}
       {paper.summary && (
-        <p style={{ fontSize: "0.75rem", color: "#555", lineHeight: 1.5, borderLeft: "3px solid rgba(0,0,0,0.12)", paddingLeft: "10px", margin: 0 }}>
+        <div style={{ paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.18)", fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
           {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
-        </p>
+        </div>
       )}
+
+      {/* Tags — clear/glass style */}
       {paper.keywords.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
           {paper.keywords.slice(0, 2).map((kw) => (
-            <span key={kw} style={{ padding: "3px 10px", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", background: "rgba(0,0,0,0.06)", border: "1.5px solid rgba(0,0,0,0.18)" }}>
+            <span key={kw} style={{
+              background: "rgba(255,255,255,0.55)",
+              color: "#1a1a1a",
+              border: "1px solid rgba(26,26,26,0.35)",
+              fontFamily: "var(--font-mono), monospace",
+              fontSize: "0.6rem", fontWeight: 600,
+              letterSpacing: "0.08em", padding: "4px 9px",
+              textTransform: "uppercase", display: "inline-block",
+              lineHeight: 1, whiteSpace: "nowrap",
+              backdropFilter: "blur(6px)",
+            }}>
               {kw}
             </span>
           ))}
         </div>
       )}
-    </button>
+    </a>
   );
 }
 
@@ -532,7 +568,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — Marginalia layout ── */
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }} className="px-4 md:px-7 pt-10 md:pt-12 pb-20">
+    <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-10 md:pt-12 pb-20">
 
       {/* ── Two-column grid: main | right rail ── */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] items-start" style={{ gap: "56px" }}>

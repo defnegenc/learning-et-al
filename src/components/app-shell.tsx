@@ -39,14 +39,14 @@ export function AppShell({ session, updateSession }: AppShellProps) {
       {/* Header */}
       <header
         className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
-        style={{ borderBottom: "4px solid #1a1a1a", background: "white", height: "56px" }}
+        style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px" }}
       >
         <h1
           className="hidden md:block"
           style={{
-            fontSize: "1.6rem",
+            fontSize: "1.25rem",
             fontWeight: 900,
-            letterSpacing: "0.18em",
+            letterSpacing: "0.2em",
             textTransform: "uppercase",
             color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
@@ -59,7 +59,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <span
           className="block md:hidden"
           style={{
-            fontSize: "0.85rem",
+            fontSize: "0.8rem",
             fontWeight: 900,
             textTransform: "uppercase",
             letterSpacing: "0.15em",
@@ -71,24 +71,24 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         </span>
 
         {/* Desktop tabs */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-6">
           {(["today", "vault", ...(adminVerified ? ["admin" as const] : [])] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{
-                padding: "6px 16px",
-                fontSize: "0.8rem",
-                fontWeight: 700,
+                padding: "4px 0",
+                fontSize: "0.625rem",
+                fontWeight: 600,
                 textTransform: "uppercase",
-                letterSpacing: "2px",
+                letterSpacing: "0.12em",
                 fontFamily: "var(--font-mono), monospace",
-                border: activeTab === tab ? "2px solid #1a1a1a" : "2px solid transparent",
-                background: activeTab === tab ? "#1a1a1a" : "transparent",
-                color: activeTab === tab ? "white" : "#888",
-                boxShadow: activeTab === tab ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
-                transition: "all 0.15s ease",
+                border: "none",
+                background: "transparent",
+                color: activeTab === tab ? "#1a1a1a" : "#999",
+                borderBottom: activeTab === tab ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
                 cursor: "pointer",
+                transition: "color 0.15s",
               }}
             >
               {tab}
