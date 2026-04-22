@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { LogOut, BookOpen, Archive, BarChart3 } from "lucide-react";
+import { BookOpen, Archive, Compass, Settings, BarChart3 } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { NoiseOverlay } from "@/components/noise-overlay";
+import type { SettingsTab } from "@/components/settings-dialog";
 
 interface Session {
   userId: string | null;
@@ -24,13 +25,21 @@ interface AppShellProps {
 
 export function AppShell({ session, updateSession }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<"today" | "vault" | "admin">("today");
-  // Check admin via lightweight API on mount
   const [adminVerified, setAdminVerified] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("api");
+
   useEffect(() => {
     if (!session.userId) return;
     fetch("/api/admin/check").then(r => { if (r.ok) setAdminVerified(true); }).catch(() => {});
   }, [session.userId]);
+
   const refreshDigestRef = useRef<(() => void) | null>(null);
+
+  const openSettings = (tab: SettingsTab = "api") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  };
 
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
@@ -41,83 +50,105 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
         style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px" }}
       >
+        {/* Logo */}
         <h1
           className="hidden md:block"
           style={{
-            fontSize: "1.25rem",
-            fontWeight: 900,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "#1a1a1a",
+            fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em",
+            textTransform: "uppercase", color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
           }}
         >
           LEARNING ET AL.
         </h1>
-
-        {/* Mobile: show brand name */}
         <span
           className="block md:hidden"
           style={{
-            fontSize: "0.8rem",
-            fontWeight: 900,
-            textTransform: "uppercase",
-            letterSpacing: "0.15em",
-            color: "#1a1a1a",
+            fontSize: "0.8rem", fontWeight: 900, textTransform: "uppercase",
+            letterSpacing: "0.15em", color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
           }}
         >
           Learning et al.
         </span>
 
-        {/* Desktop tabs */}
-        <div className="hidden md:flex items-center gap-6">
-          {(["today", "vault", ...(adminVerified ? ["admin" as const] : [])] as const).map(tab => (
+        {/* Right side: nav tabs + settings */}
+        <div className="flex items-center gap-1 md:gap-0">
+          {/* Desktop nav tabs */}
+          <div className="hidden md:flex items-center gap-6 mr-4">
+            {(["today", "vault"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
+                  textTransform: "uppercase", letterSpacing: "0.12em",
+                  fontFamily: "var(--font-mono), monospace",
+                  border: "none", background: "transparent",
+                  color: activeTab === tab ? "#1a1a1a" : "#999",
+                  borderBottom: activeTab === tab ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
+                  cursor: "pointer", transition: "color 0.15s",
+                }}
+              >
+                {tab}
+              </button>
+            ))}
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => openSettings("interests")}
               style={{
-                padding: "4px 0",
-                fontSize: "0.625rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.12em",
+                padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
+                textTransform: "uppercase", letterSpacing: "0.12em",
                 fontFamily: "var(--font-mono), monospace",
-                border: "none",
-                background: "transparent",
-                color: activeTab === tab ? "#1a1a1a" : "#999",
-                borderBottom: activeTab === tab ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
-                cursor: "pointer",
-                transition: "color 0.15s",
+                border: "none", background: "transparent",
+                color: "#999",
+                borderBottom: "1.5px solid transparent",
+                cursor: "pointer", transition: "color 0.15s",
               }}
+              className="hover:text-[#1a1a1a]"
             >
-              {tab}
+              interests
             </button>
-          ))}
-        </div>
+            {adminVerified && (
+              <button
+                onClick={() => setActiveTab("admin")}
+                style={{
+                  padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
+                  textTransform: "uppercase", letterSpacing: "0.12em",
+                  fontFamily: "var(--font-mono), monospace",
+                  border: "none", background: "transparent",
+                  color: activeTab === "admin" ? "#1a1a1a" : "#999",
+                  borderBottom: activeTab === "admin" ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
+                  cursor: "pointer", transition: "color 0.15s",
+                }}
+              >
+                admin
+              </button>
+            )}
+          </div>
 
-        <div className="flex items-center gap-1 md:gap-2">
+          {/* Settings gear — opens to API Key tab */}
+          <button
+            onClick={() => openSettings("api")}
+            title="Settings"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
+            className="hover:text-[#1a1a1a] transition-colors"
+          >
+            <Settings size={16} />
+          </button>
+
+          {/* Controlled dialog (no trigger needed — opened via buttons above) */}
           <SettingsDialog
             session={session}
             updateSession={updateSession}
             onRefreshDigest={() => refreshDigestRef.current?.()}
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            startTab={settingsTab}
           />
-          <button
-            onClick={() => {
-              localStorage.removeItem("pp_session");
-              window.location.href = "/api/logout";
-            }}
-            title="Sign out"
-            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
-            className="hover:text-[#1a1a1a] transition-colors"
-          >
-            <LogOut size={16} />
-          </button>
         </div>
       </header>
 
       <main className="relative z-10 flex-1 pb-16 md:pb-0">
-        {/* Both tabs always mounted */}
         <div style={{ display: activeTab === "today" ? "contents" : "none" }}>
           <TodayPage
             session={session}
@@ -146,9 +177,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           style={{
             background: activeTab === "today" ? "#1a1a1a" : "white",
             color: activeTab === "today" ? "white" : "#888",
-            border: "none",
-            cursor: "pointer",
-            transition: "all 0.15s",
+            border: "none", cursor: "pointer", transition: "all 0.15s",
           }}
         >
           <BookOpen size={18} />
@@ -162,15 +191,27 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           style={{
             background: activeTab === "vault" ? "#1a1a1a" : "white",
             color: activeTab === "vault" ? "white" : "#888",
-            border: "none",
-            cursor: "pointer",
-            borderLeft: "2px solid #1a1a1a",
-            transition: "all 0.15s",
+            border: "none", cursor: "pointer",
+            borderLeft: "2px solid #1a1a1a", transition: "all 0.15s",
           }}
         >
           <Archive size={18} />
           <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
             Vault
+          </span>
+        </button>
+        <button
+          onClick={() => openSettings("interests")}
+          className="flex-1 flex flex-col items-center gap-1 py-3"
+          style={{
+            background: "white", color: "#888",
+            border: "none", cursor: "pointer",
+            borderLeft: "2px solid #1a1a1a", transition: "all 0.15s",
+          }}
+        >
+          <Compass size={18} />
+          <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
+            Interests
           </span>
         </button>
         {adminVerified && (
@@ -180,10 +221,8 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             style={{
               background: activeTab === "admin" ? "#1a1a1a" : "white",
               color: activeTab === "admin" ? "white" : "#888",
-              border: "none",
-              cursor: "pointer",
-              borderLeft: "2px solid #1a1a1a",
-              transition: "all 0.15s",
+              border: "none", cursor: "pointer",
+              borderLeft: "2px solid #1a1a1a", transition: "all 0.15s",
             }}
           >
             <BarChart3 size={18} />

@@ -180,6 +180,7 @@ function DigDeeperRail({
   loading,
   showQuestions,
   onAsk,
+  onToggleShowQuestions,
   session,
   onSignIn,
 }: {
@@ -189,6 +190,7 @@ function DigDeeperRail({
   loading: boolean;
   showQuestions: boolean;
   onAsk: (q: string) => void;
+  onToggleShowQuestions?: () => void;
   session?: { apiKey: string; provider: string; model: string; baseUrl: string };
   onSignIn?: () => void;
 }) {
@@ -210,6 +212,23 @@ function DigDeeperRail({
       <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", marginBottom: "16px" }}>
         Dig deeper
       </div>
+
+      {/* Show suggestions toggle — only when no history yet */}
+      {!showQuestions && !loading && questions.length > 0 && history.length === 0 && (
+        <button
+          onClick={onToggleShowQuestions}
+          style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            width: "100%", background: "transparent", border: "none",
+            padding: "10px 0", cursor: "pointer", marginBottom: "8px",
+          }}
+        >
+          <span style={{ fontSize: "0.75rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
+            {questions.length} suggested question{questions.length > 1 ? "s" : ""}
+          </span>
+          <span style={{ fontSize: "0.65rem", color: "#888", fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>Show ↓</span>
+        </button>
+      )}
 
       {/* Suggested question rows */}
       {showQuestions && !loading && questions.length > 0 && (
@@ -410,7 +429,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
   const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
-  const [showQuestions, setShowQuestions] = useState(true);
+  const [showQuestions, setShowQuestions] = useState(false);
 
   const historyKey = digest ? `digest_chat_${digest.id}` : "";
   useEffect(() => {
@@ -420,7 +439,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       try { setDigDeeperHistory(JSON.parse(saved)); setShowQuestions(false); } catch { /* ignore */ }
     } else {
       setDigDeeperHistory([]);
-      setShowQuestions(true);
+      setShowQuestions(false);
     }
   }, [historyKey]);
 
@@ -694,6 +713,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               loading={digDeeperLoading}
               showQuestions={showQuestions}
               onAsk={handleDigDeeper}
+              onToggleShowQuestions={() => setShowQuestions(true)}
               session={session}
               onSignIn={onSignIn}
             />
@@ -734,8 +754,12 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         </div>
       )}
 
-      {/* ── Floating notepad ── */}
-      {digest.id && session && <NotepadFloat digestId={digest.id} />}
+      {/* ── Floating notepad — desktop only (avoids overlap with mobile nav) ── */}
+      {digest.id && session && (
+        <div className="hidden md:block">
+          <NotepadFloat digestId={digest.id} />
+        </div>
+      )}
     </div>
   );
 }

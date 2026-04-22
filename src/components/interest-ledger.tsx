@@ -12,7 +12,7 @@ export interface SelectedTopic {
 
 // Per-category 2-color gradient palettes — one distinct family per row,
 // so a panel of tags reads as a single family, not a rainbow.
-const CATEGORY_PALETTES: Record<string, [string, string]> = {
+export const CATEGORY_PALETTES: Record<string, [string, string]> = {
   "Computer Science":       ["#D0E3F7", "#C8F0D8"], // blue → mint
   "Design & Art":           ["#FFD6E0", "#F7D9E8"], // pink → rose
   "Biology":                ["#C8F0D8", "#FFE89A"], // mint → yellow
@@ -212,17 +212,6 @@ export function InterestLedger({
                   color: "#1a1a1a",
                 }}
               >{fieldKey}</div>
-              <div
-                style={{
-                  fontFamily: "var(--font-mono), monospace",
-                  fontSize: 9,
-                  letterSpacing: 2,
-                  color: "#555",
-                  textTransform: "uppercase",
-                  fontWeight: 700,
-                  marginTop: 6,
-                }}
-              >{selCount} / {allTopics.length}</div>
             </div>
 
             {/* Middle — glass tags */}

@@ -148,7 +148,6 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
         cursor: "pointer", transition: "background 0.15s", borderRadius: "2px",
         WebkitBoxDecorationBreak: "clone",
         boxDecorationBreak: "clone" as React.CSSProperties["boxDecorationBreak"],
-        borderBottom: "2px solid currentColor",
       }}
       onMouseEnter={() => { setHovered(true); updateTooltip(); }}
       onMouseLeave={() => setHovered(false)}
@@ -307,20 +306,36 @@ interface SynthesisBannerProps {
   hideInteractionUI?: boolean;
 }
 
-// Guest dig deeper — shows all pre-generated Q&A inline, prompts sign-in for more
+// Guest dig deeper — shows pre-generated Q&A collapsed by default, prompts sign-in for more
 export function GuestDigDeeper({ questions, answers, onSignIn }: {
   questions: string[];
   answers: string[];
   onSignIn?: () => void;
 }) {
-  // Only render Q&A pairs where we actually have an answer
+  const [expanded, setExpanded] = useState(false);
   const pairs = questions
     .map((q, i) => ({ q, a: answers[i] || "" }))
     .filter(p => p.a.trim().length > 0);
 
   return (
-    <div style={{ marginTop: "28px" }}>
-      {pairs.length > 0 && (
+    <div>
+      {pairs.length > 0 && !expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            width: "100%", background: "transparent", border: "none",
+            padding: "10px 0", cursor: "pointer", marginBottom: "8px",
+          }}
+        >
+          <span style={{ fontSize: "0.75rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
+            {pairs.length} pre-answered question{pairs.length > 1 ? "s" : ""}
+          </span>
+          <span style={{ fontSize: "0.65rem", color: "#888", fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>Show ↓</span>
+        </button>
+      )}
+
+      {expanded && pairs.length > 0 && (
         <div style={{ marginBottom: "16px" }}>
           {pairs.map(({ q, a }, i) => (
             <div key={i} style={{ marginBottom: i < pairs.length - 1 ? "16px" : "0" }}>
@@ -340,17 +355,20 @@ export function GuestDigDeeper({ questions, answers, onSignIn }: {
               {i < pairs.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
             </div>
           ))}
+          <button onClick={() => setExpanded(false)} style={{ fontSize: "0.65rem", color: "#aaa", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono), monospace", marginTop: "12px", padding: 0 }}>
+            Hide ↑
+          </button>
         </div>
       )}
 
-      {/* Sign-in CTA — always visible under the answers */}
+      {/* Sign-in CTA */}
       <button
         onClick={onSignIn}
         style={{
           display: "flex", gap: "10px", alignItems: "center", width: "100%",
           border: "2px solid #1a1a1a", padding: "12px 14px", background: "white",
           cursor: "pointer",
-          marginTop: pairs.length > 0 ? "16px" : "0",
+          marginTop: expanded && pairs.length > 0 ? "16px" : "0",
         }}
         className="hover:bg-[#fafafa] transition-colors"
       >
