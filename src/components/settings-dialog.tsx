@@ -8,13 +8,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, LogOut, X } from "lucide-react";
+import { CATEGORY_PALETTES } from "@/components/interest-ledger";
 import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, type CustomTopics } from "@/components/interest-ledger";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
-type SettingsTab = "api" | "interests" | "account";
+export type SettingsTab = "api" | "interests" | "account";
 
 interface SettingsDialogProps {
   session: {
@@ -25,6 +26,9 @@ interface SettingsDialogProps {
   };
   updateSession: (updates: Record<string, unknown>) => void;
   onRefreshDigest?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  startTab?: SettingsTab;
 }
 
 const providerDefaults: Record<Provider, { model: string; label: string }> = {
@@ -43,9 +47,12 @@ interface SelectedTopic {
 }
 
 
-export function SettingsDialog({ session, updateSession, onRefreshDigest }: SettingsDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<SettingsTab>("interests");
+export function SettingsDialog({ session, updateSession, onRefreshDigest, open: controlledOpen, onOpenChange, startTab }: SettingsDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => { isControlled ? onOpenChange?.(v) : setInternalOpen(v); };
+  const [tab, setTab] = useState<SettingsTab>("api");
   const { data: authSession } = useAuthSession();
 
   // API state
@@ -72,6 +79,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
 
   useEffect(() => {
     if (open) {
+      setTab(startTab || "api");
       setProvider(session.provider as Provider);
       setApiKey(session.apiKey);
       setModel(session.model);
@@ -80,7 +88,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
       loadInterests();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, startTab]);
 
   async function loadInterests() {
     setLoadingInterests(true);
@@ -236,79 +244,69 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
 
   const navItems: { key: SettingsTab; label: string }[] = [
     { key: "interests", label: "Interests" },
-    { key: "api", label: "API" },
+    { key: "api", label: "API Key" },
+    { key: "account", label: "Account" },
   ];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="ghost" size="icon" />}>
-        <Settings className="size-4" />
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger render={<Button variant="ghost" size="icon" />}>
+          <Settings className="size-4" />
+        </DialogTrigger>
+      )}
       <DialogContent
         className="flex flex-col p-0 gap-0"
         style={{ width: "100vw", height: "100vh", maxWidth: "100vw", maxHeight: "100vh", borderRadius: 0 }}
         showCloseButton={false}
       >
-        {/* ── Top bar: Settings title + tabs + sign out ── */}
-        <div style={{ borderBottom: "3px solid #1a1a1a", background: "white", padding: "0 12px", display: "flex", alignItems: "stretch", justifyContent: "space-between", flexShrink: 0, minHeight: "48px" }}>
-          <div style={{ display: "flex", alignItems: "stretch", gap: 0, overflow: "hidden" }}>
-            <div className="hidden md:flex" style={{ alignItems: "center", paddingRight: "16px", marginRight: "4px" }}>
-              <h2 style={{ fontSize: "1.1rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.02em" }}>
-                Settings
-              </h2>
-            </div>
-            {navItems.filter(i => i.key !== "account").map(item => (
+        {/* ── Top bar — matches app-shell header style ── */}
+        <header
+          className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
+          style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px", flexShrink: 0 }}
+        >
+          <span
+            style={{
+              fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em",
+              textTransform: "uppercase", color: "#1a1a1a",
+              fontFamily: "var(--font-display), sans-serif",
+            }}
+          >
+            LEARNING ET AL.
+          </span>
+
+          {/* Nav tabs — same style as app-shell */}
+          <div className="flex items-center gap-6">
+            {navItems.map(item => (
               <button
                 key={item.key}
                 onClick={() => setTab(item.key)}
-                className={tab !== item.key ? "hover:bg-gray-100" : ""}
                 style={{
-                  display: "flex", alignItems: "center", padding: "12px 14px",
-                  fontSize: "0.8rem", fontWeight: 700,
-                  background: tab === item.key ? "#1a1a1a" : "transparent",
-                  color: tab === item.key ? "white" : "#888",
-                  border: "none", borderBottom: "3px solid transparent",
-                  cursor: "pointer", transition: "all 0.1s",
-                  marginBottom: "-3px", whiteSpace: "nowrap",
+                  padding: "4px 0",
+                  fontSize: "0.625rem", fontWeight: 600,
+                  textTransform: "uppercase", letterSpacing: "0.12em",
                   fontFamily: "var(--font-mono), monospace",
-                  textTransform: "uppercase", letterSpacing: "1px",
+                  border: "none", background: "transparent",
+                  color: tab === item.key ? "#1a1a1a" : "#999",
+                  borderBottom: tab === item.key ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
+                  cursor: "pointer", transition: "color 0.15s",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {item.label}
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {authSession?.user && (
-              <div className="hidden md:flex items-center gap-2" style={{ marginRight: "4px" }}>
-                {authSession.user.image && (
-                  <img src={authSession.user.image} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%", border: "1.5px solid #ddd" }} />
-                )}
-                <span style={{ fontSize: "0.8rem", color: "#888" }}>{authSession.user.name?.split(" ")[0]}</span>
-              </div>
-            )}
-            <button
-              onClick={() => {
-                localStorage.removeItem("pp_session");
-                window.location.href = "/api/logout";
-              }}
-              className="flex items-center gap-1.5 text-[#888] hover:text-[#1a1a1a] transition-colors"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 8px", fontSize: "0.65rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px" }}
-              title="Sign out"
-            >
-              <LogOut className="size-3.5" />
-              <span className="hidden md:inline">Sign out</span>
-            </button>
-            <button
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-center text-[#888] hover:text-[#1a1a1a] hover:bg-gray-100 transition-colors"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "8px", borderRadius: "4px" }}
-              title="Close"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
+
+          <button
+            onClick={() => setOpen(false)}
+            className="flex items-center justify-center text-[#888] hover:text-[#1a1a1a] transition-colors"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "8px" }}
+            title="Close"
+          >
+            <X className="size-5" />
+          </button>
+        </header>
 
         {/* ── Main content ── */}
         <main className="flex-1 flex flex-col overflow-hidden">
@@ -422,7 +420,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
                   Curate Your Feed
                 </h3>
                 <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "0" }}>
-                  Pick topics to personalize your daily digest. Set expertise level per category.
+                  Pick topics to personalize your daily digest.
                 </p>
               </div>
 
@@ -471,47 +469,87 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest }: Sett
               </div>
 
               {/* Selected footer */}
-              <div className="px-5 md:px-10" style={{ borderTop: "3px solid #1a1a1a", background: "#fafafa", paddingTop: "12px", paddingBottom: "12px", flexShrink: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", fontFamily: "var(--font-mono), monospace" }}>
-                    Selected ({selectedTopics.length}/20)
-                  </span>
-                  <button
-                    onClick={() => setSelectedTopics([])}
-                    style={{ fontSize: "0.65rem", fontWeight: 700, color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px" }}
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", maxHeight: "64px", overflowY: "auto" }}>
-                  {selectedTopics.map(t => (
-                    <div
-                      key={t.keyword}
-                      style={{
-                        display: "inline-flex", alignItems: "center",
-                        border: "2px solid #1a1a1a", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase",
-                        background: t.color || "#e5e7eb",
-                      }}
+              {selectedTopics.length > 0 && (
+                <div className="px-5 md:px-10" style={{ borderTop: "3px solid #1a1a1a", background: "#fafafa", paddingTop: "12px", paddingBottom: "12px", flexShrink: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: "8px" }}>
+                    <button
+                      onClick={() => setSelectedTopics([])}
+                      style={{ fontSize: "0.65rem", fontWeight: 700, color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px" }}
                     >
-                      <span style={{ padding: "3px 7px", borderRight: "1px solid #1a1a1a", fontSize: "0.5rem", fontFamily: "var(--font-mono), monospace", opacity: 0.6 }}>
-                        {t.fieldLabel}
-                      </span>
-                      <span style={{ padding: "3px 8px" }}>{t.keyword}</span>
-                      <button
-                        onClick={() => setSelectedTopics(prev => prev.filter(x => x.keyword !== t.keyword))}
-                        className="hover:bg-[#1a1a1a] hover:text-white transition-colors"
-                        style={{ padding: "3px 6px", borderLeft: "1px solid #1a1a1a", background: "none", cursor: "pointer", fontSize: "0.7rem" }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                      Clear All
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", maxHeight: "72px", overflowY: "auto" }}>
+                    {selectedTopics.map(t => {
+                      const fieldEntry = Object.entries(FIELD_HIERARCHY).find(([, def]) => def.s2Field === t.field);
+                      const pal = fieldEntry ? CATEGORY_PALETTES[fieldEntry[0]] : null;
+                      const gradient = pal ? `linear-gradient(135deg, ${pal[0]} 0%, ${pal[1]} 100%)` : (t.color || "#e5e7eb");
+                      return (
+                        <span
+                          key={t.keyword}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: "4px",
+                            border: "1px solid rgba(26,26,26,0.25)", fontSize: "0.65rem",
+                            fontWeight: 600, textTransform: "uppercase", borderRadius: "3px",
+                            background: gradient, padding: "4px 6px 4px 8px",
+                            fontFamily: "var(--font-mono), monospace",
+                          }}
+                        >
+                          {t.keyword}
+                          <button
+                            onClick={() => setSelectedTopics(prev => prev.filter(x => x.keyword !== t.keyword))}
+                            style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px", fontSize: "0.75rem", lineHeight: 1, color: "rgba(26,26,26,0.5)" }}
+                            className="hover:text-[#1a1a1a] transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
-          {/* Bottom action bar */}
-          {(
+
+          {/* ── Account Tab ── */}
+          {tab === "account" && (
+            <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
+              <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
+                Account
+              </h3>
+              {authSession?.user && (
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "32px", paddingBottom: "24px", borderBottom: "1px solid #e5e7eb" }}>
+                  {authSession.user.image && (
+                    <img src={authSession.user.image} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", border: "1.5px solid #ddd" }} />
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{authSession.user.name}</div>
+                    <div style={{ fontSize: "0.8rem", color: "#888" }}>{authSession.user.email}</div>
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  localStorage.removeItem("pp_session");
+                  window.location.href = "/api/logout";
+                }}
+                className="flex items-center gap-2 hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                style={{
+                  border: "2px solid #1a1a1a", padding: "10px 20px",
+                  background: "white", cursor: "pointer",
+                  fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
+                  letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
+                }}
+              >
+                <LogOut className="size-3.5" />
+                Sign out
+              </button>
+            </div>
+          )}
+
+          {/* Bottom action bar — only on api/interests tabs */}
+          {tab !== "account" && (
             <div className="px-4 md:px-10" style={{
               borderTop: "3px solid #1a1a1a", background: "white",
               paddingTop: "12px", paddingBottom: "12px", display: "flex", flexWrap: "wrap",
