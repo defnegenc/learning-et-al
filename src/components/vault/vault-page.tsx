@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star } from "lucide-react";
-import { PaperDetail } from "@/components/today/paper-detail";
+import React from "react";
 import { CompareView } from "./compare-view";
-import { PaperCard, type PaperItem } from "@/components/today/paper-card";
+import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
+import type { PaperItem } from "@/components/today/paper-card";
 
 interface VaultPageProps {
   session: {
@@ -17,30 +18,12 @@ interface VaultPageProps {
   };
 }
 
-const LIMIT = 12;
-const PASTEL_COLORS = ["#fef3c7", "#bae6fd", "#d8b4fe", "#fed7aa", "#a5f3fc"];
-
-// Category colors for field filter tags — gives visual hierarchy matching the brutalist tag style
-const FIELD_COLORS: Record<string, string> = {
-  CS: "#dbeafe",
-  Art: "#fce7f3",
-  Bio: "#dcfce7",
-  Med: "#fef9c3",
-  Physics: "#e2d5f1",
-  Math: "#e0e7ff",
-  "Social Sci": "#fed7aa",
-  "Env Sci": "#d1fae5",
-  Business: "#fef3c7",
-  Econ: "#fef3c7",
-  "Pol Sci": "#fee2e2",
-  Phil: "#ede9fe",
-  Ling: "#fbcfe8",
-  Law: "#e5e7eb",
-  Edu: "#ccfbf1",
-  Sociology: "#fce7f3",
-  Design: "#fbcfe8",
-  Psychology: "#e9d5ff",
-};
+interface DigestTheme {
+  id: string;
+  date: string;
+  theme: string;
+  starred: boolean;
+}
 
 interface Interest {
   id: string;
@@ -50,13 +33,156 @@ interface Interest {
   source: string;
 }
 
-interface DigestTheme {
-  id: string;
-  date: string;
-  theme: string;
-  starred: boolean;
-  synthesisContent: string | null;
+const LIMIT = 12;
+
+const SOURCE_PALETTES: [string, string][] = [
+  ["#C8F0D8", "#F0F5A8"],
+  ["#FFD6E0", "#FFE89A"],
+  ["#D0E3F7", "#E2D6F7"],
+  ["#FFE89A", "#FFD6E0"],
+];
+
+function dispersedWash(palette: [string, string], intensity = 0.5): React.CSSProperties {
+  const a = Math.min(255, Math.round(intensity * 255)).toString(16).padStart(2, "0");
+  const b = Math.min(255, Math.round(intensity * 0.6 * 255)).toString(16).padStart(2, "0");
+  const [h1, h2] = palette;
+  return {
+    background: `
+      radial-gradient(circle 170px at 2% 2%, ${h1}${a} 0%, transparent 62%),
+      radial-gradient(circle 160px at 98% 6%, ${h2}${a} 0%, transparent 62%),
+      radial-gradient(circle 150px at 96% 100%, ${h1}${b} 0%, transparent 62%),
+      radial-gradient(circle 170px at 2% 98%, ${h2}${b} 0%, transparent 62%),
+      #fff`,
+    backgroundBlendMode: "multiply, multiply, multiply, multiply, normal",
+  } as React.CSSProperties;
 }
+
+function getJournalName(sourceUrl: string | null, authors: string[]): string | null {
+  if (!sourceUrl) return null;
+  try {
+    const hostname = new URL(sourceUrl).hostname.replace("www.", "");
+    const domainMap: Record<string, string> = {
+      "arxiv.org": "arXiv", "nature.com": "Nature", "sciencedirect.com": "ScienceDirect",
+      "springer.com": "Springer", "ieee.org": "IEEE", "acm.org": "ACM", "pnas.org": "PNAS",
+      "frontiersin.org": "Frontiers", "mdpi.com": "MDPI", "wiley.com": "Wiley",
+      "tandfonline.com": "Taylor & Francis", "sagepub.com": "SAGE", "cambridge.org": "Cambridge UP",
+      "oup.com": "Oxford UP", "plos.org": "PLOS", "biorxiv.org": "bioRxiv",
+      "medrxiv.org": "medRxiv", "ssrn.com": "SSRN",
+    };
+    for (const [domain, name] of Object.entries(domainMap)) {
+      if (hostname.includes(domain)) return name;
+    }
+    const parts = hostname.split(".");
+    const name = parts.length > 2 ? parts.slice(0, -2).join(".") : parts[0];
+    if (name.length < 3) return null;
+    const derived = name.charAt(0).toUpperCase() + name.slice(1);
+    // Don't repeat what's already in authors
+    if (authors.some(a => a.toLowerCase() === derived.toLowerCase())) return null;
+    return derived;
+  } catch { return null; }
+}
+
+function VaultCard({
+  paper, index, compareMode, isSelected, onSelect,
+}: {
+  paper: PaperItem; index: number; compareMode?: boolean; isSelected?: boolean; onSelect?: (p: PaperItem) => void;
+}) {
+  const palette = SOURCE_PALETTES[index % SOURCE_PALETTES.length];
+  const url = (paper.sourceUrl || "").toLowerCase();
+  const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
+  const journalName = getJournalName(paper.sourceUrl, paper.authors);
+  const ruleRef = React.useRef<HTMLDivElement>(null);
+  const baseWash = dispersedWash(palette, 0.5);
+  const hoverWash = dispersedWash(palette, 0.74);
+
+  return (
+    <div
+      onClick={() => {
+        if (compareMode) { onSelect?.(paper); return; }
+        if (paper.sourceUrl) window.open(paper.sourceUrl, "_blank", "noopener,noreferrer");
+      }}
+      style={{
+        ...baseWash,
+        border: isSelected ? "2px solid #1a1a1a" : "1px solid #1a1a1a",
+        display: "block",
+        padding: "16px 18px 18px",
+        color: "inherit",
+        position: "relative",
+        overflow: "hidden",
+        transition: "background 320ms",
+        cursor: "pointer",
+        boxShadow: isSelected ? "4px 4px 0 #1a1a1a" : "none",
+      }}
+      onMouseEnter={e => {
+        Object.assign((e.currentTarget as HTMLElement).style, hoverWash);
+        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(1)";
+      }}
+      onMouseLeave={e => {
+        Object.assign((e.currentTarget as HTMLElement).style, baseWash);
+        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(0)";
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+        <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.625rem", letterSpacing: "0.12em", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span>{sourceType}</span>
+          <span style={{ color: "#aaa" }}>·</span>
+          <span>{paper.year || "2025"}</span>
+        </div>
+        {compareMode ? (
+          <div style={{ width: 18, height: 18, border: "2px solid #1a1a1a", borderRadius: "50%", background: isSelected ? "#1a1a1a" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "white" }} />}
+          </div>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M6 3h7v7M12.5 3.5L6.5 9.5M11 8v4.5H3.5V5H8" stroke="#1a1a1a" strokeWidth="1.4" strokeLinecap="square" />
+          </svg>
+        )}
+      </div>
+
+      <div ref={ruleRef} style={{ height: 1, background: "#1a1a1a", transform: "scaleX(0)", transformOrigin: "left center", transition: "transform 360ms cubic-bezier(.2,.7,.2,1)", margin: "-8px 0 10px" }} />
+
+      <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
+        {paper.title}
+      </h3>
+
+      {(paper.authors.length > 0 || journalName) && (
+        <div style={{ fontStyle: "italic", color: "#666", fontSize: "0.75rem", lineHeight: 1.4, marginBottom: "10px" }}>
+          {paper.authors.length > 0 && (
+            paper.authors.length <= 2 ? paper.authors.join(" & ") : `${paper.authors[0]}${paper.authors[1] ? `, ${paper.authors[1]}` : ""} et al.`
+          )}
+          {paper.authors.length > 0 && journalName ? " — " : ""}
+          {journalName && <em>{journalName}</em>}
+        </div>
+      )}
+
+      {paper.summary && (
+        <div style={{ paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.18)", fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
+          {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
+        </div>
+      )}
+
+      {paper.keywords.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+          {paper.keywords.slice(0, 2).map((kw) => (
+            <span key={kw} style={{
+              background: "rgba(255,255,255,0.55)", color: "#1a1a1a",
+              border: "1px solid rgba(26,26,26,0.35)",
+              fontFamily: "var(--font-mono), monospace",
+              fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.08em",
+              padding: "4px 9px", textTransform: "uppercase",
+              display: "inline-block", lineHeight: 1, whiteSpace: "nowrap",
+              backdropFilter: "blur(6px)",
+            }}>
+              {kw}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type FilterMode = "all" | "theme" | "domain" | "starred";
 
 export function VaultPage({ session }: VaultPageProps) {
   const [papers, setPapers] = useState<PaperItem[]>([]);
@@ -67,79 +193,48 @@ export function VaultPage({ session }: VaultPageProps) {
   const [loading, setLoading] = useState(true);
   const [pastThemes, setPastThemes] = useState<DigestTheme[]>([]);
   const [activeDigestId, setActiveDigestId] = useState<string | null>(null);
-  const [starFilter, setStarFilter] = useState(false);
   const [digestPapers, setDigestPapers] = useState<PaperItem[] | null>(null);
-
   const [interests, setInterests] = useState<Interest[]>([]);
   const [activeField, setActiveField] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<"all" | "papers" | "news">("all");
-
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [compareMode, setCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const [selectedPaper, setSelectedPaper] = useState<PaperItem | null>(null);
-
   const [comparing, setComparing] = useState(false);
-  const [comparisonResult, setComparisonResult] = useState<{
-    content: string;
-    papers: PaperItem[];
-  } | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<{ content: string; papers: PaperItem[] } | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
-  // Debounce search input
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 300);
+    const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Fetch papers
   const fetchPapers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(LIMIT),
-      });
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (debouncedSearch) params.set("search", debouncedSearch);
-      if (sourceFilter !== "all") params.set("source", sourceFilter);
-
       const res = await fetch(`/api/vault?${params}`);
       if (!res.ok) throw new Error("Failed to fetch vault");
       const data = await res.json();
       setPapers(data.papers ?? []);
       setTotal(data.total ?? 0);
-    } catch (err) {
-      console.error("Vault fetch error:", err);
-      setPapers([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, debouncedSearch, sourceFilter]);
+    } catch { setPapers([]); setTotal(0); }
+    finally { setLoading(false); }
+  }, [page, debouncedSearch]);
 
-  useEffect(() => {
-    fetchPapers();
-  }, [fetchPapers]);
+  useEffect(() => { fetchPapers(); }, [fetchPapers]);
 
-  // Fetch interests for field-based filtering
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/interests");
-        if (!res.ok) return;
         const data = await res.json();
-        setInterests(data.interests ?? []);
-      } catch (err) {
-        console.error("Failed to fetch interests:", err);
-      }
+        if (res.ok) setInterests(data.interests ?? []);
+      } catch { /* non-critical */ }
     })();
   }, []);
 
-  // Fetch past themes
   useEffect(() => {
     (async () => {
       try {
@@ -150,735 +245,320 @@ export function VaultPage({ session }: VaultPageProps) {
           let displayTheme = d.theme || "";
           if (!displayTheme && d.synthesisContent) {
             const firstLine = d.synthesisContent.split("\n").find((l: string) => l.trim()) ?? "";
-            displayTheme = firstLine
-              .replace(/^#+\s*/, "")
-              .replace(/\*\*/g, "")
-              .replace(/^Today[^.!?]*[.!?]\s*/i, "")
-              .trim()
-              .slice(0, 80);
+            displayTheme = firstLine.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/^Today[^.!?]*[.!?]\s*/i, "").trim().slice(0, 80);
           }
-          return { id: d.id, date: d.date, theme: displayTheme || "Untitled digest", starred: !!d.starred, synthesisContent: d.synthesisContent };
+          return { id: d.id, date: d.date, theme: displayTheme || "Untitled digest", starred: !!d.starred };
         });
         setPastThemes(themes);
-      } catch (err) {
-        console.error("Failed to fetch past themes:", err);
-      }
+      } catch { /* non-critical */ }
     })();
   }, []);
 
-  // Fetch papers for a specific digest by ID
   const handleThemeClick = async (digestId: string) => {
-    if (activeDigestId === digestId) {
-      setActiveDigestId(null);
-      setDigestPapers(null);
-      return;
-    }
+    if (activeDigestId === digestId) { setActiveDigestId(null); setDigestPapers(null); return; }
     setActiveDigestId(digestId);
     try {
       const res = await fetch(`/api/digest?id=${digestId}`);
       if (!res.ok) return;
       const data = await res.json();
       setDigestPapers(data.papers ?? []);
-    } catch (err) {
-      console.error("Failed to fetch digest papers:", err);
-      setDigestPapers(null);
-    }
+    } catch { setDigestPapers(null); }
   };
 
-  // Group interests by field for top-level tabs
-  const fieldGroups = useMemo(() => {
+  const fieldNames = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const i of interests) {
+      if (i.source === "dislike") continue;
+      const fieldEntry = Object.entries(FIELD_HIERARCHY).find(([, f]) => f.s2Field === i.field);
+      const name = fieldEntry ? fieldEntry[0] : i.field;
+      if (!seen.has(name)) { seen.add(name); names.push(name); }
+    }
+    return names;
+  }, [interests]);
+
+  const fieldKeywords = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const i of interests) {
       if (i.source === "dislike") continue;
-      const field = i.field || "Other";
-      // Shorten field name for display
-      const shortField = field
-        .replace("Computer Science", "CS")
-        .replace("Biology", "Bio")
-        .replace("Medicine", "Med")
-        .replace("Physics", "Physics")
-        .replace("Mathematics", "Math")
-        .replace("Social Sciences", "Social Sci")
-        .replace("Environmental Science", "Env Sci")
-        .replace("Business", "Business")
-        .replace("Economics", "Econ")
-        .replace("Political Science", "Pol Sci")
-        .replace("Philosophy", "Phil")
-        .replace("Linguistics", "Ling")
-        .replace("Law", "Law")
-        .replace("Education", "Edu");
-      if (!map.has(shortField)) map.set(shortField, []);
-      if (!map.get(shortField)!.includes(i.keyword)) {
-        map.get(shortField)!.push(i.keyword);
-      }
+      const fieldEntry = Object.entries(FIELD_HIERARCHY).find(([, f]) => f.s2Field === i.field);
+      const name = fieldEntry ? fieldEntry[0] : i.field;
+      if (!map.has(name)) map.set(name, []);
+      if (!map.get(name)!.includes(i.keyword)) map.get(name)!.push(i.keyword);
     }
     return map;
   }, [interests]);
 
-  // Filter papers by active field (keyword overlap with user's interests in that field) or active digest
   const filteredPapers = useMemo(() => {
     const base = activeDigestId && digestPapers ? digestPapers : papers;
     if (!activeField) return base;
-    const fieldKeywords = fieldGroups.get(activeField) ?? [];
-    if (fieldKeywords.length === 0) return base;
-    return base.filter((p) =>
-      p.keywords.some((pk) =>
-        fieldKeywords.some((fk) => {
-          const pkWords = pk.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-          const fkWords = fk.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-          return pkWords.some((pw) => fkWords.some((fw) => pw.includes(fw) || fw.includes(pw)));
+    const keywords = fieldKeywords.get(activeField) ?? [];
+    if (keywords.length === 0) return base;
+    return base.filter(p =>
+      p.keywords.some(pk =>
+        keywords.some(fk => {
+          const pkWords = pk.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+          const fkWords = fk.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+          return pkWords.some(pw => fkWords.some(fw => pw.includes(fw) || fw.includes(pw)));
         })
       )
     );
-  }, [papers, activeField, activeDigestId, digestPapers, fieldGroups]);
+  }, [papers, activeField, activeDigestId, digestPapers, fieldKeywords]);
 
-  // Toggle card selection in compare mode
+  const visibleThemes = useMemo(() => {
+    if (filterMode === "starred") return pastThemes.filter(t => t.starred);
+    return pastThemes;
+  }, [pastThemes, filterMode]);
+
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
+    setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else if (next.size < 3) {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else if (next.size < 3) next.add(id);
       return next;
     });
   };
 
-  // Run comparison
   const runCompare = async () => {
     setComparing(true);
     try {
       const res = await fetch("/api/vault/compare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paperIds: Array.from(selectedIds),
-          apiKey: session.apiKey,
-          provider: session.provider,
-          model: session.model,
-          baseUrl: session.baseUrl,
-        }),
+        body: JSON.stringify({ paperIds: Array.from(selectedIds), apiKey: session.apiKey, provider: session.provider, model: session.model, baseUrl: session.baseUrl }),
       });
       if (!res.ok) throw new Error("Comparison failed");
       const data = await res.json();
-      const comparedPapers = papers.filter((p) => selectedIds.has(p.id));
       setComparisonResult({
         content: data.comparison?.content ?? data.comparison ?? "",
-        papers: comparedPapers,
+        papers: papers.filter(p => selectedIds.has(p.id)),
       });
-    } catch (err) {
-      console.error("Compare error:", err);
-    } finally {
-      setComparing(false);
-    }
+    } catch { /* non-critical */ }
+    finally { setComparing(false); }
   };
 
-  // Exit compare mode
-  const exitCompareMode = () => {
-    setCompareMode(false);
-    setSelectedIds(new Set());
-  };
-
-  // If viewing a comparison result
   if (comparisonResult) {
     return (
       <CompareView
         content={comparisonResult.content}
         papers={comparisonResult.papers}
         session={session}
-        onBack={() => {
-          setComparisonResult(null);
-          exitCompareMode();
-        }}
+        onBack={() => { setComparisonResult(null); setCompareMode(false); setSelectedIds(new Set()); }}
       />
     );
   }
 
-  // Feedback handlers
-  const handleFeedback = async (paperId: string, type: "star" | "dislike") => {
-    try {
-      await fetch(`/api/papers/${paperId}/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
-      });
-    } catch (err) {
-      console.error("Failed to submit feedback:", err);
-    }
+  const navTabStyle = (active: boolean): React.CSSProperties => ({
+    padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
+    textTransform: "uppercase", letterSpacing: "0.12em",
+    fontFamily: "var(--font-mono), monospace",
+    border: "none", background: "transparent",
+    color: active ? "#1a1a1a" : "#999",
+    borderBottom: active ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
+    cursor: "pointer", transition: "color 0.15s",
+  });
+
+  const setMode = (mode: FilterMode) => {
+    setFilterMode(prev => prev === mode ? "all" : mode);
+    setActiveField(null);
+    setActiveDigestId(null);
+    setDigestPapers(null);
   };
 
   return (
-    <div className="flex flex-col md:min-h-[calc(100vh-3.5rem)]">
-      {/* Shared filter bar spanning full width — ensures aligned borders */}
-      <div className="hidden md:grid" style={{ gridTemplateColumns: "260px 1fr", borderBottom: "4px solid #1a1a1a" }}>
-        {/* Sidebar header (inside shared bar for alignment) */}
-        <div style={{ borderRight: "4px solid #1a1a1a", padding: "12px 16px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "10px", background: "#f9fafb" }}>
-          <h3 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", margin: 0 }}>
-            Past Themes
-          </h3>
-          <div style={{ display: "flex", border: "2px solid #1a1a1a" }}>
-            <button
-              onClick={() => setStarFilter(false)}
-              style={{
-                flex: 1, padding: "5px 0", border: "none", cursor: "pointer",
-                background: !starFilter ? "#1a1a1a" : "transparent",
-                color: !starFilter ? "white" : "#1a1a1a",
-                fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-                letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
-              }}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setStarFilter(true)}
-              style={{
-                padding: "5px 10px", border: "none", borderLeft: "2px solid #1a1a1a", cursor: "pointer",
-                background: starFilter ? "#1a1a1a" : "transparent",
-                color: starFilter ? "#f59e0b" : "#999",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <Star size={12} className={starFilter ? "fill-current" : ""} />
-            </button>
-          </div>
-        </div>
+    <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
 
-        {/* Filter rows (inside shared bar for alignment) */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {/* Row 1: Field filters */}
-          {fieldGroups.size > 0 && (
-            <div
-              className="px-6"
-              style={{
-                padding: "8px 24px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                flexWrap: "wrap",
-                borderBottom: "1px solid #e5e7eb",
-              }}
-            >
-              <button
-                onClick={() => setActiveField(null)}
-                style={{
-                  padding: "0 10px", height: "28px",
-                  background: activeField === null ? "#1a1a1a" : "transparent",
-                  border: "2px solid #1a1a1a",
-                  boxShadow: activeField === null ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
-                  color: activeField === null ? "white" : "#1a1a1a",
-                  fontSize: "0.6rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "1px",
-                  fontFamily: "var(--font-mono), monospace",
-                  whiteSpace: "nowrap",
-                  cursor: "pointer",
-                }}
-              >
-                All
-              </button>
-
-              {Array.from(fieldGroups.keys()).map((field) => {
-                const isActive = activeField === field;
-                const fieldColor = FIELD_COLORS[field] || "#e5e7eb";
-                return (
-                  <button
-                    key={field}
-                    onClick={() => setActiveField(isActive ? null : field)}
-                    style={{
-                      padding: "0 10px", height: "28px",
-                      background: isActive ? "#1a1a1a" : fieldColor,
-                      border: "2px solid #1a1a1a",
-                      boxShadow: isActive ? "2px 2px 0px 0px rgba(0,0,0,1)" : "none",
-                      color: isActive ? "white" : "#1a1a1a",
-                      fontSize: "0.6rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "1px",
-                      fontFamily: "var(--font-mono), monospace",
-                      whiteSpace: "nowrap",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {field}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {/* Row 2: Source filter + Search */}
-          <div
-            className="px-6"
-            style={{
-              padding: "8px 24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-            }}
+      {/* ── Filter bar ── */}
+      <div
+        className="flex flex-wrap items-center gap-4 md:gap-6"
+        style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: "12px", marginBottom: "24px" }}
+      >
+        <div className="flex items-center gap-4 md:gap-6 flex-1 min-w-0">
+          <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.1rem", fontWeight: 800, letterSpacing: "-0.02em", color: "#1a1a1a", flexShrink: 0 }}>
+            Vault
+          </span>
+          <button style={navTabStyle(filterMode === "theme")} onClick={() => setMode("theme")}>By Theme</button>
+          <button style={navTabStyle(filterMode === "domain")} onClick={() => setMode("domain")}>By Domain</button>
+          <button
+            onClick={() => setMode("starred")}
+            style={{ ...navTabStyle(filterMode === "starred"), display: "flex", alignItems: "center", gap: "5px" }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div style={{ display: "flex", border: "2px solid #1a1a1a" }}>
-                {(["all", "papers", "news"] as const).map((f, i) => (
-                  <button
-                    key={f}
-                    onClick={() => { setSourceFilter(f); setPage(1); }}
-                    style={{
-                      padding: "0 12px", height: "28px",
-                      background: sourceFilter === f ? "#1a1a1a" : "transparent",
-                      border: "none",
-                      borderLeft: i > 0 ? "2px solid #1a1a1a" : "none",
-                      color: sourceFilter === f ? "white" : "#1a1a1a",
-                      fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-                      letterSpacing: "1px", fontFamily: "var(--font-mono), monospace",
-                      whiteSpace: "nowrap", cursor: "pointer",
-                    }}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="shrink-0 relative">
-              <Search
-                style={{
-                  position: "absolute",
-                  left: "8px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: "12px",
-                  height: "12px",
-                  color: "#666",
-                }}
-              />
-              <input
-                placeholder="SEARCH..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-[140px] md:w-[200px]"
-                style={{
-                  border: "2px solid #1a1a1a",
-                  background: "transparent",
-                  paddingLeft: "28px",
-                  paddingRight: "12px",
-                  height: "28px",
-                  fontSize: "0.7rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "1px",
-                  fontFamily: 'var(--font-mono), monospace',
-                  borderRadius: 0,
-                  outline: "none",
-                }}
-              />
-            </div>
-          </div>
+            <Star size={10} className={filterMode === "starred" ? "fill-current" : ""} />
+            Starred
+          </button>
         </div>
-      </div>
 
-      {/* Mobile filter bar */}
-      <div className="flex md:hidden flex-col" style={{ borderBottom: "4px solid #1a1a1a" }}>
-        {fieldGroups.size > 0 && (
-          <div className="px-4" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", borderBottom: "1px solid #e5e7eb" }}>
+        <div className="flex items-center gap-3 shrink-0">
+          {compareMode && selectedIds.size >= 2 && (
             <button
-              onClick={() => setActiveField(null)}
+              onClick={runCompare}
+              disabled={comparing}
               style={{
-                padding: "0 10px", height: "28px",
-                background: activeField === null ? "#1a1a1a" : "transparent",
-                border: "2px solid #1a1a1a",
-                color: activeField === null ? "white" : "#1a1a1a",
-                fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-                letterSpacing: "1px", fontFamily: "var(--font-mono), monospace",
-                cursor: "pointer",
+                border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white",
+                padding: "5px 12px", fontSize: "0.6rem", fontWeight: 700,
+                textTransform: "uppercase", letterSpacing: "1.5px",
+                fontFamily: "var(--font-mono), monospace",
+                display: "flex", alignItems: "center", gap: "5px",
+                opacity: comparing ? 0.5 : 1, cursor: comparing ? "not-allowed" : "pointer",
               }}
             >
-              All
+              {comparing ? <Loader2 size={11} className="animate-spin" /> : <GitCompare size={11} />}
+              Compare ({selectedIds.size})
             </button>
-            {Array.from(fieldGroups.keys()).map((field) => {
-              const isActive = activeField === field;
-              const fieldColor = FIELD_COLORS[field] || "#e5e7eb";
-              return (
-                <button
-                  key={field}
-                  onClick={() => setActiveField(isActive ? null : field)}
-                  style={{
-                    padding: "0 10px", height: "28px",
-                    background: isActive ? "#1a1a1a" : fieldColor,
-                    border: "2px solid #1a1a1a",
-                    color: isActive ? "white" : "#1a1a1a",
-                    fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-                    letterSpacing: "1px", fontFamily: "var(--font-mono), monospace",
-                    cursor: "pointer",
-                  }}
-                >
-                  {field}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <div className="px-4" style={{ padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-          <div style={{ display: "flex", border: "2px solid #1a1a1a" }}>
-            {(["all", "papers", "news"] as const).map((f, i) => (
-              <button
-                key={f}
-                onClick={() => { setSourceFilter(f); setPage(1); }}
-                style={{
-                  padding: "0 12px", height: "28px",
-                  background: sourceFilter === f ? "#1a1a1a" : "transparent",
-                  border: "none",
-                  borderLeft: i > 0 ? "2px solid #1a1a1a" : "none",
-                  color: sourceFilter === f ? "white" : "#1a1a1a",
-                  fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-                  letterSpacing: "1px", fontFamily: "var(--font-mono), monospace",
-                  cursor: "pointer",
-                }}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          <div className="shrink-0 relative">
-            <Search style={{ position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)", width: "12px", height: "12px", color: "#666" }} />
+          )}
+          <button
+            onClick={() => { setCompareMode(v => !v); setSelectedIds(new Set()); }}
+            style={{ ...navTabStyle(compareMode), display: "flex", alignItems: "center", gap: "5px" }}
+          >
+            <GitCompare size={11} />Compare
+          </button>
+          <div style={{ position: "relative" }}>
+            <Search style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, color: "#999" }} />
             <input
-              placeholder="SEARCH..."
+              placeholder="Search..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-[140px]"
-              style={{ border: "2px solid #1a1a1a", background: "transparent", paddingLeft: "28px", paddingRight: "12px", height: "28px", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "1px", fontFamily: 'var(--font-mono), monospace', borderRadius: 0, outline: "none" }}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                border: "1px solid #ccc", background: "transparent",
+                paddingLeft: 26, paddingRight: 10, height: 28,
+                fontSize: "0.7rem", letterSpacing: "0.5px",
+                fontFamily: "var(--font-mono), monospace",
+                outline: "none", width: 150, color: "#1a1a1a",
+              }}
             />
           </div>
         </div>
       </div>
 
-      {/* Main body: sidebar + content */}
-      <div className="flex flex-col md:grid flex-1" style={{ gridTemplateColumns: "260px 1fr" }}>
-        {/* Left sidebar — Past Themes (desktop) */}
-        <aside className="hidden md:flex flex-col" style={{ background: "#f9fafb", overflowY: "auto", borderRight: "4px solid #1a1a1a" }}>
-          <div style={{ padding: "4px 0", flex: 1 }}>
-            {pastThemes.filter(t => !starFilter || t.starred).map(theme => (
-              <div
+      {/* ── Secondary filter row: themes ── */}
+      {(filterMode === "theme" || filterMode === "starred") && visibleThemes.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {visibleThemes.map(theme => {
+            const isActive = activeDigestId === theme.id;
+            return (
+              <button
                 key={theme.id}
                 onClick={() => handleThemeClick(theme.id)}
                 style={{
-                  padding: "10px 16px", cursor: "pointer", transition: "background 0.1s",
-                  background: activeDigestId === theme.id ? "#e5e7eb" : "transparent",
-                  borderLeft: activeDigestId === theme.id ? "4px solid #1a1a1a" : "4px solid transparent",
+                  display: "inline-flex", alignItems: "center", gap: "6px",
+                  padding: "5px 12px",
+                  background: isActive ? "#1a1a1a" : "transparent",
+                  border: isActive ? "1px solid #1a1a1a" : "1px solid rgba(26,26,26,0.3)",
+                  color: isActive ? "white" : "#1a1a1a",
+                  fontFamily: "var(--font-display), sans-serif",
+                  fontSize: "0.78rem", fontWeight: isActive ? 700 : 500,
+                  cursor: "pointer", transition: "all 120ms",
+                  maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}
-                className="hover:bg-gray-100"
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "3px" }}>
-                  <span style={{ fontSize: "0.6rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>{theme.date}</span>
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const s = !theme.starred;
-                      setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: s } : t));
-                      try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: theme.id }) }); } catch { setPastThemes(prev => prev.map(t => t.id === theme.id ? { ...t, starred: !s } : t)); }
-                    }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", color: theme.starred ? "#f59e0b" : "#ddd" }}
-                    className="hover:text-[#f59e0b]"
-                  >
-                    <Star size={12} className={theme.starred ? "fill-current" : ""} />
-                  </button>
-                </div>
-                <span style={{ fontSize: "0.78rem", color: "#1a1a1a", fontWeight: 600, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.3, fontFamily: "var(--font-display), sans-serif" }}>
-                  {theme.theme}
-                </span>
-              </div>
-            ))}
-            {pastThemes.filter(t => !starFilter || t.starred).length === 0 && (
-              <div style={{ padding: "24px 16px", textAlign: "center" }}>
-                <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
-                  {starFilter ? "No starred themes" : "No past themes yet"}
-                </span>
-              </div>
-            )}
-          </div>
-        </aside>
+                {theme.starred && <Star size={10} style={{ flexShrink: 0, fill: isActive ? "white" : "#f59e0b", stroke: isActive ? "white" : "#f59e0b" }} />}
+                {theme.theme}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-        {/* Main content area */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {selectedPaper ? (
-            <PaperDetail
-              paper={selectedPaper}
-              session={session}
-              inline
-              onBack={() => setSelectedPaper(null)}
-              onStar={(id) => handleFeedback(id, "star")}
-              onDislike={(id) => handleFeedback(id, "dislike")}
+      {/* ── Secondary filter row: domains ── */}
+      {filterMode === "domain" && fieldNames.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {fieldNames.map(field => {
+            const isActive = activeField === field;
+            return (
+              <button
+                key={field}
+                onClick={() => setActiveField(isActive ? null : field)}
+                style={{
+                  padding: "5px 12px",
+                  background: isActive ? "#1a1a1a" : "transparent",
+                  border: isActive ? "1px solid #1a1a1a" : "1px solid rgba(26,26,26,0.3)",
+                  color: isActive ? "white" : "#1a1a1a",
+                  fontFamily: "var(--font-mono), monospace",
+                  fontSize: "0.6rem", fontWeight: 600,
+                  textTransform: "uppercase", letterSpacing: "1px",
+                  cursor: "pointer", transition: "all 120ms",
+                }}
+              >
+                {field}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Compare info bar ── */}
+      {compareMode && (
+        <div style={{
+          border: "1px solid #1a1a1a", background: "#fef9c3",
+          padding: "10px 16px", marginBottom: "20px",
+          display: "flex", alignItems: "center",
+        }}>
+          <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", fontWeight: 600 }}>
+            Select 2–3 papers to compare · <strong>{selectedIds.size}/3 selected</strong>
+          </span>
+        </div>
+      )}
+
+      {/* ── Paper grid ── */}
+      {loading ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+          <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
+        </div>
+      ) : filteredPapers.length === 0 ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+          <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
+            {debouncedSearch ? "No papers match your search" : activeDigestId ? "No papers found for this digest" : "Your vault is empty"}
+          </span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+          {filteredPapers.map((paper, idx) => (
+            <VaultCard
+              key={paper.id}
+              paper={paper}
+              index={idx}
+              compareMode={compareMode}
+              isSelected={selectedIds.has(paper.id)}
+              onSelect={p => compareMode ? toggleSelect(p.id) : undefined}
             />
-          ) : (
-          <>
-          {/* Grid header */}
-          <div
-            className="px-4 md:px-6 pt-5"
+          ))}
+        </div>
+      )}
+
+      {/* ── Pagination ── */}
+      {!loading && totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", paddingTop: "32px" }}>
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "8px",
+              border: "1.5px solid #1a1a1a", background: "transparent", padding: "6px 14px",
+              fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px",
+              fontFamily: "var(--font-mono), monospace", fontWeight: 700,
+              display: "flex", alignItems: "center", gap: "4px",
+              opacity: page <= 1 ? 0.3 : 1, color: "#1a1a1a", cursor: page <= 1 ? "default" : "pointer",
             }}
           >
-            <div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-                <h2
-                  style={{
-                    fontSize: "1.3rem",
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    color: "#1a1a1a",
-                    fontFamily: "var(--font-display), sans-serif",
-                    margin: 0,
-                  }}
-                >
-                  Your Vault
-                </h2>
-                <span
-                  style={{
-                    fontSize: "0.6rem",
-                    color: "#999",
-                    fontFamily: 'var(--font-mono), monospace',
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                  }}
-                >
-                  {total} papers
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              {compareMode && selectedIds.size >= 2 && (
-                <button
-                  disabled={comparing}
-                  onClick={runCompare}
-                  className="min-h-[44px] md:min-h-0"
-                  style={{
-                    border: "2px solid #1a1a1a",
-                    background: "#1a1a1a",
-                    color: "white",
-                    padding: "8px 16px",
-                    fontSize: "0.7rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "2px",
-                    fontFamily: 'var(--font-mono), monospace',
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-                    opacity: comparing ? 0.5 : 1,
-                  }}
-                >
-                  {comparing ? (
-                    <>
-                      <Loader2 style={{ width: "14px", height: "14px", animation: "spin 1s linear infinite" }} />
-                      Comparing...
-                    </>
-                  ) : (
-                    <>Run comparison ({selectedIds.size})</>
-                  )}
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  if (compareMode) {
-                    exitCompareMode();
-                  } else {
-                    setCompareMode(true);
-                  }
-                }}
-                className="min-h-[44px] md:min-h-0"
-                style={{
-                  border: "2px solid #1a1a1a",
-                  background: compareMode ? "#1a1a1a" : "transparent",
-                  color: compareMode ? "white" : "#1a1a1a",
-                  padding: "8px 16px",
-                  fontSize: "0.65rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  fontFamily: 'var(--font-mono), monospace',
-                  fontWeight: 700,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: compareMode ? "3px 3px 0px 0px rgba(0,0,0,1)" : "none",
-                }}
-              >
-                <GitCompare style={{ width: "14px", height: "14px" }} />
-                {compareMode ? "Cancel" : "Compare papers"}
-              </button>
-            </div>
-          </div>
-
-          {/* Compare info bar */}
-          {compareMode && (
-            <div
-              className="mx-4 md:mx-6 mt-3"
-              style={{
-                border: "2px solid #1a1a1a",
-                background: "#fef9c3",
-                padding: "10px 16px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "0.65rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  color: "#1a1a1a",
-                  fontFamily: 'var(--font-mono), monospace',
-                  fontWeight: 600,
-                }}
-              >
-                Click 2-3 papers to select them for comparison.{" "}
-                <span style={{ fontWeight: 800 }}>
-                  {selectedIds.size}/3 selected
-                </span>
-              </span>
-            </div>
-          )}
-
-        {/* Card grid */}
-        <div
-          className="flex-1 p-4 md:px-6 md:py-5"
-          style={{
-            background: "white",
-          }}
-        >
-          {loading && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
-              <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
-            </div>
-          )}
-
-          {!loading && filteredPapers.length === 0 && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
-              <span
-                style={{
-                  fontSize: "0.7rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  color: "#666",
-                  fontFamily: 'var(--font-mono), monospace',
-                }}
-              >
-                {debouncedSearch
-                  ? "No papers match your search"
-                  : "Your vault is empty. Papers appear here after you generate a digest from the Today tab."}
-              </span>
-            </div>
-          )}
-
-          {!loading && filteredPapers.length > 0 && (
-            <div
-              style={{
-                display: "grid",
-                gap: "24px",
-              }}
-              className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-            >
-              {filteredPapers.map((paper, cardIdx) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  index={cardIdx}
-                  compareMode={compareMode}
-                  isCompareSelected={selectedIds.has(paper.id)}
-                  onSelect={(p) => compareMode ? toggleSelect(p.id) : setSelectedPaper(p)}
-                  onStar={(id) => handleFeedback(id, "star")}
-                  onDislike={(id) => handleFeedback(id, "dislike")}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {!loading && totalPages > 1 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "16px",
-                paddingTop: "24px",
-              }}
-            >
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="min-h-[44px] md:min-h-0"
-                style={{
-                  border: "2px solid #1a1a1a",
-                  background: "transparent",
-                  padding: "6px 14px",
-                  fontSize: "0.65rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  fontFamily: 'var(--font-mono), monospace',
-                  fontWeight: 700,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  opacity: page <= 1 ? 0.3 : 1,
-                  color: "#1a1a1a",
-                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,0.15)",
-                }}
-              >
-                <ChevronLeft style={{ width: "12px", height: "12px" }} />
-                PREV
-              </button>
-              <span
-                style={{
-                  fontSize: "0.65rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  color: "#666",
-                  fontFamily: 'var(--font-mono), monospace',
-                  fontWeight: 700,
-                }}
-              >
-                PAGE {page} OF {totalPages}
-              </span>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="min-h-[44px] md:min-h-0"
-                style={{
-                  border: "2px solid #1a1a1a",
-                  background: "transparent",
-                  padding: "6px 14px",
-                  fontSize: "0.65rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  fontFamily: 'var(--font-mono), monospace',
-                  fontWeight: 700,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  opacity: page >= totalPages ? 0.3 : 1,
-                  color: "#1a1a1a",
-                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,0.15)",
-                }}
-              >
-                NEXT
-                <ChevronRight style={{ width: "12px", height: "12px" }} />
-              </button>
-            </div>
-          )}
+            <ChevronLeft style={{ width: 12, height: 12 }} />Prev
+          </button>
+          <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", fontWeight: 700 }}>
+            {page} / {totalPages}
+          </span>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+            style={{
+              border: "1.5px solid #1a1a1a", background: "transparent", padding: "6px 14px",
+              fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px",
+              fontFamily: "var(--font-mono), monospace", fontWeight: 700,
+              display: "flex", alignItems: "center", gap: "4px",
+              opacity: page >= totalPages ? 0.3 : 1, color: "#1a1a1a", cursor: page >= totalPages ? "default" : "pointer",
+            }}
+          >
+            Next<ChevronRight style={{ width: 12, height: 12 }} />
+          </button>
         </div>
-          </>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -33,7 +33,7 @@ function dispersedWash(palette: [string, string], intensity = 0.5): React.CSSPro
 }
 
 /* ── Journal name helper ── */
-function getJournalName(sourceUrl: string | null): string | null {
+function getJournalName(sourceUrl: string | null, authors: string[] = []): string | null {
   if (!sourceUrl) return null;
   try {
     const hostname = new URL(sourceUrl).hostname.replace("www.", "");
@@ -66,7 +66,10 @@ function getJournalName(sourceUrl: string | null): string | null {
     const parts = hostname.split(".");
     const name = parts.length > 2 ? parts.slice(0, -2).join(".") : parts[0];
     if (name.length < 3) return null;
-    return name.charAt(0).toUpperCase() + name.slice(1);
+    const derived = name.charAt(0).toUpperCase() + name.slice(1);
+    // Don't show journal if it duplicates an author name
+    if (authors.some(a => a.toLowerCase() === derived.toLowerCase())) return null;
+    return derived;
   } catch { return null; }
 }
 
@@ -75,7 +78,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   const palette = SOURCE_PALETTES[index % SOURCE_PALETTES.length];
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
-  const journalName = getJournalName(paper.sourceUrl);
+  const journalName = getJournalName(paper.sourceUrl, paper.authors);
   const ruleRef = React.useRef<HTMLDivElement>(null);
 
   const baseWash = dispersedWash(palette, 0.5);
@@ -180,7 +183,6 @@ function DigDeeperRail({
   loading,
   showQuestions,
   onAsk,
-  onToggleShowQuestions,
   session,
   onSignIn,
 }: {
@@ -190,7 +192,6 @@ function DigDeeperRail({
   loading: boolean;
   showQuestions: boolean;
   onAsk: (q: string) => void;
-  onToggleShowQuestions?: () => void;
   session?: { apiKey: string; provider: string; model: string; baseUrl: string };
   onSignIn?: () => void;
 }) {
@@ -212,23 +213,6 @@ function DigDeeperRail({
       <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", marginBottom: "16px" }}>
         Dig deeper
       </div>
-
-      {/* Show suggestions toggle — only when no history yet */}
-      {!showQuestions && !loading && questions.length > 0 && history.length === 0 && (
-        <button
-          onClick={onToggleShowQuestions}
-          style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            width: "100%", background: "transparent", border: "none",
-            padding: "10px 0", cursor: "pointer", marginBottom: "8px",
-          }}
-        >
-          <span style={{ fontSize: "0.75rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
-            {questions.length} suggested question{questions.length > 1 ? "s" : ""}
-          </span>
-          <span style={{ fontSize: "0.65rem", color: "#888", fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>Show ↓</span>
-        </button>
-      )}
 
       {/* Suggested question rows */}
       {showQuestions && !loading && questions.length > 0 && (
@@ -429,7 +413,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
   const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
-  const [showQuestions, setShowQuestions] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(true);
 
   const historyKey = digest ? `digest_chat_${digest.id}` : "";
   useEffect(() => {
@@ -439,7 +423,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       try { setDigDeeperHistory(JSON.parse(saved)); setShowQuestions(false); } catch { /* ignore */ }
     } else {
       setDigDeeperHistory([]);
-      setShowQuestions(false);
+      setShowQuestions(true);
     }
   }, [historyKey]);
 
@@ -705,7 +689,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               loading={digDeeperLoading}
               showQuestions={showQuestions}
               onAsk={handleDigDeeper}
-              onToggleShowQuestions={() => setShowQuestions(true)}
               session={session}
               onSignIn={onSignIn}
             />
@@ -718,9 +701,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
               <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase" }}>
                 Referenced sources
-              </span>
-              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888", marginLeft: "10px" }}>
-                {String(papers.length).padStart(2, "0")}
               </span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>

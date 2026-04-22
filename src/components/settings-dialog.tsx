@@ -257,7 +257,7 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest, open: 
       )}
       <DialogContent
         className="flex flex-col p-0 gap-0"
-        style={{ width: "100vw", height: "100vh", maxWidth: "100vw", maxHeight: "100vh", borderRadius: 0 }}
+        style={{ width: "100%", height: "90vh", maxWidth: "880px", maxHeight: "90vh", borderRadius: 0 }}
         showCloseButton={false}
       >
         {/* ── Top bar — matches app-shell header style ── */}
