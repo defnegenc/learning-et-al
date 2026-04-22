@@ -141,7 +141,7 @@ function VaultCard({
 
       <div ref={ruleRef} style={{ height: 1, background: "#1a1a1a", transform: "scaleX(0)", transformOrigin: "left center", transition: "transform 360ms cubic-bezier(.2,.7,.2,1)", margin: "-8px 0 10px" }} />
 
-      <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
+      <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
         {paper.title}
       </h3>
 
@@ -156,7 +156,7 @@ function VaultCard({
       )}
 
       {paper.summary && (
-        <div style={{ paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.18)", fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
+        <div style={{ paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.18)", fontSize: "0.875rem", lineHeight: 1.55, color: "#333" }}>
           {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
         </div>
       )}
@@ -209,10 +209,19 @@ export function VaultPage({ session }: VaultPageProps) {
     return () => clearTimeout(timer);
   }, [search]);
 
+  // Reset page when domain filter changes
+  useEffect(() => { setPage(1); }, [activeField]);
+
   const fetchPapers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      // When domain filter is active, fetch all papers so client-side filtering works
+      // across the full dataset rather than just one page
+      const fetchAll = !!activeField;
+      const params = new URLSearchParams({
+        page: fetchAll ? "1" : String(page),
+        limit: fetchAll ? "500" : String(LIMIT),
+      });
       if (debouncedSearch) params.set("search", debouncedSearch);
       const res = await fetch(`/api/vault?${params}`);
       if (!res.ok) throw new Error("Failed to fetch vault");
@@ -221,7 +230,7 @@ export function VaultPage({ session }: VaultPageProps) {
       setTotal(data.total ?? 0);
     } catch { setPapers([]); setTotal(0); }
     finally { setLoading(false); }
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, activeField]);
 
   useEffect(() => { fetchPapers(); }, [fetchPapers]);
 
@@ -305,6 +314,10 @@ export function VaultPage({ session }: VaultPageProps) {
     );
   }, [papers, activeField, activeDigestId, digestPapers, fieldKeywords]);
 
+  const DISPLAY_LIMIT = LIMIT;
+  const displayedPapers = activeField ? filteredPapers.slice((page - 1) * DISPLAY_LIMIT, page * DISPLAY_LIMIT) : filteredPapers;
+  const displayTotalPages = activeField ? Math.max(1, Math.ceil(filteredPapers.length / DISPLAY_LIMIT)) : totalPages;
+
   const visibleThemes = useMemo(() => {
     if (filterMode === "starred") return pastThemes.filter(t => t.starred);
     return pastThemes;
@@ -371,13 +384,13 @@ export function VaultPage({ session }: VaultPageProps) {
       {/* ── Filter bar ── */}
       <div
         className="flex flex-wrap items-center gap-4 md:gap-6"
-        style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: "12px", marginBottom: "24px" }}
+        style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: "12px", marginBottom: "16px" }}
       >
         <div className="flex items-center gap-4 md:gap-6 flex-1 min-w-0">
           <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.1rem", fontWeight: 800, letterSpacing: "-0.02em", color: "#1a1a1a", flexShrink: 0 }}>
             Vault
           </span>
-          <button style={navTabStyle(filterMode === "theme")} onClick={() => setMode("theme")}>By Theme</button>
+          <button style={navTabStyle(filterMode === "theme")} onClick={() => setMode("theme")}>By Digest</button>
           <button style={navTabStyle(filterMode === "domain")} onClick={() => setMode("domain")}>By Domain</button>
           <button
             onClick={() => setMode("starred")}
@@ -412,22 +425,30 @@ export function VaultPage({ session }: VaultPageProps) {
           >
             <GitCompare size={11} />Compare
           </button>
-          <div style={{ position: "relative" }}>
-            <Search style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, color: "#999" }} />
-            <input
-              placeholder="Search..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{
-                border: "1px solid #ccc", background: "transparent",
-                paddingLeft: 26, paddingRight: 10, height: 28,
-                fontSize: "0.7rem", letterSpacing: "0.5px",
-                fontFamily: "var(--font-mono), monospace",
-                outline: "none", width: 150, color: "#1a1a1a",
-              }}
-            />
-          </div>
         </div>
+      </div>
+
+      {/* ── Search bar — matches today's question box style ── */}
+      <div style={{
+        display: "flex", gap: "10px", alignItems: "center",
+        border: "2px solid #1a1a1a", padding: "10px 14px", background: "white",
+        marginBottom: "24px",
+      }}>
+        <Search style={{ width: 14, height: 14, color: "#aaa", flexShrink: 0 }} />
+        <input
+          placeholder="Search papers, topics, authors..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            flex: 1, border: "none", outline: "none", fontSize: "0.9rem",
+            color: "#1a1a1a", background: "transparent",
+          }}
+        />
+        {search && (
+          <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#aaa", fontSize: "0.75rem", fontFamily: "var(--font-mono), monospace", padding: 0 }}>
+            ✕
+          </button>
+        )}
       </div>
 
       {/* ── Secondary filter: digest list ── */}
@@ -521,7 +542,7 @@ export function VaultPage({ session }: VaultPageProps) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
           <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
         </div>
-      ) : filteredPapers.length === 0 ? (
+      ) : displayedPapers.length === 0 ? (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
           <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
             {debouncedSearch ? "No papers match your search" : activeDigestId ? "No papers found for this digest" : "Your vault is empty"}
@@ -529,7 +550,7 @@ export function VaultPage({ session }: VaultPageProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-          {filteredPapers.map((paper, idx) => (
+          {displayedPapers.map((paper, idx) => (
             <VaultCard
               key={paper.id}
               paper={paper}
@@ -543,7 +564,7 @@ export function VaultPage({ session }: VaultPageProps) {
       )}
 
       {/* ── Pagination ── */}
-      {!loading && totalPages > 1 && (
+      {!loading && displayTotalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", paddingTop: "32px" }}>
           <button
             disabled={page <= 1}
@@ -559,17 +580,17 @@ export function VaultPage({ session }: VaultPageProps) {
             <ChevronLeft style={{ width: 12, height: 12 }} />Prev
           </button>
           <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", fontWeight: 700 }}>
-            {page} / {totalPages}
+            {page} / {displayTotalPages}
           </span>
           <button
-            disabled={page >= totalPages}
+            disabled={page >= displayTotalPages}
             onClick={() => setPage(p => p + 1)}
             style={{
               border: "1.5px solid #1a1a1a", background: "transparent", padding: "6px 14px",
               fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px",
               fontFamily: "var(--font-mono), monospace", fontWeight: 700,
               display: "flex", alignItems: "center", gap: "4px",
-              opacity: page >= totalPages ? 0.3 : 1, color: "#1a1a1a", cursor: page >= totalPages ? "default" : "pointer",
+              opacity: page >= displayTotalPages ? 0.3 : 1, color: "#1a1a1a", cursor: page >= displayTotalPages ? "default" : "pointer",
             }}
           >
             Next<ChevronRight style={{ width: 12, height: 12 }} />

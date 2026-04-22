@@ -4,9 +4,6 @@ import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { Loader2 } from "lucide-react";
 import type { PaperItem } from "./paper-card";
-import { CATEGORY_PALETTES } from "@/components/interest-ledger";
-
-const CONCEPT_GRADIENTS = Object.values(CATEGORY_PALETTES);
 
 // Quick digest feedback — was this interesting?
 export function DigestFeedback({ digestId, onRegenerate, generating = false }: { digestId: string; onRegenerate?: () => void; generating?: boolean }) {
@@ -702,9 +699,19 @@ export function SynthesisBanner({
                 // to the same paper by coincidence.
                 matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
               }
-              // Highlight colors — match SOURCE_PALETTES from paper cards (mint, pink, blue, yellow)
-              const HIGHLIGHT_COLORS = ["#C8F0D8", "#FFD6E0", "#D0E3F7", "#F0F5A8"];
-              const HIGHLIGHT_HOVER = ["#A4E0BC", "#FFBCD0", "#B4CEED", "#E0EC88"];
+              // Gradient highlights matching dispersed-wash blob pairs per paper
+              const HIGHLIGHT_COLORS = [
+                "linear-gradient(135deg, #C8F0D8 0%, #F0F5A8 100%)",
+                "linear-gradient(135deg, #FFD6E0 0%, #FFE89A 100%)",
+                "linear-gradient(135deg, #D0E3F7 0%, #E2D6F7 100%)",
+                "linear-gradient(135deg, #FFE89A 0%, #FFD6E0 100%)",
+              ];
+              const HIGHLIGHT_HOVER = [
+                "linear-gradient(135deg, #A4E0BC 0%, #E0EC88 100%)",
+                "linear-gradient(135deg, #FFBCD0 0%, #FFD86A 100%)",
+                "linear-gradient(135deg, #B4CEED 0%, #C8BAF0 100%)",
+                "linear-gradient(135deg, #FFD86A 0%, #FFBCD0 100%)",
+              ];
               if (matchedPaper && onSelectPaper) {
                 const paperIdx = papers.indexOf(matchedPaper);
                 const bg = HIGHLIGHT_COLORS[paperIdx % HIGHLIGHT_COLORS.length];
@@ -731,34 +738,29 @@ export function SynthesisBanner({
       {/* Key concepts — display only */}
       {keyConcepts.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2">
-          {keyConcepts.map((concept, idx) => {
-            const [a, b] = CONCEPT_GRADIENTS[idx % CONCEPT_GRADIENTS.length];
-            return (
-              <span
-                key={concept}
-                title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "5px 10px",
-                  background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)`,
-                  border: "1px solid rgba(26,26,26,0.25)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.5)",
-                  borderRadius: 3,
-                  color: "#1a1a1a",
-                  fontSize: "0.625rem",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "1.2px",
-                  fontFamily: "var(--font-mono), monospace",
-                  lineHeight: 1,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {concept.includes(": ") ? concept.split(": ")[0] : concept}
-              </span>
-            );
-          })}
+          {keyConcepts.map((concept) => (
+            <span
+              key={concept}
+              title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
+              style={{
+                display: "inline-block",
+                padding: "4px 9px",
+                background: "rgba(255,255,255,0.55)",
+                border: "1px solid rgba(26,26,26,0.35)",
+                color: "#1a1a1a",
+                fontSize: "0.6rem",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                fontFamily: "var(--font-mono), monospace",
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              {concept.includes(": ") ? concept.split(": ")[0] : concept}
+            </span>
+          ))}
         </div>
       )}
 

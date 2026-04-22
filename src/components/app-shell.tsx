@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { BookOpen, Archive, Compass, Settings, BarChart3 } from "lucide-react";
+import { BookOpen, Archive, Settings, BarChart3 } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
@@ -198,20 +198,6 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <Archive size={18} />
           <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
             Vault
-          </span>
-        </button>
-        <button
-          onClick={() => openSettings("interests")}
-          className="flex-1 flex flex-col items-center gap-1 py-3"
-          style={{
-            background: "white", color: "#888",
-            border: "none", cursor: "pointer",
-            borderLeft: "2px solid #1a1a1a", transition: "all 0.15s",
-          }}
-        >
-          <Compass size={18} />
-          <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
-            Interests
           </span>
         </button>
         {adminVerified && (
