@@ -585,18 +585,16 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-  /* ── Main render — Marginalia layout ── */
+  /* ── Main render — two-column: synthesis+questions | papers ── */
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-10 md:pt-12 pb-20">
 
-      {/* ── Two-column grid: main | right rail ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] items-start" style={{ gap: "56px" }}>
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_380px] items-start" style={{ gap: "48px" }}>
 
-        {/* ── Main column ── */}
+        {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
           {/* DigestTitleBlock */}
           <div style={{ marginBottom: "32px" }}>
-            {/* Top bar: label + actions */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
               <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase" }}>
                 Daily digest
@@ -633,22 +631,18 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               </div>
             </div>
 
-            {/* Big title */}
             <h1
               style={{
                 fontFamily: "var(--font-display), sans-serif",
                 fontSize: "clamp(2.75rem, 5vw, 4rem)",
-                lineHeight: 1.02,
-                fontWeight: 700,
-                letterSpacing: "-0.055em",
-                color: "#1a1a1a",
+                lineHeight: 1.02, fontWeight: 700,
+                letterSpacing: "-0.055em", color: "#1a1a1a",
                 margin: "0 0 18px",
               }}
             >
               {displayTheme}
             </h1>
 
-            {/* Meta row + thumbs */}
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "24px" }}>
               <div style={{ display: "flex", gap: "32px" }}>
                 <div>
@@ -666,7 +660,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             </div>
           </div>
 
-          {/* Synthesis body + key concepts */}
+          {/* Synthesis */}
           {digest.synthesisContent ? (
             <SynthesisBanner
               synthesis={digest.synthesisContent}
@@ -701,11 +695,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               )}
             </div>
           )}
-        </main>
 
-        {/* ── Right rail (desktop only) ── */}
-        <aside className="hidden md:block">
-          <div style={{ position: "sticky", top: 24 }}>
+          {/* Dig deeper — below synthesis */}
+          <div style={{ marginTop: "40px", paddingTop: "32px", borderTop: "1px solid #e5e7eb" }}>
             <DigDeeperRail
               questions={digest.suggestedQuestions || []}
               answers={digest.suggestedAnswers}
@@ -718,43 +710,29 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               onSignIn={onSignIn}
             />
           </div>
-        </aside>
+        </main>
+
+        {/* ── Right: papers ── */}
+        {papers.length > 0 && (
+          <aside>
+            <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
+              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase" }}>
+                Referenced sources
+              </span>
+              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888", marginLeft: "10px" }}>
+                {String(papers.length).padStart(2, "0")}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {papers.map((paper, idx) => (
+                <SourceCard key={paper.id} paper={paper} index={idx} />
+              ))}
+            </div>
+          </aside>
+        )}
       </div>
 
-      {/* ── Mobile: dig deeper below synthesis ── */}
-      <div className="block md:hidden mt-8">
-        <DigDeeperRail
-          questions={digest.suggestedQuestions || []}
-          answers={digest.suggestedAnswers}
-          history={digDeeperHistory}
-          loading={digDeeperLoading}
-          showQuestions={showQuestions}
-          onAsk={handleDigDeeper}
-          session={session}
-          onSignIn={onSignIn}
-        />
-      </div>
-
-      {/* ── Bottom: source cards grid ── */}
-      {papers.length > 0 && (
-        <div style={{ marginTop: "56px", paddingTop: "28px", borderTop: "2px solid #1a1a1a" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "16px" }}>
-            <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase" }}>
-              Referenced sources
-            </span>
-            <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888" }}>
-              {String(papers.length).padStart(2, "0")}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3" style={{ gap: "16px" }}>
-            {papers.map((paper, idx) => (
-              <SourceCard key={paper.id} paper={paper} index={idx} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Floating notepad — desktop only (avoids overlap with mobile nav) ── */}
+      {/* ── Floating notepad — desktop only ── */}
       {digest.id && session && (
         <div className="hidden md:block">
           <NotepadFloat digestId={digest.id} />
