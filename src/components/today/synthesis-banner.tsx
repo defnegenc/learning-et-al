@@ -4,6 +4,9 @@ import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { Loader2 } from "lucide-react";
 import type { PaperItem } from "./paper-card";
+import { CATEGORY_PALETTES } from "@/components/interest-ledger";
+
+const CONCEPT_GRADIENTS = Object.values(CATEGORY_PALETTES);
 
 // Quick digest feedback — was this interesting?
 export function DigestFeedback({ digestId, onRegenerate, generating = false }: { digestId: string; onRegenerate?: () => void; generating?: boolean }) {
@@ -306,36 +309,20 @@ interface SynthesisBannerProps {
   hideInteractionUI?: boolean;
 }
 
-// Guest dig deeper — shows pre-generated Q&A collapsed by default, prompts sign-in for more
+// Guest dig deeper — shows pre-generated Q&A, prompts sign-in for more
 export function GuestDigDeeper({ questions, answers, onSignIn }: {
   questions: string[];
   answers: string[];
   onSignIn?: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const pairs = questions
     .map((q, i) => ({ q, a: answers[i] || "" }))
-    .filter(p => p.a.trim().length > 0);
+    .filter(p => p.a.trim().length > 0)
+    .slice(0, 3);
 
   return (
     <div>
-      {pairs.length > 0 && !expanded && (
-        <button
-          onClick={() => setExpanded(true)}
-          style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            width: "100%", background: "transparent", border: "none",
-            padding: "10px 0", cursor: "pointer", marginBottom: "8px",
-          }}
-        >
-          <span style={{ fontSize: "0.75rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
-            {pairs.length} pre-answered question{pairs.length > 1 ? "s" : ""}
-          </span>
-          <span style={{ fontSize: "0.65rem", color: "#888", fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>Show ↓</span>
-        </button>
-      )}
-
-      {expanded && pairs.length > 0 && (
+      {pairs.length > 0 && (
         <div style={{ marginBottom: "16px" }}>
           {pairs.map(({ q, a }, i) => (
             <div key={i} style={{ marginBottom: i < pairs.length - 1 ? "16px" : "0" }}>
@@ -355,9 +342,6 @@ export function GuestDigDeeper({ questions, answers, onSignIn }: {
               {i < pairs.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
             </div>
           ))}
-          <button onClick={() => setExpanded(false)} style={{ fontSize: "0.65rem", color: "#aaa", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono), monospace", marginTop: "12px", padding: 0 }}>
-            Hide ↑
-          </button>
         </div>
       )}
 
@@ -368,7 +352,7 @@ export function GuestDigDeeper({ questions, answers, onSignIn }: {
           display: "flex", gap: "10px", alignItems: "center", width: "100%",
           border: "2px solid #1a1a1a", padding: "12px 14px", background: "white",
           cursor: "pointer",
-          marginTop: expanded && pairs.length > 0 ? "16px" : "0",
+          marginTop: pairs.length > 0 ? "16px" : "0",
         }}
         className="hover:bg-[#fafafa] transition-colors"
       >
@@ -436,7 +420,6 @@ export function AnswerBlock({ text, paperLinks }: { text: string; paperLinks?: {
   );
 }
 
-const PASTEL_COLORS = ["#fce7f3", "#dcfce7", "#dbeafe", "#fef9c3", "#ede9fe"];
 
 export function SynthesisBanner({
   synthesis,
@@ -719,9 +702,9 @@ export function SynthesisBanner({
                 // to the same paper by coincidence.
                 matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
               }
-              // Highlight colors from paper card blob palettes
-              const HIGHLIGHT_COLORS = ["rgba(249,168,212,0.45)", "rgba(147,197,253,0.45)", "rgba(196,181,253,0.45)"];
-              const HIGHLIGHT_HOVER = ["rgba(249,168,212,0.65)", "rgba(147,197,253,0.65)", "rgba(196,181,253,0.65)"];
+              // Highlight colors — match SOURCE_PALETTES from paper cards (mint, pink, blue, yellow)
+              const HIGHLIGHT_COLORS = ["#C8F0D8", "#FFD6E0", "#D0E3F7", "#F0F5A8"];
+              const HIGHLIGHT_HOVER = ["#A4E0BC", "#FFBCD0", "#B4CEED", "#E0EC88"];
               if (matchedPaper && onSelectPaper) {
                 const paperIdx = papers.indexOf(matchedPaper);
                 const bg = HIGHLIGHT_COLORS[paperIdx % HIGHLIGHT_COLORS.length];
@@ -749,23 +732,27 @@ export function SynthesisBanner({
       {keyConcepts.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2">
           {keyConcepts.map((concept, idx) => {
-            const pastel = PASTEL_COLORS[idx % 5];
+            const [a, b] = CONCEPT_GRADIENTS[idx % CONCEPT_GRADIENTS.length];
             return (
               <span
                 key={concept}
                 title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
                 style={{
-                  display: "inline-block",
-                  padding: "5px 12px",
-                  background: pastel,
-                  border: "2px solid #1a1a1a",
-                  boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "5px 10px",
+                  background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)`,
+                  border: "1px solid rgba(26,26,26,0.25)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.5)",
+                  borderRadius: 3,
                   color: "#1a1a1a",
-                  fontSize: "0.7rem",
-                  fontWeight: 700,
+                  fontSize: "0.625rem",
+                  fontWeight: 600,
                   textTransform: "uppercase",
-                  letterSpacing: "0.5px",
+                  letterSpacing: "1.2px",
                   fontFamily: "var(--font-mono), monospace",
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {concept.includes(": ") ? concept.split(": ")[0] : concept}

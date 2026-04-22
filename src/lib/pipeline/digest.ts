@@ -564,21 +564,16 @@ Return JSON only (no markdown):
     throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
   }
 
-  // Dynamic item count: adjust paper:news ratio based on candidate quality (audit 4.4)
-  // Count how many papers pass the primary threshold (SIM_ONTOPIC, not fallback)
+  // Dynamic item count: only upgrade to all-papers when we have abundant strong matches.
+  // Never downgrade paper slots to news — the fill passes find additional papers via
+  // progressive threshold relaxation, and news rarely improves digest quality.
   const strongPapers = scored.filter(({ themeSim }) => themeSim > SIM_ONTOPIC).length;
   if (strongPapers >= 3) {
-    // Plenty of great papers — go all-papers
     targetPapers = TOTAL_ITEMS;
     targetNews = 0;
-    console.log(`[Digest] Dynamic: ${strongPapers} strong papers → ${targetPapers}p+${targetNews}n`);
-  } else if (strongPapers <= 1) {
-    // Few good papers — give more room to news
-    targetPapers = 1;
-    targetNews = TOTAL_ITEMS - 1;
-    console.log(`[Digest] Dynamic: only ${strongPapers} strong papers → ${targetPapers}p+${targetNews}n`);
+    console.log(`[Digest] Dynamic: ${strongPapers} strong papers → all-papers (${targetPapers}p+${targetNews}n)`);
   }
-  // Otherwise keep default 2+1
+  // Otherwise keep default 2+1 — fill passes will find papers at lower thresholds
 
   // ─── Wide pool + LLM selection for complementarity ──────────────────────────
   // Select a WIDER pool (~6) via MMR for diversity, then let the LLM pick the
