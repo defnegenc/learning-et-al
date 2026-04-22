@@ -430,29 +430,46 @@ export function VaultPage({ session }: VaultPageProps) {
         </div>
       </div>
 
-      {/* ── Secondary filter row: themes ── */}
+      {/* ── Secondary filter: digest list ── */}
       {(filterMode === "theme" || filterMode === "starred") && visibleThemes.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {visibleThemes.map(theme => {
+        <div style={{ border: "1px solid #1a1a1a", marginBottom: "28px" }}>
+          {visibleThemes.map((theme, i) => {
             const isActive = activeDigestId === theme.id;
+            const isLast = i === visibleThemes.length - 1;
             return (
               <button
                 key={theme.id}
                 onClick={() => handleThemeClick(theme.id)}
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: "6px",
-                  padding: "5px 12px",
+                  display: "flex", alignItems: "baseline", gap: "20px",
+                  width: "100%", padding: "10px 16px",
                   background: isActive ? "#1a1a1a" : "transparent",
-                  border: isActive ? "1px solid #1a1a1a" : "1px solid rgba(26,26,26,0.3)",
+                  border: "none",
+                  borderBottom: isLast ? "none" : "1px solid rgba(26,26,26,0.12)",
+                  borderLeft: isActive ? "3px solid #1a1a1a" : "3px solid transparent",
                   color: isActive ? "white" : "#1a1a1a",
-                  fontFamily: "var(--font-display), sans-serif",
-                  fontSize: "0.78rem", fontWeight: isActive ? 700 : 500,
-                  cursor: "pointer", transition: "all 120ms",
-                  maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  cursor: "pointer", textAlign: "left",
+                  transition: "background 120ms",
                 }}
+                className={isActive ? "" : "hover:bg-[#f9f9f9]"}
               >
-                {theme.starred && <Star size={10} style={{ flexShrink: 0, fill: isActive ? "white" : "#f59e0b", stroke: isActive ? "white" : "#f59e0b" }} />}
-                {theme.theme}
+                <span style={{
+                  fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem",
+                  fontWeight: 600, letterSpacing: "0.08em", flexShrink: 0,
+                  color: isActive ? "rgba(255,255,255,0.6)" : "#999",
+                  textTransform: "uppercase",
+                }}>
+                  {theme.date}
+                </span>
+                <span style={{
+                  fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem",
+                  fontWeight: isActive ? 700 : 500, lineHeight: 1.3, flex: 1,
+                }}>
+                  {theme.theme}
+                </span>
+                {theme.starred && (
+                  <Star size={11} style={{ flexShrink: 0, fill: isActive ? "white" : "#f59e0b", stroke: isActive ? "white" : "#f59e0b" }} />
+                )}
               </button>
             );
           })}
