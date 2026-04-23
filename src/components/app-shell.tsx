@@ -123,12 +123,12 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             {menuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
 
-          {/* Settings gear */}
+          {/* Settings gear — desktop only */}
           <button
             onClick={() => openSettings("account")}
             title="Settings"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
-            className="hover:text-[#1a1a1a] transition-colors"
+            className="hidden md:flex hover:text-[#1a1a1a] transition-colors"
           >
             <Settings size={16} />
           </button>
@@ -179,6 +179,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
                 style={{
                   display: "block", width: "100%", textAlign: "left",
                   padding: "14px 20px", border: "none", background: "transparent",
+                  borderBottom: "1px solid #e5e7eb",
                   borderLeft: activeTab === "admin" ? "3px solid #1a1a1a" : "3px solid transparent",
                   fontFamily: "var(--font-mono), monospace",
                   fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
@@ -189,6 +190,20 @@ export function AppShell({ session, updateSession }: AppShellProps) {
                 admin
               </button>
             )}
+            <button
+              onClick={() => { setMenuOpen(false); openSettings("interests"); }}
+              style={{
+                display: "block", width: "100%", textAlign: "left",
+                padding: "14px 20px", border: "none", background: "transparent",
+                borderLeft: "3px solid transparent",
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
+                letterSpacing: "2px", color: "#888",
+                cursor: "pointer",
+              }}
+            >
+              settings
+            </button>
           </div>
         </>
       )}
