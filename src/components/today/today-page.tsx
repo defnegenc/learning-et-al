@@ -571,7 +571,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis+questions | papers ── */
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-10 md:pt-12 pb-20">
+    <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_380px] items-start" style={{ gap: "48px" }}>
 

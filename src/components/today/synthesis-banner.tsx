@@ -38,7 +38,7 @@ export function DigestFeedback({ digestId, onRegenerate, generating = false }: {
 
   if (submitted && !showComment) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", width: "52px", justifyContent: "flex-end" }}>
         {reaction === "up" ? (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38b000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
         ) : (
@@ -58,7 +58,7 @@ export function DigestFeedback({ digestId, onRegenerate, generating = false }: {
       }
     };
     return (
-      <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", zIndex: 40, background: "white", border: "2px solid #1a1a1a", padding: "12px", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", width: "320px" }}>
+      <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", zIndex: 40, background: "white", border: "2px solid #1a1a1a", padding: "12px", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", width: "min(320px, calc(100vw - 32px))" }}>
         {generating ? (
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} />
@@ -91,7 +91,7 @@ export function DigestFeedback({ digestId, onRegenerate, generating = false }: {
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "4px", width: "52px", justifyContent: "flex-end" }}>
       <button onClick={() => submit("up")} style={{ background: "none", border: "none", padding: "4px", cursor: "pointer", lineHeight: 1, color: "#ccc" }} className="hover:text-[#38b000] transition-colors">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
       </button>
