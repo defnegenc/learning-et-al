@@ -89,6 +89,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       rel="noopener noreferrer"
       style={{
         ...baseWash,
+        border: `1.5px solid ${palette[0]}cc`,
         display: "block",
         padding: "16px 18px 18px",
         textDecoration: "none",
