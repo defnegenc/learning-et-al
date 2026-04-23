@@ -560,8 +560,8 @@ export function SynthesisBanner({
         ];
         return (
       <div
-        className="text-[0.95rem] md:text-[1.05rem] text-gray-700"
-        style={{ lineHeight: "1.85", fontFamily: "inherit" }}
+        className="text-[0.95rem] md:text-[1.05rem]"
+        style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}
       >
         <ReactMarkdown
           components={{
@@ -759,22 +759,28 @@ export function SynthesisBanner({
                 key={concept}
                 title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
                 style={{
-                  display: "inline-flex", alignItems: "center",
-                  padding: "5px 10px",
-                  background: `linear-gradient(135deg, ${a}55 0%, ${b}55 100%)`,
-                  border: "1px solid rgba(26,26,26,0.18)",
+                  display: "inline-flex", alignItems: "stretch",
+                  background: "white",
+                  border: "1.5px solid #1a1a1a",
                   borderRadius: 0,
-                  color: "#1a1a1a",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ width: 3, flexShrink: 0, background: `linear-gradient(to bottom, ${a} 0%, ${b} 100%)` }} />
+                <span style={{
+                  padding: "5px 9px",
+                  color: "#111",
                   fontSize: "0.625rem",
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "1.2px",
                   fontFamily: "var(--font-mono), monospace",
                   lineHeight: 1,
-                  whiteSpace: "nowrap",
                 }}
               >
-                {concept.includes(": ") ? concept.split(": ")[0] : concept}
+                  {concept.includes(": ") ? concept.split(": ")[0] : concept}
+                </span>
               </span>
             );
           })}
