@@ -102,6 +102,14 @@ export const feedback = sqliteTable("feedback", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const digestFeedback = sqliteTable("digest_feedback", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  digestId: text("digest_id").notNull().references(() => digests.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  reason: text("reason").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 export const comparisons = sqliteTable("comparisons", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").notNull().references(() => users.id),
