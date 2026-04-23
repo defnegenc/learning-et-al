@@ -49,11 +49,12 @@ export async function GET(req: NextRequest) {
         where: and(eq(digests.userId, userId), eq(digests.date, today)),
         orderBy: desc(digests.createdAt),
       });
-      if (!digest) {
+      if (!digest || digest.hidden) {
         digest = await db.query.digests.findFirst({
           where: eq(digests.userId, userId),
           orderBy: desc(digests.createdAt),
         });
+        if (digest?.hidden) digest = undefined;
       }
     }
 

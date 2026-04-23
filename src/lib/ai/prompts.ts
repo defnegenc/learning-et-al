@@ -271,14 +271,19 @@ STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
 [One intro sentence: the provocative setup or counterintuitive framing that makes the reader want to know more]
 
-${skeleton.paperRoles.map(r => `- **[Source ${r.index}] ${r.shortName}** — [one sentence: the most striking specific finding, with a number, method, or concrete detail]`).join("\n")}
+${skeleton.paperRoles.map((r, i, arr) => {
+  const bullet = `- **[Source ${r.index}] ${r.shortName}** [one sentence starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend, with a specific detail or number]`;
+  const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
+  return bullet + bridge;
+}).join("\n\n")}
 
 [One closing sentence: an unresolved tension, a concrete open question, or a specific image. NOT a summary. NOT "together these papers show..."]
 
 CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
 - Each bullet is exactly ONE sentence. No line breaks within bullets.
-- No prose paragraphs in the middle — ONLY intro, bullets, then closing.
+- Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
+- Structure is: intro, then alternating bullet/bridge, then closing. No other paragraphs.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
 
 STYLE RULES:
@@ -294,7 +299,8 @@ SPECIFICITY GATE — when any bullet uses: barrier, limitation, challenge, probl
   GOOD: "robo-advisors still require a $10K minimum balance, locking out the 40% of Americans who'd benefit most."
 
 BANNED PATTERNS:
-- "X don't just Y — they Z" / "isn't just X — it's Y" — banned.
+- "X don't just Y — they Z" / "isn't just X — it's Y" / "it isn't about X, it's about Y" — banned.
+- "Instead of asking..." / "Rather than X, Y" / "The real question isn't X, it's Y" — banned.
 - "Here's where it gets [ANY adjective]" / "But here's where..." — banned.
 - "The pattern's clear" / "The lesson here" / "Together they show" / "What these papers reveal" — banned.
 - "structural limitations" / "systemic issues" / "performative [anything]" without specifics — banned.
@@ -398,7 +404,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro sentence, one bullet per paper (- **[Source N] name** — finding), closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro sentence, one bullet per paper (- **[Source N] name** [conversational verb phrase]), closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
@@ -494,7 +500,7 @@ RULES:
 // ─── Other prompts ───────────────────────────────────────────────────────────
 
 export function qaPrompt(paperTitle: string, fullText: string, question: string) {
-  return `Answer this question about the paper. Be specific, cite sections when you can. Write casually.
+  return `Answer the question directly — lead with the answer, not context. No restating what the paper is about. No "according to the paper" preamble. Just answer it like you already know they've read the digest. 2-4 sentences max. Cite a specific detail or number if you can.
 
 Title: ${paperTitle}
 Full text: ${fullText.slice(0, 15000)}
