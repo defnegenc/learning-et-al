@@ -78,8 +78,6 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
   const journalName = getJournalName(paper.sourceUrl, paper.authors);
-  const ruleRef = React.useRef<HTMLDivElement>(null);
-
   const baseWash = dispersedWash(palette, 0.82);
   const hoverWash = dispersedWash(palette, 0.97);
 
@@ -92,7 +90,6 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       style={{
         ...baseWash,
         border: "2px solid #1a1a1a",
-        boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
         display: "block",
         padding: "16px 18px 18px",
         textDecoration: "none",
@@ -105,16 +102,12 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement;
         Object.assign(el.style, hoverWash);
-        el.style.boxShadow = "5px 5px 0px 0px rgba(0,0,0,1)";
         el.style.transform = "translate(-1px,-1px)";
-        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(1)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLElement;
         Object.assign(el.style, baseWash);
-        el.style.boxShadow = "3px 3px 0px 0px rgba(0,0,0,1)";
         el.style.transform = "";
-        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(0)";
       }}
     >
       {/* Venue + year + ext-link */}
@@ -128,9 +121,6 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
           <path d="M6 3h7v7M12.5 3.5L6.5 9.5M11 8v4.5H3.5V5H8" stroke="#1a1a1a" strokeWidth="1.4" strokeLinecap="square" />
         </svg>
       </div>
-
-      {/* Hover ink rule */}
-      <div ref={ruleRef} style={{ height: 1, background: "#1a1a1a", transform: "scaleX(0)", transformOrigin: "left center", transition: "transform 360ms cubic-bezier(.2,.7,.2,1)", margin: "-8px 0 10px" }} />
 
       {/* Title */}
       <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
@@ -585,7 +575,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const handleDigDeeper = async (question: string, paletteIdx?: number) => {
     if (!session || digDeeperLoading) return;
     setDigDeeperLoading(true);
-    setShowQuestions(false);
     try {
       const res = await fetch("/api/digest/chat", {
         method: "POST",
@@ -684,17 +673,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                 Daily digest
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                {isAdmin && (
-                  <button
-                    onClick={() => handleGenerate(true)}
-                    disabled={generating}
-                    style={{ background: "none", border: "1.5px solid #e5e7eb", cursor: "pointer", padding: "4px 10px", display: "flex", alignItems: "center", gap: "5px" }}
-                    className="hover:border-[#1a1a1a] transition-colors disabled:opacity-50"
-                  >
-                    {generating ? <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} /> : <RefreshCw size={12} style={{ color: "#888" }} />}
-                    <span style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "var(--font-mono), monospace", color: "#888" }}>Regenerate</span>
-                  </button>
-                )}
                 {generateError && (
                   <span style={{ fontSize: "0.6rem", color: "#ff007f", fontFamily: "var(--font-mono), monospace", maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
                     {generateError}
