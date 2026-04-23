@@ -752,7 +752,7 @@ export function SynthesisBanner({
 
                     {/* Content: text + card */}
                     <div
-                      className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-start ${isLast ? "pb-6" : "pb-4"}`}
+                      className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-center ${isLast ? "pb-6" : "pb-4"}`}
                     >
                       <div className="flex-1 min-w-0" style={{ paddingTop: "3px" }}>
                         <ReactMarkdown components={{
