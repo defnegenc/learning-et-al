@@ -499,7 +499,7 @@ Return JSON only (no markdown):
       const rrfScore = rrfScores[i];
       const age = p.year ? currentYear - p.year : 2;
       const recencyBonus = age <= 0 ? 0.003 : age === 1 ? 0.0015 : 0;
-      const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain);
+      const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
       const score = rrfScore + recencyBonus + venueBoost;
       if (venueBoost !== 0) {
         console.log(`[Digest] Venue signal: "${p.title.slice(0, 50)}" ${venueBoost > 0 ? "+" : ""}${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
