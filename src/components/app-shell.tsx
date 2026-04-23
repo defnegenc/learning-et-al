@@ -93,21 +93,6 @@ export function AppShell({ session, updateSession }: AppShellProps) {
                 {tab}
               </button>
             ))}
-            <button
-              onClick={() => openSettings("interests")}
-              style={{
-                padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
-                textTransform: "uppercase", letterSpacing: "0.12em",
-                fontFamily: "var(--font-mono), monospace",
-                border: "none", background: "transparent",
-                color: "#999",
-                borderBottom: "1.5px solid transparent",
-                cursor: "pointer", transition: "color 0.15s",
-              }}
-              className="hover:text-[#1a1a1a]"
-            >
-              interests
-            </button>
             {adminVerified && (
               <button
                 onClick={() => setActiveTab("admin")}

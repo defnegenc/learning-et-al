@@ -699,19 +699,9 @@ export function SynthesisBanner({
                 // to the same paper by coincidence.
                 matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
               }
-              // Gradient highlights matching dispersed-wash blob pairs per paper
-              const HIGHLIGHT_COLORS = [
-                "linear-gradient(135deg, #C8F0D8 0%, #F0F5A8 100%)",
-                "linear-gradient(135deg, #FFD6E0 0%, #FFE89A 100%)",
-                "linear-gradient(135deg, #D0E3F7 0%, #E2D6F7 100%)",
-                "linear-gradient(135deg, #FFE89A 0%, #FFD6E0 100%)",
-              ];
-              const HIGHLIGHT_HOVER = [
-                "linear-gradient(135deg, #A4E0BC 0%, #E0EC88 100%)",
-                "linear-gradient(135deg, #FFBCD0 0%, #FFD86A 100%)",
-                "linear-gradient(135deg, #B4CEED 0%, #C8BAF0 100%)",
-                "linear-gradient(135deg, #FFD86A 0%, #FFBCD0 100%)",
-              ];
+              // Flat solid colors — same hex as SOURCE_PALETTES[0] of each card palette
+              const HIGHLIGHT_COLORS = ["#C8F0D8", "#FFD6E0", "#D0E3F7", "#FFE89A"];
+              const HIGHLIGHT_HOVER  = ["#A4E0BC", "#FFBCD0", "#B4CEED", "#E0EC88"];
               if (matchedPaper && onSelectPaper) {
                 const paperIdx = papers.indexOf(matchedPaper);
                 const bg = HIGHLIGHT_COLORS[paperIdx % HIGHLIGHT_COLORS.length];

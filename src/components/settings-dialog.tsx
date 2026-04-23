@@ -8,14 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Settings, Loader2, CheckCircle, XCircle, RefreshCw, LogOut, X } from "lucide-react";
-import { CATEGORY_PALETTES } from "@/components/interest-ledger";
 import { useSession as useAuthSession } from "next-auth/react";
-import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
-import type { S2Field } from "@/lib/field-hierarchy";
-import { InterestLedger, type CustomTopics } from "@/components/interest-ledger";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
-export type SettingsTab = "api" | "interests" | "account";
+export type SettingsTab = "api" | "account";
 
 interface SettingsDialogProps {
   session: {
@@ -39,14 +35,6 @@ const providerDefaults: Record<Provider, { model: string; label: string }> = {
 };
 
 
-interface SelectedTopic {
-  keyword: string;
-  field: S2Field;
-  fieldLabel: string;
-  color: string;
-}
-
-
 export function SettingsDialog({ session, updateSession, onRefreshDigest, open: controlledOpen, onOpenChange, startTab }: SettingsDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
@@ -67,13 +55,6 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest, open: 
   const [inviteCode, setInviteCode] = useState("");
   const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
 
-  // Cadence state
-  const [cadence, setCadence] = useState<"daily" | "biweekly" | "weekly">("daily");
-
-  // Interests state
-  const [selectedTopics, setSelectedTopics] = useState<SelectedTopic[]>([]);
-  const [customTopics, setCustomTopics] = useState<CustomTopics>({});
-  const [loadingInterests, setLoadingInterests] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -85,38 +66,9 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest, open: 
       setModel(session.model);
       setBaseUrl(session.baseUrl);
       setTestResult(null);
-      loadInterests();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, startTab]);
-
-  async function loadInterests() {
-    setLoadingInterests(true);
-    try {
-      const res = await fetch("/api/interests");
-      if (!res.ok) return;
-      const data = await res.json();
-      const entries: SelectedTopic[] = [];
-      const customByField: CustomTopics = {};
-      for (const i of (data.interests ?? []) as { keyword: string; field: string; level: string }[]) {
-        const fieldEntry = Object.entries(FIELD_HIERARCHY).find(([, f]) => f.s2Field === i.field);
-        entries.push({
-          keyword: i.keyword,
-          field: (i.field || "Computer Science") as S2Field,
-          fieldLabel: fieldEntry ? fieldEntry[1].label : "CS",
-          color: fieldEntry ? fieldEntry[1].color : "#e5e7eb",
-        });
-        if (fieldEntry && !fieldEntry[1].topics.includes(i.keyword)) {
-          const key = fieldEntry[0];
-          (customByField[key] ||= []).push(i.keyword);
-        }
-      }
-      setSelectedTopics(entries);
-      setCustomTopics(customByField);
-    } finally {
-      setLoadingInterests(false);
-    }
-  }
 
   async function handleCodeSubmit() {
     if (!inviteCode.trim() || codeStatus === "checking") return;
@@ -171,64 +123,10 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest, open: 
     setTesting(false);
   }
 
-  function toggleTopic(keyword: string, fieldKey: string) {
-    const fieldDef = FIELD_HIERARCHY[fieldKey];
-    if (!fieldDef) return;
-    const exists = selectedTopics.findIndex(t => t.keyword === keyword);
-    if (exists > -1) {
-      setSelectedTopics(prev => prev.filter(t => t.keyword !== keyword));
-    } else if (selectedTopics.length < 20) {
-      setSelectedTopics(prev => [...prev, {
-        keyword, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
-      }]);
-    }
-  }
-
-  function addCustom(fieldKey: string, topic: string) {
-    const val = topic.trim();
-    if (!val || selectedTopics.length >= 20) return;
-    const fieldDef = FIELD_HIERARCHY[fieldKey];
-    if (!fieldDef) return;
-    setCustomTopics(prev => {
-      const existing = prev[fieldKey] || [];
-      if (existing.some(x => x.toLowerCase() === val.toLowerCase())) return prev;
-      return { ...prev, [fieldKey]: [...existing, val] };
-    });
-    setSelectedTopics(prev => {
-      if (prev.some(t => t.keyword === val)) return prev;
-      return [...prev, {
-        keyword: val, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
-      }];
-    });
-  }
-
-  function removeCustom(fieldKey: string, topic: string) {
-    setCustomTopics(prev => ({
-      ...prev,
-      [fieldKey]: (prev[fieldKey] || []).filter(x => x !== topic),
-    }));
-    setSelectedTopics(prev => prev.filter(t => t.keyword !== topic));
-  }
-
   async function handleSave() {
     setSaving(true);
     try {
       updateSession({ apiKey, provider, model: model || providerDefaults[provider].model, baseUrl });
-      if (selectedTopics.length >= 3) {
-        await fetch("/api/interests", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            interests: selectedTopics.map(t => ({ keyword: t.keyword, field: t.field, level: "beginner" })),
-          }),
-        });
-      }
-      // Save cadence
-      await fetch("/api/setup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cadence }),
-      }).catch(() => {});
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -243,7 +141,6 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest, open: 
   }
 
   const navItems: { key: SettingsTab; label: string }[] = [
-    { key: "interests", label: "Interests" },
     { key: "api", label: "API Key" },
     { key: "account", label: "Account" },
   ];
@@ -408,106 +305,6 @@ export function SettingsDialog({ session, updateSession, onRefreshDigest, open: 
                 <p style={{ fontSize: "0.8rem", color: "#ff007f", marginTop: "12px", fontFamily: "var(--font-mono), monospace" }}>
                   {testResult.message}
                 </p>
-              )}
-            </div>
-          )}
-
-          {/* ── Interests Tab ── */}
-          {tab === "interests" && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="px-5 pt-6 pb-4 md:px-10 md:pt-10 md:pb-5">
-                <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-                  Curate Your Feed
-                </h3>
-                <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "0" }}>
-                  Pick topics to personalize your daily digest.
-                </p>
-              </div>
-
-              {/* Delivery Cadence */}
-              <div className="px-5 md:px-10 pb-4" style={{ borderBottom: "1px solid #eee" }}>
-                <label style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "10px" }}>
-                  Delivery Cadence
-                </label>
-                <div className="flex gap-0">
-                  {([
-                    { key: "daily" as const, label: "Daily", desc: "The morning digest." },
-                    { key: "biweekly" as const, label: "Bi-Weekly", desc: "Tuesday & Friday." },
-                    { key: "weekly" as const, label: "Weekly", desc: "The Sunday recap." },
-                  ]).map(opt => (
-                    <button
-                      key={opt.key}
-                      onClick={() => setCadence(opt.key)}
-                      className="flex-1"
-                      style={{
-                        padding: "10px 8px", border: "2px solid #1a1a1a", marginRight: "-2px",
-                        background: cadence === opt.key ? "#1a1a1a" : "white",
-                        color: cadence === opt.key ? "white" : "#1a1a1a",
-                        cursor: "pointer", textAlign: "center",
-                      }}
-                    >
-                      <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>{opt.label}</div>
-                      <div style={{ fontSize: "0.6rem", color: cadence === opt.key ? "#ccc" : "#888", marginTop: "2px" }}>{opt.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Topics */}
-              <div className="flex-1 overflow-y-auto px-5 md:px-10 pt-4">
-                {loadingInterests ? (
-                  <div className="flex items-center justify-center py-16"><Loader2 className="size-5 animate-spin text-[#888]" /></div>
-                ) : (
-                  <InterestLedger
-                    selected={selectedTopics}
-                    custom={customTopics}
-                    onToggle={toggleTopic}
-                    onAddCustom={addCustom}
-                    onRemoveCustom={removeCustom}
-                  />
-                )}
-              </div>
-
-              {/* Selected footer */}
-              {selectedTopics.length > 0 && (
-                <div className="px-5 md:px-10" style={{ borderTop: "3px solid #1a1a1a", background: "#fafafa", paddingTop: "12px", paddingBottom: "12px", flexShrink: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: "8px" }}>
-                    <button
-                      onClick={() => setSelectedTopics([])}
-                      style={{ fontSize: "0.65rem", fontWeight: 700, color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px" }}
-                    >
-                      Clear All
-                    </button>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", maxHeight: "72px", overflowY: "auto" }}>
-                    {selectedTopics.map(t => {
-                      const fieldEntry = Object.entries(FIELD_HIERARCHY).find(([, def]) => def.s2Field === t.field);
-                      const pal = fieldEntry ? CATEGORY_PALETTES[fieldEntry[0]] : null;
-                      const gradient = pal ? `linear-gradient(135deg, ${pal[0]} 0%, ${pal[1]} 100%)` : (t.color || "#e5e7eb");
-                      return (
-                        <span
-                          key={t.keyword}
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: "4px",
-                            border: "1px solid rgba(26,26,26,0.25)", fontSize: "0.65rem",
-                            fontWeight: 600, textTransform: "uppercase", borderRadius: "3px",
-                            background: gradient, padding: "4px 6px 4px 8px",
-                            fontFamily: "var(--font-mono), monospace",
-                          }}
-                        >
-                          {t.keyword}
-                          <button
-                            onClick={() => setSelectedTopics(prev => prev.filter(x => x.keyword !== t.keyword))}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px", fontSize: "0.75rem", lineHeight: 1, color: "rgba(26,26,26,0.5)" }}
-                            className="hover:text-[#1a1a1a] transition-colors"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
               )}
             </div>
           )}
