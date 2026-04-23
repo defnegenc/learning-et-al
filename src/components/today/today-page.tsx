@@ -463,6 +463,79 @@ function NotepadFloat({ digestId }: { digestId: string }) {
   );
 }
 
+/* ── Hidden digest state with regenerate option ── */
+function HiddenDigestState({
+  hiddenStash, session, generating, generateError, onUndo, onRegenerate,
+}: {
+  hiddenStash: { digest: { id: string }; papers: unknown[] };
+  session?: { apiKey: string; provider: string; model: string; baseUrl: string };
+  generating: boolean;
+  generateError: string | null;
+  onUndo: () => void;
+  onRegenerate: (force?: boolean) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleRegenerate = async () => {
+    if (!reason.trim()) return;
+    setSubmitted(true);
+    try {
+      await fetch("/api/digest/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ digestId: hiddenStash.digest.id, reason: reason.trim() }),
+      });
+    } catch { /* non-critical */ }
+    onRegenerate(true);
+  };
+
+  return (
+    <>
+      <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
+        Digest hidden
+      </h1>
+      <button
+        onClick={onUndo}
+        style={{ fontSize: "0.65rem", color: "#999", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px", fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}
+      >
+        Undo
+      </button>
+      {session && !submitted && (
+        <div style={{ width: "100%", maxWidth: "420px", display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid #e5e7eb", paddingTop: "24px" }}>
+          <p style={{ fontSize: "0.8rem", color: "#555", fontFamily: "var(--font-mono), monospace" }}>
+            Want a different one? Tell us why and we&apos;ll regenerate.
+          </p>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && reason.trim()) handleRegenerate(); }}
+              placeholder="e.g. too technical, already know this topic…"
+              autoFocus
+              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #1a1a1a", fontSize: "0.8rem", outline: "none", fontFamily: "var(--font-inter), sans-serif" }}
+            />
+            <button
+              onClick={handleRegenerate}
+              disabled={!reason.trim() || generating}
+              className="hover:bg-[#333] disabled:opacity-40"
+              style={{ padding: "8px 14px", background: "#1a1a1a", color: "white", border: "none", cursor: "pointer", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace" }}
+            >
+              {generating ? <Loader2 size={12} className="animate-spin" /> : "Go"}
+            </button>
+          </div>
+          {generateError && <p style={{ fontSize: "0.7rem", color: "#ff007f" }}>{generateError}</p>}
+        </div>
+      )}
+      {submitted && generating && (
+        <div className="flex items-center gap-2 text-[#888]" style={{ fontSize: "0.8rem", fontFamily: "var(--font-mono), monospace" }}>
+          <Loader2 size={14} className="animate-spin" /> Generating a new digest…
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ── Interfaces ── */
 interface Digest {
   id: string;
@@ -620,25 +693,18 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
         {hiddenStash ? (
-          <>
-            <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
-              Digest hidden
-            </h1>
-            <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
-              It won&apos;t show up again until you unhide it.
-            </p>
-            <button
-              onClick={async () => {
-                const { digest: d, papers: p } = hiddenStash;
-                setDigest(d); setPapers(p); setHidden(false); setHiddenStash(null);
-                try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: d.id }) }); } catch { /* non-critical */ }
-              }}
-              className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors"
-              style={{ borderWidth: "1.5px", fontFamily: "var(--font-mono), monospace" }}
-            >
-              Undo
-            </button>
-          </>
+          <HiddenDigestState
+            hiddenStash={hiddenStash}
+            session={session}
+            generating={generating}
+            generateError={generateError}
+            onUndo={async () => {
+              const { digest: d, papers: p } = hiddenStash;
+              setDigest(d); setPapers(p); setHidden(false); setHiddenStash(null);
+              try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: d.id }) }); } catch { /* non-critical */ }
+            }}
+            onRegenerate={handleGenerate}
+          />
         ) : (
           <>
             <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
