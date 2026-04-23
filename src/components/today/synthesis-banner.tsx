@@ -532,6 +532,16 @@ export function SynthesisBanner({
   }
   const bodyText = bodyLines.join("\n\n");
 
+  // Pull quote: find shortest sentence with a specific number/stat — most punchy
+  const pullQuote = useMemo(() => {
+    const clean = bodyText.replace(/\*\*/g, "").replace(/\n/g, " ");
+    const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
+    const candidates = sentences
+      .map(s => s.trim())
+      .filter(s => /\d/.test(s) && s.length > 55 && s.length < 200);
+    return candidates.sort((a, b) => a.length - b.length)[0] || null;
+  }, [bodyText]);
+
   // Dig deeper prompts — prefer LLM-generated, fall back to heuristic
   const digDeeperPrompts = useMemo(() => {
     if (suggestedQuestions && suggestedQuestions.length > 0) return suggestedQuestions;
@@ -607,15 +617,44 @@ export function SynthesisBanner({
       )}
 
       {/* Synthesis body */}
+      {(() => {
+        let pIdx = 0;
+        return (
       <div
         className="text-[0.95rem] md:text-[1.05rem] text-gray-700"
-        style={{ lineHeight: "1.85", fontFamily: "inherit" }}
+        style={{ lineHeight: "1.85", fontFamily: "inherit", maxWidth: "68ch" }}
       >
         <ReactMarkdown
           components={{
-            p: ({ children }) => (
-              <p style={{ marginBottom: "1.25em" }}>{annotateText(children, conceptDefs)}</p>
-            ),
+            p: ({ children }) => {
+              const idx = pIdx++;
+              const isLede = idx === 0;
+              return (
+                <>
+                  <p style={{
+                    marginBottom: "1.25em",
+                    ...(isLede ? { fontSize: "1.06em", fontWeight: 500, color: "#111" } : {}),
+                  }}>
+                    {annotateText(children, conceptDefs)}
+                  </p>
+                  {isLede && pullQuote && (
+                    <blockquote style={{
+                      borderLeft: "3px solid #1a1a1a",
+                      paddingLeft: "20px",
+                      margin: "0 0 1.75em",
+                      fontFamily: "var(--font-display), sans-serif",
+                      fontSize: "1.15rem",
+                      fontWeight: 700,
+                      lineHeight: 1.35,
+                      color: "#1a1a1a",
+                      fontStyle: "normal",
+                    }}>
+                      &ldquo;{pullQuote}&rdquo;
+                    </blockquote>
+                  )}
+                </>
+              );
+            },
             strong: ({ children }) => {
               // Extract text robustly — String(children) breaks on React element arrays
               const extractText = (node: React.ReactNode): string => {
@@ -724,6 +763,8 @@ export function SynthesisBanner({
           {bodyText}
         </ReactMarkdown>
       </div>
+        );
+      })()}
 
       {/* Key concepts — display only */}
       {keyConcepts.length > 0 && (

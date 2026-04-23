@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star, X } from "lucide-react";
 import React from "react";
 import { CompareView } from "./compare-view";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
@@ -197,6 +197,7 @@ export function VaultPage({ session }: VaultPageProps) {
   const [interests, setInterests] = useState<Interest[]>([]);
   const [activeField, setActiveField] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [comparing, setComparing] = useState(false);
@@ -266,6 +267,7 @@ export function VaultPage({ session }: VaultPageProps) {
   const handleThemeClick = async (digestId: string) => {
     if (activeDigestId === digestId) { setActiveDigestId(null); setDigestPapers(null); return; }
     setActiveDigestId(digestId);
+    setDrawerOpen(false);
     try {
       const res = await fetch(`/api/digest?id=${digestId}`);
       if (!res.ok) return;
@@ -372,14 +374,76 @@ export function VaultPage({ session }: VaultPageProps) {
   });
 
   const setMode = (mode: FilterMode) => {
-    setFilterMode(prev => prev === mode ? "all" : mode);
+    const isToggleOff = filterMode === mode;
+    setFilterMode(isToggleOff ? "all" : mode);
     setActiveField(null);
     setActiveDigestId(null);
     setDigestPapers(null);
+    if (mode === "theme" || mode === "starred") {
+      setDrawerOpen(!isToggleOff);
+    } else {
+      setDrawerOpen(false);
+    }
   };
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
+
+      {/* ── Digest drawer ── */}
+      {drawerOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 40, background: "rgba(0,0,0,0.18)" }}
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+      <div style={{
+        position: "fixed", top: 0, left: drawerOpen ? 0 : "-320px", bottom: 0,
+        width: 300, background: "white", borderRight: "2px solid #1a1a1a",
+        zIndex: 50, transition: "left 220ms cubic-bezier(0.2,0,0,1)",
+        display: "flex", flexDirection: "column", overflow: "hidden",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid rgba(26,26,26,0.12)", flexShrink: 0 }}>
+          <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a" }}>
+            {filterMode === "starred" ? "Starred Digests" : "All Digests"}
+          </span>
+          <button onClick={() => setDrawerOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#888", padding: 4, display: "flex" }}>
+            <X size={14} />
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {visibleThemes.length === 0 ? (
+            <div style={{ padding: "32px 20px", fontSize: "0.7rem", color: "#aaa", fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", letterSpacing: "1px" }}>
+              No digests yet
+            </div>
+          ) : visibleThemes.map((theme, i) => {
+            const isActive = activeDigestId === theme.id;
+            const isLast = i === visibleThemes.length - 1;
+            return (
+              <button
+                key={theme.id}
+                onClick={() => handleThemeClick(theme.id)}
+                style={{
+                  display: "flex", flexDirection: "column", gap: "4px",
+                  width: "100%", padding: "12px 20px", textAlign: "left",
+                  background: isActive ? "#1a1a1a" : "transparent",
+                  border: "none", borderBottom: isLast ? "none" : "1px solid rgba(26,26,26,0.08)",
+                  color: isActive ? "white" : "#1a1a1a",
+                  cursor: "pointer", transition: "background 100ms",
+                }}
+                className={isActive ? "" : "hover:bg-[#f5f5f5]"}
+              >
+                <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.55rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: isActive ? "rgba(255,255,255,0.5)" : "#aaa", display: "flex", alignItems: "center", gap: "6px" }}>
+                  {theme.date}
+                  {theme.starred && <Star size={8} style={{ fill: isActive ? "rgba(255,255,255,0.5)" : "#f59e0b", stroke: "none" }} />}
+                </span>
+                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.8rem", fontWeight: isActive ? 700 : 500, lineHeight: 1.3 }}>
+                  {theme.theme}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── Filter bar ── */}
       <div
@@ -451,51 +515,19 @@ export function VaultPage({ session }: VaultPageProps) {
         )}
       </div>
 
-      {/* ── Secondary filter: digest list ── */}
-      {(filterMode === "theme" || filterMode === "starred") && visibleThemes.length > 0 && (
-        <div style={{ border: "1px solid #1a1a1a", marginBottom: "28px" }}>
-          {visibleThemes.map((theme, i) => {
-            const isActive = activeDigestId === theme.id;
-            const isLast = i === visibleThemes.length - 1;
-            return (
-              <button
-                key={theme.id}
-                onClick={() => handleThemeClick(theme.id)}
-                style={{
-                  display: "flex", alignItems: "baseline", gap: "20px",
-                  width: "100%", padding: "10px 16px",
-                  background: isActive ? "#1a1a1a" : "transparent",
-                  border: "none",
-                  borderBottom: isLast ? "none" : "1px solid rgba(26,26,26,0.12)",
-                  borderLeft: isActive ? "3px solid #1a1a1a" : "3px solid transparent",
-                  color: isActive ? "white" : "#1a1a1a",
-                  cursor: "pointer", textAlign: "left",
-                  transition: "background 120ms",
-                }}
-                className={isActive ? "" : "hover:bg-[#f9f9f9]"}
-              >
-                <span style={{
-                  fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem",
-                  fontWeight: 600, letterSpacing: "0.08em", flexShrink: 0,
-                  color: isActive ? "rgba(255,255,255,0.6)" : "#999",
-                  textTransform: "uppercase",
-                }}>
-                  {theme.date}
-                </span>
-                <span style={{
-                  fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem",
-                  fontWeight: isActive ? 700 : 500, lineHeight: 1.3, flex: 1,
-                }}>
-                  {theme.theme}
-                </span>
-                {theme.starred && (
-                  <Star size={11} style={{ flexShrink: 0, fill: isActive ? "white" : "#f59e0b", stroke: isActive ? "white" : "#f59e0b" }} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* ── Active digest indicator ── */}
+      {activeDigestId && (() => {
+        const active = pastThemes.find(t => t.id === activeDigestId);
+        return active ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+            <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px", color: "#888" }}>Showing digest:</span>
+            <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-display), sans-serif", fontWeight: 600, color: "#1a1a1a" }}>{active.theme}</span>
+            <button onClick={() => { setActiveDigestId(null); setDigestPapers(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#aaa", display: "flex", padding: 2 }}>
+              <X size={12} />
+            </button>
+          </div>
+        ) : null;
+      })()}
 
       {/* ── Secondary filter row: domains ── */}
       {filterMode === "domain" && fieldNames.length > 0 && (
@@ -539,8 +571,9 @@ export function VaultPage({ session }: VaultPageProps) {
 
       {/* ── Paper grid ── */}
       {loading ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: "12px" }}>
           <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
+          {activeField && <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", color: "#aaa", textTransform: "uppercase", letterSpacing: "1px" }}>Loading all papers for domain filter…</span>}
         </div>
       ) : displayedPapers.length === 0 ? (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
