@@ -595,12 +595,12 @@ export function SynthesisBanner({
               );
             },
             blockquote: ({ children }) => (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "-4px 0 -4px 0", padding: "2px 0" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px", flexShrink: 0, marginLeft: "1px" }}>
-                  <div style={{ width: "1px", height: "6px", background: "#ccc" }} />
-                  <svg width="7" height="6" viewBox="0 0 7 6" fill="none"><path d="M3.5 6L0 0h7L3.5 6z" fill="#ccc"/></svg>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "2px 0", padding: "2px 0" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, marginLeft: "2px" }}>
+                  <div style={{ width: "1px", height: "8px", background: "#bbb" }} />
+                  <svg width="8" height="7" viewBox="0 0 8 7" fill="none"><path d="M4 7L0 0h8L4 7z" fill="#bbb"/></svg>
                 </div>
-                <div style={{ fontSize: "0.75rem", color: "#888", fontStyle: "italic", fontFamily: "var(--font-inter), sans-serif", lineHeight: 1.4 }}>
+                <div style={{ fontSize: "0.85rem", color: "#555", fontStyle: "italic", fontFamily: "var(--font-inter), sans-serif", lineHeight: 1.45 }}>
                   {children}
                 </div>
               </div>
