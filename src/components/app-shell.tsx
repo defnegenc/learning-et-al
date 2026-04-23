@@ -64,7 +64,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <span
           className="block md:hidden"
           style={{
-            fontSize: "0.8rem", fontWeight: 900, textTransform: "uppercase",
+            fontSize: "1.05rem", fontWeight: 900, textTransform: "uppercase",
             letterSpacing: "0.15em", color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
           }}
