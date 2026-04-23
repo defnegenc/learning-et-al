@@ -181,9 +181,13 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
 }
 
 /* ── Animated sweep title ── */
+// Phase "exit-prep" instantly switches background anchor to right (no visual change at 100% size),
+// then "exit" animates size→0 with right anchor so the bar collapses left-to-right.
+type BarPhase = "hidden" | "in" | "exit-prep" | "exit";
+
 function SweepTitle({ text, palettes }: { text: string; palettes: [string, string][] }) {
-  const [bar1, setBar1] = useState<"hidden" | "in" | "out">("hidden");
-  const [bar2, setBar2] = useState<"hidden" | "in" | "out">("hidden");
+  const [p1, setP1] = useState<BarPhase>("hidden");
+  const [p2, setP2] = useState<BarPhase>("hidden");
 
   const VERBS = new Set(["drive", "drives", "shape", "shapes", "affect", "affects", "are", "is",
     "make", "makes", "help", "helps", "change", "changes", "influence", "influences",
@@ -201,52 +205,49 @@ function SweepTitle({ text, palettes }: { text: string; palettes: [string, strin
   const phrase2 = words.slice(splitIdx).join(" ");
 
   useEffect(() => {
-    setBar1("hidden"); setBar2("hidden");
+    setP1("hidden"); setP2("hidden");
     const ts = [
-      setTimeout(() => setBar1("in"), 200),
-      setTimeout(() => setBar1("out"), 850),
-      setTimeout(() => setBar2("in"), 1050),
-      setTimeout(() => setBar2("out"), 1700),
+      setTimeout(() => setP1("in"), 200),
+      setTimeout(() => setP1("exit-prep"), 830),  // instant anchor switch (no visual change)
+      setTimeout(() => setP1("exit"), 845),         // now animate size→0 from right anchor
+      setTimeout(() => setP2("in"), 1060),
+      setTimeout(() => setP2("exit-prep"), 1690),
+      setTimeout(() => setP2("exit"), 1705),
     ];
     return () => ts.forEach(clearTimeout);
   }, [text]);
 
-  // Sweep bar sits *below* the inline-block span — matches the span width exactly (no overshoot)
-  const sweepBar = (phase: "hidden" | "in" | "out", g: string): React.CSSProperties => ({
-    display: "block",
-    height: "10px",
-    marginTop: "2px",
-    background: g,
-    pointerEvents: "none",
-    clipPath: phase === "hidden" ? "inset(0 100% 0 0%)"
-            : phase === "in"     ? "inset(0 0% 0 0%)"
-            :                      "inset(0 0% 0 100%)",
-    transition: phase !== "hidden" ? "clip-path 0.52s ease-in-out" : "none",
-  });
+  // Uses display:inline + background-image so the bar follows text wrapping per-line,
+  // not the inline-block box width (which overshoot on wrapped lines).
+  const phraseStyle = (phase: BarPhase, c1: string, c2: string): React.CSSProperties => {
+    const rightAnchor = phase === "exit-prep" || phase === "exit";
+    return {
+      display: "inline",
+      backgroundImage: `linear-gradient(90deg, ${c1} 0%, ${c2} 100%)`,
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: rightAnchor ? "right bottom" : "left bottom",
+      backgroundSize: (phase === "in" || phase === "exit-prep") ? "100% 9px" : "0% 9px",
+      transition: phase === "in"   ? "background-size 0.52s ease-in-out"
+                : phase === "exit" ? "background-size 0.44s ease-in-out"
+                : "none",
+      paddingBottom: "10px",
+    };
+  };
 
-  const g1 = `linear-gradient(90deg, ${palettes[0][0]} 0%, ${palettes[0][1]} 100%)`;
-  const g2 = `linear-gradient(90deg, ${palettes[1 % palettes.length][0]} 0%, ${palettes[1 % palettes.length][1]} 100%)`;
+  const [a1, b1] = palettes[0];
+  const [a2, b2] = palettes[1 % palettes.length];
 
   return (
-    // overflow: visible so bars on the last line don't get clipped
     <h1 style={{
       fontFamily: "var(--font-display), sans-serif",
       fontSize: "clamp(2.75rem, 5vw, 4rem)",
-      lineHeight: 1.15, fontWeight: 700,
+      lineHeight: 1.25, fontWeight: 700,
       letterSpacing: "-0.055em", color: "#1a1a1a",
       margin: "0 0 28px",
-      overflow: "visible",
     }}>
-      {/* inline-block so the sweep bar width matches text width, not full line */}
-      <span style={{ display: "inline-block", verticalAlign: "top" }}>
-        {phrase1}
-        <span style={sweepBar(bar1, g1)} />
-      </span>
+      <span style={phraseStyle(p1, a1, b1)}>{phrase1}</span>
       {" "}
-      <span style={{ display: "inline-block", verticalAlign: "top" }}>
-        {phrase2}
-        <span style={sweepBar(bar2, g2)} />
-      </span>
+      <span style={phraseStyle(p2, a2, b2)}>{phrase2}</span>
     </h1>
   );
 }

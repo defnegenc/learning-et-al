@@ -39,13 +39,13 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://learningetal.com",
     siteName: "Learning et al.",
-    title: "Learning et al. — Your AI research companion",
+    title: "Learning et al. — The digest that thinks.",
     description:
       "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests. One provocative question a day.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Learning et al. — Your AI research companion",
+    title: "Learning et al. — The digest that thinks.",
     description:
       "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests.",
   },
