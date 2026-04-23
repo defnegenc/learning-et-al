@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Learning et al. — Your AI research companion";
+export const alt = "Learning et al. — The digest that thinks.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
