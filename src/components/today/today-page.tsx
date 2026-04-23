@@ -140,7 +140,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
 
       {/* Summary — vertical accent + text */}
       {paper.summary && (
-        <div style={{ display: "flex", gap: "10px", alignItems: "stretch", paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.12)" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "stretch", paddingTop: "10px", marginBottom: "12px" }}>
           <div style={{ width: 3, flexShrink: 0, borderRadius: 1, background: `linear-gradient(to bottom, ${palette[0]} 0%, ${palette[1]} 100%)` }} />
           <div style={{ fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
             {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
