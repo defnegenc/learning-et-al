@@ -89,7 +89,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       rel="noopener noreferrer"
       style={{
         ...baseWash,
-        border: `1.5px solid ${palette[0]}cc`,
+        border: "1px solid #1a1a1a",
         display: "block",
         padding: "16px 18px 18px",
         textDecoration: "none",
@@ -141,7 +141,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       {/* Summary — vertical accent + text */}
       {paper.summary && (
         <div style={{ display: "flex", gap: "10px", alignItems: "stretch", paddingTop: "10px", marginBottom: "12px" }}>
-          <div style={{ width: 3, flexShrink: 0, borderRadius: 1, background: `linear-gradient(to bottom, ${palette[0]} 0%, ${palette[1]} 100%)` }} />
+          <div style={{ width: 3, flexShrink: 0, borderRadius: 1, background: "#ddd" }} />
           <div style={{ fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
             {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
           </div>
@@ -752,13 +752,11 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-  /* ── Main render — two-column: synthesis+questions | papers ── */
+  /* ── Main render — single column, papers inline in synthesis ── */
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_380px] items-start" style={{ gap: "48px" }}>
-
-        {/* ── Left: title + synthesis + dig deeper ── */}
+        {/* ── Title + synthesis + dig deeper ── */}
         <main>
           {/* DigestTitleBlock */}
           <div style={{ marginBottom: "32px" }}>
@@ -823,6 +821,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               onSelectPaper={openSource}
               onRegenerate={() => handleGenerate(true)}
               generating={generating}
+              renderPaperCard={(paper, idx) => <SourceCard paper={paper} index={idx} />}
               session={session}
               onSignIn={onSignIn}
               hideHeader
@@ -857,23 +856,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             />
           </div>
         </main>
-
-        {/* ── Right: papers ── */}
-        {papers.length > 0 && (
-          <aside>
-            <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
-              <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Referenced sources
-              </span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {papers.map((paper, idx) => (
-                <SourceCard key={paper.id} paper={paper} index={idx} />
-              ))}
-            </div>
-          </aside>
-        )}
-      </div>
 
       {/* ── Floating notepad — desktop only ── */}
       {digest.id && session && (

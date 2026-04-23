@@ -212,6 +212,60 @@ function annotateText(children: React.ReactNode, defs: Record<string, string>): 
   });
 }
 
+const SOURCE_PALETTES: [string, string][] = [
+  ["#C8F0D8", "#F0F5A8"],
+  ["#FFD6E0", "#FFE89A"],
+  ["#D0E3F7", "#E2D6F7"],
+  ["#FFE89A", "#FFD6E0"],
+];
+const HIGHLIGHT_GRADIENTS: [string, string][] = [
+  ["#C8F0D8", "#F0F5A8"],
+  ["#FFD6E0", "#FFE89A"],
+  ["#D0E3F7", "#E2D6F7"],
+  ["#FFE89A", "#FFD6E0"],
+];
+const HIGHLIGHT_HOVER_GRADIENTS: [string, string][] = [
+  ["#A4E0BC", "#DCF060"],
+  ["#FFB0C8", "#FFD870"],
+  ["#B0CCF0", "#C8B4F0"],
+  ["#FFD870", "#FFB0C8"],
+];
+
+type BodySection =
+  | { kind: "paragraph"; text: string }
+  | { kind: "bullet"; text: string; sourceIdx: number | null }
+  | { kind: "bridge"; text: string };
+
+function parseBodySections(text: string): BodySection[] {
+  const sections: BodySection[] = [];
+  let paraLines: string[] = [];
+  const flushPara = () => {
+    if (paraLines.length > 0) {
+      sections.push({ kind: "paragraph", text: paraLines.join("\n") });
+      paraLines = [];
+    }
+  };
+  for (const line of text.split("\n")) {
+    const bulletMatch = line.match(/^\s*[-*]\s+(.*)/);
+    const bridgeMatch = line.match(/^\s*>\s+(.*)/);
+    if (bulletMatch) {
+      flushPara();
+      const t = bulletMatch[1];
+      const m = t.match(/\*\*\[(?:source\s*)?(\d+)\]/i);
+      sections.push({ kind: "bullet", text: t, sourceIdx: m ? parseInt(m[1], 10) - 1 : null });
+    } else if (bridgeMatch) {
+      flushPara();
+      sections.push({ kind: "bridge", text: bridgeMatch[1] });
+    } else if (line.trim()) {
+      paraLines.push(line);
+    } else {
+      flushPara();
+    }
+  }
+  flushPara();
+  return sections;
+}
+
 interface SynthesisBannerProps {
   synthesis: string;
   theme?: string;
@@ -227,6 +281,7 @@ interface SynthesisBannerProps {
   onAddInterest?: (keyword: string) => void;
   onRegenerate?: () => void;
   generating?: boolean;
+  renderPaperCard?: (paper: PaperItem, index: number) => React.ReactNode;
   session?: {
     apiKey: string;
     provider: string;
@@ -365,6 +420,7 @@ export function SynthesisBanner({
   onAddInterest,
   onRegenerate,
   generating = false,
+  renderPaperCard,
   session,
   onSignIn,
   hideHeader = false,
@@ -547,205 +603,179 @@ export function SynthesisBanner({
         </div>
       )}
 
-      {/* Synthesis body */}
+      {/* Synthesis body — numbered timeline layout */}
       {(() => {
-        let pIdx = 0;
-        let liIdx = 0;
-        // Bullet color pairs — matching SOURCE_PALETTES in today-page.tsx
-        const BULLET_PALETTES: [string, string][] = [
-          ["#C8F0D8", "#F0F5A8"],
-          ["#FFD6E0", "#FFE89A"],
-          ["#D0E3F7", "#E2D6F7"],
-          ["#FFE89A", "#FFD6E0"],
-        ];
+        const sections = parseBodySections(bodyText);
+        const totalBullets = sections.filter(s => s.kind === "bullet").length;
+        let bulletIdx = 0;
+        let isFirstParagraph = true;
+
+        const extractText = (node: React.ReactNode): string => {
+          if (typeof node === "string") return node;
+          if (typeof node === "number") return String(node);
+          if (Array.isArray(node)) return node.map(extractText).join("");
+          if (node && typeof node === "object" && "props" in node) return extractText((node as React.ReactElement<{ children?: React.ReactNode }>).props.children);
+          return "";
+        };
+
+        const StrongRenderer = ({ children }: { children?: React.ReactNode }) => {
+          const text = extractText(children);
+          const textLower = text.toLowerCase();
+          const indexMatch = text.match(/^\[(?:source\s*)?(\d+)\]\s*/i);
+          let matchedPaper: (typeof papers)[number] | null = null;
+          let displayText = text;
+
+          if (indexMatch) {
+            const idx = parseInt(indexMatch[1], 10) - 1;
+            if (idx >= 0 && idx < papers.length) {
+              matchedPaper = papers[idx];
+              displayText = text.slice(indexMatch[0].length);
+            }
+          }
+
+          if (!matchedPaper) {
+            const cleanText = textLower.replace(/\s*\(.*?\)\s*/g, " ").trim();
+            let bestPaper: (typeof papers)[number] | null = null;
+            let bestScore = 0;
+            let secondBestScore = 0;
+            const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
+            const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows", "study", "paper", "research", "report", "review"]);
+            const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
+            const boldStems = boldWords.map(stem);
+            const acronyms = cleanText.split(/\s+/).filter(w => /^[A-Z]{2,6}$/.test(w));
+            const matchesAcronym = (acronym: string, title: string) => {
+              const words = title.split(/[\s\-]+/).filter(w => w.length > 0);
+              for (let start = 0; start <= words.length - acronym.length; start++) {
+                const initials = words.slice(start, start + acronym.length).map(w => w[0].toUpperCase()).join("");
+                if (initials === acronym) return true;
+              }
+              return false;
+            };
+            for (const p of papers) {
+              let score = 0;
+              const title = p.title.toLowerCase();
+              const kwStr = p.keywords.join(" ").toLowerCase();
+              const authorStr = p.authors.join(" ").toLowerCase();
+              if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
+              for (const acronym of acronyms) { if (matchesAcronym(acronym, p.title)) score += 8; }
+              for (const bs of boldStems) {
+                const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
+                if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
+                if (authorStr.includes(bs)) score += 4;
+                if (kwStr.includes(bs)) score += 1;
+              }
+              if (score > bestScore) { secondBestScore = bestScore; bestScore = score; bestPaper = p; }
+              else if (score > secondBestScore) { secondBestScore = score; }
+            }
+            matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
+          }
+
+          if (matchedPaper && onSelectPaper) {
+            const paperIdx = papers.indexOf(matchedPaper);
+            const [ha, hb] = HIGHLIGHT_GRADIENTS[paperIdx % HIGHLIGHT_GRADIENTS.length];
+            const [hha, hhb] = HIGHLIGHT_HOVER_GRADIENTS[paperIdx % HIGHLIGHT_HOVER_GRADIENTS.length];
+            return (
+              <PaperHighlight
+                bg={`linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`}
+                bgHover={`linear-gradient(135deg, ${hha} 0%, ${hhb} 100%)`}
+                summary={matchedPaper.summary}
+                onClick={() => onSelectPaper(matchedPaper!)}
+              >
+                {displayText}
+              </PaperHighlight>
+            );
+          }
+          return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
+        };
+
         return (
-      <div
-        className="text-[0.95rem] md:text-[1.05rem]"
-        style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}
-      >
-        <ReactMarkdown
-          components={{
-            p: ({ children }) => {
-              const idx = pIdx++;
-              const isLede = idx === 0;
-              return (
-                <>
-                  <p style={{
-                    marginBottom: "1.25em",
-                    ...(isLede ? { fontSize: "1.06em", fontWeight: 500, color: "#111" } : {}),
-                  }}>
-                    {annotateText(children, conceptDefs)}
-                  </p>
-                  {isLede && pullQuote && (
-                    <blockquote style={{
-                      borderLeft: "3px solid #1a1a1a",
-                      paddingLeft: "20px",
-                      margin: "0 0 1.75em",
-                      fontFamily: "var(--font-display), sans-serif",
-                      fontSize: "1.15rem",
-                      fontWeight: 700,
-                      lineHeight: 1.35,
-                      color: "#1a1a1a",
-                      fontStyle: "normal",
-                    }}>
-                      &ldquo;{pullQuote}&rdquo;
-                    </blockquote>
-                  )}
-                </>
-              );
-            },
-            blockquote: ({ children }) => (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "2px 0", padding: "2px 0" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, marginLeft: "2px" }}>
-                  <div style={{ width: "1px", height: "8px", background: "#bbb" }} />
-                  <svg width="8" height="7" viewBox="0 0 8 7" fill="none"><path d="M4 7L0 0h8L4 7z" fill="#bbb"/></svg>
-                </div>
-                <div style={{ fontSize: "0.85rem", color: "#555", fontStyle: "italic", fontFamily: "var(--font-inter), sans-serif", lineHeight: 1.45 }}>
-                  {children}
-                </div>
-              </div>
-            ),
-            ul: ({ children }) => (
-              <ul style={{ listStyle: "none", padding: 0, margin: "0.25em 0 1.5em", display: "flex", flexDirection: "column", gap: "14px" }}>
-                {children}
-              </ul>
-            ),
-            li: ({ children }) => {
-              const idx = liIdx++;
-              const [pa, pb] = BULLET_PALETTES[idx % BULLET_PALETTES.length];
-              return (
-                <li style={{ display: "flex", gap: "14px", alignItems: "stretch" }}>
-                  <div style={{
-                    width: 4, flexShrink: 0, borderRadius: 2, minHeight: 24,
-                    background: `linear-gradient(to bottom, ${pa} 0%, ${pb} 100%)`,
-                    border: "1px solid rgba(26,26,26,0.12)",
-                  }} />
-                  <div style={{ flex: 1, paddingTop: "2px", paddingBottom: "2px" }}>
-                    {children}
-                  </div>
-                </li>
-              );
-            },
-            strong: ({ children }) => {
-              // Extract text robustly — String(children) breaks on React element arrays
-              const extractText = (node: React.ReactNode): string => {
-                if (typeof node === "string") return node;
-                if (typeof node === "number") return String(node);
-                if (Array.isArray(node)) return node.map(extractText).join("");
-                if (node && typeof node === "object" && "props" in node) return extractText((node as React.ReactElement<{ children?: React.ReactNode }>).props.children);
-                return "";
-              };
-              const text = extractText(children);
-              const textLower = text.toLowerCase();
-
-              // Primary: match by "[N]" prefix — e.g. "**[1] the Alzheimer's study**"
-              // The synthesis prompt tells the LLM to prefix with [Source N].
-              // We strip the prefix before rendering.
-              const indexMatch = text.match(/^\[(?:source\s*)?(\d+)\]\s*/i);
-              let matchedPaper: (typeof papers)[number] | null = null;
-              let displayText = text;
-
-              if (indexMatch) {
-                const idx = parseInt(indexMatch[1], 10) - 1; // 0-indexed
-                if (idx >= 0 && idx < papers.length) {
-                  matchedPaper = papers[idx];
-                  displayText = text.slice(indexMatch[0].length); // strip "[N] " prefix
-                }
-              }
-
-              // Fallback: fuzzy match for syntheses generated before the [N] format
-              if (!matchedPaper) {
-                const cleanText = textLower.replace(/\s*\(.*?\)\s*/g, " ").trim();
-                let bestPaper: (typeof papers)[number] | null = null;
-                let bestScore = 0;
-                const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-                const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows", "study", "paper", "research", "report", "review"]);
-                const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
-                const boldStems = boldWords.map(stem);
-
-                // Check if any word in the bold text is an uppercase acronym (e.g. "JIT", "XAI")
-                const acronyms = cleanText.split(/\s+/).filter(w => /^[A-Z]{2,6}$/.test(w));
-                const matchesAcronym = (acronym: string, title: string) => {
-                  const words = title.split(/[\s\-]+/).filter(w => w.length > 0);
-                  for (let start = 0; start <= words.length - acronym.length; start++) {
-                    const initials = words.slice(start, start + acronym.length).map(w => w[0].toUpperCase()).join("");
-                    if (initials === acronym) return true;
-                  }
-                  return false;
-                };
-
-                let secondBestScore = 0;
-                for (const p of papers) {
-                  let score = 0;
-                  const title = p.title.toLowerCase();
-                  const kwStr = p.keywords.join(" ").toLowerCase();
-                  const authorStr = p.authors.join(" ").toLowerCase();
-                  const summaryStr = (p.summary || "").toLowerCase();
-                  const connectionStr = (p.connectionReason || "").toLowerCase();
-
-                  if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
-                  for (const acronym of acronyms) {
-                    if (matchesAcronym(acronym, p.title)) score += 8;
-                  }
-                  // Title-only matching — skip summary/connection/keyword matches in the fallback
-                  // because those fields can leak content across papers (e.g. a swapped summary),
-                  // causing two different bold phrases to match the same paper by coincidence.
-                  for (const bs of boldStems) {
-                    const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
-                    if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
-                    if (authorStr.includes(bs)) score += 4;
-                    if (kwStr.includes(bs)) score += 1;
-                  }
-                  if (score > bestScore) {
-                    secondBestScore = bestScore;
-                    bestScore = score;
-                    bestPaper = p;
-                  } else if (score > secondBestScore) {
-                    secondBestScore = score;
-                  }
-                }
-                // Require a clear winner (≥4 points AND at least 2 points above the runner-up).
-                // This prevents ambiguous matches from assigning two different bold phrases
-                // to the same paper by coincidence.
-                matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
-              }
-              // Gradient highlights — match SOURCE_PALETTES pairs per paper
-              const HIGHLIGHT_GRADIENTS: [string, string][] = [
-                ["#C8F0D8", "#F0F5A8"],
-                ["#FFD6E0", "#FFE89A"],
-                ["#D0E3F7", "#E2D6F7"],
-                ["#FFE89A", "#FFD6E0"],
-              ];
-              const HIGHLIGHT_HOVER_GRADIENTS: [string, string][] = [
-                ["#A4E0BC", "#DCF060"],
-                ["#FFB0C8", "#FFD870"],
-                ["#B0CCF0", "#C8B4F0"],
-                ["#FFD870", "#FFB0C8"],
-              ];
-              if (matchedPaper && onSelectPaper) {
-                const paperIdx = papers.indexOf(matchedPaper);
-                const [ha, hb] = HIGHLIGHT_GRADIENTS[paperIdx % HIGHLIGHT_GRADIENTS.length];
-                const [hha, hhb] = HIGHLIGHT_HOVER_GRADIENTS[paperIdx % HIGHLIGHT_HOVER_GRADIENTS.length];
-                const bg = `linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`;
-                const bgHover = `linear-gradient(135deg, ${hha} 0%, ${hhb} 100%)`;
+          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
+            {sections.map((section, i) => {
+              if (section.kind === "paragraph") {
+                const isLede = isFirstParagraph;
+                isFirstParagraph = false;
                 return (
-                  <PaperHighlight
-                    bg={bg}
-                    bgHover={bgHover}
-                    summary={matchedPaper.summary}
-                    onClick={() => onSelectPaper(matchedPaper)}
-                  >
-                    {displayText}
-                  </PaperHighlight>
+                  <React.Fragment key={i}>
+                    <p style={{ marginBottom: "1.25em", ...(isLede ? { fontSize: "1.06em", fontWeight: 500, color: "#111" } : {}) }}>
+                      <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
+                        {section.text}
+                      </ReactMarkdown>
+                    </p>
+                    {isLede && pullQuote && (
+                      <blockquote style={{ borderLeft: "3px solid #1a1a1a", paddingLeft: "20px", margin: "0 0 1.75em", fontFamily: "var(--font-display), sans-serif", fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.35, color: "#1a1a1a", fontStyle: "normal" }}>
+                        &ldquo;{pullQuote}&rdquo;
+                      </blockquote>
+                    )}
+                  </React.Fragment>
                 );
               }
-              return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
-            },
-          }}
-        >
-          {bodyText}
-        </ReactMarkdown>
-      </div>
+
+              if (section.kind === "bridge") {
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", margin: "2px 0 2px 44px", padding: "2px 0" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}>
+                      <div style={{ width: "1px", height: "8px", background: "#bbb" }} />
+                      <svg width="8" height="7" viewBox="0 0 8 7" fill="none"><path d="M4 7L0 0h8L4 7z" fill="#bbb"/></svg>
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#555", fontStyle: "italic", lineHeight: 1.45 }}>
+                      {section.text}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (section.kind === "bullet") {
+                const idx = bulletIdx++;
+                const isLast = idx === totalBullets - 1;
+                const palette = SOURCE_PALETTES[idx % SOURCE_PALETTES.length];
+                const resolvedPaperIdx = section.sourceIdx !== null && section.sourceIdx >= 0 && section.sourceIdx < papers.length
+                  ? section.sourceIdx
+                  : idx < papers.length ? idx : -1;
+                const paper = resolvedPaperIdx >= 0 ? papers[resolvedPaperIdx] : null;
+
+                return (
+                  <div key={i} style={{ display: "flex", gap: "16px" }}>
+                    {/* Number circle + connecting line */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 28 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: "50%",
+                        border: "2px solid #1a1a1a", background: palette[0],
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontFamily: "var(--font-mono), monospace",
+                        fontSize: "0.65rem", fontWeight: 700, color: "#1a1a1a",
+                        flexShrink: 0,
+                      }}>
+                        {idx + 1}
+                      </div>
+                      {!isLast && <div style={{ flex: 1, width: 1, background: "#ddd", minHeight: 24, marginTop: 4 }} />}
+                    </div>
+
+                    {/* Content: text + card */}
+                    <div
+                      className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-start ${isLast ? "pb-6" : "pb-4"}`}
+                    >
+                      <div className="flex-1 min-w-0" style={{ paddingTop: "3px" }}>
+                        <ReactMarkdown components={{
+                          p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
+                          strong: StrongRenderer,
+                        }}>
+                          {section.text}
+                        </ReactMarkdown>
+                      </div>
+
+                      {paper && renderPaperCard && (
+                        <div className="w-full md:w-[300px] flex-shrink-0">
+                          {renderPaperCard(paper, resolvedPaperIdx)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              return null;
+            })}
+          </div>
         );
       })()}
 
