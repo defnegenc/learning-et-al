@@ -211,9 +211,13 @@ function SweepTitle({ text, palettes }: { text: string; palettes: [string, strin
     return () => ts.forEach(clearTimeout);
   }, [text]);
 
-  const barStyle = (phase: "hidden" | "in" | "out", g: string): React.CSSProperties => ({
-    position: "absolute", bottom: "-5px", left: 0, right: 0, height: "10px",
-    background: g, pointerEvents: "none",
+  // Sweep bar sits *below* the inline-block span — matches the span width exactly (no overshoot)
+  const sweepBar = (phase: "hidden" | "in" | "out", g: string): React.CSSProperties => ({
+    display: "block",
+    height: "10px",
+    marginTop: "2px",
+    background: g,
+    pointerEvents: "none",
     clipPath: phase === "hidden" ? "inset(0 100% 0 0%)"
             : phase === "in"     ? "inset(0 0% 0 0%)"
             :                      "inset(0 0% 0 100%)",
@@ -224,21 +228,24 @@ function SweepTitle({ text, palettes }: { text: string; palettes: [string, strin
   const g2 = `linear-gradient(90deg, ${palettes[1 % palettes.length][0]} 0%, ${palettes[1 % palettes.length][1]} 100%)`;
 
   return (
+    // overflow: visible so bars on the last line don't get clipped
     <h1 style={{
       fontFamily: "var(--font-display), sans-serif",
       fontSize: "clamp(2.75rem, 5vw, 4rem)",
-      lineHeight: 1.02, fontWeight: 700,
+      lineHeight: 1.15, fontWeight: 700,
       letterSpacing: "-0.055em", color: "#1a1a1a",
-      margin: "0 0 18px",
+      margin: "0 0 28px",
+      overflow: "visible",
     }}>
-      <span style={{ position: "relative", display: "inline-block" }}>
+      {/* inline-block so the sweep bar width matches text width, not full line */}
+      <span style={{ display: "inline-block", verticalAlign: "top" }}>
         {phrase1}
-        <span style={barStyle(bar1, g1)} />
+        <span style={sweepBar(bar1, g1)} />
       </span>
       {" "}
-      <span style={{ position: "relative", display: "inline-block" }}>
+      <span style={{ display: "inline-block", verticalAlign: "top" }}>
         {phrase2}
-        <span style={barStyle(bar2, g2)} />
+        <span style={sweepBar(bar2, g2)} />
       </span>
     </h1>
   );

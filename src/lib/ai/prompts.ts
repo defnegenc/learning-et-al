@@ -265,61 +265,42 @@ The [Source N] prefix is REQUIRED in every bold reference. It maps the name to t
 
 BEFORE WRITING, read each paper's abstract in the listing above. For any claim you make about a paper — especially anything framed as a "barrier", "limitation", "factor", "constraint", or "problem" — you MUST anchor it in a specific detail from that paper's abstract. If the abstract is vague, find a concrete method, number, or example elsewhere in the abstract. If there is genuinely nothing concrete, drop that claim rather than filling with jargon.
 
-Now write the synthesis paragraph. Follow the argument arc above. Return ONLY the paragraph text (no JSON, no markdown fences).
+Write the synthesis in EXACTLY this structure. No other format accepted.
+
+STRUCTURE (return ONLY this — no JSON, no markdown fences):
+
+[One intro sentence: the provocative setup or counterintuitive framing that makes the reader want to know more]
+
+${skeleton.paperRoles.map(r => `- **[Source ${r.index}] ${r.shortName}** — [one sentence: the most striking specific finding, with a number, method, or concrete detail]`).join("\n")}
+
+[One closing sentence: an unresolved tension, a concrete open question, or a specific image. NOT a summary. NOT "together these papers show..."]
+
+CRITICAL FORMAT RULES:
+- The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
+- Each bullet is exactly ONE sentence. No line breaks within bullets.
+- No prose paragraphs in the middle — ONLY intro, bullets, then closing.
+- The closing must NOT restate the theme or summarize what the papers collectively show.
 
 STYLE RULES:
-- ALWAYS prefix bold paper names with [Source N]: "**[Source 1] the polyphenols study**". MAX 4 WORDS for the name after the prefix.
-- ONE paragraph, 5-8 sentences. Short sentences. Vary the length.
-- Start with the insight, not the build-up.
-- For EACH paper, include one "wait, what?" detail — a specific method, number, or setup that makes the reader curious. Not just the conclusion ("AI can hack systems") but HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% of the vulnerabilities without human help"). The reader should think "I want to know more about this."
-- End naturally. No formulaic closing.
+- ALWAYS prefix bold paper names with [Source N]. MAX 4 WORDS for the name after the prefix.
+- Intro: start with the insight or tension, not a build-up. Contractions. Casual.
+- Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - Write for smart non-experts. Translate ALL jargon.
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
 - NO em dashes. Use periods, "but", "and" instead.
 
-SPECIFICITY GATE (hard rule) — when the synthesis mentions any of these words, it MUST name a CONCRETE instance from the paper within the same sentence or the next: barrier, barriers, limitation, limitations, challenge, challenges, problem, problems, constraint, constraints, issue, issues, gap, gaps, factor, factors. Vague claims are forbidden.
-  BAD: "current structural limitations prevent this potential from being realized for people who don't have traditional access." — what limitations? for whom?
-  GOOD: "robo-advisors still require a $10K minimum balance, which locks out the 40% of Americans who'd benefit most."
-  BAD: "specialized accessibility tools often fail due to performative development responses." — what does performative mean? what failed?
-  GOOD: "PDF screen readers still can't parse equations or two-column layouts, which is 80% of published papers."
+SPECIFICITY GATE — when any bullet uses: barrier, limitation, challenge, problem, constraint, issue, gap, factor — it MUST name a CONCRETE instance in the same sentence.
+  BAD: "current structural limitations prevent people without traditional access"
+  GOOD: "robo-advisors still require a $10K minimum balance, locking out the 40% of Americans who'd benefit most."
 
-WEAVE RULE — when moving between papers, the bridge must cite a shared mechanism, a contrasting number, or an echoed phrase. NOT "similar X barriers" or "this parallel issue." Make the connection physical.
-  BAD bridge: "The financial sector has similar access barriers — [Source 2] points out..."
-  GOOD bridge: "The same pattern shows up in money. [Source 2] found that the 40% of Americans without a financial advisor lose an average of $130K in lifetime returns — not because they're bad investors, but because the tools built for them come with minimum balances most can't clear."
-
-CLOSING RULE — the last sentence must NOT:
-- Restate the theme question or its answer ("the pattern's clear: X are the most Y")
-- Summarize what the papers collectively show ("together they reveal", "the lesson here")
-- Use tautological structure ("the [adjective-est] X are the ones who [description of X]")
-Instead: end on a specific image, an unresolved tension, a stat, or a concrete open question. The paragraph should feel like it stopped at an interesting place, not wrapped with a bow.
-
-BANNED PATTERNS (these make every digest sound the same — zero tolerance):
-- "X don't just Y — they Z" / "isn't just X — it's Y" — #1 AI crutch. Never.
-- "Here's where it gets [ANY adjective: messier, worse, complicated, tricky, interesting, scary, weirder, strange, real, etc.]" — ALL variants banned, not just the specific ones.
-- "But here's where..." / "This is where..." — same pattern, different opener. Also banned.
-- "The pattern's clear" / "The [X] is clear" / "What we see is" / "The lesson here" / "The bigger picture" / "The real question" / "Together they show" / "What these papers reveal" — formulaic meta-commentary.
-- "It turns out that..." at the start of multiple sentences — max once per paragraph.
-- Ending with "the most vulnerable / the most [X] are the ones who [need Y the most]" — tautology that restates the theme.
-- "structural limitations" / "systemic issues" / "performative [anything]" without naming what they are — see SPECIFICITY GATE.
-
-RHETORICAL QUESTIONS — allowed, but MAX ONE per paragraph. Use only when the next sentence gives the surprising answer. Don't ask questions to sound thoughtful.
-  GOOD: "Most people have no idea their AI chats could become evidence. Why would ChatGPT be different from a notes app? Because legal privilege requires a licensed attorney — the bot doesn't count."
-  BAD: "But what does this really mean?" / "So what do we make of this?" — filler questions with no concrete answer.
-
-GOOD TRANSITIONS (vary these — never repeat the same pattern twice):
-- "You'd think X, but Y says otherwise."
-- "Despite decades of research on X, Y found..."
-- "Unexpectedly, Y showed that..."
-- "What Y actually found was the opposite:"
-- "Y complicates this — their data shows..."
-- Just start with the finding. "87% of students who..."
-- NEVER write "isn't merely X — it's fundamentally Y" or any variation.
-- Contractions always. "So", "But", "Turns out" are good openers.
-- EVERY paper MUST appear in **bold** at least once. There are only 2-3 papers — if you can't mention one, your argument arc is wrong. Restructure.
-- When moving between papers, ADD A BRIDGE SENTENCE. Don't just place them next to each other.
-- NEVER mention topics that aren't in the papers.
-- NEVER use a paper as an analogy or bridge if it's from a different domain than the theme. A paper about AI in education belongs in an education digest — it cannot "illuminate" an AI hiring theme just because both involve AI. Each paper must earn its place by directly contributing evidence or mechanism to the central question.
-- Sound like a person, not a TED talk. Read your output aloud. If it sounds like a speech, rewrite it.`;
+BANNED PATTERNS:
+- "X don't just Y — they Z" / "isn't just X — it's Y" — banned.
+- "Here's where it gets [ANY adjective]" / "But here's where..." — banned.
+- "The pattern's clear" / "The lesson here" / "Together they show" / "What these papers reveal" — banned.
+- "structural limitations" / "systemic issues" / "performative [anything]" without specifics — banned.
+- EVERY paper MUST appear in **bold** with [Source N] prefix. Missing a paper = broken synthesis.
+- NEVER mention topics not in the papers.
+- Sound like a person, not a TED talk.`;
 }
 
 /**
@@ -417,7 +398,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised paragraph (no JSON, no markdown fences). Keep the EXACT same **[Source N] name** format for bold paper references — the [Source N] prefix is required for every bold paper name. Same length (5-8 sentences). Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro sentence, one bullet per paper (- **[Source N] name** — finding), closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 

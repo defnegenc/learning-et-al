@@ -643,6 +643,14 @@ export function SynthesisBanner({
       {/* Synthesis body */}
       {(() => {
         let pIdx = 0;
+        let liIdx = 0;
+        // Bullet color pairs — matching SOURCE_PALETTES in today-page.tsx
+        const BULLET_PALETTES: [string, string][] = [
+          ["#C8F0D8", "#F0F5A8"],
+          ["#FFD6E0", "#FFE89A"],
+          ["#D0E3F7", "#E2D6F7"],
+          ["#FFE89A", "#FFD6E0"],
+        ];
         return (
       <div
         className="text-[0.95rem] md:text-[1.05rem] text-gray-700"
@@ -677,6 +685,27 @@ export function SynthesisBanner({
                     </blockquote>
                   )}
                 </>
+              );
+            },
+            ul: ({ children }) => (
+              <ul style={{ listStyle: "none", padding: 0, margin: "0.25em 0 1.5em", display: "flex", flexDirection: "column", gap: "10px" }}>
+                {children}
+              </ul>
+            ),
+            li: ({ children }) => {
+              const idx = liIdx++;
+              const [pa, pb] = BULLET_PALETTES[idx % BULLET_PALETTES.length];
+              return (
+                <li style={{ display: "flex", gap: "14px", alignItems: "stretch" }}>
+                  <div style={{
+                    width: 4, flexShrink: 0, borderRadius: 2, minHeight: 24,
+                    background: `linear-gradient(to bottom, ${pa} 0%, ${pb} 100%)`,
+                    border: "1px solid rgba(26,26,26,0.12)",
+                  }} />
+                  <div style={{ flex: 1, paddingTop: "2px", paddingBottom: "2px" }}>
+                    {children}
+                  </div>
+                </li>
               );
             },
             strong: ({ children }) => {
