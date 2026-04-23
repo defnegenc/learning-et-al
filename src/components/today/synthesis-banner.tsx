@@ -4,6 +4,9 @@ import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { Loader2 } from "lucide-react";
 import type { PaperItem } from "./paper-card";
+import { CATEGORY_PALETTES } from "@/components/interest-ledger";
+
+const CONCEPT_GRADIENTS = Object.values(CATEGORY_PALETTES);
 
 // Quick digest feedback — was this interesting?
 export function DigestFeedback({ digestId, onRegenerate, generating = false }: { digestId: string; onRegenerate?: () => void; generating?: boolean }) {
@@ -622,7 +625,7 @@ export function SynthesisBanner({
         return (
       <div
         className="text-[0.95rem] md:text-[1.05rem] text-gray-700"
-        style={{ lineHeight: "1.85", fontFamily: "inherit", maxWidth: "68ch" }}
+        style={{ lineHeight: "1.85", fontFamily: "inherit" }}
       >
         <ReactMarkdown
           components={{
@@ -769,29 +772,33 @@ export function SynthesisBanner({
       {/* Key concepts — display only */}
       {keyConcepts.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2">
-          {keyConcepts.map((concept) => (
-            <span
-              key={concept}
-              title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
-              style={{
-                display: "inline-block",
-                padding: "4px 9px",
-                background: "rgba(255,255,255,0.55)",
-                border: "1px solid rgba(26,26,26,0.35)",
-                color: "#1a1a1a",
-                fontSize: "0.6rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                fontFamily: "var(--font-mono), monospace",
-                lineHeight: 1,
-                whiteSpace: "nowrap",
-                backdropFilter: "blur(6px)",
-              }}
-            >
-              {concept.includes(": ") ? concept.split(": ")[0] : concept}
-            </span>
-          ))}
+          {keyConcepts.map((concept, idx) => {
+            const [a, b] = CONCEPT_GRADIENTS[idx % CONCEPT_GRADIENTS.length];
+            return (
+              <span
+                key={concept}
+                title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
+                style={{
+                  display: "inline-flex", alignItems: "center",
+                  padding: "5px 10px",
+                  background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)`,
+                  border: "1px solid rgba(26,26,26,0.25)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.5)",
+                  borderRadius: 3,
+                  color: "#1a1a1a",
+                  fontSize: "0.625rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "1.2px",
+                  fontFamily: "var(--font-mono), monospace",
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {concept.includes(": ") ? concept.split(": ")[0] : concept}
+              </span>
+            );
+          })}
         </div>
       )}
 
