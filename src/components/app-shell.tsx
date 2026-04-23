@@ -141,6 +141,8 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
             startTab={settingsTab}
+            isAdmin={adminVerified}
+            onRegenerate={() => refreshDigestRef.current?.()}
           />
         </div>
       </header>
