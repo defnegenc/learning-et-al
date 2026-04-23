@@ -117,8 +117,8 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
           <span style={{ color: "#aaa" }}>·</span>
           <span>{paper.year || "2025"}</span>
         </div>
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M6 3h7v7M12.5 3.5L6.5 9.5M11 8v4.5H3.5V5H8" stroke="#1a1a1a" strokeWidth="1.4" strokeLinecap="square" />
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+          <path d="M7 1h4v4M11 1L6 6M9 7v3.5H1.5V2H5" stroke="#1a1a1a" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
 
@@ -138,10 +138,13 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
         </div>
       )}
 
-      {/* Summary — hairline separator */}
+      {/* Summary — vertical accent + text */}
       {paper.summary && (
-        <div style={{ paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.18)", fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
-          {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
+        <div style={{ display: "flex", gap: "10px", alignItems: "stretch", paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.12)" }}>
+          <div style={{ width: 3, flexShrink: 0, borderRadius: 1, background: `linear-gradient(to bottom, ${palette[0]} 0%, ${palette[1]} 100%)` }} />
+          <div style={{ fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
+            {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
+          </div>
         </div>
       )}
 
@@ -492,6 +495,7 @@ interface TodayPageProps {
 export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignIn }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
+  const [hiddenStash, setHiddenStash] = useState<{ digest: Digest; papers: PaperItem[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -615,16 +619,40 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   if (!digest) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
-        <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
-          Today&apos;s digest is brewing
-        </h1>
-        <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
-          Check back soon — a fresh research digest is generated every day.
-        </p>
-        {session && generateError && (
+        {hiddenStash ? (
+          <>
+            <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
+              Digest hidden
+            </h1>
+            <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
+              It won&apos;t show up again until you unhide it.
+            </p>
+            <button
+              onClick={async () => {
+                const { digest: d, papers: p } = hiddenStash;
+                setDigest(d); setPapers(p); setHidden(false); setHiddenStash(null);
+                try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: d.id }) }); } catch { /* non-critical */ }
+              }}
+              className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors"
+              style={{ borderWidth: "1.5px", fontFamily: "var(--font-mono), monospace" }}
+            >
+              Undo
+            </button>
+          </>
+        ) : (
+          <>
+            <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
+              Today&apos;s digest is brewing
+            </h1>
+            <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
+              Check back soon — a fresh research digest is generated every day.
+            </p>
+          </>
+        )}
+        {!hiddenStash && session && generateError && (
           <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">{generateError}</p>
         )}
-        {session && (
+        {!hiddenStash && session && (
           <button
             onClick={() => handleGenerate(true)}
             disabled={generating}
@@ -692,10 +720,11 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                     </button>
                     <button
                       onClick={async () => {
-                        const next = !hidden;
-                        setHidden(next);
-                        if (next) setDigest(null);
-                        try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setHidden(hidden); if (next) setDigest(digest); }
+                        setHiddenStash({ digest, papers });
+                        setDigest(null);
+                        setPapers([]);
+                        setHidden(true);
+                        try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setDigest(digest); setPapers(papers); setHidden(false); setHiddenStash(null); }
                       }}
                       title="Hide digest"
                       style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "#bbb", transition: "color 0.15s", padding: "2px" }}
