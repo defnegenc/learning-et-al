@@ -805,14 +805,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
             <SweepTitle text={displayTheme} palettes={SOURCE_PALETTES} />
 
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "24px" }}>
-              <div style={{ display: "flex", gap: "32px" }}>
-                <div>
-                  <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.65rem", letterSpacing: "1.5px", color: "#666", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>Sources</div>
-                  <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a" }}>{papers.length} papers</div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Synthesis */}

@@ -293,6 +293,8 @@ STYLE RULES:
 - Write for smart non-experts. Translate ALL jargon.
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
 - NO em dashes. Use periods, "but", "and" instead.
+- Bullets start with a verb ("found", "shows", "tested", "asked", "says"). Not "Instead of..." or setup phrases.
+- Use **bold** on 1-2 key words/phrases per bullet — the number, the surprise, the most striking term. Not the paper name (already bold). E.g. "found that **83% of models** failed" or "shows **sleep beats practice** by 2x."
 
 SPECIFICITY GATE — when any bullet uses: barrier, limitation, challenge, problem, constraint, issue, gap, factor — it MUST name a CONCRETE instance in the same sentence.
   BAD: "current structural limitations prevent people without traditional access"
