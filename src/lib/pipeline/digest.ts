@@ -1225,7 +1225,7 @@ Rewrite to INCLUDE the missing paper(s) using the exact **[Source N] name** form
       const aiItem = parsedAI.items.find(x => x.index === i + 1);
       return `PAPER ${i + 1}: ${p.title} (${p.year ?? "n/a"})\nAuthors: ${p.authors.slice(0, 3).join(", ")}\nSummary: ${aiItem?.summary ?? ""}\nKey findings: ${(aiItem?.findings || []).join("; ")}\nAbstract: ${(p.abstract ?? "").slice(0, 600)}`;
     }).join("\n\n");
-    const answerSystem = `Answer in 3-4 sentences MAX. Be direct and specific. No bullet points, no lists, no headers. Just a short paragraph like you're replying in a group chat. Connect the papers to each other and to the question.\n\nToday's synthesis:\n${synthesis}\n\n${papersContext}`;
+    const answerSystem = `Answer the question directly — lead with the answer, not with context or paper summaries. No "based on the research" or "the study found" preambles. The reader already knows the digest. Just answer like you're in a group chat and already know they've seen it. 2-4 sentences max. Specific details beat vague claims.\n\nToday's synthesis:\n${synthesis}\n\n${papersContext}`;
     try {
       suggestedAnswers = await Promise.all(
         suggestedQuestions.map(q =>

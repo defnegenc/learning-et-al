@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, RefreshCw, Star } from "lucide-react";
+import { Loader2, RefreshCw, Star, Ban } from "lucide-react";
 import type { PaperItem } from "./paper-card";
-import { SynthesisBanner, DigestFeedback, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
+import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import React from "react";
 
 /* ── Types ── */
-type ConvEntry = { q: string; a: string; paperLinks?: { title: string; sourceUrl: string | null }[] };
+type ConvEntry = { q: string; a: string; paletteIdx?: number; paperLinks?: { title: string; sourceUrl: string | null }[] };
 
 /* ── dispersedWash — 4-corner radial blob background ── */
 const SOURCE_PALETTES: [string, string][] = [
@@ -23,12 +23,11 @@ function dispersedWash(palette: [string, string], intensity = 0.5): React.CSSPro
   const [h1, h2] = palette;
   return {
     background: `
-      radial-gradient(circle 170px at 2% 2%, ${h1}${a} 0%, transparent 62%),
-      radial-gradient(circle 160px at 98% 6%, ${h2}${a} 0%, transparent 62%),
-      radial-gradient(circle 150px at 96% 100%, ${h1}${b} 0%, transparent 62%),
-      radial-gradient(circle 170px at 2% 98%, ${h2}${b} 0%, transparent 62%),
+      radial-gradient(circle 200px at 0% 0%, ${h1}${a} 0%, transparent 65%),
+      radial-gradient(circle 190px at 100% 4%, ${h2}${a} 0%, transparent 65%),
+      radial-gradient(circle 180px at 98% 100%, ${h1}${a} 0%, transparent 65%),
+      radial-gradient(circle 200px at 0% 100%, ${h2}${a} 0%, transparent 65%),
       #fff`,
-    backgroundBlendMode: "multiply, multiply, multiply, multiply, normal",
   } as React.CSSProperties;
 }
 
@@ -81,8 +80,8 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   const journalName = getJournalName(paper.sourceUrl, paper.authors);
   const ruleRef = React.useRef<HTMLDivElement>(null);
 
-  const baseWash = dispersedWash(palette, 0.68);
-  const hoverWash = dispersedWash(palette, 0.88);
+  const baseWash = dispersedWash(palette, 0.82);
+  const hoverWash = dispersedWash(palette, 0.97);
 
   return (
     <a
@@ -269,11 +268,12 @@ function DigDeeperRail({
   history: ConvEntry[];
   loading: boolean;
   showQuestions: boolean;
-  onAsk: (q: string) => void;
+  onAsk: (q: string, paletteIdx?: number) => void;
   session?: { apiKey: string; provider: string; model: string; baseUrl: string };
   onSignIn?: () => void;
 }) {
   const [customQ, setCustomQ] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
 
   if (!session) {
     return (
@@ -298,7 +298,7 @@ function DigDeeperRail({
           {questions.slice(0, 3).map((q, i) => (
             <button
               key={i}
-              onClick={() => onAsk(q)}
+              onClick={() => onAsk(q, i)}
               style={{
                 textAlign: "left", cursor: "pointer", background: "transparent", border: "none",
                 padding: "14px 4px", width: "100%", display: "flex", gap: "12px", alignItems: "flex-start",
@@ -308,7 +308,7 @@ function DigDeeperRail({
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.paddingLeft = "4px"; }}
             >
               <div style={{ width: 4, alignSelf: "stretch", flexShrink: 0, borderRadius: 2, background: `linear-gradient(to bottom, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][0]} 0%, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][1]} 100%)`, border: "1px solid rgba(26,26,26,0.12)" }} />
-              <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
+              <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 600, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
                 {q.replace(/\*\*/g, "")}
               </div>
               <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888", marginTop: 3, flexShrink: 0 }}>Ask →</span>
@@ -320,17 +320,37 @@ function DigDeeperRail({
       {/* Conversation history */}
       {history.length > 0 && (
         <div style={{ marginBottom: "12px" }}>
-          {history.map((entry, i) => (
-            <div key={i} style={{ marginBottom: "12px" }}>
-              <p style={{ fontSize: "0.7rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "6px", fontFamily: "var(--font-mono), monospace" }}>
-                {entry.q}
-              </p>
-              <div style={{ fontSize: "0.85rem", lineHeight: 1.65, color: "#444" }}>
-                <AnswerBlock text={entry.a} paperLinks={entry.paperLinks} />
+          {history.map((entry, i) => {
+            const isCollapsed = collapsed.has(i);
+            const pal = entry.paletteIdx !== undefined ? SOURCE_PALETTES[entry.paletteIdx % SOURCE_PALETTES.length] : null;
+            return (
+              <div key={i} style={{ marginBottom: "12px" }}>
+                <button
+                  onClick={() => setCollapsed(prev => { const s = new Set(prev); s.has(i) ? s.delete(i) : s.add(i); return s; })}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "10px", width: "100%", textAlign: "left",
+                    background: pal ? `linear-gradient(135deg, ${pal[0]}66 0%, ${pal[1]}66 100%)` : "transparent",
+                    border: "none", cursor: "pointer",
+                    padding: pal ? "10px 12px" : "0",
+                    marginBottom: isCollapsed ? 0 : "8px",
+                  }}
+                >
+                  <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif", flex: 1, letterSpacing: -0.2, lineHeight: 1.35 }}>
+                    {entry.q}
+                  </span>
+                  <span style={{ fontSize: "0.55rem", color: "#888", fontFamily: "var(--font-mono), monospace", flexShrink: 0 }}>
+                    {isCollapsed ? "▼" : "▲"}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div style={{ fontSize: "0.85rem", lineHeight: 1.65, color: "#444" }}>
+                    <AnswerBlock text={entry.a} paperLinks={entry.paperLinks} />
+                  </div>
+                )}
+                {i < history.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "12px" }} />}
               </div>
-              {i < history.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "12px" }} />}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -459,6 +479,7 @@ interface Digest {
   suggestedQuestions?: string[];
   suggestedAnswers?: string[];
   starred: boolean | null;
+  hidden?: boolean | null;
   date: string;
 }
 
@@ -486,6 +507,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   const [starred, setStarred] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
@@ -513,7 +535,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       const data = await res.json();
       setDigest(data.digest);
       setPapers(data.papers ?? []);
-      if (data.digest) setStarred(!!data.digest.starred);
+      if (data.digest) { setStarred(!!data.digest.starred); setHidden(!!data.digest.hidden); }
     } catch (err) {
       console.error("Failed to fetch digest:", err);
     }
@@ -560,7 +582,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     }
   };
 
-  const handleDigDeeper = async (question: string) => {
+  const handleDigDeeper = async (question: string, paletteIdx?: number) => {
     if (!session || digDeeperLoading) return;
     setDigDeeperLoading(true);
     setShowQuestions(false);
@@ -579,11 +601,11 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       });
       const data = await res.json();
       const answer = data.answer || data.error || "Couldn't get an answer.";
-      const newHistory = [...digDeeperHistory, { q: question, a: answer, paperLinks: data.paperLinks }];
+      const newHistory = [...digDeeperHistory, { q: question, a: answer, paletteIdx, paperLinks: data.paperLinks }];
       setDigDeeperHistory(newHistory);
       if (historyKey) localStorage.setItem(historyKey, JSON.stringify(newHistory));
     } catch {
-      const newHistory = [...digDeeperHistory, { q: question, a: "Something went wrong. Try again." }];
+      const newHistory = [...digDeeperHistory, { q: question, a: "Something went wrong. Try again.", paletteIdx }];
       setDigDeeperHistory(newHistory);
     }
     setDigDeeperLoading(false);
@@ -679,16 +701,31 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                   </span>
                 )}
                 {digest.id && session && (
-                  <button
-                    onClick={async () => {
-                      setStarred(!starred);
-                      try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setStarred(starred); }
-                    }}
-                    style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#999", transition: "all 0.15s" }}
-                  >
-                    <Star size={14} className={starred ? "fill-current" : ""} />
-                    <span style={{ fontSize: "0.65rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>{starred ? "Saved" : "Save"}</span>
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <button
+                      onClick={async () => {
+                        setStarred(!starred);
+                        try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setStarred(starred); }
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#999", transition: "all 0.15s" }}
+                    >
+                      <Star size={14} className={starred ? "fill-current" : ""} />
+                      <span style={{ fontSize: "0.65rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>{starred ? "Saved" : "Save"}</span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const next = !hidden;
+                        setHidden(next);
+                        if (next) setDigest(null);
+                        try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setHidden(hidden); if (next) setDigest(digest); }
+                      }}
+                      title="Hide digest"
+                      style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "#bbb", transition: "color 0.15s", padding: "2px" }}
+                      className="hover:text-[#ff007f]"
+                    >
+                      <Ban size={14} />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -698,17 +735,10 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "24px" }}>
               <div style={{ display: "flex", gap: "32px" }}>
                 <div>
-                  <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.65rem", letterSpacing: "1.5px", color: "#666", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>Published</div>
-                  <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a" }}>{today.replace(/^[A-Za-z]+, /, "")}</div>
-                </div>
-                <div>
                   <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.65rem", letterSpacing: "1.5px", color: "#666", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>Sources</div>
                   <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a" }}>{papers.length} papers</div>
                 </div>
               </div>
-              {digest.id && session && (
-                <DigestFeedback digestId={digest.id} onRegenerate={() => handleGenerate(true)} generating={generating} />
-              )}
             </div>
           </div>
 

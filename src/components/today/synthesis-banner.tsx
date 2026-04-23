@@ -8,99 +8,7 @@ import { CATEGORY_PALETTES } from "@/components/interest-ledger";
 
 const CONCEPT_GRADIENTS = Object.values(CATEGORY_PALETTES);
 
-// Quick digest feedback — was this interesting?
-export function DigestFeedback({ digestId, onRegenerate, generating = false }: { digestId: string; onRegenerate?: () => void; generating?: boolean }) {
-  const [reaction, setReaction] = useState<"up" | "down" | null>(null);
-  const [comment, setComment] = useState("");
-  const [showComment, setShowComment] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const storageKey = `digest_feedback_${digestId}`;
 
-  React.useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) { setSubmitted(true); setReaction(saved as "up" | "down"); }
-    else { setSubmitted(false); setReaction(null); setShowComment(false); }
-  }, [storageKey]);
-
-  const submit = async (r: "up" | "down") => {
-    setReaction(r);
-    setSubmitted(true);
-    localStorage.setItem(storageKey, r);
-    try {
-      await fetch("/api/papers/" + digestId + "/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: r === "up" ? "star" : "dislike", digestFeedback: true }),
-      });
-    } catch { /* non-critical */ }
-    if (r === "down") setShowComment(true);
-  };
-
-  if (submitted && !showComment) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: "6px", width: "52px", justifyContent: "flex-end" }}>
-        {reaction === "up" ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38b000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff007f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-        )}
-        <button onClick={() => { setSubmitted(false); setReaction(null); localStorage.removeItem(storageKey); }} style={{ fontSize: "0.6rem", color: "#ccc", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono), monospace" }}>
-          undo
-        </button>
-      </div>
-    );
-  }
-
-  if (showComment) {
-    const triggerRegenerate = () => {
-      if (comment.trim() && !generating) {
-        onRegenerate?.();
-      }
-    };
-    return (
-      <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", zIndex: 40, background: "white", border: "2px solid #1a1a1a", padding: "12px", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", width: "min(320px, calc(100vw - 32px))" }}>
-        {generating ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Loader2 size={12} className="animate-spin" style={{ color: "#888" }} />
-            <span style={{ fontSize: "0.75rem", color: "#555" }}>Regenerating...</span>
-          </div>
-        ) : (
-          <>
-            <p style={{ fontSize: "0.75rem", color: "#555", marginBottom: "8px" }}>
-              What didn&apos;t work?
-            </p>
-            <div style={{ display: "flex", gap: "6px" }}>
-              <input
-                value={comment}
-                onChange={e => setComment(e.target.value)}
-                placeholder="e.g. too technical..."
-                autoFocus
-                style={{ flex: 1, padding: "6px 8px", border: "2px solid #1a1a1a", fontSize: "0.75rem", outline: "none" }}
-                onKeyDown={e => { if (e.key === "Enter") triggerRegenerate(); }}
-              />
-              <button onClick={triggerRegenerate}
-                disabled={!comment.trim()}
-                style={{ padding: "6px 10px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.6rem", fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", opacity: comment.trim() ? 1 : 0.5 }}>
-                Go
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "4px", width: "52px", justifyContent: "flex-end" }}>
-      <button onClick={() => submit("up")} style={{ background: "none", border: "none", padding: "4px", cursor: "pointer", lineHeight: 1, color: "#ccc" }} className="hover:text-[#38b000] transition-colors">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-      </button>
-      <button onClick={() => submit("down")} style={{ background: "none", border: "none", padding: "4px", cursor: "pointer", lineHeight: 1, color: "#ccc" }} className="hover:text-[#ff007f] transition-colors">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-      </button>
-    </div>
-  );
-}
 
 // Paper name highlight with hover tooltip showing summary
 function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
@@ -636,7 +544,6 @@ export function SynthesisBanner({
           >
             {today}
           </span>
-          {digestId && session && <DigestFeedback digestId={digestId} onRegenerate={onRegenerate} generating={generating} />}
         </div>
       )}
 
@@ -687,8 +594,19 @@ export function SynthesisBanner({
                 </>
               );
             },
+            blockquote: ({ children }) => (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "-4px 0 -4px 0", padding: "2px 0" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px", flexShrink: 0, marginLeft: "1px" }}>
+                  <div style={{ width: "1px", height: "6px", background: "#ccc" }} />
+                  <svg width="7" height="6" viewBox="0 0 7 6" fill="none"><path d="M3.5 6L0 0h7L3.5 6z" fill="#ccc"/></svg>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#888", fontStyle: "italic", fontFamily: "var(--font-inter), sans-serif", lineHeight: 1.4 }}>
+                  {children}
+                </div>
+              </div>
+            ),
             ul: ({ children }) => (
-              <ul style={{ listStyle: "none", padding: 0, margin: "0.25em 0 1.5em", display: "flex", flexDirection: "column", gap: "10px" }}>
+              <ul style={{ listStyle: "none", padding: 0, margin: "0.25em 0 1.5em", display: "flex", flexDirection: "column", gap: "14px" }}>
                 {children}
               </ul>
             ),
@@ -845,7 +763,7 @@ export function SynthesisBanner({
                   padding: "5px 10px",
                   background: `linear-gradient(135deg, ${a}55 0%, ${b}55 100%)`,
                   border: "1px solid rgba(26,26,26,0.18)",
-                  borderRadius: 3,
+                  borderRadius: 0,
                   color: "#1a1a1a",
                   fontSize: "0.625rem",
                   fontWeight: 600,
