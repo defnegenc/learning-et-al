@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { BookOpen, Archive, Settings, BarChart3 } from "lucide-react";
+import { Settings, Menu, X } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
@@ -27,7 +27,8 @@ export function AppShell({ session, updateSession }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<"today" | "vault" | "admin">("today");
   const [adminVerified, setAdminVerified] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("api");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("account");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!session.userId) return;
@@ -36,7 +37,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
 
   const refreshDigestRef = useRef<(() => void) | null>(null);
 
-  const openSettings = (tab: SettingsTab = "api") => {
+  const openSettings = (tab: SettingsTab = "account") => {
     setSettingsTab(tab);
     setSettingsOpen(true);
   };
@@ -64,9 +65,10 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <span
           className="block md:hidden"
           style={{
-            fontSize: "1.05rem", fontWeight: 900, textTransform: "uppercase",
-            letterSpacing: "0.15em", color: "#1a1a1a",
+            fontSize: "0.95rem", fontWeight: 900, textTransform: "uppercase",
+            letterSpacing: "0.12em", color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
+            whiteSpace: "nowrap",
           }}
         >
           Learning et al.
@@ -111,9 +113,19 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             )}
           </div>
 
-          {/* Settings gear — opens to API Key tab */}
+          {/* Hamburger — mobile only */}
           <button
-            onClick={() => openSettings("api")}
+            className="flex md:hidden items-center justify-center"
+            onClick={() => setMenuOpen(v => !v)}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
+            aria-label="Menu"
+          >
+            {menuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+
+          {/* Settings gear */}
+          <button
+            onClick={() => openSettings("account")}
             title="Settings"
             style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
             className="hover:text-[#1a1a1a] transition-colors"
@@ -133,7 +145,53 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 pb-16 md:pb-0">
+      {/* Mobile slide-down nav menu */}
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-30 md:hidden" onClick={() => setMenuOpen(false)} />
+          <div
+            className="fixed md:hidden"
+            style={{ top: "52px", right: 0, left: 0, zIndex: 40, background: "white", borderBottom: "2px solid #1a1a1a" }}
+          >
+            {(["today", "vault"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setMenuOpen(false); }}
+                style={{
+                  display: "block", width: "100%", textAlign: "left",
+                  padding: "14px 20px", border: "none", background: "transparent",
+                  borderBottom: "1px solid #e5e7eb",
+                  borderLeft: activeTab === tab ? "3px solid #1a1a1a" : "3px solid transparent",
+                  fontFamily: "var(--font-mono), monospace",
+                  fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
+                  letterSpacing: "2px", color: activeTab === tab ? "#1a1a1a" : "#888",
+                  cursor: "pointer",
+                }}
+              >
+                {tab}
+              </button>
+            ))}
+            {adminVerified && (
+              <button
+                onClick={() => { setActiveTab("admin"); setMenuOpen(false); }}
+                style={{
+                  display: "block", width: "100%", textAlign: "left",
+                  padding: "14px 20px", border: "none", background: "transparent",
+                  borderLeft: activeTab === "admin" ? "3px solid #1a1a1a" : "3px solid transparent",
+                  fontFamily: "var(--font-mono), monospace",
+                  fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
+                  letterSpacing: "2px", color: activeTab === "admin" ? "#1a1a1a" : "#888",
+                  cursor: "pointer",
+                }}
+              >
+                admin
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      <main className="relative z-10 flex-1 pb-0">
         <div style={{ display: activeTab === "today" ? "contents" : "none" }}>
           <TodayPage
             session={session}
@@ -151,58 +209,6 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         )}
       </main>
 
-      {/* Mobile bottom nav */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden"
-        style={{ borderTop: "3px solid #1a1a1a", background: "white" }}
-      >
-        <button
-          onClick={() => setActiveTab("today")}
-          className="flex-1 flex flex-col items-center gap-1 py-3"
-          style={{
-            background: activeTab === "today" ? "#1a1a1a" : "white",
-            color: activeTab === "today" ? "white" : "#888",
-            border: "none", cursor: "pointer", transition: "all 0.15s",
-          }}
-        >
-          <BookOpen size={18} />
-          <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
-            Today
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab("vault")}
-          className="flex-1 flex flex-col items-center gap-1 py-3"
-          style={{
-            background: activeTab === "vault" ? "#1a1a1a" : "white",
-            color: activeTab === "vault" ? "white" : "#888",
-            border: "none", cursor: "pointer",
-            borderLeft: "2px solid #1a1a1a", transition: "all 0.15s",
-          }}
-        >
-          <Archive size={18} />
-          <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
-            Vault
-          </span>
-        </button>
-        {adminVerified && (
-          <button
-            onClick={() => setActiveTab("admin")}
-            className="flex-1 flex flex-col items-center gap-1 py-3"
-            style={{
-              background: activeTab === "admin" ? "#1a1a1a" : "white",
-              color: activeTab === "admin" ? "white" : "#888",
-              border: "none", cursor: "pointer",
-              borderLeft: "2px solid #1a1a1a", transition: "all 0.15s",
-            }}
-          >
-            <BarChart3 size={18} />
-            <span style={{ fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace" }}>
-              Admin
-            </span>
-          </button>
-        )}
-      </nav>
     </div>
   );
 }

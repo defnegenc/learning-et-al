@@ -81,8 +81,8 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   const journalName = getJournalName(paper.sourceUrl, paper.authors);
   const ruleRef = React.useRef<HTMLDivElement>(null);
 
-  const baseWash = dispersedWash(palette, 0.5);
-  const hoverWash = dispersedWash(palette, 0.74);
+  const baseWash = dispersedWash(palette, 0.68);
+  const hoverWash = dispersedWash(palette, 0.88);
 
   return (
     <a
@@ -92,22 +92,29 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       rel="noopener noreferrer"
       style={{
         ...baseWash,
-        border: "1px solid #1a1a1a",
+        border: "2px solid #1a1a1a",
+        boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
         display: "block",
         padding: "16px 18px 18px",
         textDecoration: "none",
         color: "inherit",
         position: "relative",
         overflow: "hidden",
-        transition: "background 320ms",
+        transition: "background 320ms, box-shadow 150ms, transform 150ms",
         height: "100%",
       }}
       onMouseEnter={e => {
-        Object.assign((e.currentTarget as HTMLElement).style, hoverWash);
+        const el = e.currentTarget as HTMLElement;
+        Object.assign(el.style, hoverWash);
+        el.style.boxShadow = "5px 5px 0px 0px rgba(0,0,0,1)";
+        el.style.transform = "translate(-1px,-1px)";
         if (ruleRef.current) ruleRef.current.style.transform = "scaleX(1)";
       }}
       onMouseLeave={e => {
-        Object.assign((e.currentTarget as HTMLElement).style, baseWash);
+        const el = e.currentTarget as HTMLElement;
+        Object.assign(el.style, baseWash);
+        el.style.boxShadow = "3px 3px 0px 0px rgba(0,0,0,1)";
+        el.style.transform = "";
         if (ruleRef.current) ruleRef.current.style.transform = "scaleX(0)";
       }}
     >
@@ -133,7 +140,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
 
       {/* Authors + journal */}
       {(paper.authors.length > 0 || journalName) && (
-        <div style={{ fontStyle: "italic", color: "#666", fontSize: "0.75rem", lineHeight: 1.4, marginBottom: "10px" }}>
+        <div style={{ fontStyle: "italic", color: "#444", fontSize: "0.75rem", lineHeight: 1.4, marginBottom: "10px" }}>
           {paper.authors.length > 0 && (
             paper.authors.length <= 2 ? paper.authors.join(" & ") : `${paper.authors[0]}${paper.authors[1] ? `, ${paper.authors[1]}` : ""} et al.`
           )}
@@ -173,8 +180,71 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   );
 }
 
+/* ── Animated sweep title ── */
+function SweepTitle({ text, palettes }: { text: string; palettes: [string, string][] }) {
+  const [bar1, setBar1] = useState<"hidden" | "in" | "out">("hidden");
+  const [bar2, setBar2] = useState<"hidden" | "in" | "out">("hidden");
+
+  const VERBS = new Set(["drive", "drives", "shape", "shapes", "affect", "affects", "are", "is",
+    "make", "makes", "help", "helps", "change", "changes", "influence", "influences",
+    "determine", "determines", "impact", "impacts", "reveal", "reveals", "show", "shows",
+    "explain", "explains", "challenge", "challenges", "use", "uses", "enable", "enables",
+    "transform", "transforms", "predict", "predicts", "blur", "blurs", "define", "defines"]);
+  const words = text.split(" ");
+  let splitIdx = -1;
+  for (let i = 1; i < words.length - 1; i++) {
+    if (VERBS.has(words[i].replace(/[^a-z]/gi, "").toLowerCase())) { splitIdx = i; break; }
+  }
+  if (splitIdx <= 0) splitIdx = Math.ceil(words.length / 2);
+
+  const phrase1 = words.slice(0, splitIdx).join(" ");
+  const phrase2 = words.slice(splitIdx).join(" ");
+
+  useEffect(() => {
+    setBar1("hidden"); setBar2("hidden");
+    const ts = [
+      setTimeout(() => setBar1("in"), 200),
+      setTimeout(() => setBar1("out"), 850),
+      setTimeout(() => setBar2("in"), 1050),
+      setTimeout(() => setBar2("out"), 1700),
+    ];
+    return () => ts.forEach(clearTimeout);
+  }, [text]);
+
+  const barStyle = (phase: "hidden" | "in" | "out", g: string): React.CSSProperties => ({
+    position: "absolute", bottom: "-5px", left: 0, right: 0, height: "10px",
+    background: g, pointerEvents: "none",
+    clipPath: phase === "hidden" ? "inset(0 100% 0 0%)"
+            : phase === "in"     ? "inset(0 0% 0 0%)"
+            :                      "inset(0 0% 0 100%)",
+    transition: phase !== "hidden" ? "clip-path 0.52s ease-in-out" : "none",
+  });
+
+  const g1 = `linear-gradient(90deg, ${palettes[0][0]} 0%, ${palettes[0][1]} 100%)`;
+  const g2 = `linear-gradient(90deg, ${palettes[1 % palettes.length][0]} 0%, ${palettes[1 % palettes.length][1]} 100%)`;
+
+  return (
+    <h1 style={{
+      fontFamily: "var(--font-display), sans-serif",
+      fontSize: "clamp(2.75rem, 5vw, 4rem)",
+      lineHeight: 1.02, fontWeight: 700,
+      letterSpacing: "-0.055em", color: "#1a1a1a",
+      margin: "0 0 18px",
+    }}>
+      <span style={{ position: "relative", display: "inline-block" }}>
+        {phrase1}
+        <span style={barStyle(bar1, g1)} />
+      </span>
+      {" "}
+      <span style={{ position: "relative", display: "inline-block" }}>
+        {phrase2}
+        <span style={barStyle(bar2, g2)} />
+      </span>
+    </h1>
+  );
+}
+
 /* ── Dig Deeper Rail (right column or mobile inline) ── */
-const DIG_DOT_COLORS = ["#F7D9E8", "#D0E3F7", "#C8F0D8"];
 
 function DigDeeperRail({
   questions,
@@ -200,7 +270,7 @@ function DigDeeperRail({
   if (!session) {
     return (
       <>
-        <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", marginBottom: "16px" }}>
+        <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
           Dig deeper
         </div>
         <GuestDigDeeper questions={questions} answers={answers || []} onSignIn={onSignIn} />
@@ -210,7 +280,7 @@ function DigDeeperRail({
 
   return (
     <div>
-      <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", marginBottom: "16px" }}>
+      <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
         Dig deeper
       </div>
 
@@ -229,7 +299,7 @@ function DigDeeperRail({
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.paddingLeft = "8px"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.paddingLeft = "4px"; }}
             >
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: DIG_DOT_COLORS[i % 3], border: "1px solid rgba(26,26,26,0.3)", flexShrink: 0, marginTop: 4 }} />
+              <div style={{ width: 4, alignSelf: "stretch", flexShrink: 0, borderRadius: 2, background: `linear-gradient(to bottom, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][0]} 0%, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][1]} 100%)`, border: "1px solid rgba(26,26,26,0.12)" }} />
               <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 500, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
                 {q.replace(/\*\*/g, "")}
               </div>
@@ -580,7 +650,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           {/* DigestTitleBlock */}
           <div style={{ marginBottom: "32px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase" }}>
+              <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 Daily digest
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -615,27 +685,17 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               </div>
             </div>
 
-            <h1
-              style={{
-                fontFamily: "var(--font-display), sans-serif",
-                fontSize: "clamp(2.75rem, 5vw, 4rem)",
-                lineHeight: 1.02, fontWeight: 700,
-                letterSpacing: "-0.055em", color: "#1a1a1a",
-                margin: "0 0 18px",
-              }}
-            >
-              {displayTheme}
-            </h1>
+            <SweepTitle text={displayTheme} palettes={SOURCE_PALETTES} />
 
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "24px" }}>
               <div style={{ display: "flex", gap: "32px" }}>
                 <div>
-                  <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.55rem", letterSpacing: "2px", color: "#999", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>Published</div>
-                  <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "#1a1a1a" }}>{today.replace(/^[A-Za-z]+, /, "")}</div>
+                  <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.65rem", letterSpacing: "1.5px", color: "#666", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>Published</div>
+                  <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a" }}>{today.replace(/^[A-Za-z]+, /, "")}</div>
                 </div>
                 <div>
-                  <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.55rem", letterSpacing: "2px", color: "#999", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>Sources</div>
-                  <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "#1a1a1a" }}>{papers.length} papers</div>
+                  <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.65rem", letterSpacing: "1.5px", color: "#666", textTransform: "uppercase", fontWeight: 700, marginBottom: "3px" }}>Sources</div>
+                  <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1a" }}>{papers.length} papers</div>
                 </div>
               </div>
               {digest.id && session && (
@@ -699,7 +759,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         {papers.length > 0 && (
           <aside>
             <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
-              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.7rem", letterSpacing: "2.5px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase" }}>
+              <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 Referenced sources
               </span>
             </div>
