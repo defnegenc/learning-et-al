@@ -223,22 +223,43 @@ function DigestNotes({ digestId }: { digestId: string }) {
   );
 }
 
-// Inline tooltip for hard words — shows definition on hover
+// Inline tooltip for hard words — shows definition on hover (position:fixed to avoid mobile overflow)
 function DefinitionTooltip({ term, definition, children }: { term: string; definition: string; children: React.ReactNode }) {
   const [show, setShow] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+  const ref = React.useRef<HTMLSpanElement>(null);
+
+  const updateTooltip = React.useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const pad = 10;
+    const tooltipW = Math.min(260, vw - pad * 2);
+    const above = rect.top > 150;
+    setTooltipStyle({
+      position: "fixed",
+      left: Math.max(pad, Math.min(rect.left + rect.width / 2 - tooltipW / 2, vw - tooltipW - pad)),
+      top: above ? rect.top - 12 : rect.bottom + 8,
+      transform: above ? "translateY(-100%)" : "none",
+      width: tooltipW,
+      zIndex: 9999,
+    });
+  }, []);
+
   return (
     <span
+      ref={ref}
       style={{ position: "relative", borderBottom: "1.5px dotted #999", cursor: "help" }}
-      onMouseEnter={() => setShow(true)}
+      onMouseEnter={() => { setShow(true); updateTooltip(); }}
       onMouseLeave={() => setShow(false)}
     >
       {children}
       {show && (
         <span style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          ...tooltipStyle,
           background: "#1a1a1a", color: "white", fontSize: "0.78rem", fontWeight: 400,
-          lineHeight: 1.5, padding: "8px 12px", whiteSpace: "normal", width: "260px",
-          zIndex: 50, pointerEvents: "none", boxShadow: "3px 3px 0px 0px rgba(0,0,0,0.3)",
+          lineHeight: 1.5, padding: "8px 12px", whiteSpace: "normal",
+          pointerEvents: "none", boxShadow: "3px 3px 0px 0px rgba(0,0,0,0.3)",
         }}>
           <strong style={{ display: "block", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "3px", color: "#999" }}>
             {term}
@@ -741,13 +762,25 @@ export function SynthesisBanner({
                 // to the same paper by coincidence.
                 matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
               }
-              // Flat solid colors — same hex as SOURCE_PALETTES[0] of each card palette
-              const HIGHLIGHT_COLORS = ["#C8F0D8", "#FFD6E0", "#D0E3F7", "#FFE89A"];
-              const HIGHLIGHT_HOVER  = ["#A4E0BC", "#FFBCD0", "#B4CEED", "#E0EC88"];
+              // Gradient highlights — match SOURCE_PALETTES pairs per paper
+              const HIGHLIGHT_GRADIENTS: [string, string][] = [
+                ["#C8F0D8", "#F0F5A8"],
+                ["#FFD6E0", "#FFE89A"],
+                ["#D0E3F7", "#E2D6F7"],
+                ["#FFE89A", "#FFD6E0"],
+              ];
+              const HIGHLIGHT_HOVER_GRADIENTS: [string, string][] = [
+                ["#A4E0BC", "#DCF060"],
+                ["#FFB0C8", "#FFD870"],
+                ["#B0CCF0", "#C8B4F0"],
+                ["#FFD870", "#FFB0C8"],
+              ];
               if (matchedPaper && onSelectPaper) {
                 const paperIdx = papers.indexOf(matchedPaper);
-                const bg = HIGHLIGHT_COLORS[paperIdx % HIGHLIGHT_COLORS.length];
-                const bgHover = HIGHLIGHT_HOVER[paperIdx % HIGHLIGHT_HOVER.length];
+                const [ha, hb] = HIGHLIGHT_GRADIENTS[paperIdx % HIGHLIGHT_GRADIENTS.length];
+                const [hha, hhb] = HIGHLIGHT_HOVER_GRADIENTS[paperIdx % HIGHLIGHT_HOVER_GRADIENTS.length];
+                const bg = `linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`;
+                const bgHover = `linear-gradient(135deg, ${hha} 0%, ${hhb} 100%)`;
                 return (
                   <PaperHighlight
                     bg={bg}
@@ -781,9 +814,8 @@ export function SynthesisBanner({
                 style={{
                   display: "inline-flex", alignItems: "center",
                   padding: "5px 10px",
-                  background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)`,
-                  border: "1px solid rgba(26,26,26,0.25)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.5)",
+                  background: `linear-gradient(135deg, ${a}55 0%, ${b}55 100%)`,
+                  border: "1px solid rgba(26,26,26,0.18)",
                   borderRadius: 3,
                   color: "#1a1a1a",
                   fontSize: "0.625rem",
