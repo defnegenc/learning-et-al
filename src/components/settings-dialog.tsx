@@ -169,8 +169,11 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
           style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px", flexShrink: 0 }}
         >
-          <span style={{ fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
+          <span className="hidden md:block" style={{ fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
             LEARNING ET AL.
+          </span>
+          <span className="md:hidden" style={{ fontSize: "0.95rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
+            Settings
           </span>
           <div className="flex items-center gap-4">
             {navItems.map(n => (
