@@ -520,13 +520,14 @@ export function SynthesisBanner({
   }
   const bodyText = bodyLines.join("\n\n");
 
-  // Pull quote: find shortest sentence with a specific number/stat — most punchy
+  // Pull quote: find shortest sentence with a stat — skip sentences from the lede to avoid repetition
   const pullQuote = useMemo(() => {
+    const ledeParagraph = (parseBodySections(bodyText).find(s => s.kind === "paragraph")?.text || "").replace(/\*\*/g, "");
     const clean = bodyText.replace(/\*\*/g, "").replace(/\n/g, " ");
     const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
     const candidates = sentences
       .map(s => s.trim())
-      .filter(s => /\d/.test(s) && s.length > 55 && s.length < 200);
+      .filter(s => /\d/.test(s) && s.length > 55 && s.length < 200 && !ledeParagraph.includes(s.trim().slice(0, 30)));
     return candidates.sort((a, b) => a.length - b.length)[0] || null;
   }, [bodyText]);
 
@@ -712,14 +713,12 @@ export function SynthesisBanner({
 
               if (section.kind === "bridge") {
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", margin: "2px 0 2px 44px", padding: "2px 0" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}>
-                      <div style={{ width: "1px", height: "8px", background: "#bbb" }} />
-                      <svg width="8" height="7" viewBox="0 0 8 7" fill="none"><path d="M4 7L0 0h8L4 7z" fill="#bbb"/></svg>
-                    </div>
-                    <div style={{ fontSize: "0.85rem", color: "#555", fontStyle: "italic", lineHeight: 1.45 }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "14px", margin: "4px 0" }}>
+                    <div style={{ flex: 1, height: 1, background: "#e8e8e8" }} />
+                    <span style={{ fontSize: "0.75rem", color: "#aaa", fontStyle: "italic", flexShrink: 0, letterSpacing: "0.01em" }}>
                       {section.text}
-                    </div>
+                    </span>
+                    <div style={{ flex: 1, height: 1, background: "#e8e8e8" }} />
                   </div>
                 );
               }
@@ -752,7 +751,7 @@ export function SynthesisBanner({
 
                     {/* Content: text + card */}
                     <div
-                      className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-center ${isLast ? "pb-6" : "pb-4"}`}
+                      className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-start ${isLast ? "pb-6" : "pb-4"}`}
                     >
                       <div className="flex-1 min-w-0" style={{ paddingTop: "3px" }}>
                         <ReactMarkdown components={{
