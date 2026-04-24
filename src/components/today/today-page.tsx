@@ -271,7 +271,7 @@ function DigDeeperRail({
   if (!session) {
     return (
       <>
-        <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
+        <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
           Dig deeper
         </div>
         <GuestDigDeeper questions={questions} answers={answers || []} onSignIn={onSignIn} />
@@ -761,7 +761,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         <main>
           {/* DigestTitleBlock */}
           <div style={{ marginBottom: "32px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
               <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 Daily digest
               </span>
@@ -860,7 +860,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         {/* ── Right: paper rail ── */}
         {papers.length > 0 && (
           <aside>
-            <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
+            <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
               Referenced sources
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
