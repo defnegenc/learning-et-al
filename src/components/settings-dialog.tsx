@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Settings, Loader2, CheckCircle, RefreshCw, LogOut, X } from "lucide-react";
+import { Settings, Loader2, CheckCircle, RefreshCw, LogOut } from "lucide-react";
 import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
@@ -195,10 +195,10 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
             ))}
             <button
               onClick={() => setOpen(false)}
-              className="flex items-center justify-center text-[#888] hover:text-[#1a1a1a] transition-colors"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px" }}
+              className="text-[#888] hover:text-[#1a1a1a] transition-colors"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", fontFamily: "var(--font-mono), monospace" }}
             >
-              <X className="size-5" />
+              Hide
             </button>
           </div>
         </header>

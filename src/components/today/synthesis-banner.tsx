@@ -616,76 +616,82 @@ export function SynthesisBanner({
           return "";
         };
 
-        const StrongRenderer = ({ children }: { children?: React.ReactNode }) => {
-          const text = extractText(children);
-          const textLower = text.toLowerCase();
-          const indexMatch = text.match(/^\[(?:source\s*)?(\d+)\]\s*/i);
-          let matchedPaper: (typeof papers)[number] | null = null;
-          let displayText = text;
+        const makeStrongRenderer = (seenPaperIndices: Set<number>) =>
+          function StrongRenderer({ children }: { children?: React.ReactNode }) {
+            const text = extractText(children);
+            const textLower = text.toLowerCase();
+            const indexMatch = text.match(/^\[(?:source\s*)?(\d+)\]\s*/i);
+            let matchedPaper: (typeof papers)[number] | null = null;
+            let displayText = text;
 
-          if (indexMatch) {
-            const idx = parseInt(indexMatch[1], 10) - 1;
-            if (idx >= 0 && idx < papers.length) {
-              matchedPaper = papers[idx];
-              displayText = text.slice(indexMatch[0].length);
-            }
-          }
-
-          if (!matchedPaper) {
-            const cleanText = textLower.replace(/\s*\(.*?\)\s*/g, " ").trim();
-            let bestPaper: (typeof papers)[number] | null = null;
-            let bestScore = 0;
-            let secondBestScore = 0;
-            const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-            const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows", "study", "paper", "research", "report", "review"]);
-            const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
-            const boldStems = boldWords.map(stem);
-            const acronyms = cleanText.split(/\s+/).filter(w => /^[A-Z]{2,6}$/.test(w));
-            const matchesAcronym = (acronym: string, title: string) => {
-              const words = title.split(/[\s\-]+/).filter(w => w.length > 0);
-              for (let start = 0; start <= words.length - acronym.length; start++) {
-                const initials = words.slice(start, start + acronym.length).map(w => w[0].toUpperCase()).join("");
-                if (initials === acronym) return true;
+            if (indexMatch) {
+              const idx = parseInt(indexMatch[1], 10) - 1;
+              if (idx >= 0 && idx < papers.length) {
+                matchedPaper = papers[idx];
+                displayText = text.slice(indexMatch[0].length);
               }
-              return false;
-            };
-            for (const p of papers) {
-              let score = 0;
-              const title = p.title.toLowerCase();
-              const kwStr = p.keywords.join(" ").toLowerCase();
-              const authorStr = p.authors.join(" ").toLowerCase();
-              if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
-              for (const acronym of acronyms) { if (matchesAcronym(acronym, p.title)) score += 8; }
-              for (const bs of boldStems) {
-                const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
-                if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
-                if (authorStr.includes(bs)) score += 4;
-                if (kwStr.includes(bs)) score += 1;
-              }
-              if (score > bestScore) { secondBestScore = bestScore; bestScore = score; bestPaper = p; }
-              else if (score > secondBestScore) { secondBestScore = score; }
             }
-            matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
-          }
 
-          if (matchedPaper && onSelectPaper) {
-            const paperIdx = papers.indexOf(matchedPaper);
-            const [ha, hb] = HIGHLIGHT_GRADIENTS[paperIdx % HIGHLIGHT_GRADIENTS.length];
-            const [hha, hhb] = HIGHLIGHT_HOVER_GRADIENTS[paperIdx % HIGHLIGHT_HOVER_GRADIENTS.length];
-            const capitalised = displayText.charAt(0).toUpperCase() + displayText.slice(1);
-            return (
-              <PaperHighlight
-                bg={`linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`}
-                bgHover={`linear-gradient(135deg, ${hha} 0%, ${hhb} 100%)`}
-                summary={matchedPaper.summary}
-                onClick={() => onSelectPaper(matchedPaper!)}
-              >
-                {capitalised}
-              </PaperHighlight>
-            );
-          }
-          return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
-        };
+            if (!matchedPaper) {
+              const cleanText = textLower.replace(/\s*\(.*?\)\s*/g, " ").trim();
+              let bestPaper: (typeof papers)[number] | null = null;
+              let bestScore = 0;
+              let secondBestScore = 0;
+              const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
+              const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows", "study", "paper", "research", "report", "review"]);
+              const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
+              const boldStems = boldWords.map(stem);
+              const acronyms = cleanText.split(/\s+/).filter(w => /^[A-Z]{2,6}$/.test(w));
+              const matchesAcronym = (acronym: string, title: string) => {
+                const words = title.split(/[\s\-]+/).filter(w => w.length > 0);
+                for (let start = 0; start <= words.length - acronym.length; start++) {
+                  const initials = words.slice(start, start + acronym.length).map(w => w[0].toUpperCase()).join("");
+                  if (initials === acronym) return true;
+                }
+                return false;
+              };
+              for (const p of papers) {
+                let score = 0;
+                const title = p.title.toLowerCase();
+                const kwStr = p.keywords.join(" ").toLowerCase();
+                const authorStr = p.authors.join(" ").toLowerCase();
+                if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
+                for (const acronym of acronyms) { if (matchesAcronym(acronym, p.title)) score += 8; }
+                for (const bs of boldStems) {
+                  const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
+                  if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
+                  if (authorStr.includes(bs)) score += 4;
+                  if (kwStr.includes(bs)) score += 1;
+                }
+                if (score > bestScore) { secondBestScore = bestScore; bestScore = score; bestPaper = p; }
+                else if (score > secondBestScore) { secondBestScore = score; }
+              }
+              matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
+            }
+
+            if (matchedPaper && onSelectPaper) {
+              const paperIdx = papers.indexOf(matchedPaper);
+              // Don't highlight the same paper twice in one block (fuzzy collisions)
+              if (seenPaperIndices.has(paperIdx)) {
+                return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
+              }
+              seenPaperIndices.add(paperIdx);
+              const [ha, hb] = HIGHLIGHT_GRADIENTS[paperIdx % HIGHLIGHT_GRADIENTS.length];
+              const [hha, hhb] = HIGHLIGHT_HOVER_GRADIENTS[paperIdx % HIGHLIGHT_HOVER_GRADIENTS.length];
+              const capitalised = displayText.charAt(0).toUpperCase() + displayText.slice(1);
+              return (
+                <PaperHighlight
+                  bg={`linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`}
+                  bgHover={`linear-gradient(135deg, ${hha} 0%, ${hhb} 100%)`}
+                  summary={matchedPaper.summary}
+                  onClick={() => onSelectPaper(matchedPaper!)}
+                >
+                  {capitalised}
+                </PaperHighlight>
+              );
+            }
+            return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
+          };
 
         return (
           <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
@@ -706,12 +712,13 @@ export function SynthesisBanner({
                 const isFirst = idx === 0;
                 const isLast = idx === totalBullets - 1;
                 const palette = SOURCE_PALETTES[idx % SOURCE_PALETTES.length];
+                const StrongRenderer = makeStrongRenderer(new Set<number>());
 
                 return (
                   <React.Fragment key={i}>
                     {isFirst && ledeText && (
                       <p style={{ margin: "0 0 0.75em 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
-                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
+                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: makeStrongRenderer(new Set<number>()) }}>
                           {ledeText}
                         </ReactMarkdown>
                       </p>
@@ -744,7 +751,7 @@ export function SynthesisBanner({
                     </div>
                     {isLast && closingText && (
                       <p style={{ margin: "0.75em 0 0 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
-                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
+                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: makeStrongRenderer(new Set<number>()) }}>
                           {closingText}
                         </ReactMarkdown>
                       </p>
