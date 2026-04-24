@@ -752,11 +752,12 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-  /* ── Main render — single column, papers inline in synthesis ── */
+  /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+    <div style={{ maxWidth: 1200, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_400px] items-start" style={{ gap: "48px" }}>
 
-        {/* ── Title + synthesis + dig deeper ── */}
+        {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
           {/* DigestTitleBlock */}
           <div style={{ marginBottom: "32px" }}>
@@ -821,7 +822,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               onSelectPaper={openSource}
               onRegenerate={() => handleGenerate(true)}
               generating={generating}
-              renderPaperCard={(paper, idx) => <SourceCard paper={paper} index={idx} />}
               session={session}
               onSignIn={onSignIn}
               hideHeader
@@ -856,6 +856,21 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             />
           </div>
         </main>
+
+        {/* ── Right: paper rail ── */}
+        {papers.length > 0 && (
+          <aside>
+            <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
+              Referenced sources
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {papers.map((paper, idx) => (
+                <SourceCard key={paper.id} paper={paper} index={idx} />
+              ))}
+            </div>
+          </aside>
+        )}
+      </div>
 
       {/* ── Floating notepad — desktop only ── */}
       {digest.id && session && (

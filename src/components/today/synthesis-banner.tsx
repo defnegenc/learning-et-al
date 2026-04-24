@@ -597,9 +597,16 @@ export function SynthesisBanner({
       {/* Synthesis body — numbered timeline layout */}
       {(() => {
         const sections = parseBodySections(bodyText);
+        const firstBulletIdx = sections.findIndex(s => s.kind === "bullet");
+        const lastBulletIdx = sections.map((s, i) => s.kind === "bullet" ? i : -1).filter(i => i >= 0).slice(-1)[0] ?? -1;
+        const ledeText = firstBulletIdx > 0
+          ? sections.slice(0, firstBulletIdx).filter(s => s.kind === "paragraph").map(s => s.text).join("\n\n")
+          : "";
+        const closingText = lastBulletIdx >= 0 && lastBulletIdx < sections.length - 1
+          ? sections.slice(lastBulletIdx + 1).filter(s => s.kind === "paragraph").map(s => s.text).join("\n\n")
+          : "";
         const totalBullets = sections.filter(s => s.kind === "bullet").length;
         let bulletIdx = 0;
-        let isFirstParagraph = true;
 
         const extractText = (node: React.ReactNode): string => {
           if (typeof node === "string") return node;
@@ -681,21 +688,10 @@ export function SynthesisBanner({
         };
 
         return (
-          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222", maxWidth: "980px" }}>
+          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
             {sections.map((section, i) => {
-              if (section.kind === "paragraph") {
-                const isLede = isFirstParagraph;
-                isFirstParagraph = false;
-                return (
-                  <React.Fragment key={i}>
-                    <p style={{ marginBottom: "1.25em", ...(isLede ? { fontSize: "1.06em", fontWeight: 500, color: "#111" } : {}) }}>
-                      <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
-                        {section.text}
-                      </ReactMarkdown>
-                    </p>
-                  </React.Fragment>
-                );
-              }
+              // Paragraphs before first bullet and after last bullet are folded into bullet 1 / last bullet
+              if (section.kind === "paragraph") return null;
 
               if (section.kind === "bridge") {
                 return (
@@ -711,12 +707,9 @@ export function SynthesisBanner({
 
               if (section.kind === "bullet") {
                 const idx = bulletIdx++;
+                const isFirst = idx === 0;
                 const isLast = idx === totalBullets - 1;
                 const palette = SOURCE_PALETTES[idx % SOURCE_PALETTES.length];
-                const resolvedPaperIdx = section.sourceIdx !== null && section.sourceIdx >= 0 && section.sourceIdx < papers.length
-                  ? section.sourceIdx
-                  : idx < papers.length ? idx : -1;
-                const paper = resolvedPaperIdx >= 0 ? papers[resolvedPaperIdx] : null;
 
                 return (
                   <div key={i} style={{ display: "flex", gap: "16px" }}>
@@ -735,23 +728,27 @@ export function SynthesisBanner({
                       {!isLast && <div style={{ flex: 1, width: 1, background: "#ddd", minHeight: 24, marginTop: 4 }} />}
                     </div>
 
-                    {/* Content: text + card */}
-                    <div
-                      className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-start ${isLast ? "pb-6" : "pb-4"}`}
-                    >
-                      <div className="flex-1 min-w-0" style={{ paddingTop: "3px" }}>
-                        <ReactMarkdown components={{
-                          p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
-                          strong: StrongRenderer,
-                        }}>
-                          {section.text}
-                        </ReactMarkdown>
-                      </div>
-
-                      {paper && renderPaperCard && (
-                        <div className="w-full md:w-[400px] flex-shrink-0">
-                          {renderPaperCard(paper, resolvedPaperIdx)}
-                        </div>
+                    {/* Content */}
+                    <div className={`flex-1 min-w-0 ${isLast ? "pb-6" : "pb-4"}`} style={{ paddingTop: "3px" }}>
+                      {isFirst && ledeText && (
+                        <p style={{ marginBottom: "0.65em", color: "#555", lineHeight: 1.65, fontSize: "0.95em" }}>
+                          <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
+                            {ledeText}
+                          </ReactMarkdown>
+                        </p>
+                      )}
+                      <ReactMarkdown components={{
+                        p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
+                        strong: StrongRenderer,
+                      }}>
+                        {section.text}
+                      </ReactMarkdown>
+                      {isLast && closingText && (
+                        <p style={{ marginTop: "0.65em", color: "#555", lineHeight: 1.65, fontSize: "0.95em" }}>
+                          <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
+                            {closingText}
+                          </ReactMarkdown>
+                        </p>
                       )}
                     </div>
                   </div>
