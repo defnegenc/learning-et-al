@@ -721,7 +721,6 @@ export function SynthesisBanner({
                       }}>
                         {idx + 1}
                       </div>
-                      {!isLast && <div style={{ flex: 1, width: 1, background: "#ddd", minHeight: 24, marginTop: 4 }} />}
                     </div>
 
                     {/* Content */}
