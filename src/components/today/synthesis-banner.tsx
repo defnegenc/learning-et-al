@@ -689,7 +689,7 @@ export function SynthesisBanner({
         };
 
         return (
-          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
+          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222", maxWidth: "740px", margin: "0 auto" }}>
             {sections.map((section, i) => {
               if (section.kind === "paragraph") {
                 const isLede = isFirstParagraph;
@@ -754,7 +754,7 @@ export function SynthesisBanner({
                     <div
                       className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-center ${isLast ? "pb-6" : "pb-4"}`}
                     >
-                      <div className="min-w-0 md:max-w-[460px]" style={{ paddingTop: "3px" }}>
+                      <div className="min-w-0 md:max-w-[360px]" style={{ paddingTop: "3px" }}>
                         <ReactMarkdown components={{
                           p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
                           strong: StrongRenderer,
