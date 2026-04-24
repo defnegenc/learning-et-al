@@ -754,7 +754,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — single column, papers inline in synthesis ── */
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+    <div style={{ maxWidth: 1100, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
 
         {/* ── Title + synthesis + dig deeper ── */}
         <main>
