@@ -695,7 +695,7 @@ export function SynthesisBanner({
 
               if (section.kind === "bridge") {
                 return (
-                  <p key={i} style={{ margin: "0 0 0 44px", fontSize: "0.92rem", color: "#444", fontStyle: "italic", lineHeight: 1.7, paddingBottom: "0.5em" }}>
+                  <p key={i} style={{ margin: "0 0 0.5em 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
                     {section.text}
                   </p>
                 );
@@ -708,46 +708,48 @@ export function SynthesisBanner({
                 const palette = SOURCE_PALETTES[idx % SOURCE_PALETTES.length];
 
                 return (
-                  <div key={i} style={{ display: "flex", gap: "16px" }}>
-                    {/* Number circle + connecting line */}
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 28 }}>
-                      <div style={{
-                        width: 28, height: 28, borderRadius: "50%",
-                        border: "2px solid #1a1a1a", background: palette[0],
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontFamily: "var(--font-mono), monospace",
-                        fontSize: "0.65rem", fontWeight: 700, color: "#1a1a1a",
-                        flexShrink: 0,
-                      }}>
-                        {idx + 1}
+                  <React.Fragment key={i}>
+                    {isFirst && ledeText && (
+                      <p style={{ margin: "0 0 0.75em 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
+                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
+                          {ledeText}
+                        </ReactMarkdown>
+                      </p>
+                    )}
+                    <div style={{ display: "flex", gap: "16px", marginBottom: isLast ? "0" : "0.25em" }}>
+                      {/* Number circle + connecting line */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 28 }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: "50%",
+                          border: "2px solid #1a1a1a", background: palette[0],
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontFamily: "var(--font-mono), monospace",
+                          fontSize: "0.65rem", fontWeight: 700, color: "#1a1a1a",
+                          flexShrink: 0,
+                        }}>
+                          {idx + 1}
+                        </div>
+                        {!isLast && <div style={{ flex: 1, width: 1, background: "#ddd", minHeight: 24, marginTop: 4 }} />}
                       </div>
-                      {!isLast && <div style={{ flex: 1, width: 1, background: "#ddd", minHeight: 24, marginTop: 4 }} />}
-                    </div>
 
-                    {/* Content */}
-                    <div className={`flex-1 min-w-0 ${isLast ? "pb-6" : "pb-4"}`} style={{ paddingTop: "3px" }}>
-                      {isFirst && ledeText && (
-                        <p style={{ marginBottom: "0.65em", lineHeight: 1.75 }}>
-                          <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
-                            {ledeText}
-                          </ReactMarkdown>
-                        </p>
-                      )}
-                      <ReactMarkdown components={{
-                        p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
-                        strong: StrongRenderer,
-                      }}>
-                        {section.text}
-                      </ReactMarkdown>
-                      {isLast && closingText && (
-                        <p style={{ marginTop: "0.65em", lineHeight: 1.75 }}>
-                          <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
-                            {closingText}
-                          </ReactMarkdown>
-                        </p>
-                      )}
+                      {/* Content */}
+                      <div className={`flex-1 min-w-0 ${isLast ? "pb-2" : "pb-3"}`} style={{ paddingTop: "3px" }}>
+                        <ReactMarkdown components={{
+                          p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
+                          strong: StrongRenderer,
+                        }}>
+                          {section.text}
+                        </ReactMarkdown>
+                      </div>
                     </div>
-                  </div>
+                    {isLast && closingText && (
+                      <p style={{ margin: "0.75em 0 0 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
+                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
+                          {closingText}
+                        </ReactMarkdown>
+                      </p>
+                    )}
+                  </React.Fragment>
                 );
               }
 
