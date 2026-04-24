@@ -689,7 +689,7 @@ export function SynthesisBanner({
         };
 
         return (
-          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222", maxWidth: "980px", margin: "0 auto" }}>
+          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222", maxWidth: "980px" }}>
             {sections.map((section, i) => {
               if (section.kind === "paragraph") {
                 const isLede = isFirstParagraph;
