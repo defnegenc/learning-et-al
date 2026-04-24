@@ -695,13 +695,9 @@ export function SynthesisBanner({
 
               if (section.kind === "bridge") {
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "14px", margin: "4px 0" }}>
-                    <div style={{ flex: 1, height: 1, background: "#e8e8e8" }} />
-                    <span style={{ fontSize: "0.85rem", color: "#555", fontStyle: "italic", flexShrink: 0, letterSpacing: "0.01em" }}>
-                      {section.text}
-                    </span>
-                    <div style={{ flex: 1, height: 1, background: "#e8e8e8" }} />
-                  </div>
+                  <p key={i} style={{ margin: "0 0 0 44px", fontSize: "0.92rem", color: "#444", fontStyle: "italic", lineHeight: 1.7, paddingBottom: "0.5em" }}>
+                    {section.text}
+                  </p>
                 );
               }
 
@@ -731,7 +727,7 @@ export function SynthesisBanner({
                     {/* Content */}
                     <div className={`flex-1 min-w-0 ${isLast ? "pb-6" : "pb-4"}`} style={{ paddingTop: "3px" }}>
                       {isFirst && ledeText && (
-                        <p style={{ marginBottom: "0.65em", color: "#555", lineHeight: 1.65, fontSize: "0.95em" }}>
+                        <p style={{ marginBottom: "0.65em", lineHeight: 1.75 }}>
                           <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
                             {ledeText}
                           </ReactMarkdown>
@@ -744,7 +740,7 @@ export function SynthesisBanner({
                         {section.text}
                       </ReactMarkdown>
                       {isLast && closingText && (
-                        <p style={{ marginTop: "0.65em", color: "#555", lineHeight: 1.65, fontSize: "0.95em" }}>
+                        <p style={{ marginTop: "0.65em", lineHeight: 1.75 }}>
                           <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: StrongRenderer }}>
                             {closingText}
                           </ReactMarkdown>
