@@ -754,7 +754,7 @@ export function SynthesisBanner({
                     <div
                       className={`flex-1 flex flex-col gap-3 md:flex-row md:gap-5 md:items-center ${isLast ? "pb-6" : "pb-4"}`}
                     >
-                      <div className="min-w-0 md:max-w-[500px]" style={{ paddingTop: "3px" }}>
+                      <div className="flex-1 min-w-0" style={{ paddingTop: "3px" }}>
                         <ReactMarkdown components={{
                           p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
                           strong: StrongRenderer,
@@ -764,7 +764,7 @@ export function SynthesisBanner({
                       </div>
 
                       {paper && renderPaperCard && (
-                        <div className="w-full md:w-[300px] flex-shrink-0">
+                        <div className="w-full md:w-[400px] flex-shrink-0">
                           {renderPaperCard(paper, resolvedPaperIdx)}
                         </div>
                       )}
