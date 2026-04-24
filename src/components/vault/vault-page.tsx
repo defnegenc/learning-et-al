@@ -91,9 +91,8 @@ function VaultCard({
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
   const journalName = getJournalName(paper.sourceUrl, paper.authors);
-  const ruleRef = React.useRef<HTMLDivElement>(null);
-  const baseWash = dispersedWash(palette, 0.5);
-  const hoverWash = dispersedWash(palette, 0.74);
+  const baseWash = dispersedWash(palette, 0.82);
+  const hoverWash = dispersedWash(palette, 0.97);
 
   return (
     <div
@@ -103,23 +102,22 @@ function VaultCard({
       }}
       style={{
         ...baseWash,
-        border: isSelected ? "2px solid #1a1a1a" : "1px solid #1a1a1a",
+        border: isSelected ? "2px solid #1a1a1a" : "2px solid #1a1a1a",
         display: "block",
         padding: "16px 18px 18px",
         color: "inherit",
         position: "relative",
         overflow: "hidden",
-        transition: "background 320ms",
+        transition: "background 320ms, transform 150ms",
         cursor: "pointer",
-        boxShadow: isSelected ? "4px 4px 0 #1a1a1a" : "none",
       }}
       onMouseEnter={e => {
         Object.assign((e.currentTarget as HTMLElement).style, hoverWash);
-        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(1)";
+        (e.currentTarget as HTMLElement).style.transform = "translate(-1px,-1px)";
       }}
       onMouseLeave={e => {
         Object.assign((e.currentTarget as HTMLElement).style, baseWash);
-        if (ruleRef.current) ruleRef.current.style.transform = "scaleX(0)";
+        (e.currentTarget as HTMLElement).style.transform = "";
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
@@ -133,13 +131,11 @@ function VaultCard({
             {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "white" }} />}
           </div>
         ) : (
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M6 3h7v7M12.5 3.5L6.5 9.5M11 8v4.5H3.5V5H8" stroke="#1a1a1a" strokeWidth="1.4" strokeLinecap="square" />
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+            <path d="M7 1h4v4M11 1L6 6M9 7v3.5H1.5V2H5" stroke="#1a1a1a" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
       </div>
-
-      <div ref={ruleRef} style={{ height: 1, background: "#1a1a1a", transform: "scaleX(0)", transformOrigin: "left center", transition: "transform 360ms cubic-bezier(.2,.7,.2,1)", margin: "-8px 0 10px" }} />
 
       <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
         {paper.title}
@@ -156,8 +152,11 @@ function VaultCard({
       )}
 
       {paper.summary && (
-        <div style={{ paddingTop: "10px", marginBottom: "12px", borderTop: "1px solid rgba(26,26,26,0.18)", fontSize: "0.875rem", lineHeight: 1.55, color: "#333" }}>
-          {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
+        <div style={{ display: "flex", gap: "10px", alignItems: "stretch", paddingTop: "10px", marginBottom: "12px" }}>
+          <div style={{ width: 3, flexShrink: 0, borderRadius: 1, background: "#ddd" }} />
+          <div style={{ fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
+            {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
+          </div>
         </div>
       )}
 
