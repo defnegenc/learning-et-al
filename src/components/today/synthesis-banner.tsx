@@ -520,16 +520,6 @@ export function SynthesisBanner({
   }
   const bodyText = bodyLines.join("\n\n");
 
-  // Pull quote: find shortest sentence with a stat — skip sentences from the lede to avoid repetition
-  const pullQuote = useMemo(() => {
-    const ledeParagraph = (parseBodySections(bodyText).find(s => s.kind === "paragraph")?.text || "").replace(/\*\*/g, "");
-    const clean = bodyText.replace(/\*\*/g, "").replace(/\n/g, " ");
-    const sentences = clean.match(/[^.!?]+[.!?]+/g) || [];
-    const candidates = sentences
-      .map(s => s.trim())
-      .filter(s => /\d/.test(s) && s.length > 55 && s.length < 200 && !ledeParagraph.includes(s.trim().slice(0, 30)));
-    return candidates.sort((a, b) => a.length - b.length)[0] || null;
-  }, [bodyText]);
 
   // Dig deeper prompts — prefer LLM-generated, fall back to heuristic
   const digDeeperPrompts = useMemo(() => {
@@ -675,6 +665,7 @@ export function SynthesisBanner({
             const paperIdx = papers.indexOf(matchedPaper);
             const [ha, hb] = HIGHLIGHT_GRADIENTS[paperIdx % HIGHLIGHT_GRADIENTS.length];
             const [hha, hhb] = HIGHLIGHT_HOVER_GRADIENTS[paperIdx % HIGHLIGHT_HOVER_GRADIENTS.length];
+            const capitalised = displayText.charAt(0).toUpperCase() + displayText.slice(1);
             return (
               <PaperHighlight
                 bg={`linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`}
@@ -682,7 +673,7 @@ export function SynthesisBanner({
                 summary={matchedPaper.summary}
                 onClick={() => onSelectPaper(matchedPaper!)}
               >
-                {displayText}
+                {capitalised}
               </PaperHighlight>
             );
           }
@@ -702,11 +693,6 @@ export function SynthesisBanner({
                         {section.text}
                       </ReactMarkdown>
                     </p>
-                    {isLede && pullQuote && (
-                      <blockquote style={{ borderLeft: "3px solid #1a1a1a", paddingLeft: "20px", margin: "0 0 1.75em", fontFamily: "var(--font-display), sans-serif", fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.35, color: "#1a1a1a", fontStyle: "normal" }}>
-                        &ldquo;{pullQuote}&rdquo;
-                      </blockquote>
-                    )}
                   </React.Fragment>
                 );
               }
@@ -715,7 +701,7 @@ export function SynthesisBanner({
                 return (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: "14px", margin: "4px 0" }}>
                     <div style={{ flex: 1, height: 1, background: "#e8e8e8" }} />
-                    <span style={{ fontSize: "0.75rem", color: "#aaa", fontStyle: "italic", flexShrink: 0, letterSpacing: "0.01em" }}>
+                    <span style={{ fontSize: "0.85rem", color: "#555", fontStyle: "italic", flexShrink: 0, letterSpacing: "0.01em" }}>
                       {section.text}
                     </span>
                     <div style={{ flex: 1, height: 1, background: "#e8e8e8" }} />
