@@ -271,7 +271,7 @@ function DigDeeperRail({
   if (!session) {
     return (
       <>
-        <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
+        <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
           Dig deeper
         </div>
         <GuestDigDeeper questions={questions} answers={answers || []} onSignIn={onSignIn} />
@@ -754,14 +754,14 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+    <div style={{ maxWidth: 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_400px] items-start" style={{ gap: "48px" }}>
 
         {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
           {/* DigestTitleBlock */}
           <div style={{ marginBottom: "32px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", paddingBottom: "12px", borderBottom: "2px solid #1a1a1a" }}>
               <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 Daily digest
               </span>
@@ -843,7 +843,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           )}
 
           {/* Dig deeper — below synthesis */}
-          <div style={{ marginTop: "40px", paddingTop: "32px", borderTop: "1px solid #e5e7eb" }}>
+          <div style={{ marginTop: "40px" }}>
             <DigDeeperRail
               questions={digest.suggestedQuestions || []}
               answers={digest.suggestedAnswers}
