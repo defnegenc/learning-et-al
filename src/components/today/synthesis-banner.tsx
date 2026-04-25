@@ -366,17 +366,23 @@ export function CitedAnswer({ text, paperLinks }: { text: string; paperLinks?: {
           const n = parseInt(citMatch[1], 10);
           const paper = paperLinks[n - 1];
           if (paper) {
-            const badge = (
-              <sup key={i} style={{
-                fontSize: "0.6em", fontWeight: 700, color: "white",
-                background: "#1a1a1a", padding: "1px 4px",
-                fontFamily: "var(--font-mono), monospace",
-                letterSpacing: "0.5px", lineHeight: 1,
-              }}>{n}</sup>
-            );
+            const [ha, hb] = HIGHLIGHT_GRADIENTS[(n - 1) % HIGHLIGHT_GRADIENTS.length];
+            const citStyle: React.CSSProperties = {
+              background: `linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`,
+              padding: "1px 5px",
+              fontSize: "0.75em",
+              fontWeight: 700,
+              fontFamily: "var(--font-mono), monospace",
+              letterSpacing: "0.5px",
+              borderRadius: "2px",
+            };
             return paper.sourceUrl ? (
-              <a key={i} href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" title={paper.title} style={{ textDecoration: "none" }}>{badge}</a>
-            ) : badge;
+              <a key={i} href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                <span style={citStyle}>[{n}]</span>
+              </a>
+            ) : (
+              <span key={i} style={citStyle}>[{n}]</span>
+            );
           }
         }
         return seg;

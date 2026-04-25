@@ -119,6 +119,8 @@ function idToColorIndex(id: string) {
   return Math.abs(h) % PASTEL_COLORS.length;
 }
 
+const SUMMARY_COLLAPSE_THRESHOLD = 180;
+
 export function PaperCard({
   paper,
   index = 0,
@@ -132,6 +134,8 @@ export function PaperCard({
   onDislike,
 }: PaperCardProps) {
   const [bookmarked, setBookmarked] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const summaryExpandable = !compact && !!paper.summary && paper.summary.length > SUMMARY_COLLAPSE_THRESHOLD;
   const palette = CARD_PALETTES[index % CARD_PALETTES.length];
   const tags = CARD_TAGS[index % CARD_TAGS.length];
   const borderStyle = isCompareSelected ? "4px solid #1a1a1a" : highlighted ? "4px solid #1a1a1a" : "3px solid #1a1a1a";
@@ -143,7 +147,7 @@ export function PaperCard({
     <article
       className="group relative"
       style={{
-        aspectRatio: compact ? "auto" : "1 / 1",
+        aspectRatio: compact ? "auto" : summaryExpanded ? "auto" : "1 / 1",
         border: borderStyle,
         boxShadow: shadowStyle,
         padding: compact ? "12px" : "16px",
@@ -243,19 +247,37 @@ export function PaperCard({
         )}
         {/* Plain-English summary — hidden in compact mode */}
         {paper.summary && !compact && (
-          <p style={{
-            fontSize: "0.72rem",
-            color: "#333",
-            fontFamily: "inherit",
-            lineHeight: 1.5,
-            marginBottom: "8px",
-            display: "-webkit-box",
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}>
-            {paper.summary}
-          </p>
+          <div style={{ marginBottom: "8px" }}>
+            <p style={{
+              fontSize: "0.72rem",
+              color: "#333",
+              fontFamily: "inherit",
+              lineHeight: 1.5,
+              margin: 0,
+              ...(summaryExpanded ? {} : {
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }),
+            }}>
+              {paper.summary}
+            </p>
+            {summaryExpandable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setSummaryExpanded(v => !v); }}
+                style={{
+                  background: "none", border: "none", padding: "2px 0 0 0",
+                  cursor: "pointer", fontSize: "0.6rem", fontWeight: 700,
+                  textTransform: "uppercase", letterSpacing: "1px",
+                  fontFamily: "var(--font-mono), monospace", color: "#888",
+                  textDecoration: "underline", textUnderlineOffset: "2px",
+                }}
+              >
+                {summaryExpanded ? "See less" : "See more"}
+              </button>
+            )}
+          </div>
         )}
         {paper.keywords.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "8px" }}>
