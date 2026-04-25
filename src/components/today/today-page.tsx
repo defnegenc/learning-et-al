@@ -251,7 +251,6 @@ function DigDeeperRail({
   answers,
   history,
   loading,
-  showQuestions,
   onAsk,
   isLoggedIn,
   onSignIn,
@@ -260,7 +259,6 @@ function DigDeeperRail({
   answers?: string[];
   history: ConvEntry[];
   loading: boolean;
-  showQuestions: boolean;
   onAsk: (q: string, paletteIdx?: number) => void;
   isLoggedIn?: boolean;
   onSignIn?: () => void;
@@ -286,7 +284,7 @@ function DigDeeperRail({
       </div>
 
       {/* Suggested question rows */}
-      {showQuestions && !loading && questions.length > 0 && (
+      {!loading && questions.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", marginBottom: "4px" }}>
           {questions.slice(0, 3).map((q, i) => (
             <button
@@ -576,17 +574,15 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
   const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
-  const [showQuestions, setShowQuestions] = useState(true);
 
   const historyKey = digest ? `digest_chat_${digest.id}` : "";
   useEffect(() => {
     if (!historyKey) return;
     const saved = localStorage.getItem(historyKey);
     if (saved) {
-      try { setDigDeeperHistory(JSON.parse(saved)); setShowQuestions(false); } catch { /* ignore */ }
+      try { setDigDeeperHistory(JSON.parse(saved)); } catch { /* ignore */ }
     } else {
       setDigDeeperHistory([]);
-      setShowQuestions(true);
     }
   }, [historyKey]);
 
@@ -840,7 +836,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               answers={digest.suggestedAnswers}
               history={digDeeperHistory}
               loading={digDeeperLoading}
-              showQuestions={showQuestions}
               onAsk={handleDigDeeper}
               isLoggedIn={!!session}
               onSignIn={onSignIn}
