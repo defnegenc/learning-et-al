@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const msg = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;
     console.error("[AUTH FATAL]", msg, stack);
-    return NextResponse.json({ authError: msg, stack: stack?.slice(0, 1000) }, { status: 500 });
+    return NextResponse.json({ authError: msg }, { status: 500 });
   }
 }
 
@@ -30,8 +30,7 @@ export async function POST(req: NextRequest) {
     return resp;
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-    console.error("[AUTH FATAL]", msg, stack);
-    return NextResponse.json({ authError: msg, stack: stack?.slice(0, 1000) }, { status: 500 });
+    console.error("[AUTH FATAL]", msg, error instanceof Error ? error.stack : undefined);
+    return NextResponse.json({ authError: msg }, { status: 500 });
   }
 }
