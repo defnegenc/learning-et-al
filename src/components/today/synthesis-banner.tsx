@@ -690,6 +690,22 @@ export function SynthesisBanner({
             return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
           };
 
+        // Fallback: prose synthesis with no bullets — render paragraphs directly
+        if (totalBullets === 0) {
+          const proseRenderer = makeStrongRenderer(new Set<number>());
+          return (
+            <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
+              {sections.filter(s => s.kind === "paragraph" || s.kind === "bridge").map((section, i) => (
+                <p key={i} style={{ margin: "0 0 0.75em 0", lineHeight: 1.75 }}>
+                  <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: proseRenderer }}>
+                    {section.text}
+                  </ReactMarkdown>
+                </p>
+              ))}
+            </div>
+          );
+        }
+
         return (
           <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
             {sections.map((section, i) => {

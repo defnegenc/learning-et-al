@@ -1224,6 +1224,44 @@ Rewrite to INCLUDE the missing paper(s) using the exact **[Source N] name** form
     }
   }
 
+  // ─── Format enforcement: ensure synthesis uses "- **[Source N]" bullet structure ─
+  const bulletCount = (synthesis.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length;
+  if (bulletCount < skeleton.paperRoles.length) {
+    console.log(`[Digest] Synthesis has ${bulletCount} bullets but expected ${skeleton.paperRoles.length} — reformatting...`);
+    try {
+      const reformatted = await aiComplete(
+        aiConfig,
+        SYNTHESIS_PROSE_SYSTEM,
+        `The synthesis below must be converted to the required structure. Keep ALL the content and tone — just reformat.
+
+REQUIRED STRUCTURE:
+[One intro sentence]
+
+${skeleton.paperRoles.map((r, idx, arr) => {
+  const bullet = `- **[Source ${r.index}] ${r.shortName}** [one sentence with a specific detail]`;
+  const bridge = idx < arr.length - 1 ? `\n\n> [one short bridge, max 12 words]` : "";
+  return bullet + bridge;
+}).join("\n\n")}
+
+[One closing sentence]
+
+Current synthesis to reformat:
+"""
+${synthesis}
+"""
+
+Return ONLY the reformatted synthesis. No JSON, no fences.`
+      );
+      const cleaned = stripFences(reformatted);
+      if (cleaned.length > 100 && (cleaned.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length >= 1) {
+        synthesis = cleaned;
+        console.log(`[Digest] Format enforcement applied`);
+      }
+    } catch (err) {
+      console.log(`[Digest] Format enforcement failed (${err}), keeping synthesis as-is`);
+    }
+  }
+
   const parsedAI: DigestAIResponse = {
     items: metadata.items,
     synthesis,
