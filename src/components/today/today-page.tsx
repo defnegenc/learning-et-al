@@ -253,7 +253,7 @@ function DigDeeperRail({
   loading,
   showQuestions,
   onAsk,
-  session,
+  isLoggedIn,
   onSignIn,
 }: {
   questions: string[];
@@ -262,13 +262,13 @@ function DigDeeperRail({
   loading: boolean;
   showQuestions: boolean;
   onAsk: (q: string, paletteIdx?: number) => void;
-  session?: { apiKey: string; provider: string; model: string; baseUrl: string };
+  isLoggedIn?: boolean;
   onSignIn?: () => void;
 }) {
   const [customQ, setCustomQ] = useState("");
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
 
-  if (!session) {
+  if (!isLoggedIn) {
     return (
       <>
         <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
@@ -465,10 +465,10 @@ function NotepadFloat({ digestId }: { digestId: string }) {
 
 /* ── Hidden digest state with regenerate option ── */
 function HiddenDigestState({
-  hiddenStash, session, generating, generateError, onUndo, onRegenerate,
+  hiddenStash, isLoggedIn, generating, generateError, onUndo, onRegenerate,
 }: {
   hiddenStash: { digest: { id: string }; papers: unknown[] };
-  session?: { apiKey: string; provider: string; model: string; baseUrl: string };
+  isLoggedIn?: boolean;
   generating: boolean;
   generateError: string | null;
   onUndo: () => void;
@@ -501,7 +501,7 @@ function HiddenDigestState({
       >
         Undo
       </button>
-      {session && !submitted && (
+      {isLoggedIn && !submitted && (
         <div style={{ width: "100%", maxWidth: "420px", display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid #e5e7eb", paddingTop: "24px" }}>
           <p style={{ fontSize: "0.8rem", color: "#555", fontFamily: "var(--font-mono), monospace" }}>
             Want a different one? Tell us why and we&apos;ll regenerate.
@@ -551,10 +551,6 @@ interface Digest {
 
 interface Session {
   userId: string | null;
-  apiKey: string;
-  provider: string;
-  model: string;
-  baseUrl: string;
   isSetUp: boolean;
 }
 
@@ -633,7 +629,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       const res = await fetch("/api/digest/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: session.apiKey, provider: session.provider, model: session.model, baseUrl: session.baseUrl, force }),
+        body: JSON.stringify({ force }),
       });
       if (res.ok) {
         await fetchDigest();
@@ -659,10 +655,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         body: JSON.stringify({
           question: `Keep your answer to 3-4 sentences max. Be specific and concrete.\n\n${question}`,
           digestId: digest?.id || papers[0]?.id,
-          apiKey: session.apiKey,
-          provider: session.provider,
-          model: session.model,
-          baseUrl: session.baseUrl,
         }),
       });
       const data = await res.json();
@@ -695,7 +687,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         {hiddenStash ? (
           <HiddenDigestState
             hiddenStash={hiddenStash}
-            session={session}
+            isLoggedIn={!!session}
             generating={generating}
             generateError={generateError}
             onUndo={async () => {
@@ -822,7 +814,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               onSelectPaper={openSource}
               onRegenerate={() => handleGenerate(true)}
               generating={generating}
-              session={session}
               onSignIn={onSignIn}
               hideHeader
               hideInteractionUI
@@ -851,7 +842,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               loading={digDeeperLoading}
               showQuestions={showQuestions}
               onAsk={handleDigDeeper}
-              session={session}
+              isLoggedIn={!!session}
               onSignIn={onSignIn}
             />
           </div>

@@ -5,17 +5,9 @@ import { Send, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { PaperItem } from "./paper-card";
 
-interface Session {
-  apiKey: string;
-  provider: string;
-  model: string;
-  baseUrl: string;
-}
-
 interface SynthesisChatProps {
   digestId: string;
   papers: PaperItem[];
-  session: Session;
 }
 
 interface Message {
@@ -91,7 +83,7 @@ function ChatMessage({ msg }: { msg: Message }) {
   );
 }
 
-export function SynthesisChat({ digestId, papers, session }: SynthesisChatProps) {
+export function SynthesisChat({ digestId, papers }: SynthesisChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -119,10 +111,6 @@ export function SynthesisChat({ digestId, papers, session }: SynthesisChatProps)
         body: JSON.stringify({
           question,
           digestId,
-          apiKey: session.apiKey,
-          provider: session.provider,
-          model: session.model,
-          baseUrl: session.baseUrl,
         }),
       });
 

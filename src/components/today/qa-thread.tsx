@@ -11,13 +11,9 @@ interface QAPair {
 
 interface QAThreadProps {
   paperId: string;
-  apiKey: string;
-  provider: string;
-  model: string;
-  baseUrl: string;
 }
 
-export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThreadProps) {
+export function QAThread({ paperId }: QAThreadProps) {
   const [pairs, setPairs] = useState<QAPair[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [question, setQuestion] = useState("");
@@ -65,7 +61,7 @@ export function QAThread({ paperId, apiKey, provider, model, baseUrl }: QAThread
       const res = await fetch(`/api/papers/${paperId}/qa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: trimmed, apiKey, provider, model, baseUrl }),
+        body: JSON.stringify({ question: trimmed }),
       });
       if (res.ok) {
         const data = await res.json();

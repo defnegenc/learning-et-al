@@ -282,12 +282,7 @@ interface SynthesisBannerProps {
   onRegenerate?: () => void;
   generating?: boolean;
   renderPaperCard?: (paper: PaperItem, index: number) => React.ReactNode;
-  session?: {
-    apiKey: string;
-    provider: string;
-    model: string;
-    baseUrl: string;
-  };
+  isLoggedIn?: boolean;
   onSignIn?: () => void;
   hideHeader?: boolean;
   hideInteractionUI?: boolean;
@@ -421,7 +416,7 @@ export function SynthesisBanner({
   onRegenerate,
   generating = false,
   renderPaperCard,
-  session,
+  isLoggedIn,
   onSignIn,
   hideHeader = false,
   hideInteractionUI = false,
@@ -530,7 +525,7 @@ export function SynthesisBanner({
   }, [suggestedQuestions, papers, theme]);
 
   const handleDigDeeper = async (question: string) => {
-    if (!session || digDeeperLoading) return;
+    if (!isLoggedIn || digDeeperLoading) return;
     setDigDeeperLoading(true);
     setShowQuestions(false);
     try {
@@ -540,10 +535,6 @@ export function SynthesisBanner({
         body: JSON.stringify({
           question: `Keep your answer to 3-4 sentences max. Be specific and concrete.\n\n${question}`,
           digestId: digestId || papers[0]?.id,
-          apiKey: session.apiKey,
-          provider: session.provider,
-          model: session.model,
-          baseUrl: session.baseUrl,
         }),
       });
       const data = await res.json();
@@ -805,14 +796,14 @@ export function SynthesisBanner({
       )}
 
       {/* Dig deeper — logged-in: live Q&A, logged-out: pre-generated answers */}
-      {!hideInteractionUI && papers.length > 0 && !session && (
+      {!hideInteractionUI && papers.length > 0 && !isLoggedIn && (
         <GuestDigDeeper
           questions={suggestedQuestions || []}
           answers={suggestedAnswers || []}
           onSignIn={onSignIn}
         />
       )}
-      {!hideInteractionUI && papers.length > 0 && session && (
+      {!hideInteractionUI && papers.length > 0 && isLoggedIn && (
         <div style={{ marginTop: "28px" }}>
           {/* Suggested questions as inline buttons */}
           {showQuestions && !digDeeperLoading && digDeeperPrompts.length > 0 && (

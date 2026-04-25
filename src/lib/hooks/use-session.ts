@@ -4,10 +4,6 @@ import { useState, useEffect } from "react";
 
 interface Session {
   userId: string | null;
-  apiKey: string;
-  provider: "openai" | "anthropic" | "gemini" | "other";
-  model: string;
-  baseUrl: string;
   isSetUp: boolean;
   contentMix: number;
   inviteCode?: string;
@@ -15,10 +11,6 @@ interface Session {
 
 const DEFAULT_SESSION: Session = {
   userId: null,
-  apiKey: "",
-  provider: "openai",
-  model: "",
-  baseUrl: "",
   isSetUp: false,
   contentMix: 50,
 };

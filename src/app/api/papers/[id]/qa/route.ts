@@ -40,11 +40,18 @@ export async function POST(
 
   try {
     const { id } = await params;
-    const { question, apiKey, provider, model, baseUrl } = await req.json();
+    const { question } = await req.json();
 
-    if (!question || !apiKey || !provider) {
-      return NextResponse.json({ error: "question, apiKey, and provider are required" }, { status: 400 });
+    if (!question) {
+      return NextResponse.json({ error: "question is required" }, { status: 400 });
     }
+
+    const cronProvider = (process.env.CRON_AI_PROVIDER || "gemini") as "gemini" | "anthropic" | "openai" | "other";
+    const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-20250514" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
+    const apiKey = process.env.CRON_AI_KEY || "";
+    const provider = cronProvider;
+    const model = process.env.CRON_AI_MODEL || cronDefaultModel;
+    const baseUrl = "";
 
     const paper = await db.query.papers.findFirst({
       where: eq(papers.id, id),

@@ -23,12 +23,6 @@ interface SelectedTopic {
 }
 
 interface SettingsDialogProps {
-  session: {
-    apiKey: string;
-    provider: string;
-    model: string;
-    baseUrl: string;
-  };
   updateSession: (updates: Record<string, unknown>) => void;
   onRefreshDigest?: () => void;
   open?: boolean;
@@ -38,7 +32,7 @@ interface SettingsDialogProps {
   onRegenerate?: () => void;
 }
 
-export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, isAdmin, onRegenerate }: SettingsDialogProps) {
+export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, isAdmin, onRegenerate, updateSession: _updateSession }: SettingsDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
