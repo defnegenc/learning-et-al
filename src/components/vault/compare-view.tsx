@@ -10,23 +10,17 @@ interface CompareViewProps {
   content: string;
   papers: PaperItem[];
   onBack: () => void;
-  session?: {
-    apiKey: string;
-    provider: string;
-    model: string;
-    baseUrl: string;
-  };
 }
 
 const PASTEL_COLORS = ["#d4edda", "#f8d7da", "#e2d5f1", "#cce5ff", "#ffeeba"];
 
-export function CompareView({ content, papers, onBack, session }: CompareViewProps) {
+export function CompareView({ content, papers, onBack }: CompareViewProps) {
   const [digDeeperAnswer, setDigDeeperAnswer] = useState<string | null>(null);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
   const [customQuestion, setCustomQuestion] = useState("");
 
   const handleDigDeeper = async (question: string) => {
-    if (!session || !papers[0] || digDeeperLoading) return;
+    if (!papers[0] || digDeeperLoading) return;
     setDigDeeperLoading(true);
     setDigDeeperAnswer(null);
     try {
@@ -35,10 +29,6 @@ export function CompareView({ content, papers, onBack, session }: CompareViewPro
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: `Context: Comparing ${papers.map(p => p.title).join(" vs ")}.\n\nQuestion: ${question}`,
-          apiKey: session.apiKey,
-          provider: session.provider,
-          model: session.model,
-          baseUrl: session.baseUrl,
         }),
       });
       const data = await res.json();
@@ -100,7 +90,7 @@ export function CompareView({ content, papers, onBack, session }: CompareViewPro
         </ReactMarkdown>
       </div>
 
-      {session && papers.length > 0 && (
+      {papers.length > 0 && (
         <div style={{ borderTop: "4px solid #1a1a1a", paddingTop: "24px", marginTop: "32px" }}>
           <span
             style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#555", display: "block", marginBottom: "12px" }}

@@ -11,10 +11,6 @@ import type { SettingsTab } from "@/components/settings-dialog";
 
 interface Session {
   userId: string | null;
-  apiKey: string;
-  provider: string;
-  model: string;
-  baseUrl: string;
   isSetUp: boolean;
 }
 
@@ -135,7 +131,6 @@ export function AppShell({ session, updateSession }: AppShellProps) {
 
           {/* Controlled dialog (no trigger needed — opened via buttons above) */}
           <SettingsDialog
-            session={session}
             updateSession={updateSession}
             onRefreshDigest={() => refreshDigestRef.current?.()}
             open={settingsOpen}

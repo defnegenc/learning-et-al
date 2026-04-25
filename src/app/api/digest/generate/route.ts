@@ -11,32 +11,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { apiKey, provider, model, baseUrl, force } = await req.json();
+    const { force } = await req.json();
 
-    // Admin always uses server-side CRON_AI env credentials (regardless of what the client sent)
-    const isAdminUser = userId === (process.env.ADMIN_USER_ID || "");
-
-    // Fall back to shared CRON_AI config if user doesn't have their own key
-    const cronProvider = process.env.CRON_AI_PROVIDER || "gemini";
+    const cronProvider = (process.env.CRON_AI_PROVIDER || "gemini") as "gemini" | "anthropic" | "openai" | "other";
     const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-20250514"
       : cronProvider === "openai" ? "gpt-4o"
       : "gemini-2.5-flash";
-    const resolvedKey = isAdminUser
-      ? (process.env.CRON_AI_KEY || "")
-      : (apiKey || process.env.CRON_AI_KEY || "");
-    const resolvedProvider = isAdminUser ? cronProvider : (provider || cronProvider);
-    const resolvedModel = isAdminUser
-      ? (process.env.CRON_AI_MODEL || cronDefaultModel)
-      : (model || process.env.CRON_AI_MODEL || cronDefaultModel);
-    const resolvedBaseUrl = isAdminUser
-      ? (process.env.CRON_AI_BASE_URL || "")
-      : (baseUrl || process.env.CRON_AI_BASE_URL || "");
-
-    if (!resolvedKey || !resolvedProvider) {
-      return NextResponse.json({ error: "No API key configured. Add one in Settings or ask for an invite code." }, { status: 400 });
+    const apiKey = process.env.CRON_AI_KEY || "";
+    if (!apiKey) {
+      return NextResponse.json({ error: "Server AI key not configured." }, { status: 500 });
     }
 
-    const aiConfig: AIConfig = { apiKey: resolvedKey, provider: resolvedProvider, model: resolvedModel, baseUrl: resolvedBaseUrl };
+    const aiConfig: AIConfig = {
+      apiKey,
+      provider: cronProvider,
+      model: process.env.CRON_AI_MODEL || cronDefaultModel,
+      baseUrl: process.env.CRON_AI_BASE_URL || "",
+    };
     const digest = await generateDigest(userId, aiConfig, force);
 
     trackEvent(userId, "digest_generate", { metadata: { force: !!force } });

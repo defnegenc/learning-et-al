@@ -14,16 +14,7 @@ export async function POST(req: NextRequest) {
     const defaultModel = provider === "anthropic" ? "claude-sonnet-4-20250514"
       : provider === "openai" ? "gpt-4o"
       : "gemini-2.5-flash";
-    return NextResponse.json({
-      valid,
-      // If valid, return the shared AI config so the user doesn't need their own key
-      ...(valid ? {
-        provider,
-        model: process.env.CRON_AI_MODEL || defaultModel,
-        apiKey: process.env.CRON_AI_KEY || "",
-        baseUrl: "",
-      } : {}),
-    });
+    return NextResponse.json({ valid });
   } catch {
     return NextResponse.json({ valid: false }, { status: 400 });
   }

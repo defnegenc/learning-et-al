@@ -10,10 +10,6 @@ import type { PaperItem } from "@/components/today/paper-card";
 interface VaultPageProps {
   session: {
     userId: string | null;
-    apiKey: string;
-    provider: string;
-    model: string;
-    baseUrl: string;
     isSetUp: boolean;
   };
 }
@@ -339,7 +335,7 @@ export function VaultPage({ session }: VaultPageProps) {
       const res = await fetch("/api/vault/compare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paperIds: Array.from(selectedIds), apiKey: session.apiKey, provider: session.provider, model: session.model, baseUrl: session.baseUrl }),
+        body: JSON.stringify({ paperIds: Array.from(selectedIds) }),
       });
       if (!res.ok) throw new Error("Comparison failed");
       const data = await res.json();
@@ -356,7 +352,6 @@ export function VaultPage({ session }: VaultPageProps) {
       <CompareView
         content={comparisonResult.content}
         papers={comparisonResult.papers}
-        session={session}
         onBack={() => { setComparisonResult(null); setCompareMode(false); setSelectedIds(new Set()); }}
       />
     );

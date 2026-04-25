@@ -14,12 +14,6 @@ interface RelatedPaper {
 
 interface PaperDetailProps {
   paper: PaperItem;
-  session: {
-    apiKey: string;
-    provider: string;
-    model: string;
-    baseUrl: string;
-  };
   isStarred?: boolean;
   inline?: boolean;
   onBack: () => void;
@@ -45,7 +39,6 @@ const GLASS_TAG: React.CSSProperties = {
 
 export function PaperDetail({
   paper,
-  session,
   isStarred = false,
   inline = false,
   onBack,
@@ -72,7 +65,7 @@ export function PaperDetail({
       const res = await fetch(`/api/papers/${paper.id}/qa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, apiKey: session.apiKey, provider: session.provider, model: session.model, baseUrl: session.baseUrl }),
+        body: JSON.stringify({ question }),
       });
       const data = await res.json();
       const answer = data.qaPair?.answer || data.answer || "Couldn't get an answer.";
@@ -131,8 +124,6 @@ export function PaperDetail({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "dislike", reason: dislikeReason,
-          apiKey: session.apiKey, provider: session.provider,
-          model: session.model, baseUrl: session.baseUrl,
         }),
       });
       onDislike(paper.id);
@@ -669,13 +660,7 @@ export function PaperDetail({
 
               {/* Q&A Thread */}
               <div className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(0,0,0,0.1)" }}>
-                <QAThread
-                  paperId={paper.id}
-                  apiKey={session.apiKey}
-                  provider={session.provider}
-                  model={session.model}
-                  baseUrl={session.baseUrl}
-                />
+                <QAThread paperId={paper.id} />
               </div>
             </div>
           </div>

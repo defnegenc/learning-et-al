@@ -16,17 +16,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const question = body.question;
     const digestId = body.digestId;
-    // Use provided API key, or fall back to shared cron config entirely
-    const hasOwnKey = !!body.apiKey;
-    const cronProvider = process.env.CRON_AI_PROVIDER || "gemini";
+    const cronProvider = (process.env.CRON_AI_PROVIDER || "gemini") as "gemini" | "anthropic" | "openai" | "other";
     const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-20250514" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
-    const apiKey = hasOwnKey ? body.apiKey : (process.env.CRON_AI_KEY || "");
-    const provider = hasOwnKey ? (body.provider || "gemini") : cronProvider;
-    const model = hasOwnKey ? (body.model || "gemini-2.5-flash") : (process.env.CRON_AI_MODEL || cronDefaultModel);
-    const baseUrl = hasOwnKey ? (body.baseUrl || "") : "";
+    const apiKey = process.env.CRON_AI_KEY || "";
+    const provider = cronProvider;
+    const model = process.env.CRON_AI_MODEL || cronDefaultModel;
+    const baseUrl = "";
 
     if (!question || !digestId || !apiKey) {
-      return NextResponse.json({ error: "Missing question, digest, or API key. Check Settings > API." }, { status: 400 });
+      return NextResponse.json({ error: "Missing question or digest." }, { status: 400 });
     }
 
     // Fetch digest — fall back to user's latest if the given ID is stale
