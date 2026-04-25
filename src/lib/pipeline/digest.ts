@@ -933,9 +933,11 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
 Papers we actually found:
 ${paperList}
 
-Does the original theme genuinely thread ALL the papers at their core? Be honest.
+Your job has TWO parts: accuracy first, then surprise.
 
-KEEP the original theme (with minor wording cleanup only) if:
+PART 1 — ACCURACY: Does the original theme genuinely thread ALL the papers at their core?
+
+KEEP the original theme if:
 - All papers directly address the question the theme poses
 - The theme captures what the papers are actually about, not just their surface topic
 - A reader seeing the theme and papers together would say "yes, these obviously go together"
@@ -951,15 +953,27 @@ GOOD revision: recognizing the papers are actually about evidence and trust, not
 BAD: "Does AI hype match real classroom results?" — when the papers are really about research reproducibility
 GOOD: "Can we trust the research behind the hype?" — captures what ALL three papers actually share
 
-BAD: "Can AI achieve consciousness?" — only connects to one paper
-GOOD: "Can AI agents care for you?" — threads all papers
+PART 2 — SURPRISE: Once you have an accurate theme, ask: is there a more unexpected or counterintuitive way to frame this same insight?
+
+The best themes make a reader stop and think "wait, really?" They hide a tension or reversal inside them.
+
+GENERIC (accurate but forgettable):
+- "How does AI shape human psychology?" — broad, expected, could describe 1000 papers
+- "Can machines understand emotion?" — we've heard this question a thousand times
+- "AI and creativity" — a topic label, not a question worth asking
+
+SURPRISING (accurate AND makes you think):
+- "Why do AI tutors make kids worse at reading?" — specific, counterintuitive, has a villain
+- "The expert is often the last to know" — implies a reversal, feels true and uncomfortable
+- "Your brain lies to you. So does the model." — parallel structure with a sting
+
+Ask yourself: if someone saw ONLY the theme, would they immediately think "I know what this is about" (bad) or "wait, tell me more" (good)? Aim for the second.
 
 Rules:
 - MAX 8 WORDS
 - Must connect ALL papers at their CORE, not their surface topic
-- Punchy, magazine-cover energy
 - A normal person should want to click on it
-- If the original already works well, return it unchanged (or with minor cleanup)
+- If the original is already both accurate AND surprising, keep it unchanged
 
 Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or statement", "kept_original": true|false}`;
 
