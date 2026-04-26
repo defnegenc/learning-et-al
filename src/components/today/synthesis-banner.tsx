@@ -294,6 +294,7 @@ export function GuestDigDeeper({ questions, answers, onSignIn }: {
   answers: string[];
   onSignIn?: () => void;
 }) {
+  const [expanded, setExpanded] = useState<number | null>(null);
   const pairs = questions
     .map((q, i) => ({ q, a: answers[i] || "" }))
     .filter(p => p.a.trim().length > 0)
@@ -304,21 +305,41 @@ export function GuestDigDeeper({ questions, answers, onSignIn }: {
       {pairs.length > 0 && (
         <div style={{ marginBottom: "16px" }}>
           {pairs.map(({ q, a }, i) => (
-            <div key={i} style={{ marginBottom: i < pairs.length - 1 ? "16px" : "0" }}>
-              <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "8px", fontFamily: "var(--font-mono), monospace" }}>
-                {q.replace(/\*\*/g, "")}
-              </p>
-              <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
-                <ReactMarkdown
-                  components={{
-                    p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
-                    strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
-                  }}
-                >
-                  {a}
-                </ReactMarkdown>
-              </div>
-              {i < pairs.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
+            <div key={i}>
+              <button
+                onClick={() => setExpanded(prev => prev === i ? null : i)}
+                style={{
+                  textAlign: "left", cursor: "pointer", background: "transparent", border: "none",
+                  padding: "14px 4px", width: "100%", display: "flex", gap: "12px", alignItems: "flex-start",
+                  borderBottom: expanded === i ? "none" : "1px solid #1a1a1a",
+                }}
+              >
+                <div style={{ width: 4, alignSelf: "stretch", flexShrink: 0, borderRadius: 2, background: `linear-gradient(to bottom, ${HIGHLIGHT_GRADIENTS[i % HIGHLIGHT_GRADIENTS.length][0]} 0%, ${HIGHLIGHT_GRADIENTS[i % HIGHLIGHT_GRADIENTS.length][1]} 100%)`, border: "1px solid rgba(26,26,26,0.12)" }} />
+                <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 600, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
+                  {q.replace(/\*\*/g, "")}
+                </div>
+                <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888", marginTop: 3, flexShrink: 0 }}>
+                  {expanded === i ? "▲" : "Ask →"}
+                </span>
+              </button>
+              {expanded === i && (
+                <div style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: "14px", paddingLeft: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", margin: "10px 0 6px" }}>
+                    <Star size={11} style={{ fill: "#FFD700", stroke: "#FFD700", flexShrink: 0 }} />
+                    <span style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace", color: "#1a1a1a" }}>Insight</span>
+                  </div>
+                  <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#333", borderLeft: "2px solid #e5e7eb", paddingLeft: "12px" }}>
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
+                        strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
+                      }}
+                    >
+                      {a}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -802,11 +823,18 @@ export function SynthesisBanner({
                 return (
                   <React.Fragment key={i}>
                     {isFirst && ledeText && (
-                      <p style={{ margin: "0 0 1em 0", lineHeight: 1.7, fontStyle: "italic", fontWeight: 700, color: "#555" }}>
-                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: makeStrongRenderer(new Set<number>()) }}>
+                      <div style={{ margin: "0 0 1.25em 0" }}>
+                        <ReactMarkdown components={{
+                          p: ({ children }) => (
+                            <p style={{ margin: "0 0 0.4em 0", fontSize: "1.15em", lineHeight: 1.55, color: "#111", fontWeight: 500 }}>
+                              {annotateText(children, conceptDefs)}
+                            </p>
+                          ),
+                          strong: ({ children }) => <strong style={{ fontWeight: 800, color: "#1a1a1a" }}>{children}</strong>,
+                        }}>
                           {ledeText}
                         </ReactMarkdown>
-                      </p>
+                      </div>
                     )}
                     <div style={{ display: "flex", gap: "16px", marginBottom: isLast ? "0" : "1.1em" }}>
                       {/* Number circle */}
