@@ -53,6 +53,7 @@
 }
 
 :root {
+  --font-display: 'Clash Grotesk', sans-serif;
   --background: #ffffff;
   --foreground: #1a1a1a;
   --card: #ffffff;
