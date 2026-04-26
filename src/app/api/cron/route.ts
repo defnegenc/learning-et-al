@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Step 2: Send email based on cadence
-      if (!user.email) continue;
+      if (!user.email || user.emailOptOut) continue;
 
       const shouldEmail =
         cadence === "daily" ||

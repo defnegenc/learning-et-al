@@ -32,7 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name: user.name ?? null,
             image: user.image ?? null,
           });
-          dbUser = { id, email: user.email!, name: user.name ?? null, image: user.image ?? null, createdAt: new Date(), timezone: "America/New_York", contentMix: 50, cadence: "daily" as const, emailVerified: null };
+          dbUser = { id, email: user.email!, name: user.name ?? null, image: user.image ?? null, createdAt: new Date(), timezone: "America/New_York", contentMix: 50, cadence: "daily" as const, emailVerified: null, emailOptOut: false };
         }
 
         // Link Google account if not already linked

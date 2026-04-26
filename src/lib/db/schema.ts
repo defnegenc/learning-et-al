@@ -6,6 +6,7 @@ export const users = sqliteTable("users", {
   timezone: text("timezone").default("America/New_York"),
   contentMix: integer("content_mix").default(50),
   cadence: text("cadence", { enum: ["daily", "biweekly", "weekly"] }).default("daily"),
+  emailOptOut: integer("email_opt_out", { mode: "boolean" }).default(false),
   email: text("email"),
   name: text("name"),
   image: text("image"),

@@ -17,6 +17,7 @@ export async function PATCH(req: NextRequest) {
     }
     if (body.timezone) updates.timezone = body.timezone;
     if (typeof body.contentMix === "number") updates.contentMix = body.contentMix;
+    if (typeof body.emailOptOut === "boolean") updates.emailOptOut = body.emailOptOut;
 
     if (Object.keys(updates).length > 0) {
       await db.update(users).set(updates).where(eq(users.id, userId));

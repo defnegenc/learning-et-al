@@ -47,6 +47,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [cadence, setCadence] = useState<"daily" | "biweekly" | "weekly">("daily");
+  const [emailOptOut, setEmailOptOut] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -80,6 +81,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
       setSelectedTopics(entries);
       setCustomTopics(customByField);
       if (data.cadence) setCadence(data.cadence);
+      if (typeof data.emailOptOut === "boolean") setEmailOptOut(data.emailOptOut);
     } finally {
       setLoadingInterests(false);
     }
@@ -130,9 +132,9 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
         });
       }
       await fetch("/api/setup", {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cadence }),
+        body: JSON.stringify({ cadence, emailOptOut }),
       }).catch(() => {});
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -235,6 +237,29 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Email opt-out */}
+              <div className="px-5 md:px-10 py-3" style={{ borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>Email digests</div>
+                  <div style={{ fontSize: "0.7rem", color: "#aaa", marginTop: "2px" }}>Receive your digest by email</div>
+                </div>
+                <button
+                  onClick={() => setEmailOptOut(v => !v)}
+                  style={{
+                    width: 40, height: 22, borderRadius: 999, border: "2px solid #1a1a1a",
+                    background: emailOptOut ? "#e5e7eb" : "#1a1a1a",
+                    position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 0.15s",
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 1, left: emailOptOut ? 2 : 16,
+                    width: 14, height: 14, borderRadius: "50%",
+                    background: emailOptOut ? "#999" : "white",
+                    transition: "left 0.15s",
+                  }} />
+                </button>
               </div>
 
               <div className="flex-1 overflow-y-auto px-5 md:px-10 pt-4">

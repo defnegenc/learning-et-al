@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { interests } from "@/lib/db/schema";
+import { interests, users } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 
@@ -47,12 +47,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const userInterests = await db.query.interests.findMany({
-      where: eq(interests.userId, userId),
-      orderBy: desc(interests.weight),
-    });
+    const [userInterests, userRow] = await Promise.all([
+      db.query.interests.findMany({ where: eq(interests.userId, userId), orderBy: desc(interests.weight) }),
+      db.query.users.findFirst({ where: eq(users.id, userId) }),
+    ]);
 
-    return NextResponse.json({ interests: userInterests });
+    return NextResponse.json({ interests: userInterests, cadence: userRow?.cadence, emailOptOut: userRow?.emailOptOut ?? false });
   } catch (error) {
     console.error("Interests fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch interests" }, { status: 500 });
