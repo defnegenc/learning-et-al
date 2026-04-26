@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2 } from "lucide-react";
+import { Loader2, Star, PenLine, Check } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 import { CATEGORY_PALETTES } from "@/components/interest-ledger";
 
@@ -406,6 +406,77 @@ export function AnswerBlock({ text, paperLinks }: { text: string; paperLinks?: {
 }
 
 
+function AnswerEntry({
+  entry,
+  digestId,
+  showDivider,
+}: {
+  entry: { q: string; a: string; paperLinks?: { title: string; sourceUrl: string | null }[] };
+  digestId?: string;
+  showDivider: boolean;
+}) {
+  const [added, setAdded] = useState(false);
+
+  function addToNotes() {
+    if (!digestId) return;
+    const key = `digest_notes_${digestId}`;
+    const existing = localStorage.getItem(key) || "";
+    const block = `Q: ${entry.q}\n${entry.a}`;
+    localStorage.setItem(key, existing ? `${existing}\n\n${block}` : block);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  }
+
+  const sentences = entry.a.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+
+  return (
+    <div style={{ marginBottom: showDivider ? "20px" : "0" }}>
+      <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "10px", fontFamily: "var(--font-mono), monospace" }}>
+        {entry.q}
+      </p>
+
+      {/* Insight label */}
+      <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "8px" }}>
+        <Star size={11} style={{ fill: "#FFD700", stroke: "#FFD700", flexShrink: 0 }} />
+        <span style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace", color: "#1a1a1a" }}>
+          Insight
+        </span>
+      </div>
+
+      {/* Answer — one sentence per line for scannability */}
+      <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#333", borderLeft: "2px solid #e5e7eb", paddingLeft: "12px", marginBottom: "10px" }}>
+        {sentences.length > 1 ? (
+          sentences.map((s, i) => (
+            <p key={i} style={{ margin: i < sentences.length - 1 ? "0 0 0.5em 0" : "0" }}>
+              <CitedAnswer text={s} paperLinks={entry.paperLinks} />
+            </p>
+          ))
+        ) : (
+          <AnswerBlock text={entry.a} paperLinks={entry.paperLinks} />
+        )}
+      </div>
+
+      {/* Add to notes */}
+      <button
+        onClick={addToNotes}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: "5px",
+          background: "none", border: "none", cursor: "pointer", padding: 0,
+          fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
+          letterSpacing: "1px", fontFamily: "var(--font-mono), monospace",
+          color: added ? "#38b000" : "#888",
+          transition: "color 0.15s",
+        }}
+      >
+        {added ? <Check size={10} /> : <PenLine size={10} />}
+        {added ? "Added" : "Add to notes"}
+      </button>
+
+      {showDivider && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
+    </div>
+  );
+}
+
 export function SynthesisBanner({
   synthesis,
   theme,
@@ -707,14 +778,14 @@ export function SynthesisBanner({
         }
 
         return (
-          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
+          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.7", fontFamily: "inherit", color: "#222" }}>
             {sections.map((section, i) => {
               // Paragraphs before first bullet and after last bullet are folded into bullet 1 / last bullet
               if (section.kind === "paragraph") return null;
 
               if (section.kind === "bridge") {
                 return (
-                  <p key={i} style={{ margin: "0 0 0.5em 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
+                  <p key={i} style={{ margin: "0.5em 0 0.5em 44px", lineHeight: 1.6, fontStyle: "italic", fontWeight: 700, color: "#555", fontSize: "0.85em" }}>
                     {section.text}
                   </p>
                 );
@@ -724,38 +795,37 @@ export function SynthesisBanner({
                 const idx = bulletIdx++;
                 const isFirst = idx === 0;
                 const isLast = idx === totalBullets - 1;
-                const palette = SOURCE_PALETTES[idx % SOURCE_PALETTES.length];
+                const paletteIdx = section.sourceIdx ?? idx;
+                const palette = SOURCE_PALETTES[paletteIdx % SOURCE_PALETTES.length];
                 const StrongRenderer = makeStrongRenderer(new Set<number>());
 
                 return (
                   <React.Fragment key={i}>
                     {isFirst && ledeText && (
-                      <p style={{ margin: "0 0 0.75em 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
+                      <p style={{ margin: "0 0 1em 0", lineHeight: 1.7, fontStyle: "italic", fontWeight: 700, color: "#555" }}>
                         <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: makeStrongRenderer(new Set<number>()) }}>
                           {ledeText}
                         </ReactMarkdown>
                       </p>
                     )}
-                    <div style={{ display: "flex", gap: "16px", marginBottom: isLast ? "0" : "0.25em" }}>
-                      {/* Number circle + connecting line */}
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 28 }}>
+                    <div style={{ display: "flex", gap: "16px", marginBottom: isLast ? "0" : "1.1em" }}>
+                      {/* Number circle */}
+                      <div style={{ flexShrink: 0, width: 28, paddingTop: "2px" }}>
                         <div style={{
                           width: 28, height: 28, borderRadius: "50%",
                           border: "2px solid #1a1a1a", background: palette[0],
                           display: "flex", alignItems: "center", justifyContent: "center",
                           fontFamily: "var(--font-mono), monospace",
                           fontSize: "0.65rem", fontWeight: 700, color: "#1a1a1a",
-                          flexShrink: 0,
                         }}>
                           {idx + 1}
                         </div>
-                        {!isLast && <div style={{ flex: 1, width: 1, background: "#ddd", minHeight: 24, marginTop: 4 }} />}
                       </div>
 
                       {/* Content */}
-                      <div className={`flex-1 min-w-0 ${isLast ? "pb-2" : "pb-3"}`} style={{ paddingTop: "3px" }}>
+                      <div className="flex-1 min-w-0" style={{ paddingTop: "4px" }}>
                         <ReactMarkdown components={{
-                          p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.75 }}>{annotateText(children, conceptDefs)}</p>,
+                          p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.7 }}>{annotateText(children, conceptDefs)}</p>,
                           strong: StrongRenderer,
                         }}>
                           {section.text}
@@ -763,7 +833,7 @@ export function SynthesisBanner({
                       </div>
                     </div>
                     {isLast && closingText && (
-                      <p style={{ margin: "0.75em 0 0 0", lineHeight: 1.75, fontStyle: "italic", color: "#444" }}>
+                      <p style={{ margin: "1em 0 0 0", lineHeight: 1.7, fontStyle: "italic", fontWeight: 700, color: "#555" }}>
                         <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: makeStrongRenderer(new Set<number>()) }}>
                           {closingText}
                         </ReactMarkdown>
@@ -850,17 +920,14 @@ export function SynthesisBanner({
 
           {/* Conversation history */}
           {digDeeperHistory.length > 0 && (
-            <div style={{ marginBottom: "16px", maxHeight: "400px", overflowY: "auto" }}>
+            <div style={{ marginBottom: "16px" }}>
               {digDeeperHistory.map((entry, i) => (
-                <div key={i} style={{ marginBottom: i < digDeeperHistory.length - 1 ? "16px" : "0" }}>
-                  <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "8px", fontFamily: "var(--font-mono), monospace" }}>
-                    {entry.q}
-                  </p>
-                  <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#444" }}>
-                    <AnswerBlock text={entry.a} paperLinks={entry.paperLinks} />
-                  </div>
-                  {i < digDeeperHistory.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
-                </div>
+                <AnswerEntry
+                  key={i}
+                  entry={entry}
+                  digestId={digestId}
+                  showDivider={i < digDeeperHistory.length - 1}
+                />
               ))}
             </div>
           )}
