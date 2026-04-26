@@ -4,6 +4,7 @@ import { users, interests, digests, papers } from "@/lib/db/schema";
 import { eq, desc, and, gte } from "drizzle-orm";
 import { generateDigest } from "@/lib/pipeline/digest";
 import { sendDigestEmail, type DigestEmailData } from "@/lib/email";
+import { postDigestToX } from "@/lib/twitter";
 
 /**
  * Cron endpoint — generates daily digests and emails based on cadence.
@@ -51,12 +52,32 @@ export async function GET(req: NextRequest) {
       const cadence = (user.cadence as "daily" | "biweekly" | "weekly") || "daily";
 
       // Step 1: Always generate a digest (builds the archive)
+      let generatedDigest: Awaited<ReturnType<typeof generateDigest>> | undefined;
       try {
-        await generateDigest(user.id, aiConfig);
+        generatedDigest = await generateDigest(user.id, aiConfig);
         results.push({ userId: user.id, status: "generated" });
       } catch (err) {
         results.push({ userId: user.id, status: "error", error: String(err).slice(0, 200) });
         continue;
+      }
+
+      // Step 1b: Post admin digest to X
+      if (user.id === process.env.ADMIN_USER_ID && generatedDigest?.id) {
+        const digestPapersForX = await db.select().from(papers).where(eq(papers.digestId, generatedDigest.id));
+        // Extract lede: first paragraph(s) before the first bullet in synthesis
+        const synthesis = generatedDigest.synthesisContent || "";
+        const lines = synthesis.split("\n");
+        const firstBulletLine = lines.findIndex(l => /^\s*-\s+\*\*\[source/i.test(l));
+        const lede = firstBulletLine > 0
+          ? lines.slice(0, firstBulletLine).filter(l => l.trim()).join(" ").trim()
+          : null;
+        const xResult = await postDigestToX({
+          theme: generatedDigest.theme || "Today's Research Digest",
+          lede,
+          papers: digestPapersForX.map(p => ({ title: p.title, sourceUrl: p.sourceUrl })),
+          digestId: generatedDigest.id,
+        });
+        results.push({ userId: user.id, status: xResult.ok ? "x_posted" : "x_failed", error: xResult.error });
       }
 
       // Step 2: Send email based on cadence
