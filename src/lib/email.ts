@@ -223,7 +223,7 @@ export async function sendDigestEmail(
   }
 
   const subject = cadence === "daily"
-    ? "Your Daily Digest"
+    ? bestDigest.theme
     : `★ Best of ${cadence === "biweekly" ? "the half-week" : "the week"}: ${bestDigest.theme}`;
 
   try {
@@ -232,6 +232,11 @@ export async function sendDigestEmail(
       to: userEmail,
       subject,
       html: buildEmailHtml(cadence, bestDigest, allDigests),
+      text: `${bestDigest.theme}\n\n${(bestDigest.synthesis || "").replace(/\*\*/g, "").replace(/\n{3,}/g, "\n\n")}\n\n---\nRead online: https://learningetal.com`,
+      headers: {
+        "List-Unsubscribe": "<https://learningetal.com/api/unsubscribe>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     });
     return { sent: true };
   } catch (err) {
