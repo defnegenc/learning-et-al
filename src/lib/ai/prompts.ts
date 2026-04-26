@@ -269,7 +269,7 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
-[One intro sentence: the provocative setup or counterintuitive framing that makes the reader want to know more]
+[Intro: 1–2 sentences. Open with a meta-frame naming how many sources and roughly what they examine (e.g. "Three studies ask whether robots can be held accountable" or "Two papers and a report trace how past experiences constrain future choices"). Then land the provocative tension or counterintuitive finding that makes the reader want more. Use **bold** on 1–2 key words — the sharpest noun or the most surprising claim. No em dashes. Not a question. Not italics. A declarative statement that earns attention.]
 
 ${skeleton.paperRoles.map((r, i, arr) => {
   const bullet = `- **[Source ${r.index}] ${r.shortName}** [one sentence starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend, with a specific detail or number]`;
@@ -406,7 +406,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro sentence, one bullet per paper (- **[Source N] name** [conversational verb phrase]), closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences with meta-frame + bold key words), one bullet per paper (- **[Source N] name** [conversational verb phrase]), closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
