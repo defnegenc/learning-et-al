@@ -831,8 +831,8 @@ export function SynthesisBanner({
                             const drop = words.slice(0, 3).join(" ");
                             const rest = words.slice(3).join(" ");
                             return (
-                              <p style={{ margin: "0 0 0.4em 0", fontSize: "1.25em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
-                                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.15em", fontWeight: 500, letterSpacing: "-0.01em" }}>{drop} </span>
+                              <p style={{ margin: "0 0 0.4em 0", fontSize: "1.1em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
+                                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.15em", fontWeight: 700, letterSpacing: "-0.01em" }}>{drop} </span>
                                 {annotateText(rest, conceptDefs)}
                               </p>
                             );
@@ -874,7 +874,7 @@ export function SynthesisBanner({
                         </div>
                         <ReactMarkdown components={{
                           p: ({ children }) => (
-                            <p style={{ margin: 0, fontSize: "1.05em", lineHeight: 1.6, color: "#1a1a1a", fontWeight: 400 }}>
+                            <p style={{ margin: 0, fontSize: "0.95em", lineHeight: 1.6, color: "#1a1a1a", fontWeight: 400 }}>
                               {annotateText(children, conceptDefs)}
                             </p>
                           ),
