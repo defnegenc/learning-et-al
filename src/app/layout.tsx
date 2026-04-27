@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, IBM_Plex_Mono } from "next/font/google";
+import { Inter, IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Providers } from "@/components/providers";
@@ -15,6 +15,13 @@ const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-mono",
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["700"],
+  variable: "--font-logo",
   display: "swap",
 });
 
@@ -56,7 +63,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://api.fontshare.com" />
         <link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@300,400,500&display=swap" rel="stylesheet" />
       </head>
-      <body className={`${inter.variable} ${plexMono.variable} antialiased`}>
+      <body className={`${inter.variable} ${plexMono.variable} ${spaceGrotesk.variable} antialiased`}>
         <Providers>{children}</Providers>
         <Analytics />
         <SpeedInsights />

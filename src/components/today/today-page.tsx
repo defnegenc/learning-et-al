@@ -123,7 +123,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       </div>
 
       {/* Title */}
-      <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 400, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
+      <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "0.875rem", fontWeight: 500, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
         {paper.title}
       </h3>
 
