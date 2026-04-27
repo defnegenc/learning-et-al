@@ -868,14 +868,17 @@ export function SynthesisBanner({
                       </div>
                     </div>
                     {isLast && closingText && (
-                      <div style={{ margin: "1em 0 0 0" }}>
+                      <div style={{ margin: "1.5em 0 0 0", background: "#f7f5f0", padding: "16px 20px", borderLeft: "3px solid #1a1a1a" }}>
+                        <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#999", fontFamily: "var(--font-mono), monospace", marginBottom: "8px" }}>
+                          I&apos;ll leave you with
+                        </div>
                         <ReactMarkdown components={{
                           p: ({ children }) => (
-                            <p style={{ margin: "0 0 0.4em 0", fontSize: "1.25em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
+                            <p style={{ margin: 0, fontSize: "1.05em", lineHeight: 1.6, color: "#1a1a1a", fontWeight: 400 }}>
                               {annotateText(children, conceptDefs)}
                             </p>
                           ),
-                          strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#1a1a1a" }}>{children}</strong>,
+                          strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
                         }}>
                           {closingText}
                         </ReactMarkdown>
