@@ -17,26 +17,45 @@ const SOURCE_PALETTES: [string, string][] = [
   ["#F0C850", "#F0A8BC"],
 ];
 
-// hex → rgba with given alpha
 function hex2rgba(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-function dispersedWash(palette: [string, string], hover = false): React.CSSProperties {
+// Each layout is a unique asymmetric blob arrangement — blobs hug edges, whitespace in middle
+const BLOB_LAYOUTS = [
+  // card 0: heavy top-left + bottom-right corner, small smear top-right
+  (c1: string, c2: string) => `
+    radial-gradient(circle 230px at -5% 5%, ${c1} 0%, transparent 55%),
+    radial-gradient(circle 160px at 90% 0%, ${c2} 0%, transparent 50%),
+    radial-gradient(circle 200px at 105% 105%, ${c1} 0%, transparent 55%),
+    #fff`,
+  // card 1: strong bottom-left, wisp top-right, small bottom-right
+  (c1: string, c2: string) => `
+    radial-gradient(circle 240px at -10% 110%, ${c2} 0%, transparent 55%),
+    radial-gradient(circle 150px at 95% -5%, ${c1} 0%, transparent 50%),
+    radial-gradient(circle 170px at 100% 90%, ${c2} 0%, transparent 50%),
+    #fff`,
+  // card 2: top-right dominant, left edge smear, tiny bottom-left
+  (c1: string, c2: string) => `
+    radial-gradient(circle 220px at 105% -5%, ${c1} 0%, transparent 55%),
+    radial-gradient(circle 190px at -5% 40%, ${c2} 0%, transparent 50%),
+    radial-gradient(circle 140px at 5% 105%, ${c1} 0%, transparent 45%),
+    #fff`,
+  // card 3: two bottom corners + small top-right wisp
+  (c1: string, c2: string) => `
+    radial-gradient(circle 210px at -5% 100%, ${c1} 0%, transparent 55%),
+    radial-gradient(circle 200px at 105% 95%, ${c2} 0%, transparent 55%),
+    radial-gradient(circle 130px at 85% -5%, ${c1} 0%, transparent 45%),
+    #fff`,
+];
+
+function dispersedWash(palette: [string, string], hover = false, idx = 0): React.CSSProperties {
   const [h1, h2] = palette;
-  const a = hover ? 0.82 : 0.68;
+  const a = hover ? 0.80 : 0.65;
   const c1 = hex2rgba(h1, a);
   const c2 = hex2rgba(h2, a);
-  return {
-    background: `
-      radial-gradient(circle 220px at 15% 20%, ${c1} 0%, transparent 60%),
-      radial-gradient(circle 200px at 75% 10%, ${c2} 0%, transparent 60%),
-      radial-gradient(circle 180px at 85% 75%, ${c1} 0%, transparent 55%),
-      radial-gradient(circle 210px at 20% 85%, ${c2} 0%, transparent 60%),
-      radial-gradient(circle 160px at 50% 50%, ${c1} 0%, transparent 55%),
-      #fff`,
-  } as React.CSSProperties;
+  return { background: BLOB_LAYOUTS[idx % BLOB_LAYOUTS.length](c1, c2) } as React.CSSProperties;
 }
 
 /* ── Journal name helper ── */
@@ -86,8 +105,8 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
   const journalName = getJournalName(paper.sourceUrl, paper.authors);
-  const baseWash = dispersedWash(palette, false);
-  const hoverWash = dispersedWash(palette, true);
+  const baseWash = dispersedWash(palette, false, index);
+  const hoverWash = dispersedWash(palette, true, index);
 
   return (
     <a
