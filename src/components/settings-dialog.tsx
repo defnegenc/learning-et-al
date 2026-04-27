@@ -165,10 +165,10 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
           style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px", flexShrink: 0 }}
         >
-          <span className="hidden md:block" style={{ fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
+          <span className="hidden md:block" style={{ fontSize: "1.25rem", fontWeight: 400, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
             LEARNING ET AL.
           </span>
-          <span className="md:hidden" style={{ fontSize: "0.95rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
+          <span className="md:hidden" style={{ fontSize: "0.95rem", fontWeight: 400, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
             Settings
           </span>
           <div className="flex items-center gap-4">
@@ -204,7 +204,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="px-5 pt-6 pb-4 md:px-10 md:pt-10 md:pb-5">
-                <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
+                <h3 style={{ fontSize: "2rem", fontWeight: 400, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
                   Curate Your Feed
                 </h3>
                 <p style={{ fontSize: "0.9rem", color: "#666" }}>Pick topics to personalize your daily digest.</p>
@@ -310,7 +310,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {/* ── Account tab ── */}
           {tab === "account" && (
             <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
-              <h3 style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
+              <h3 style={{ fontSize: "2rem", fontWeight: 400, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
                 Account
               </h3>
               {authSession?.user && (

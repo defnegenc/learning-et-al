@@ -654,7 +654,7 @@ export function SynthesisBanner({
         <h1
           style={{
             fontSize: "clamp(2.5rem, 5.5vw, 3.75rem)",
-            fontWeight: 700,
+            fontWeight: 400,
             lineHeight: 1.1,
             color: "#111",
             fontFamily: "var(--font-display), sans-serif",
