@@ -79,7 +79,8 @@
       "Bash(gunzip -f /tmp/design.gz)",
       "Read(//tmp/**)",
       "Read(//private/tmp/**)",
-      "Bash(tar xf *)"
+      "Bash(tar xf *)",
+      "Bash(TURSO_DATABASE_URL='' TURSO_AUTH_TOKEN='' npm run build)"
     ]
   },
   "enableAllProjectMcpServers": true,

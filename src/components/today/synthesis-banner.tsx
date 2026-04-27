@@ -825,11 +825,18 @@ export function SynthesisBanner({
                     {isFirst && ledeText && (
                       <div style={{ margin: "0 0 1.25em 0" }}>
                         <ReactMarkdown components={{
-                          p: ({ children }) => (
-                            <p style={{ margin: "0 0 0.4em 0", fontSize: "1.25em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
-                              {annotateText(children, conceptDefs)}
-                            </p>
-                          ),
+                          p: ({ children }) => {
+                            const text = typeof children === "string" ? children : extractText(children);
+                            const words = text.split(" ");
+                            const drop = words.slice(0, 3).join(" ");
+                            const rest = words.slice(3).join(" ");
+                            return (
+                              <p style={{ margin: "0 0 0.4em 0", fontSize: "1.25em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
+                                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.15em", fontWeight: 500, letterSpacing: "-0.01em" }}>{drop} </span>
+                                {annotateText(rest, conceptDefs)}
+                              </p>
+                            );
+                          },
                           strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#1a1a1a" }}>{children}</strong>,
                         }}>
                           {ledeText}
