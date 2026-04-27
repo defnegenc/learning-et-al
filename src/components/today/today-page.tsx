@@ -121,6 +121,7 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
         color: "inherit",
         position: "relative",
         overflow: "hidden",
+        border: `1.5px solid ${hex2rgba(palette[0], 0.45)}`,
         boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
         transition: "background 320ms, box-shadow 150ms, transform 150ms",
         height: "100%",
