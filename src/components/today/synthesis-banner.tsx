@@ -826,11 +826,11 @@ export function SynthesisBanner({
                       <div style={{ margin: "0 0 1.25em 0" }}>
                         <ReactMarkdown components={{
                           p: ({ children }) => (
-                            <p style={{ margin: "0 0 0.4em 0", fontSize: "1.15em", lineHeight: 1.55, color: "#111", fontWeight: 500 }}>
+                            <p style={{ margin: "0 0 0.4em 0", fontSize: "1.25em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
                               {annotateText(children, conceptDefs)}
                             </p>
                           ),
-                          strong: ({ children }) => <strong style={{ fontWeight: 800, color: "#1a1a1a" }}>{children}</strong>,
+                          strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#1a1a1a" }}>{children}</strong>,
                         }}>
                           {ledeText}
                         </ReactMarkdown>
@@ -861,11 +861,18 @@ export function SynthesisBanner({
                       </div>
                     </div>
                     {isLast && closingText && (
-                      <p style={{ margin: "1em 0 0 0", lineHeight: 1.7, fontStyle: "italic", fontWeight: 700, color: "#555" }}>
-                        <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: makeStrongRenderer(new Set<number>()) }}>
+                      <div style={{ margin: "1em 0 0 0" }}>
+                        <ReactMarkdown components={{
+                          p: ({ children }) => (
+                            <p style={{ margin: "0 0 0.4em 0", fontSize: "1.25em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
+                              {annotateText(children, conceptDefs)}
+                            </p>
+                          ),
+                          strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#1a1a1a" }}>{children}</strong>,
+                        }}>
                           {closingText}
                         </ReactMarkdown>
-                      </p>
+                      </div>
                     )}
                   </React.Fragment>
                 );
