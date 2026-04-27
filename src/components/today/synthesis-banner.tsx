@@ -452,7 +452,7 @@ function AnswerEntry({
 
   return (
     <div style={{ marginBottom: showDivider ? "20px" : "0" }}>
-      <p style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1a1a1a", marginBottom: "10px", fontFamily: "var(--font-mono), monospace" }}>
+      <p style={{ fontSize: "0.8rem", fontWeight: 500, color: "#1a1a1a", marginBottom: "10px", fontFamily: "var(--font-mono), monospace" }}>
         {entry.q}
       </p>
 
