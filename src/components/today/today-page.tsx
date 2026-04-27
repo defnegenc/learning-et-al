@@ -299,7 +299,7 @@ function DigDeeperRail({
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.paddingLeft = "4px"; }}
             >
               <div style={{ width: 4, alignSelf: "stretch", flexShrink: 0, borderRadius: 2, background: `linear-gradient(to bottom, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][0]} 0%, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][1]} 100%)`, border: "1px solid rgba(26,26,26,0.12)" }} />
-              <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 600, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
+              <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 400, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
                 {q.replace(/\*\*/g, "")}
               </div>
               <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888", marginTop: 3, flexShrink: 0 }}>Ask →</span>
@@ -326,7 +326,7 @@ function DigDeeperRail({
                     marginBottom: isCollapsed ? 0 : "8px",
                   }}
                 >
-                  <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif", flex: 1, letterSpacing: -0.2, lineHeight: 1.35 }}>
+                  <span style={{ fontSize: "0.95rem", fontWeight: 400, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif", flex: 1, letterSpacing: -0.2, lineHeight: 1.35 }}>
                     {entry.q}
                   </span>
                   <span style={{ fontSize: "0.55rem", color: "#888", fontFamily: "var(--font-mono), monospace", flexShrink: 0 }}>
