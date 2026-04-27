@@ -11,22 +11,21 @@ type ConvEntry = { q: string; a: string; paletteIdx?: number; paperLinks?: { tit
 
 /* ── dispersedWash — 4-corner radial blob background ── */
 const SOURCE_PALETTES: [string, string][] = [
-  ["#C8F0D8", "#F0F5A8"],
-  ["#FFD6E0", "#FFE89A"],
-  ["#D0E3F7", "#E2D6F7"],
-  ["#FFE89A", "#FFD6E0"],
+  ["#A8EDCA", "#E8F5A0"],
+  ["#FFB3C8", "#FFD966"],
+  ["#A8C8F0", "#C8B0F0"],
+  ["#FFD966", "#FFB3C8"],
 ];
 
-function dispersedWash(palette: [string, string], intensity = 0.5): React.CSSProperties {
-  const a = Math.min(255, Math.round(intensity * 255)).toString(16).padStart(2, "0");
-  const b = Math.min(255, Math.round(intensity * 0.6 * 255)).toString(16).padStart(2, "0");
+function dispersedWash(palette: [string, string], hover = false): React.CSSProperties {
   const [h1, h2] = palette;
+  const scale = hover ? 240 : 200;
   return {
     background: `
-      radial-gradient(circle 200px at 0% 0%, ${h1}${a} 0%, transparent 65%),
-      radial-gradient(circle 190px at 100% 4%, ${h2}${a} 0%, transparent 65%),
-      radial-gradient(circle 180px at 98% 100%, ${h1}${a} 0%, transparent 65%),
-      radial-gradient(circle 200px at 0% 100%, ${h2}${a} 0%, transparent 65%),
+      radial-gradient(circle ${scale}px at 0% 0%, ${h1} 0%, transparent 65%),
+      radial-gradient(circle ${scale - 10}px at 100% 4%, ${h2} 0%, transparent 65%),
+      radial-gradient(circle ${scale - 20}px at 98% 100%, ${h1} 0%, transparent 65%),
+      radial-gradient(circle ${scale}px at 0% 100%, ${h2} 0%, transparent 65%),
       #fff`,
   } as React.CSSProperties;
 }
@@ -78,8 +77,8 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
   const journalName = getJournalName(paper.sourceUrl, paper.authors);
-  const baseWash = dispersedWash(palette, 0.82);
-  const hoverWash = dispersedWash(palette, 0.97);
+  const baseWash = dispersedWash(palette, false);
+  const hoverWash = dispersedWash(palette, true);
 
   return (
     <a
@@ -89,24 +88,26 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
       rel="noopener noreferrer"
       style={{
         ...baseWash,
-        border: "2px solid #1a1a1a",
         display: "block",
         padding: "16px 18px 18px",
         textDecoration: "none",
         color: "inherit",
         position: "relative",
         overflow: "hidden",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
         transition: "background 320ms, box-shadow 150ms, transform 150ms",
         height: "100%",
       }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement;
         Object.assign(el.style, hoverWash);
+        el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.10)";
         el.style.transform = "translate(-1px,-1px)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLElement;
         Object.assign(el.style, baseWash);
+        el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.07)";
         el.style.transform = "";
       }}
     >
