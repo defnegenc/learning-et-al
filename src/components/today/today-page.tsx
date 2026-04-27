@@ -11,21 +11,30 @@ type ConvEntry = { q: string; a: string; paletteIdx?: number; paperLinks?: { tit
 
 /* ── dispersedWash — 4-corner radial blob background ── */
 const SOURCE_PALETTES: [string, string][] = [
-  ["#A8EDCA", "#E8F5A0"],
-  ["#FFB3C8", "#FFD966"],
-  ["#A8C8F0", "#C8B0F0"],
-  ["#FFD966", "#FFB3C8"],
+  ["#A8DFC0", "#D8EC8C"],
+  ["#F0A8BC", "#F0C850"],
+  ["#9ABCD8", "#BAA8E0"],
+  ["#F0C850", "#F0A8BC"],
 ];
+
+// hex → rgba with given alpha
+function hex2rgba(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
 
 function dispersedWash(palette: [string, string], hover = false): React.CSSProperties {
   const [h1, h2] = palette;
-  const scale = hover ? 240 : 200;
+  const a = hover ? 0.82 : 0.68;
+  const c1 = hex2rgba(h1, a);
+  const c2 = hex2rgba(h2, a);
   return {
     background: `
-      radial-gradient(circle ${scale}px at 0% 0%, ${h1} 0%, transparent 65%),
-      radial-gradient(circle ${scale - 10}px at 100% 4%, ${h2} 0%, transparent 65%),
-      radial-gradient(circle ${scale - 20}px at 98% 100%, ${h1} 0%, transparent 65%),
-      radial-gradient(circle ${scale}px at 0% 100%, ${h2} 0%, transparent 65%),
+      radial-gradient(circle 220px at 15% 20%, ${c1} 0%, transparent 60%),
+      radial-gradient(circle 200px at 75% 10%, ${c2} 0%, transparent 60%),
+      radial-gradient(circle 180px at 85% 75%, ${c1} 0%, transparent 55%),
+      radial-gradient(circle 210px at 20% 85%, ${c2} 0%, transparent 60%),
+      radial-gradient(circle 160px at 50% 50%, ${c1} 0%, transparent 55%),
       #fff`,
   } as React.CSSProperties;
 }
