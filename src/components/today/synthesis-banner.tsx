@@ -874,7 +874,7 @@ export function SynthesisBanner({
                         </div>
                         <ReactMarkdown components={{
                           p: ({ children }) => (
-                            <p style={{ margin: 0, fontSize: "0.95em", lineHeight: 1.6, color: "#1a1a1a", fontWeight: 400 }}>
+                            <p style={{ margin: 0, fontSize: "1.1em", lineHeight: 1.6, color: "#1a1a1a", fontWeight: 400 }}>
                               {annotateText(children, conceptDefs)}
                             </p>
                           ),
