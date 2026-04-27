@@ -806,7 +806,7 @@ export function SynthesisBanner({
 
               if (section.kind === "bridge") {
                 return (
-                  <p key={i} style={{ margin: "0.5em 0 0.5em 44px", lineHeight: 1.6, fontStyle: "italic", fontWeight: 700, color: "#555", fontSize: "0.85em" }}>
+                  <p key={i} style={{ margin: "0.5em 0 0.5em 44px", lineHeight: 1.6, fontWeight: 400, color: "#888", fontSize: "0.9em" }}>
                     {section.text}
                   </p>
                 );
