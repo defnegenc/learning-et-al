@@ -59,6 +59,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@300,400,500&display=swap" rel="stylesheet" />
+      </head>
       <body className={`${inter.variable} ${plexMono.variable} ${spaceGrotesk.variable} antialiased`}>
         <Providers>{children}</Providers>
         <Analytics />
