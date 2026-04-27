@@ -4,6 +4,5 @@
       "path": "/api/cron",
       "schedule": "0 4 * * *"
     }
-  ],
-  "toolbar": false
+  ]
 }
