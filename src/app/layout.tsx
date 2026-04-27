@@ -20,6 +20,7 @@ const plexMono = IBM_Plex_Mono({
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
   variable: "--font-display",
   display: "swap",
 });
