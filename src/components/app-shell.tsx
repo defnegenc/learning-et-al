@@ -51,7 +51,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <h1
           className="hidden md:block"
           style={{
-            fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.2em",
+            fontSize: "1.25rem", fontWeight: 400, letterSpacing: "0.2em",
             textTransform: "uppercase", color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
           }}
@@ -61,7 +61,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         <span
           className="block md:hidden"
           style={{
-            fontSize: "0.95rem", fontWeight: 900, textTransform: "uppercase",
+            fontSize: "0.95rem", fontWeight: 400, textTransform: "uppercase",
             letterSpacing: "0.12em", color: "#1a1a1a",
             fontFamily: "var(--font-display), sans-serif",
             whiteSpace: "nowrap",
