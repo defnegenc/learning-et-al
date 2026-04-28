@@ -48,7 +48,7 @@ function GlassTag({
   onRemove?: () => void;
 }) {
   return (
-    <span
+    <button
       onClick={onClick}
       style={{
         background: active ? tagGradient(pal) : "transparent",
@@ -90,7 +90,7 @@ function GlassTag({
           aria-label={`Remove ${label}`}
         >×</button>
       )}
-    </span>
+    </button>
   );
 }
 
@@ -191,9 +191,8 @@ export function InterestLedger({
         return (
           <div
             key={fieldKey}
+            className="md:grid md:grid-cols-[160px_1fr] flex flex-col"
             style={{
-              display: "grid",
-              gridTemplateColumns: "160px 1fr",
               gap: 20,
               padding: "22px 24px",
               borderBottom: isLast ? "none" : "1px solid #1a1a1a",
