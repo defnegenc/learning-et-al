@@ -5,6 +5,17 @@ import { eq, and } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
 
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const userId = await getAuthUser(req);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  await db.delete(feedback).where(and(eq(feedback.paperId, id), eq(feedback.userId, userId), eq(feedback.type, "star")));
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

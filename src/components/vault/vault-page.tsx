@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star, X } from "lucide-react";
+import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star, X, Bookmark } from "lucide-react";
 import React from "react";
 import { CompareView } from "./compare-view";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
@@ -177,7 +177,7 @@ function VaultCard({
   );
 }
 
-type FilterMode = "all" | "theme" | "domain" | "starred";
+type FilterMode = "all" | "theme" | "domain" | "starred" | "bookmarked";
 
 export function VaultPage({ session }: VaultPageProps) {
   const [papers, setPapers] = useState<PaperItem[]>([]);
@@ -211,6 +211,14 @@ export function VaultPage({ session }: VaultPageProps) {
   const fetchPapers = useCallback(async () => {
     setLoading(true);
     try {
+      if (filterMode === "bookmarked") {
+        const res = await fetch(`/api/vault?bookmarked=true&page=${page}&limit=${LIMIT}`);
+        if (!res.ok) throw new Error("Failed to fetch bookmarks");
+        const data = await res.json();
+        setPapers(data.papers ?? []);
+        setTotal(data.total ?? 0);
+        return;
+      }
       // When domain filter is active, fetch all papers so client-side filtering works
       // across the full dataset rather than just one page
       const fetchAll = !!activeField;
@@ -226,7 +234,7 @@ export function VaultPage({ session }: VaultPageProps) {
       setTotal(data.total ?? 0);
     } catch { setPapers([]); setTotal(0); }
     finally { setLoading(false); }
-  }, [page, debouncedSearch, activeField]);
+  }, [page, debouncedSearch, activeField, filterMode]);
 
   useEffect(() => { fetchPapers(); }, [fetchPapers]);
 
@@ -456,6 +464,13 @@ export function VaultPage({ session }: VaultPageProps) {
           >
             <Star size={10} className={filterMode === "starred" ? "fill-current" : ""} />
             Starred
+          </button>
+          <button
+            onClick={() => setMode("bookmarked")}
+            style={{ ...navTabStyle(filterMode === "bookmarked"), display: "flex", alignItems: "center", gap: "5px" }}
+          >
+            <Bookmark size={10} className={filterMode === "bookmarked" ? "fill-current" : ""} />
+            Bookmarked
           </button>
         </div>
 

@@ -1,13 +1,15 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "fs/promises";
+import path from "path";
 
 export const alt = "Learning et al. — The digest that thinks.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
-  const spaceGrotesk = await fetch(
-    "https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mF71Q-gozuM7Ku7sAg93QSkFtoMM3.woff"
-  ).then((r) => r.arrayBuffer()).catch(() => null);
+  const spaceGrotesk = await readFile(
+    path.join(process.cwd(), "public/fonts/SpaceGrotesk-Bold.ttf")
+  ).catch(() => null);
 
   return new ImageResponse(
     (
@@ -180,7 +182,7 @@ export default async function Image() {
       ...size,
       fonts: spaceGrotesk ? [{
         name: "SpaceGrotesk",
-        data: spaceGrotesk,
+        data: spaceGrotesk.buffer as ArrayBuffer,
         weight: 700,
       }] : [],
     }

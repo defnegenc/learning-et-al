@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { digests, papers } from "@/lib/db/schema";
+import { digests, papers, feedback } from "@/lib/db/schema";
 import { eq, and, like, desc, inArray } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 
@@ -16,7 +16,37 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(url.searchParams.get("limit") || "20", 10);
     const search = url.searchParams.get("search") || "";
     const source = url.searchParams.get("source") || "";
+    const bookmarked = url.searchParams.get("bookmarked") === "true";
     const offset = (page - 1) * limit;
+
+    // Get bookmarked paper IDs if filtering by bookmarks
+    if (bookmarked) {
+      const starredRows = await db.query.feedback.findMany({
+        where: and(eq(feedback.userId, userId), eq(feedback.type, "star")),
+        columns: { paperId: true },
+      });
+      const starredIds = [...new Set(starredRows.map((r) => r.paperId))];
+      if (starredIds.length === 0) {
+        return NextResponse.json({ papers: [], total: 0, page, limit });
+      }
+      const starredPapers = await db.query.papers.findMany({
+        where: inArray(papers.id, starredIds),
+        orderBy: desc(papers.createdAt),
+      });
+      const total = starredPapers.length;
+      const paginated = starredPapers.slice(offset, offset + limit);
+      return NextResponse.json({
+        papers: paginated.map((p) => ({
+          ...p,
+          authors: p.authors ? JSON.parse(p.authors) : [],
+          keywords: p.keywords ? JSON.parse(p.keywords) : [],
+          keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
+          connectionReason: p.connectionReason || null,
+          bookmarked: true,
+        })),
+        total, page, limit,
+      });
+    }
 
     // Get all digest IDs for this user
     const userDigests = await db.query.digests.findMany({
