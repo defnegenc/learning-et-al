@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, RefreshCw, Star, Ban } from "lucide-react";
+import { Loader2, RefreshCw, Star, Ban, Bookmark } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import React from "react";
@@ -99,13 +99,30 @@ function getJournalName(sourceUrl: string | null, authors: string[] = []): strin
 }
 
 /* ── Source Card (dispersedWash, design-accurate) ── */
-function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
+function SourceCard({ paper, index, loggedIn, initialBookmarked }: { paper: PaperItem; index: number; loggedIn?: boolean; initialBookmarked?: boolean }) {
   const palette = SOURCE_PALETTES[index % SOURCE_PALETTES.length];
   const url = (paper.sourceUrl || "").toLowerCase();
   const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
   const journalName = getJournalName(paper.sourceUrl, paper.authors);
   const baseWash = dispersedWash(palette, false, index);
   const hoverWash = dispersedWash(palette, true, index);
+  const [bookmarked, setBookmarked] = useState(!!initialBookmarked);
+
+  async function toggleBookmark(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = !bookmarked;
+    setBookmarked(next);
+    try {
+      await fetch(`/api/papers/${paper.id}/feedback`, {
+        method: next ? "POST" : "DELETE",
+        headers: next ? { "Content-Type": "application/json" } : undefined,
+        body: next ? JSON.stringify({ type: "star" }) : undefined,
+      });
+    } catch {
+      setBookmarked(!next);
+    }
+  }
 
   return (
     <a
@@ -146,9 +163,20 @@ function SourceCard({ paper, index }: { paper: PaperItem; index: number }) {
           <span style={{ color: "#aaa" }}>·</span>
           <span>{paper.year || "2025"}</span>
         </div>
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
-          <path d="M7 1h4v4M11 1L6 6M9 7v3.5H1.5V2H5" stroke="#1a1a1a" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {loggedIn && (
+            <button
+              onClick={toggleBookmark}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", lineHeight: 1 }}
+              aria-label={bookmarked ? "Remove bookmark" : "Bookmark paper"}
+            >
+              <Bookmark size={12} style={{ fill: bookmarked ? "#1a1a1a" : "none", stroke: "#1a1a1a", opacity: bookmarked ? 1 : 0.4, transition: "all 0.15s" }} />
+            </button>
+          )}
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+            <path d="M7 1h4v4M11 1L6 6M9 7v3.5H1.5V2H5" stroke="#1a1a1a" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
       </div>
 
       {/* Title */}
@@ -600,6 +628,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   const [starred, setStarred] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
@@ -647,6 +676,14 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   useEffect(() => {
     fetchDigest().finally(() => setLoading(false));
   }, [fetchDigest]);
+
+  useEffect(() => {
+    if (!session?.userId) return;
+    fetch("/api/papers/bookmarks")
+      .then(r => r.json())
+      .then(data => setBookmarkedIds(new Set(data.ids ?? [])))
+      .catch(() => {});
+  }, [session?.userId]);
 
   useEffect(() => {
     if (!session || digest) return;
@@ -922,7 +959,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {papers.map((paper, idx) => (
-                <SourceCard key={paper.id} paper={paper} index={idx} />
+                <SourceCard key={paper.id} paper={paper} index={idx} loggedIn={!!session?.userId} initialBookmarked={bookmarkedIds.has(paper.id)} />
               ))}
             </div>
           </aside>
