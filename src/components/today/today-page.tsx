@@ -593,6 +593,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [hiddenStash, setHiddenStash] = useState<{ digest: Digest; papers: PaperItem[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [publicDigestList, setPublicDigestList] = useState<{ id: string; date: string; theme: string | null }[]>([]);
+  const [publicDigestIdx, setPublicDigestIdx] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
@@ -615,9 +617,13 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     }
   }, [historyKey]);
 
-  const fetchDigest = useCallback(async () => {
+  const fetchDigest = useCallback(async (digestId?: string) => {
     try {
-      const endpoint = session ? "/api/digest" : "/api/public/digest";
+      const endpoint = session
+        ? "/api/digest"
+        : digestId
+          ? `/api/public/digest?digestId=${digestId}`
+          : "/api/public/digest";
       const res = await fetch(endpoint);
       if (!res.ok) return;
       const data = await res.json();
@@ -627,6 +633,15 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     } catch (err) {
       console.error("Failed to fetch digest:", err);
     }
+  }, [session]);
+
+  // Load public digest list for logged-out navigation
+  useEffect(() => {
+    if (session) return;
+    fetch("/api/public/digests")
+      .then(r => r.json())
+      .then(list => setPublicDigestList(list))
+      .catch(() => {});
   }, [session]);
 
   useEffect(() => {
@@ -779,9 +794,36 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           {/* DigestTitleBlock */}
           <div style={{ marginBottom: "32px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-              <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                Daily digest
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Daily digest
+                </span>
+                {!session && publicDigestList.length > 1 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <button
+                      disabled={publicDigestIdx >= publicDigestList.length - 1}
+                      onClick={() => {
+                        const next = publicDigestIdx + 1;
+                        setPublicDigestIdx(next);
+                        fetchDigest(publicDigestList[next].id);
+                      }}
+                      style={{ background: "none", border: "1px solid #ddd", cursor: publicDigestIdx >= publicDigestList.length - 1 ? "default" : "pointer", padding: "2px 8px", fontSize: "0.75rem", color: publicDigestIdx >= publicDigestList.length - 1 ? "#ccc" : "#555" }}
+                    >←</button>
+                    <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", color: "#999", whiteSpace: "nowrap" }}>
+                      {new Date(publicDigestList[publicDigestIdx]?.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                    <button
+                      disabled={publicDigestIdx <= 0}
+                      onClick={() => {
+                        const prev = publicDigestIdx - 1;
+                        setPublicDigestIdx(prev);
+                        fetchDigest(publicDigestList[prev].id);
+                      }}
+                      style={{ background: "none", border: "1px solid #ddd", cursor: publicDigestIdx <= 0 ? "default" : "pointer", padding: "2px 8px", fontSize: "0.75rem", color: publicDigestIdx <= 0 ? "#ccc" : "#555" }}
+                    >→</button>
+                  </div>
+                )}
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 {generateError && (
                   <span style={{ fontSize: "0.6rem", color: "#ff007f", fontFamily: "var(--font-mono), monospace", maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
