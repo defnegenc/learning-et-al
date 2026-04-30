@@ -269,7 +269,7 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
-[Intro: 1–2 sentences. Open with a meta-frame naming how many sources and roughly what they examine (e.g. "Three studies ask whether robots can be held accountable" or "Two papers and a report trace how past experiences constrain future choices"). Then land the provocative tension or counterintuitive finding that makes the reader want more. Use **bold** on 1–2 key words — the sharpest noun or the most surprising claim. No em dashes. Not a question. Not italics. A declarative statement that earns attention.]
+[Intro: 1–2 sentences. The theme is a question — open by answering it directly, even if the answer is "it depends" or "sort of, but not the way you'd expect." Don't describe the papers. Don't meta-frame ("Three studies ask..."). Lead with the answer or the sharpest counterintuitive finding that the papers collectively support. Use **bold** on 1–2 key words — the sharpest noun or the most surprising claim. No em dashes. Not italics. A declarative statement that answers the question first, then earns it.]
 
 ${skeleton.paperRoles.map((r, i, arr) => {
   const bullet = `- **[Source ${r.index}] ${r.shortName}** [one sentence starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend, with a specific detail or number]`;
@@ -466,15 +466,21 @@ KEYCONCEPTS RULES:
 }
 
 function SYNTHESIS_RULES(theme: string, _ctx?: DigestContext) {
-  return `SYNTHESIS — make an ARGUMENT about "${theme}", using the papers as evidence.
+  return `SYNTHESIS — answer "${theme}" using the papers as evidence.
+
+The theme is a question. Your synthesis MUST open by answering it — directly, concisely, even if the answer is "sort of" or "yes, but not the way you'd expect." Don't describe the papers first. Don't meta-frame. Answer first, then earn the answer with the papers.
 
 You are NOT summarizing papers. You are making a point about the theme question, and the papers are your proof. Think of it like a short op-ed, not a book report.
+
+BAD (meta-frame opener — doesn't answer the question):
+"Three studies examine whether consciousness can be engineered. One looks at..., another explores..."
+This tells me there are three studies. It doesn't answer the question. Don't do this.
 
 BAD (paper-by-paper book report):
 "**Paper A** found X. **Paper B** found Y. **Paper C** found Z. Together they show..."
 This is boring. Don't do this.
 
-GOOD (argument with papers as evidence, SHORT paper names, GROUNDED in real life):
+GOOD (answer-first, papers as evidence, SHORT paper names, GROUNDED in real life):
 "Making airplane wings is basically expensive guesswork right now. **the composites review** found that AI can turn that guesswork into predictable science by standardizing how manufacturers pick their materials. But here's the thing: smarter tech doesn't always win. **the solar shading study** found that fancy movable panels don't beat simple fixed ones. What matters is matching the design to your specific climate. And **Duolingo** proves the ultimate version of this: 50 million people practice vocabulary daily because a cartoon owl made repetition addictive. The lesson across all three? The smartest design isn't the most complex one. It's the one that actually fits the problem."
 
 CRITICAL RULES:
