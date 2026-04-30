@@ -1,0 +1,22 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { digests } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
+
+export async function GET() {
+  const adminId = process.env.ADMIN_USER_ID;
+  if (!adminId) return NextResponse.json([]);
+
+  try {
+    const rows = await db
+      .select({ id: digests.id, date: digests.date, theme: digests.theme })
+      .from(digests)
+      .where(eq(digests.userId, adminId))
+      .orderBy(desc(digests.date))
+      .limit(30);
+
+    return NextResponse.json(rows);
+  } catch {
+    return NextResponse.json([]);
+  }
+}

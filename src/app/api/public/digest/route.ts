@@ -1,23 +1,29 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and } from "drizzle-orm";
 
 /**
  * Public endpoint — no auth required.
- * Serves the admin user's latest digest for the logged-out experience.
+ * Serves the admin user's digest. Accepts ?digestId= to load a specific digest.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const adminId = process.env.ADMIN_USER_ID;
   if (!adminId) {
     return NextResponse.json({ digest: null, papers: [] });
   }
 
+  const digestId = req.nextUrl.searchParams.get("digestId");
+
   try {
-    const digest = await db.query.digests.findFirst({
-      where: eq(digests.userId, adminId),
-      orderBy: desc(digests.createdAt),
-    });
+    const digest = digestId
+      ? await db.query.digests.findFirst({
+          where: and(eq(digests.id, digestId), eq(digests.userId, adminId)),
+        })
+      : await db.query.digests.findFirst({
+          where: eq(digests.userId, adminId),
+          orderBy: desc(digests.createdAt),
+        });
 
     if (!digest) {
       return NextResponse.json({ digest: null, papers: [] });
