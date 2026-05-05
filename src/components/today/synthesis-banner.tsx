@@ -869,22 +869,12 @@ export function SynthesisBanner({
                     </div>
                     {isLast && closingText && (
                       <div style={{ margin: "1.5em 0 0 0", background: "#f7f5f0", padding: "16px 20px", borderLeft: "3px solid #1a1a1a" }}>
-                        <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#999", fontFamily: "var(--font-mono), monospace", marginBottom: "8px" }}>
-                          I&apos;ll leave you with
-                        </div>
                         <ReactMarkdown components={{
-                          p: ({ children }) => {
-                            const text = typeof children === "string" ? children : extractText(children);
-                            const words = text.split(" ");
-                            const drop = words.slice(0, 3).join(" ");
-                            const rest = words.slice(3).join(" ");
-                            return (
-                              <p style={{ margin: 0, fontSize: "1.1em", lineHeight: 1.6, color: "#111", fontWeight: 400 }}>
-                                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.15em", fontWeight: 700, letterSpacing: "-0.01em" }}>{drop} </span>
-                                {annotateText(rest, conceptDefs)}
-                              </p>
-                            );
-                          },
+                          p: ({ children }) => (
+                            <p style={{ margin: 0, fontSize: "1.1em", lineHeight: 1.6, color: "#111", fontWeight: 400 }}>
+                              {annotateText(typeof children === "string" ? children : extractText(children), conceptDefs)}
+                            </p>
+                          ),
                           strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#1a1a1a" }}>{children}</strong>,
                         }}>
                           {closingText}
