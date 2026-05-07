@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2, Star, PenLine, Check } from "lucide-react";
+import { BookOpen, Loader2, MessageCircle, Star, PenLine, Check } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 import { CATEGORY_PALETTES } from "@/components/interest-ledger";
 
@@ -233,12 +233,13 @@ const HIGHLIGHT_HOVER_GRADIENTS: [string, string][] = [
 
 type BodySection =
   | { kind: "paragraph"; text: string }
-  | { kind: "bullet"; text: string; sourceIdx: number | null }
+  | { kind: "bullet"; text: string; sourceIdx: number | null; details: { label: string; text: string }[] }
   | { kind: "bridge"; text: string };
 
 function parseBodySections(text: string): BodySection[] {
   const sections: BodySection[] = [];
   let paraLines: string[] = [];
+  let activeBullet: Extract<BodySection, { kind: "bullet" }> | null = null;
   const flushPara = () => {
     if (paraLines.length > 0) {
       sections.push({ kind: "paragraph", text: paraLines.join("\n") });
@@ -246,19 +247,30 @@ function parseBodySections(text: string): BodySection[] {
     }
   };
   for (const line of text.split("\n")) {
-    const bulletMatch = line.match(/^\s*[-*]\s+(.*)/);
+    const nestedBulletMatch = line.match(/^\s{2,}[-*]\s+(.*)/);
+    const bulletMatch = line.match(/^[-*]\s+(.*)/);
     const bridgeMatch = line.match(/^\s*>\s+(.*)/);
-    if (bulletMatch) {
+    if (nestedBulletMatch && activeBullet) {
+      const t = nestedBulletMatch[1].trim();
+      const labelMatch = t.match(/^([^:]{2,42}):\s*(.*)$/);
+      activeBullet.details.push(labelMatch
+        ? { label: labelMatch[1], text: labelMatch[2] }
+        : { label: "Note", text: t });
+    } else if (bulletMatch) {
       flushPara();
       const t = bulletMatch[1];
       const m = t.match(/\*\*\[(?:source\s*)?(\d+)\]/i);
-      sections.push({ kind: "bullet", text: t, sourceIdx: m ? parseInt(m[1], 10) - 1 : null });
+      activeBullet = { kind: "bullet", text: t, sourceIdx: m ? parseInt(m[1], 10) - 1 : null, details: [] };
+      sections.push(activeBullet);
     } else if (bridgeMatch) {
       flushPara();
+      activeBullet = null;
       sections.push({ kind: "bridge", text: bridgeMatch[1] });
     } else if (line.trim()) {
+      activeBullet = null;
       paraLines.push(line);
     } else {
+      activeBullet = null;
       flushPara();
     }
   }
@@ -782,6 +794,24 @@ export function SynthesisBanner({
             return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
           };
 
+        const makePaperHeaderRenderer = (seenPaperIndices: Set<number>) =>
+          function PaperHeaderRenderer({ children }: { children?: React.ReactNode }) {
+            return (
+              <span style={{ display: "inline-block", marginBottom: "2px" }}>
+                {makeStrongRenderer(seenPaperIndices)({ children })}
+              </span>
+            );
+          };
+
+        const splitSourceHeading = (text: string) => {
+          const match = text.match(/^(\*\*\[(?:source\s*)?\d+\][^*]+\*\*)(?:\s+[-–—]\s+(.+))?$/i);
+          return match ? { source: match[1], role: match[2] || "" } : { source: text, role: "" };
+        };
+
+        const plainStrong = ({ children }: { children?: React.ReactNode }) => (
+          <strong style={{ color: "#111", fontWeight: 700 }}>{children}</strong>
+        );
+
         // Fallback: prose synthesis with no bullets — render paragraphs directly
         if (totalBullets === 0) {
           const proseRenderer = makeStrongRenderer(new Set<number>());
@@ -818,7 +848,8 @@ export function SynthesisBanner({
                 const isLast = idx === totalBullets - 1;
                 const paletteIdx = section.sourceIdx ?? idx;
                 const palette = SOURCE_PALETTES[paletteIdx % SOURCE_PALETTES.length];
-                const StrongRenderer = makeStrongRenderer(new Set<number>());
+                const sourceHeading = splitSourceHeading(section.text);
+                const HeaderStrongRenderer = makePaperHeaderRenderer(new Set<number>());
 
                 return (
                   <React.Fragment key={i}>
@@ -859,12 +890,73 @@ export function SynthesisBanner({
 
                       {/* Content */}
                       <div className="flex-1 min-w-0" style={{ paddingTop: "4px" }}>
-                        <ReactMarkdown components={{
-                          p: ({ children }) => <p style={{ margin: 0, lineHeight: 1.7 }}>{annotateText(children, conceptDefs)}</p>,
-                          strong: StrongRenderer,
+                        <div style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: section.details.length > 0 ? "10px" : 0,
                         }}>
-                          {section.text}
-                        </ReactMarkdown>
+                          <ReactMarkdown components={{
+                            p: ({ children }) => <>{children}</>,
+                            strong: HeaderStrongRenderer,
+                          }}>
+                            {sourceHeading.source}
+                          </ReactMarkdown>
+                          {sourceHeading.role && (
+                            <span style={{
+                              fontFamily: "var(--font-mono), monospace",
+                              fontSize: "0.58rem",
+                              fontWeight: 800,
+                              letterSpacing: "1.1px",
+                              textTransform: "uppercase",
+                              color: "#666",
+                              background: "#f5f5f5",
+                              border: "1px solid #e5e5e5",
+                              padding: "3px 7px",
+                              lineHeight: 1,
+                            }}>
+                              {sourceHeading.role.replace(/_/g, " ")}
+                            </span>
+                          )}
+                        </div>
+                        {section.details.length > 0 && (
+                          <div style={{ marginTop: "10px", display: "grid", gap: "8px" }}>
+                            {section.details.map((detail, detailIdx) => (
+                              <div
+                                key={`${detail.label}-${detailIdx}`}
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "minmax(110px, 0.28fr) 1fr",
+                                  gap: "12px",
+                                  alignItems: "start",
+                                  paddingTop: detailIdx === 0 ? 0 : "8px",
+                                  borderTop: detailIdx === 0 ? "none" : "1px solid #eee",
+                                }}
+                              >
+                                <span style={{
+                                  fontFamily: "var(--font-mono), monospace",
+                                  fontSize: "0.6rem",
+                                  fontWeight: 800,
+                                  letterSpacing: "1px",
+                                  textTransform: "uppercase",
+                                  color: "#888",
+                                  lineHeight: 1.5,
+                                }}>
+                                  {detail.label}
+                                </span>
+                                <div style={{ lineHeight: 1.65, color: "#333" }}>
+                                  <ReactMarkdown components={{
+                                    p: ({ children }) => <p style={{ margin: 0 }}>{annotateText(children, conceptDefs)}</p>,
+                                    strong: plainStrong,
+                                  }}>
+                                    {detail.text}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {isLast && closingText && (
@@ -926,6 +1018,115 @@ export function SynthesisBanner({
               </span>
             );
           })}
+        </div>
+      )}
+
+      {!hideInteractionUI && isLoggedIn && papers.length > 0 && (
+        <div style={{
+          marginTop: "22px",
+          borderTop: "1px solid #e5e5e5",
+          paddingTop: "18px",
+        }}>
+          <div style={{
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: "0.62rem",
+            fontWeight: 800,
+            letterSpacing: "1.8px",
+            textTransform: "uppercase",
+            color: "#888",
+            marginBottom: "10px",
+          }}>
+            Pick a source
+          </div>
+          <div style={{ display: "grid", gap: "8px" }}>
+            {papers.map((paper, index) => (
+              <div
+                key={paper.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto",
+                  gap: "10px",
+                  alignItems: "center",
+                  border: "1.5px solid #1a1a1a",
+                  background: "white",
+                  padding: "10px 12px",
+                }}
+              >
+                <button
+                  onClick={() => onSelectPaper?.(paper)}
+                  style={{
+                    minWidth: 0,
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: onSelectPaper ? "pointer" : "default",
+                    textAlign: "left",
+                    color: "#111",
+                  }}
+                >
+                  <span style={{
+                    display: "block",
+                    fontFamily: "var(--font-mono), monospace",
+                    fontSize: "0.58rem",
+                    fontWeight: 800,
+                    letterSpacing: "1.2px",
+                    textTransform: "uppercase",
+                    color: "#999",
+                    marginBottom: "3px",
+                  }}>
+                    Source {index + 1}
+                  </span>
+                  <span style={{
+                    display: "block",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    lineHeight: 1.35,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {paper.title}
+                  </span>
+                </button>
+                <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                  <button
+                    onClick={() => handleDigDeeper(`Summarize Source ${index + 1}: "${paper.title}" in plain English. What did it study, what did it find, and why does it matter for "${theme || displayTheme}"?`)}
+                    disabled={digDeeperLoading}
+                    title="Summarize this source"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "1.5px solid #1a1a1a",
+                      background: "white",
+                      cursor: digDeeperLoading ? "wait" : "pointer",
+                    }}
+                  >
+                    <BookOpen size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDigDeeper(`Dig deeper into Source ${index + 1}: "${paper.title}". What is the most interesting question this paper raises?`)}
+                    disabled={digDeeperLoading}
+                    title="Dig deeper into this source"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "1.5px solid #1a1a1a",
+                      background: "white",
+                      cursor: digDeeperLoading ? "wait" : "pointer",
+                    }}
+                  >
+                    <MessageCircle size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
