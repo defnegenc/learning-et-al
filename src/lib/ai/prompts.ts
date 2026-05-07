@@ -269,32 +269,45 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
-[Intro: 1–2 sentences. The theme is a question — open by answering it directly, even if the answer is "it depends" or "sort of, but not the way you'd expect." Don't describe the papers. Don't meta-frame ("Three studies ask..."). Lead with the answer or the sharpest counterintuitive finding that the papers collectively support. Use **bold** on 1–2 key words — the sharpest noun or the most surprising claim. No em dashes. Not italics. A declarative statement that answers the question first, then earns it.]
+[Short answer: one direct sentence answering the theme question. Use **bold** on the most important 1–3 words.]
+
+[Research context: 2–3 sentences. Explain what is happening in the literature or news today, what people have historically believed, and what assumption is now being tested. Use only claims supported by the papers/news listed above. If there is no news item, describe the research trend visible across the papers.]
+
+[Reading map: one sentence explaining how to read today's sources: what each one helps you understand and why the set belongs together.]
 
 ${skeleton.paperRoles.map((r, i, arr) => {
-  const bullet = `- **[Source ${r.index}] ${r.shortName}** [one sentence starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend, with a specific detail or number]`;
+  const role = r.role.replace(/_/g, " ");
+  const bullet = `- **[Source ${r.index}] ${r.shortName}** — ${role}
+  - If you want to understand: [one plain phrase naming the reader's reason to pick this source]
+  - What it did: [one plain sentence explaining the setup, population, material, system, or dataset]
+  - What it offers: [one plain sentence with the most concrete result, number, mechanism, or surprise]
+  - Another lens: [one sentence connecting THIS paper back to "${theme}" or showing how it complicates another source]`;
   const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
   return bullet + bridge;
 }).join("\n\n")}
+
+**One thing to remember:** [one sentence the reader could repeat in conversation. Concrete, not a summary.]
 
 [One closing sentence: an unresolved tension, a concrete open question, or a specific image. NOT a summary. NOT "together these papers show..."]
 
 CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
-- Each bullet is exactly ONE sentence. No line breaks within bullets.
+- Each paper starts with one top-level bullet and exactly four indented bullets: If you want to understand, What it did, What it offers, Another lens.
+- The top-level paper bullet should contain only the bold source name and its role label.
+- Each indented bullet is exactly ONE sentence. No line breaks inside an indented bullet.
 - Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
-- Structure is: intro, then alternating bullet/bridge, then closing. No other paragraphs.
+- Structure is: short answer, research context, reading map, then alternating source block/bridge, then one thing to remember, then closing. No other paragraphs.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
 
 STYLE RULES:
 - ALWAYS prefix bold paper names with [Source N]. MAX 4 WORDS for the name after the prefix.
-- Intro: start with the insight or tension, not a build-up. Contractions. Casual.
-- Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
+- Short answer: start with the insight or tension, not a build-up. Contractions. Casual.
+- Source blocks: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - Write for smart non-experts. Translate ALL jargon.
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
 - NO em dashes. Use periods, "but", "and" instead.
-- Bullets start with a verb ("found", "shows", "tested", "asked", "says"). Not "Instead of..." or setup phrases.
-- Use **bold** on 1-2 key words/phrases per bullet — the number, the surprise, the most striking term. Not the paper name (already bold). E.g. "found that **83% of models** failed" or "shows **sleep beats practice** by 2x."
+- Indented bullets start after the required label. Don't begin with "This paper".
+- Use **bold** on 1-2 key words/phrases across the whole paper block — the number, the surprise, the most striking term. Not the paper name (already bold). E.g. "found that **83% of models** failed" or "shows **sleep beats practice** by 2x."
 
 SPECIFICITY GATE — when any bullet uses: barrier, limitation, challenge, problem, constraint, issue, gap, factor — it MUST name a CONCRETE instance in the same sentence.
   BAD: "current structural limitations prevent people without traditional access"
@@ -307,6 +320,7 @@ BANNED PATTERNS:
 - "The pattern's clear" / "The lesson here" / "Together they show" / "What these papers reveal" — banned.
 - "structural limitations" / "systemic issues" / "performative [anything]" without specifics — banned.
 - EVERY paper MUST appear in **bold** with [Source N] prefix. Missing a paper = broken synthesis.
+- "One thing to remember" must be useful alone. It should answer what the reader should walk away knowing.
 - NEVER mention topics not in the papers.
 - Sound like a person, not a TED talk.`;
 }
@@ -326,7 +340,7 @@ export function synthesisCritiquePrompt(
     return `[${i + 1}] "${t}"${nick}`;
   }).join(", ");
 
-  return `You are a tough editor reviewing a research synthesis paragraph.
+  return `You are a tough editor reviewing a guided research digest.
 
 Theme: "${theme}"
 Papers that MUST be referenced: ${paperList}
@@ -363,6 +377,7 @@ Scoring guide:
 - accessibility: Would a smart non-expert find this clear and interesting? 1=jargon soup, 5=coffee conversation
 - specificity: Specific findings/numbers vs vague claims? 1=all vague, 5=concrete throughout. CRITICAL: if the text says "barriers", "limitations", "challenges", "structural [X]", "systemic [X]", "performative [X]" WITHOUT naming a concrete instance from the paper, specificity is AT MOST 2.
 - coverage: How many of the ${paperTitles.length} papers are mentioned in bold? ${paperTitles.length}/${paperTitles.length} = 5, missing 1 = 1, missing 2+ = 1. List missing papers in "missingPapers" array by index.
+- readability: If the digest does not clearly answer the central question, explain the research context, and tell the reader which source to pick for which curiosity, mention that in "revision".
 - freshness: Does it sound AI-written or human-written? Check for these banned phrases and add each one found to "bannedPhrasesFound":
   * "here's where it gets [ANY adjective]" / "but here's where..." / "this is where..."
   * "the pattern's clear" / "the [X] is clear" / "what we see is" / "the lesson here" / "the bigger picture" / "together they show" / "what these papers reveal"
@@ -406,7 +421,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences with meta-frame + bold key words), one bullet per paper (- **[Source N] name** [conversational verb phrase]), closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: short answer, research context, reading map, then one top-level bullet per paper, with exactly four indented bullets under each paper: If you want to understand, What it did, What it offers, Another lens. Then keep **One thing to remember:** and the final closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
