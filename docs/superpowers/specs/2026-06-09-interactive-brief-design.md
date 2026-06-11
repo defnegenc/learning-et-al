@@ -27,8 +27,11 @@ Opening a digest shows, in order:
    existing colored/clickable `[Source N]` shortName convention. The only standing prose.
    No reading map, no per-paper blocks, no separate takeaway line — the verdict's last
    sentence is the takeaway.
-3. **Seed threads** — 3–4 tappable questions in brutalist tag style, derived from genuine
-   tensions and gaps between the papers' claims.
+3. **Seed threads** — 3–4 tappable questions in brutalist tag style. **Reused verbatim from
+   the digest's existing `suggestedQuestions`** (the Stage A gap/tension generator) — no new
+   generation, so the logged-out pre-generation path and cost stay identical. Nested
+   follow-ups below the seeds are generated live by the agent (same gap heuristic, applied to
+   what it just wrote plus any sources it found).
 
 ### Threads (full agentic, on-demand)
 
@@ -80,18 +83,31 @@ animation. No live agent, no depth beyond level 1.
 - **Stage C′ — Seed threads.** 3–4 questions from tensions/gaps between claims. For the
   admin digest only, also pre-generate level-1 expansions.
 
-### Thread engine — `POST /api/thread` (streaming)
+### Thread engine — `POST /api/thread` (streaming) — IMPLEMENTED
 
-SSE over a ReadableStream; standard Vercel function (Fluid Compute, ~60s max duration).
+SSE over a ReadableStream; `maxDuration = 60`. Implemented in `src/lib/ai/agent.ts`
+(`runThreadAgent`) + `src/app/api/thread/route.ts`.
 
-- **Tools:** `search_papers` (existing OpenAlex→S2→arXiv fetcher chain), `search_web`
-  (Serper), `search_vault` (embedding search over the user's saved papers/digests).
-- **Context in:** central question, verdict, all claims, ancestor trail, tapped question.
-- **Events out:** `status` (tool activity), `token` (prose), `source` (new paper metadata
-  → inline card), `seeds` (nested follow-ups as a structured trailer, never parsed from prose).
-- **Guardrails:** max 3 tool calls per expansion; per-day thread budget for users on
-  server-side `CRON_AI_*` keys; BYOK users uncapped. There is no per-trail depth cap —
-  the daily budget is the only depth limiter.
+- **Two phases:** (1) GATHER — a bounded tool-calling loop (OpenAI SDK `tools`/`tool_choice`,
+  works against the Gemini/Anthropic OpenAI-compatible endpoints); the model answers from the
+  digest's claims when it can, else calls a tool. (2) WRITE — a final structured call returns
+  the cited answer + nested follow-ups as JSON.
+- **Tools:** `search_papers` (OpenAlex→S2→arXiv fallback), `search_web` (Serper), `search_vault`
+  (embed the query, cosine-rank the user's saved papers via `embedBatch`).
+- **Context in:** central question, verdict (`synthesisContent`), per-paper claims
+  (`keyFindings`), ancestor trail, tapped question.
+- **Events out (SSE):** `status` (tool activity, live), `source` (new paper → inline card,
+  live), `result` (final `{answer, seeds, sources}`). The answer carries `[N]` citation
+  markers indexing the `sources` array; **the client paces the reveal** at reading speed
+  (no server token streaming — the reveal animation already lives client-side).
+- **Auth/config:** `getAuthUser` (live agent requires sign-in); BYOK body override → server
+  `CRON_AI_*` fallback, mirroring `/api/digest/chat`.
+- **Guardrails:** max 3 tool calls per expansion. Per-day budget + per-trail depth limits:
+  deferred to wiring.
+
+**Still to wire:** frontend consumption of the SSE stream (feed `status`→ThinkingTrace,
+map `[N]`→sources, nested `seeds`→tappable threads); `threads` persistence table;
+logged-out level-1 pre-generation.
 
 ### Data model
 
