@@ -80,3 +80,5 @@
 | 2026-03-24 | Re-ranking: expanded scoring rubric, penalizes redundancy and staleness | Done |
 | 2026-03-24 | Stage B skeleton: redundancy detection, honest tension instruction | Done |
 | 2026-03-24 | Full cross-audit: algorithm.md, synthesis.md, synthesis-review.md, algo-audit.md reconciled with actual code | Done |
+| 2026-06-11 | Fix synthesis flattening: blank lines no longer detach bullet details (prod text-duplication bug) | Done |
+| 2026-06-11 | Revert verbose "guided digest" synthesis structure to compact intro/bullet/closing format (too long, redundant) | Done |
