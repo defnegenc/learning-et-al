@@ -270,7 +270,9 @@ function parseBodySections(text: string): BodySection[] {
       activeBullet = null;
       paraLines.push(line);
     } else {
-      activeBullet = null;
+      // Keep activeBullet across blank lines: bodyText joins every source line
+      // with "\n\n", so a bullet and its indented details are always separated
+      // by a blank. Any non-blank, non-nested line still resets it above.
       flushPara();
     }
   }
