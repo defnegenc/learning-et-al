@@ -138,10 +138,11 @@ export function PaperCard({
   const summaryExpandable = !compact && !!paper.summary && paper.summary.length > SUMMARY_COLLAPSE_THRESHOLD;
   const palette = CARD_PALETTES[index % CARD_PALETTES.length];
   const tags = CARD_TAGS[index % CARD_TAGS.length];
-  const borderStyle = isCompareSelected ? "4px solid #1a1a1a" : highlighted ? "4px solid #1a1a1a" : "3px solid #1a1a1a";
+  // Match the vault card: clean 2px black border, flat (no heavy drop shadow).
+  const borderStyle = "2px solid #1a1a1a";
   const shadowStyle = isCompareSelected || highlighted
-    ? "4px 4px 0px 0px rgba(0,0,0,1)"
-    : "6px 6px 0px 0px rgba(0,0,0,1)";
+    ? "3px 3px 0px 0px rgba(0,0,0,1)"
+    : "none";
 
   return (
     <article
@@ -161,13 +162,10 @@ export function PaperCard({
         ...dispersedWashCard(palette),
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.transform = "translate(-2px, -2px)";
-        (e.currentTarget as HTMLElement).style.boxShadow = (isCompareSelected || highlighted)
-          ? "6px 6px 0px 0px rgba(255,0,127,1)" : "8px 8px 0px 0px rgba(0,0,0,1)";
+        (e.currentTarget as HTMLElement).style.transform = "translate(-1px, -1px)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translate(0, 0)";
-        (e.currentTarget as HTMLElement).style.boxShadow = shadowStyle;
       }}
       onClick={() => onSelect(paper)}
     >
