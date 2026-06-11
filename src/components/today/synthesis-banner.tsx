@@ -698,16 +698,6 @@ export function SynthesisBanner({
       {/* Synthesis body — numbered timeline layout */}
       {(() => {
         const sections = parseBodySections(bodyText);
-        const firstBulletIdx = sections.findIndex(s => s.kind === "bullet");
-        const lastBulletIdx = sections.map((s, i) => s.kind === "bullet" ? i : -1).filter(i => i >= 0).slice(-1)[0] ?? -1;
-        const ledeText = firstBulletIdx > 0
-          ? sections.slice(0, firstBulletIdx).filter(s => s.kind === "paragraph").map(s => s.text).join("\n\n")
-          : "";
-        const closingText = lastBulletIdx >= 0 && lastBulletIdx < sections.length - 1
-          ? sections.slice(lastBulletIdx + 1).filter(s => s.kind === "paragraph").map(s => s.text).join("\n\n")
-          : "";
-        const totalBullets = sections.filter(s => s.kind === "bullet").length;
-        let bulletIdx = 0;
 
         const extractText = (node: React.ReactNode): string => {
           if (typeof node === "string") return node;
@@ -794,191 +784,52 @@ export function SynthesisBanner({
             return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
           };
 
-        const makePaperHeaderRenderer = (seenPaperIndices: Set<number>) =>
-          function PaperHeaderRenderer({ children }: { children?: React.ReactNode }) {
-            return (
-              <span style={{ display: "inline-block", marginBottom: "2px" }}>
-                {makeStrongRenderer(seenPaperIndices)({ children })}
-              </span>
-            );
-          };
-
         const splitSourceHeading = (text: string) => {
           const match = text.match(/^(\*\*\[(?:source\s*)?\d+\][^*]+\*\*)(?:\s+[-–—]\s+(.+))?$/i);
           return match ? { source: match[1], role: match[2] || "" } : { source: text, role: "" };
         };
 
-        const plainStrong = ({ children }: { children?: React.ReactNode }) => (
-          <strong style={{ color: "#111", fontWeight: 700 }}>{children}</strong>
-        );
-
-        // Fallback: prose synthesis with no bullets — render paragraphs directly
-        if (totalBullets === 0) {
-          const proseRenderer = makeStrongRenderer(new Set<number>());
-          return (
-            <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.85", fontFamily: "inherit", color: "#222" }}>
-              {sections.filter(s => s.kind === "paragraph" || s.kind === "bridge").map((section, i) => (
-                <p key={i} style={{ margin: "0 0 0.75em 0", lineHeight: 1.75 }}>
-                  <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: proseRenderer }}>
-                    {section.text}
-                  </ReactMarkdown>
-                </p>
-              ))}
-            </div>
-          );
+        // Single readable synthesis: render every section as flowing prose.
+        // Structured digests (per-paper bullets with labelled details) are
+        // flattened into one paragraph per source so the page just reads,
+        // while paper-name highlights and concept defs are preserved.
+        const proseRenderer = makeStrongRenderer(new Set<number>());
+        const paragraphs: string[] = [];
+        let pendingBridge = ""; // bridges connect into the next source, so prepend rather than dangle
+        for (const section of sections) {
+          if (section.kind === "bridge") { pendingBridge = section.text.trim(); continue; }
+          let text: string;
+          if (section.kind === "bullet") {
+            const { source } = splitSourceHeading(section.text);
+            const detailText = section.details
+              .filter(d => !/understand/i.test(d.label)) // drop the "if you want to understand" navigation phrase
+              .map(d => {
+                let t = d.text.trim();
+                if (!t) return "";
+                t = t.charAt(0).toUpperCase() + t.slice(1);       // sentence-case each detail
+                if (!/[.!?]$/.test(t)) t += ".";                  // terminate so they don't run together
+                return t;
+              })
+              .filter(Boolean)
+              .join(" ");
+            text = detailText ? `${source}: ${detailText}` : source;
+          } else {
+            text = section.text;
+          }
+          if (pendingBridge) { text = `${pendingBridge} ${text}`; pendingBridge = ""; }
+          paragraphs.push(text);
         }
+        if (pendingBridge) paragraphs.push(pendingBridge);
 
         return (
-          <div className="text-[0.95rem] md:text-[1.05rem]" style={{ lineHeight: "1.7", fontFamily: "inherit", color: "#222" }}>
-            {sections.map((section, i) => {
-              // Paragraphs before first bullet and after last bullet are folded into bullet 1 / last bullet
-              if (section.kind === "paragraph") return null;
-
-              if (section.kind === "bridge") {
-                return (
-                  <p key={i} style={{ margin: "0.5em 0 0.5em 44px", lineHeight: 1.6, fontWeight: 400, color: "#888", fontSize: "0.9em" }}>
-                    {section.text}
-                  </p>
-                );
-              }
-
-              if (section.kind === "bullet") {
-                const idx = bulletIdx++;
-                const isFirst = idx === 0;
-                const isLast = idx === totalBullets - 1;
-                const paletteIdx = section.sourceIdx ?? idx;
-                const palette = SOURCE_PALETTES[paletteIdx % SOURCE_PALETTES.length];
-                const sourceHeading = splitSourceHeading(section.text);
-                const HeaderStrongRenderer = makePaperHeaderRenderer(new Set<number>());
-
-                return (
-                  <React.Fragment key={i}>
-                    {isFirst && ledeText && (
-                      <div style={{ margin: "0 0 1.25em 0" }}>
-                        <ReactMarkdown components={{
-                          p: ({ children }) => {
-                            const text = typeof children === "string" ? children : extractText(children);
-                            const words = text.split(" ");
-                            const drop = words.slice(0, 3).join(" ");
-                            const rest = words.slice(3).join(" ");
-                            return (
-                              <p style={{ margin: "0 0 0.4em 0", fontSize: "1.1em", lineHeight: 1.55, color: "#111", fontWeight: 400 }}>
-                                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.15em", fontWeight: 700, letterSpacing: "-0.01em" }}>{drop} </span>
-                                {annotateText(rest, conceptDefs)}
-                              </p>
-                            );
-                          },
-                          strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#1a1a1a" }}>{children}</strong>,
-                        }}>
-                          {ledeText}
-                        </ReactMarkdown>
-                      </div>
-                    )}
-                    <div style={{ display: "flex", gap: "16px", marginBottom: isLast ? "0" : "1.1em" }}>
-                      {/* Number circle */}
-                      <div style={{ flexShrink: 0, width: 28, paddingTop: "2px" }}>
-                        <div style={{
-                          width: 28, height: 28, borderRadius: "50%",
-                          border: "2px solid #1a1a1a", background: palette[0],
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontFamily: "var(--font-mono), monospace",
-                          fontSize: "0.65rem", fontWeight: 700, color: "#1a1a1a",
-                        }}>
-                          {idx + 1}
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0" style={{ paddingTop: "4px" }}>
-                        <div style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginBottom: section.details.length > 0 ? "10px" : 0,
-                        }}>
-                          <ReactMarkdown components={{
-                            p: ({ children }) => <>{children}</>,
-                            strong: HeaderStrongRenderer,
-                          }}>
-                            {sourceHeading.source}
-                          </ReactMarkdown>
-                          {sourceHeading.role && (
-                            <span style={{
-                              fontFamily: "var(--font-mono), monospace",
-                              fontSize: "0.58rem",
-                              fontWeight: 800,
-                              letterSpacing: "1.1px",
-                              textTransform: "uppercase",
-                              color: "#666",
-                              background: "#f5f5f5",
-                              border: "1px solid #e5e5e5",
-                              padding: "3px 7px",
-                              lineHeight: 1,
-                            }}>
-                              {sourceHeading.role.replace(/_/g, " ")}
-                            </span>
-                          )}
-                        </div>
-                        {section.details.length > 0 && (
-                          <div style={{ marginTop: "10px", display: "grid", gap: "8px" }}>
-                            {section.details.map((detail, detailIdx) => (
-                              <div
-                                key={`${detail.label}-${detailIdx}`}
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "minmax(110px, 0.28fr) 1fr",
-                                  gap: "12px",
-                                  alignItems: "start",
-                                  paddingTop: detailIdx === 0 ? 0 : "8px",
-                                  borderTop: detailIdx === 0 ? "none" : "1px solid #eee",
-                                }}
-                              >
-                                <span style={{
-                                  fontFamily: "var(--font-mono), monospace",
-                                  fontSize: "0.6rem",
-                                  fontWeight: 800,
-                                  letterSpacing: "1px",
-                                  textTransform: "uppercase",
-                                  color: "#888",
-                                  lineHeight: 1.5,
-                                }}>
-                                  {detail.label}
-                                </span>
-                                <div style={{ lineHeight: 1.65, color: "#333" }}>
-                                  <ReactMarkdown components={{
-                                    p: ({ children }) => <p style={{ margin: 0 }}>{annotateText(children, conceptDefs)}</p>,
-                                    strong: plainStrong,
-                                  }}>
-                                    {detail.text}
-                                  </ReactMarkdown>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {isLast && closingText && (
-                      <div style={{ margin: "1.5em 0 0 0", background: "#f7f5f0", padding: "16px 20px", borderLeft: "3px solid #1a1a1a" }}>
-                        <ReactMarkdown components={{
-                          p: ({ children }) => (
-                            <p style={{ margin: 0, fontSize: "1.1em", lineHeight: 1.6, color: "#111", fontWeight: 400 }}>
-                              {annotateText(typeof children === "string" ? children : extractText(children), conceptDefs)}
-                            </p>
-                          ),
-                          strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#1a1a1a" }}>{children}</strong>,
-                        }}>
-                          {closingText}
-                        </ReactMarkdown>
-                      </div>
-                    )}
-                  </React.Fragment>
-                );
-              }
-
-              return null;
-            })}
+          <div className="text-[0.97rem] md:text-[1.08rem]" style={{ lineHeight: "1.8", fontFamily: "inherit", color: "#1a1a1a" }}>
+            {paragraphs.map((text, i) => (
+              <p key={i} style={{ margin: "0 0 0.95em 0", lineHeight: 1.8 }}>
+                <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: proseRenderer }}>
+                  {text}
+                </ReactMarkdown>
+              </p>
+            ))}
           </div>
         );
       })()}
