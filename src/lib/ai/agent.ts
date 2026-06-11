@@ -68,7 +68,7 @@ export async function runThreadAgent(opts: {
   emit: (ev: AgentEvent) => void;
 }): Promise<AgentResult> {
   const { config, question, verdict, trail, claims, initialSources, tools, emit } = opts;
-  const maxToolCalls = opts.maxToolCalls ?? 3;
+  const maxToolCalls = opts.maxToolCalls ?? 2;
   const client = clientFor(config);
   const model = config.model || defaultModel(config.provider);
 
@@ -77,7 +77,7 @@ export async function runThreadAgent(opts: {
   const numbered = () =>
     pool.map((s, i) => `[${i + 1}] ${s.title}${s.year ? ` (${s.year})` : ""} — ${s.summary.slice(0, 220)}`).join("\n");
 
-  const gatherSystem = `You are a research agent helping answer a reader's follow-up question about a daily research digest.
+  const gatherSystem = `You are a research agent answering a reader's follow-up question about a daily research digest.
 
 The digest's central reasoning:
 ${verdict}
@@ -88,7 +88,9 @@ ${claims}
 Sources already available:
 ${numbered()}
 
-Decide whether the available claims already answer the question. If they do, DON'T call any tools — just reply briefly. If the question needs evidence the papers don't cover, call a tool (at most ${maxToolCalls} calls total): search_papers for scholarly evidence, search_web for current/real-world facts, search_vault for what the reader has already saved. Stop as soon as you can answer well.`;
+Most follow-up questions can be answered from the claims above plus sound reasoning — you do NOT need to search for those. Only call a tool when the question genuinely hinges on a fact or domain the papers don't touch: search_papers for scholarly evidence, search_web for current/real-world facts, search_vault for what the reader has already saved.
+
+If you do search and the results aren't a perfect match, that is FINE and expected — do NOT rephrase the same query and try again. One focused search is enough; then answer from the closest evidence plus reasoning. Never search more than ${maxToolCalls} times total. A tangential paper is still useful support — your job is to answer the reader's question, not to find a paper that studied it head-on.`;
 
   const toolDefs = tools.map((t) => ({
     type: "function" as const,
@@ -145,7 +147,15 @@ Decide whether the available claims already answer the question. If they do, DON
   }
 
   // WRITE phase — cited answer + nested follow-ups as JSON
-  const writeSystem = `Answer the reader's question in 3–5 sentences. Take a position and lead with the answer — no "based on the research" preamble. Ground every claim in the sources below and cite them inline as [N] using the bracketed number. Only cite a source that actually supports the point. Then propose 2–3 short follow-up questions a curious reader would ask next — gaps your answer hints at but doesn't fully resolve.
+  const writeSystem = `Answer the reader's question directly and take a position. The iron rule: LEAD WITH THE ANSWER.
+
+BANNED openers — never start the answer with any of these or a paraphrase of them:
+"The research doesn't directly address...", "The provided sources don't...", "While the sources don't cover...", "Although no study looks at...", "It's important to note...".
+If no paper studied the exact question, you STILL answer it — reason from the evidence to the reader's actual situation. The papers are support, not a fence. Lead with your best answer ("Probably yes, but...", "Mostly no — the catch is..."), then earn it.
+
+Write 3–5 sentences. Cite a source as [N] when it backs a specific point — you do NOT need a citation on every sentence; reasoning from the evidence is allowed and expected. When you extrapolate beyond what a paper directly tested, do it confidently; a brief caveat can come later in the answer, never as the opening.
+
+Then propose 2–3 short follow-up questions a curious reader would ask next — gaps your answer hints at but doesn't fully resolve.
 
 Sources:
 ${numbered()}
