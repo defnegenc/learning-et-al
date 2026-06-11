@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw, Star, Ban, Bookmark } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
+import { BriefThreads } from "./brief-threads";
 import React from "react";
 
 /* ── Types ── */
@@ -631,6 +632,10 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
+  /* ── Brief mode flag (?brief=1) — gated rollout of the interactive brief ── */
+  const [briefMode, setBriefMode] = useState(false);
+  useEffect(() => { setBriefMode(new URLSearchParams(window.location.search).get("brief") === "1"); }, []);
+
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
   const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
   const [digDeeperLoading, setDigDeeperLoading] = useState(false);
@@ -937,17 +942,27 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             </div>
           )}
 
-          {/* Dig deeper — below synthesis */}
+          {/* Dig deeper — below synthesis. Brief mode (?brief=1) swaps in agentic threads. */}
           <div style={{ marginTop: "40px" }}>
-            <DigDeeperRail
-              questions={digest.suggestedQuestions || []}
-              answers={digest.suggestedAnswers}
-              history={digDeeperHistory}
-              loading={digDeeperLoading}
-              onAsk={handleDigDeeper}
-              isLoggedIn={!!session}
-              onSignIn={onSignIn}
-            />
+            {briefMode && digest.id ? (
+              <BriefThreads
+                digestId={digest.id}
+                seeds={digest.suggestedQuestions || []}
+                guestAnswers={digest.suggestedAnswers}
+                isLoggedIn={!!session}
+                onSignIn={onSignIn}
+              />
+            ) : (
+              <DigDeeperRail
+                questions={digest.suggestedQuestions || []}
+                answers={digest.suggestedAnswers}
+                history={digDeeperHistory}
+                loading={digDeeperLoading}
+                onAsk={handleDigDeeper}
+                isLoggedIn={!!session}
+                onSignIn={onSignIn}
+              />
+            )}
           </div>
         </main>
 
