@@ -53,6 +53,8 @@ This means:
 
 ## What Didn't Work
 
+0. **The "guided digest" structure (May–June 2026, reverted)** — short answer + research context + reading map + four labelled sub-bullets per paper (If you want to understand / What it did / What it offers / Another lens) + "One thing to remember" + closing. Each idea was reasonable alone, but together they produced ~7 paragraphs where the reading map restated the per-paper blocks and the closing appeared twice. User verdict: "a fuck ton of text." Reverted to the compact structure (intro answering the question, one sentence per paper, bridges, closing). If a future change adds structure, check total length and redundancy across sections first.
+
 1. **"Paper A / Paper B" labels** — AI kept using generic labels. Had to ban explicitly.
 2. **"Today we're exploring:" prefix** — every synthesis started the same way.
 3. **"The core tension is..." closer** — became formulaic.
