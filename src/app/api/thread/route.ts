@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { digests, papers } from "@/lib/db/schema";
-import { eq, asc, desc, inArray } from "drizzle-orm";
+import { digests, papers, threadCache } from "@/lib/db/schema";
+import { and, eq, asc, desc, inArray } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 import type { AIConfig } from "@/lib/ai/provider";
 import { runThreadAgent, type AgentSource, type AgentTool } from "@/lib/ai/agent";
@@ -36,6 +36,25 @@ export async function POST(req: NextRequest) {
 
   const digest = await db.query.digests.findFirst({ where: eq(digests.id, digestId) });
   if (!digest) return new Response(JSON.stringify({ error: "Digest not found" }), { status: 404 });
+
+  // Cache: thread answers are pinned to the digest's content, which never changes
+  // after generation — so one agent run per (digest, question, trail), ever.
+  // Cache failures are non-fatal (e.g. table not yet pushed to prod).
+  const trailKey = trail.join(" → ");
+  const cached = await db.query.threadCache
+    .findFirst({ where: and(eq(threadCache.digestId, digestId), eq(threadCache.question, question), eq(threadCache.trailKey, trailKey)) })
+    .catch(() => null);
+  if (cached) {
+    const payload = {
+      type: "result",
+      answer: cached.answer,
+      seeds: cached.seeds ? (JSON.parse(cached.seeds) as string[]) : [],
+      sources: cached.sources ? (JSON.parse(cached.sources) as AgentSource[]) : [],
+    };
+    return new Response(`data: ${JSON.stringify(payload)}\n\n`, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive" },
+    });
+  }
 
   const digestPapers = await db.query.papers.findMany({
     where: eq(papers.digestId, digestId),
@@ -171,6 +190,12 @@ export async function POST(req: NextRequest) {
           emit: (ev) => send(ev),
         });
         send({ type: "result", answer: result.answer, seeds: result.seeds, sources: result.sources });
+        if (!result.failed && result.answer) {
+          await db
+            .insert(threadCache)
+            .values({ digestId, question, trailKey, answer: result.answer, seeds: JSON.stringify(result.seeds), sources: JSON.stringify(result.sources) })
+            .catch(() => {});
+        }
       } catch (e) {
         send({ type: "error", message: (e as Error).message || "Thread failed" });
       } finally {

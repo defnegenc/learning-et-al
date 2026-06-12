@@ -30,6 +30,7 @@ export interface AgentResult {
   answer: string;            // prose with [N] citation markers (N = 1-based index into `sources`)
   seeds: string[];           // 2–3 nested follow-up questions
   sources: AgentSource[];    // every source in play, in [N] order
+  failed?: boolean;          // true when the write phase errored (answer is a fallback — don't cache)
 }
 
 function clientFor(config: AIConfig): OpenAI {
@@ -153,7 +154,7 @@ BANNED openers — never start the answer with any of these or a paraphrase of t
 "The research doesn't directly address...", "The provided sources don't...", "While the sources don't cover...", "Although no study looks at...", "It's important to note...".
 If no paper studied the exact question, you STILL answer it — reason from the evidence to the reader's actual situation. The papers are support, not a fence. Lead with your best answer ("Probably yes, but...", "Mostly no — the catch is..."), then earn it.
 
-Write 3–5 sentences. Cite a source as [N] when it backs a specific point — you do NOT need a citation on every sentence; reasoning from the evidence is allowed and expected. When you extrapolate beyond what a paper directly tested, do it confidently; a brief caveat can come later in the answer, never as the opening.
+Write 4–7 sentences split into 2–3 SHORT paragraphs separated by a blank line — one move per paragraph (the answer, the mechanism/evidence, the catch). Never return one long paragraph. Bold the load-bearing phrase with **double asterisks** — one per paragraph at most. Cite a source as [N] when it backs a specific point — you do NOT need a citation on every sentence; reasoning from the evidence is allowed and expected. When you extrapolate beyond what a paper directly tested, do it confidently; a brief caveat can come later in the answer, never as the opening.
 
 Then propose 2–3 short follow-up questions a curious reader would ask next — gaps your answer hints at but doesn't fully resolve.
 
@@ -161,10 +162,11 @@ Sources:
 ${numbered()}
 
 Return ONLY JSON, no prose outside it:
-{"answer": "your answer with [N] citations", "followups": ["question 1", "question 2"]}`;
+{"answer": "your answer with [N] citations, **bold** phrases, and \\n\\n between paragraphs", "followups": ["question 1", "question 2"]}`;
 
   let answer = "";
   let seeds: string[] = [];
+  let failed = false;
   try {
     const raw = await client.chat.completions.create({
       model,
@@ -181,7 +183,8 @@ Return ONLY JSON, no prose outside it:
     }
   } catch {
     answer = "I couldn't finish researching that thread just now. Try again in a moment.";
+    failed = true;
   }
 
-  return { answer, seeds, sources: pool };
+  return { answer, seeds, sources: pool, failed };
 }
