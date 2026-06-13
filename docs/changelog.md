@@ -84,3 +84,6 @@
 | 2026-06-11 | Revert verbose "guided digest" synthesis structure to compact intro/bullet/closing format (too long, redundant) | Done |
 | 2026-06-12 | Brief mode (?brief=1) restyled to match the /prototype/brief presentation: multi-paragraph answers with bold phrases, sentence-by-sentence reveal, replayed thinking trace, richer source cards | Done |
 | 2026-06-12 | Brief mode preloads the first 3 seed threads on page load — agent runs while the reader reads the synthesis, so opening a thread is instant | Done |
+| 2026-06-13 | Brief mode now renders the full dig-through experience (BriefDigest): scroll-revealed verdict, paper cards revealed inline on first mention, then agentic threads — replaces the normal synthesis + side rail when ?brief=1 | Done |
+| 2026-06-13 | Extracted splitSynthesisTheme / flattenSynthesis / resolvePaperFromBold from SynthesisBanner so brief mode reuses the exact paper-matching (handles both [Source N] and fuzzy bold-name digest formats) | Done |
+| 2026-06-13 | Fix daily cron starving users past the execution-time cutoff: set maxDuration, process most-stale-first, surface processed counts | Done |

@@ -5,6 +5,7 @@ import { Loader2, RefreshCw, Star, Ban, Bookmark } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
+import { BriefDigest } from "./brief-digest";
 import React from "react";
 
 /* ── Types ── */
@@ -828,8 +829,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_400px] items-start" style={{ gap: "48px" }}>
+    <div style={{ maxWidth: briefMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+      <div className={briefMode ? "" : "grid grid-cols-1 md:grid-cols-[1fr_400px] items-start"} style={{ gap: "48px" }}>
 
         {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
@@ -907,8 +908,21 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
           </div>
 
-          {/* Synthesis */}
-          {digest.synthesisContent ? (
+          {/* Synthesis — brief mode (?brief=1) renders the dig-through experience:
+              scroll-revealed verdict, paper cards inline on first mention, agentic threads */}
+          {digest.synthesisContent && briefMode && digest.id ? (
+            <BriefDigest
+              synthesis={digest.synthesisContent}
+              theme={digest.theme ?? undefined}
+              keyConcepts={digest.keyConcepts}
+              papers={papers}
+              digestId={digest.id}
+              seeds={digest.suggestedQuestions || []}
+              guestAnswers={digest.suggestedAnswers}
+              isLoggedIn={!!session}
+              onSignIn={onSignIn}
+            />
+          ) : digest.synthesisContent ? (
             <SynthesisBanner
               synthesis={digest.synthesisContent}
               theme={digest.theme ?? undefined}
@@ -942,17 +956,22 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             </div>
           )}
 
-          {/* Dig deeper — below synthesis. Brief mode (?brief=1) swaps in agentic threads. */}
-          <div style={{ marginTop: "40px" }}>
-            {briefMode && digest.id ? (
-              <BriefThreads
-                digestId={digest.id}
-                seeds={digest.suggestedQuestions || []}
-                guestAnswers={digest.suggestedAnswers}
-                isLoggedIn={!!session}
-                onSignIn={onSignIn}
-              />
-            ) : (
+          {/* Dig deeper — below synthesis. In brief mode the threads live inside
+              BriefDigest; keep standalone threads only as a no-synthesis fallback. */}
+          {briefMode && digest.id ? (
+            !digest.synthesisContent && (
+              <div style={{ marginTop: "40px" }}>
+                <BriefThreads
+                  digestId={digest.id}
+                  seeds={digest.suggestedQuestions || []}
+                  guestAnswers={digest.suggestedAnswers}
+                  isLoggedIn={!!session}
+                  onSignIn={onSignIn}
+                />
+              </div>
+            )
+          ) : (
+            <div style={{ marginTop: "40px" }}>
               <DigDeeperRail
                 questions={digest.suggestedQuestions || []}
                 answers={digest.suggestedAnswers}
@@ -962,12 +981,12 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                 isLoggedIn={!!session}
                 onSignIn={onSignIn}
               />
-            )}
-          </div>
+            </div>
+          )}
         </main>
 
-        {/* ── Right: paper rail ── */}
-        {papers.length > 0 && (
+        {/* ── Right: paper rail (brief mode reveals cards inline instead) ── */}
+        {papers.length > 0 && !briefMode && (
           <aside>
             <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
               Referenced sources

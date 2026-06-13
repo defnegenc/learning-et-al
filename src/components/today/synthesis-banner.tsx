@@ -236,7 +236,7 @@ type BodySection =
   | { kind: "bullet"; text: string; sourceIdx: number | null; details: { label: string; text: string }[] }
   | { kind: "bridge"; text: string };
 
-function parseBodySections(text: string): BodySection[] {
+export function parseBodySections(text: string): BodySection[] {
   const sections: BodySection[] = [];
   let paraLines: string[] = [];
   let activeBullet: Extract<BodySection, { kind: "bullet" }> | null = null;
@@ -278,6 +278,132 @@ function parseBodySections(text: string): BodySection[] {
   }
   flushPara();
   return sections;
+}
+
+// Split a raw synthesis into the display theme and the body text below it.
+// Mirrors the long-standing first-line heuristics (old digests carry a
+// "Today we're exploring:" prefix; new ones get the theme as a column).
+export function splitSynthesisTheme(synthesis: string, theme?: string): { displayTheme: string; bodyText: string } {
+  const lines = synthesis.split("\n").filter(l => l.trim());
+  let displayTheme = theme || "";
+  let bodyLines = lines;
+
+  if (!displayTheme) {
+    const firstLine = lines[0] || "";
+    const prefixMatch = firstLine.match(/^today(?:'s\s+\w+| we're exploring):\s*/i);
+    if (prefixMatch) {
+      const after = firstLine.slice(prefixMatch[0].length).trim();
+      const sentenceEnd = after.match(/^(.+?[?!.])/);
+      displayTheme = sentenceEnd ? sentenceEnd[1] : after;
+      bodyLines = lines.slice(1);
+    } else {
+      const sentenceEnd = firstLine.match(/^(.+?[?!.])/);
+      if (sentenceEnd) {
+        displayTheme = sentenceEnd[1];
+        const remainder = firstLine.slice(sentenceEnd[0].length).trim();
+        bodyLines = remainder ? [remainder, ...lines.slice(1)] : lines.slice(1);
+      } else {
+        displayTheme = firstLine;
+        bodyLines = lines.slice(1);
+      }
+    }
+  } else {
+    const firstLine = lines[0] || "";
+    if (/^today/i.test(firstLine)) {
+      bodyLines = lines.slice(1);
+    }
+  }
+  return { displayTheme, bodyText: bodyLines.join("\n\n") };
+}
+
+function splitSourceHeading(text: string) {
+  const match = text.match(/^(\*\*\[(?:source\s*)?\d+\][^*]+\*\*)(?:\s+[-–—]\s+(.+))?$/i);
+  return match ? { source: match[1], role: match[2] || "" } : { source: text, role: "" };
+}
+
+// Resolve a bold synthesis run to the paper it names. Handles the explicit
+// "[Source N] name" prefix first, then falls back to fuzzy title/author/keyword
+// overlap (older digests name papers inline without a source marker).
+// Returns the matched paper index (or -1) plus the display text with any prefix stripped.
+const MATCH_STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows", "study", "paper", "research", "report", "review"]);
+
+export function resolvePaperFromBold(
+  text: string,
+  papers: { title: string; keywords: string[]; authors: string[] }[]
+): { paperIdx: number; displayText: string } {
+  const indexMatch = text.match(/^\[(?:source\s*)?(\d+)\]\s*/i);
+  if (indexMatch) {
+    const idx = parseInt(indexMatch[1], 10) - 1;
+    if (idx >= 0 && idx < papers.length) return { paperIdx: idx, displayText: text.slice(indexMatch[0].length) };
+  }
+
+  const cleanText = text.toLowerCase().replace(/\s*\(.*?\)\s*/g, " ").trim();
+  const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
+  const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !MATCH_STOP_WORDS.has(w));
+  const boldStems = boldWords.map(stem);
+  const acronyms = cleanText.split(/\s+/).filter(w => /^[A-Z]{2,6}$/.test(w));
+  const matchesAcronym = (acronym: string, title: string) => {
+    const words = title.split(/[\s\-]+/).filter(w => w.length > 0);
+    for (let start = 0; start <= words.length - acronym.length; start++) {
+      const initials = words.slice(start, start + acronym.length).map(w => w[0].toUpperCase()).join("");
+      if (initials === acronym) return true;
+    }
+    return false;
+  };
+  let bestIdx = -1;
+  let bestScore = 0;
+  let secondBestScore = 0;
+  papers.forEach((p, i) => {
+    let score = 0;
+    const title = p.title.toLowerCase();
+    const kwStr = p.keywords.join(" ").toLowerCase();
+    const authorStr = p.authors.join(" ").toLowerCase();
+    if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
+    for (const acronym of acronyms) { if (matchesAcronym(acronym, p.title)) score += 8; }
+    for (const bs of boldStems) {
+      const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
+      if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
+      if (authorStr.includes(bs)) score += 4;
+      if (kwStr.includes(bs)) score += 1;
+    }
+    if (score > bestScore) { secondBestScore = bestScore; bestScore = score; bestIdx = i; }
+    else if (score > secondBestScore) { secondBestScore = score; }
+  });
+  const matched = bestScore >= 4 && bestScore - secondBestScore >= 2;
+  return { paperIdx: matched ? bestIdx : -1, displayText: text };
+}
+
+// Flatten a structured synthesis (per-paper bullets with labelled details,
+// bridges) into one prose paragraph per source. Paper-name markers survive.
+export function flattenSynthesis(bodyText: string): string[] {
+  const sections = parseBodySections(bodyText);
+  const paragraphs: string[] = [];
+  let pendingBridge = ""; // bridges connect into the next source, so prepend rather than dangle
+  for (const section of sections) {
+    if (section.kind === "bridge") { pendingBridge = section.text.trim(); continue; }
+    let text: string;
+    if (section.kind === "bullet") {
+      const { source } = splitSourceHeading(section.text);
+      const detailText = section.details
+        .filter(d => !/understand/i.test(d.label)) // drop the "if you want to understand" navigation phrase
+        .map(d => {
+          let t = d.text.trim();
+          if (!t) return "";
+          t = t.charAt(0).toUpperCase() + t.slice(1);       // sentence-case each detail
+          if (!/[.!?]$/.test(t)) t += ".";                  // terminate so they don't run together
+          return t;
+        })
+        .filter(Boolean)
+        .join(" ");
+      text = detailText ? `${source}: ${detailText}` : source;
+    } else {
+      text = section.text;
+    }
+    if (pendingBridge) { text = `${pendingBridge} ${text}`; pendingBridge = ""; }
+    paragraphs.push(text);
+  }
+  if (pendingBridge) paragraphs.push(pendingBridge);
+  return paragraphs;
 }
 
 interface SynthesisBannerProps {
@@ -592,40 +718,7 @@ export function SynthesisBanner({
   });
 
   // Extract theme headline + body from synthesis text
-  const lines = synthesis.split("\n").filter(l => l.trim());
-  let displayTheme = theme || "";
-  let bodyLines = lines;
-
-  if (!displayTheme) {
-    // Try to extract from synthesis first line (old digests with prefix)
-    const firstLine = lines[0] || "";
-    const prefixMatch = firstLine.match(/^today(?:'s\s+\w+| we're exploring):\s*/i);
-    if (prefixMatch) {
-      const after = firstLine.slice(prefixMatch[0].length).trim();
-      const sentenceEnd = after.match(/^(.+?[?!.])/);
-      displayTheme = sentenceEnd ? sentenceEnd[1] : after;
-      bodyLines = lines.slice(1);
-    } else {
-      // No prefix — use the first sentence as the headline
-      const sentenceEnd = firstLine.match(/^(.+?[?!.])/);
-      if (sentenceEnd) {
-        displayTheme = sentenceEnd[1];
-        const remainder = firstLine.slice(sentenceEnd[0].length).trim();
-        bodyLines = remainder ? [remainder, ...lines.slice(1)] : lines.slice(1);
-      } else {
-        // Entire first line is the headline
-        displayTheme = firstLine;
-        bodyLines = lines.slice(1);
-      }
-    }
-  } else {
-    // Theme prop exists — strip first line if it's a prefix or repeats the theme
-    const firstLine = lines[0] || "";
-    if (/^today/i.test(firstLine)) {
-      bodyLines = lines.slice(1);
-    }
-  }
-  const bodyText = bodyLines.join("\n\n");
+  const { displayTheme, bodyText } = splitSynthesisTheme(synthesis, theme);
 
 
   // Dig deeper prompts — prefer LLM-generated, fall back to heuristic
@@ -699,8 +792,6 @@ export function SynthesisBanner({
 
       {/* Synthesis body — numbered timeline layout */}
       {(() => {
-        const sections = parseBodySections(bodyText);
-
         const extractText = (node: React.ReactNode): string => {
           if (typeof node === "string") return node;
           if (typeof node === "number") return String(node);
@@ -712,58 +803,11 @@ export function SynthesisBanner({
         const makeStrongRenderer = (seenPaperIndices: Set<number>) =>
           function StrongRenderer({ children }: { children?: React.ReactNode }) {
             const text = extractText(children);
-            const textLower = text.toLowerCase();
-            const indexMatch = text.match(/^\[(?:source\s*)?(\d+)\]\s*/i);
-            let matchedPaper: (typeof papers)[number] | null = null;
-            let displayText = text;
-
-            if (indexMatch) {
-              const idx = parseInt(indexMatch[1], 10) - 1;
-              if (idx >= 0 && idx < papers.length) {
-                matchedPaper = papers[idx];
-                displayText = text.slice(indexMatch[0].length);
-              }
-            }
-
-            if (!matchedPaper) {
-              const cleanText = textLower.replace(/\s*\(.*?\)\s*/g, " ").trim();
-              let bestPaper: (typeof papers)[number] | null = null;
-              let bestScore = 0;
-              let secondBestScore = 0;
-              const stem = (w: string) => w.replace(/(ing|tion|ment|ness|ity|ies|es|ed|ly|s)$/i, "");
-              const STOP_WORDS = new Set(["the", "this", "that", "with", "from", "about", "what", "when", "where", "which", "their", "these", "those", "been", "have", "will", "would", "could", "should", "into", "over", "under", "between", "through", "after", "before", "more", "most", "some", "also", "than", "them", "were", "here", "there", "then", "each", "every", "both", "such", "very", "just", "only", "other", "found", "shows", "study", "paper", "research", "report", "review"]);
-              const boldWords = cleanText.split(/\s+/).filter(w => (w.length > 2 || w === "ai") && !STOP_WORDS.has(w));
-              const boldStems = boldWords.map(stem);
-              const acronyms = cleanText.split(/\s+/).filter(w => /^[A-Z]{2,6}$/.test(w));
-              const matchesAcronym = (acronym: string, title: string) => {
-                const words = title.split(/[\s\-]+/).filter(w => w.length > 0);
-                for (let start = 0; start <= words.length - acronym.length; start++) {
-                  const initials = words.slice(start, start + acronym.length).map(w => w[0].toUpperCase()).join("");
-                  if (initials === acronym) return true;
-                }
-                return false;
-              };
-              for (const p of papers) {
-                let score = 0;
-                const title = p.title.toLowerCase();
-                const kwStr = p.keywords.join(" ").toLowerCase();
-                const authorStr = p.authors.join(" ").toLowerCase();
-                if (title.includes(cleanText) || cleanText.includes(title.slice(0, 30))) score += 10;
-                for (const acronym of acronyms) { if (matchesAcronym(acronym, p.title)) score += 8; }
-                for (const bs of boldStems) {
-                  const titleStems = title.split(/\s+/).filter(w => w.length > 2).map(stem);
-                  if (titleStems.some(ts => ts === bs || ts.includes(bs) || bs.includes(ts))) score += 3;
-                  if (authorStr.includes(bs)) score += 4;
-                  if (kwStr.includes(bs)) score += 1;
-                }
-                if (score > bestScore) { secondBestScore = bestScore; bestScore = score; bestPaper = p; }
-                else if (score > secondBestScore) { secondBestScore = score; }
-              }
-              matchedPaper = bestScore >= 4 && bestScore - secondBestScore >= 2 ? bestPaper : null;
-            }
+            const { paperIdx: matchedIdx, displayText } = resolvePaperFromBold(text, papers);
+            const matchedPaper = matchedIdx >= 0 ? papers[matchedIdx] : null;
 
             if (matchedPaper && onSelectPaper) {
-              const paperIdx = papers.indexOf(matchedPaper);
+              const paperIdx = matchedIdx;
               // Don't highlight the same paper twice in one block (fuzzy collisions)
               if (seenPaperIndices.has(paperIdx)) {
                 return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
@@ -786,42 +830,12 @@ export function SynthesisBanner({
             return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
           };
 
-        const splitSourceHeading = (text: string) => {
-          const match = text.match(/^(\*\*\[(?:source\s*)?\d+\][^*]+\*\*)(?:\s+[-–—]\s+(.+))?$/i);
-          return match ? { source: match[1], role: match[2] || "" } : { source: text, role: "" };
-        };
-
         // Single readable synthesis: render every section as flowing prose.
         // Structured digests (per-paper bullets with labelled details) are
         // flattened into one paragraph per source so the page just reads,
         // while paper-name highlights and concept defs are preserved.
         const proseRenderer = makeStrongRenderer(new Set<number>());
-        const paragraphs: string[] = [];
-        let pendingBridge = ""; // bridges connect into the next source, so prepend rather than dangle
-        for (const section of sections) {
-          if (section.kind === "bridge") { pendingBridge = section.text.trim(); continue; }
-          let text: string;
-          if (section.kind === "bullet") {
-            const { source } = splitSourceHeading(section.text);
-            const detailText = section.details
-              .filter(d => !/understand/i.test(d.label)) // drop the "if you want to understand" navigation phrase
-              .map(d => {
-                let t = d.text.trim();
-                if (!t) return "";
-                t = t.charAt(0).toUpperCase() + t.slice(1);       // sentence-case each detail
-                if (!/[.!?]$/.test(t)) t += ".";                  // terminate so they don't run together
-                return t;
-              })
-              .filter(Boolean)
-              .join(" ");
-            text = detailText ? `${source}: ${detailText}` : source;
-          } else {
-            text = section.text;
-          }
-          if (pendingBridge) { text = `${pendingBridge} ${text}`; pendingBridge = ""; }
-          paragraphs.push(text);
-        }
-        if (pendingBridge) paragraphs.push(pendingBridge);
+        const paragraphs = flattenSynthesis(bodyText);
 
         return (
           <div className="text-[0.97rem] md:text-[1.08rem]" style={{ lineHeight: "1.8", fontFamily: "inherit", color: "#1a1a1a" }}>
