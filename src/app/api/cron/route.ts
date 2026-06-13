@@ -5,6 +5,12 @@ import { eq, desc, and, gte } from "drizzle-orm";
 import { generateDigest } from "@/lib/pipeline/digest";
 import { sendDigestEmail, type DigestEmailData } from "@/lib/email";
 import { postDigestToX } from "@/lib/twitter";
+import { orderByStaleness } from "@/lib/pipeline/cron-schedule";
+
+// Generation is LLM-heavy and runs once per user; give the function real
+// headroom so it isn't killed mid-loop. Without this the route used the
+// platform default and silently starved every user past the first few.
+export const maxDuration = 300;
 
 /**
  * Cron endpoint — generates daily digests and emails based on cadence.
@@ -15,6 +21,10 @@ import { postDigestToX } from "@/lib/twitter";
  * - Weekly users: generate daily, email best-of on Sunday
  *
  * "Best" = starred digest if any, otherwise most recent.
+ *
+ * Users are processed most-stale-first (see orderByStaleness): if a run still
+ * can't cover everyone within maxDuration, the cutoff rotates fairly instead of
+ * permanently starving the same accounts.
  */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -42,13 +52,32 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No CRON_AI_KEY configured" }, { status: 500 });
     }
 
+    // Build the eligible set (users with interests) tagged with how stale their
+    // last digest is, then process most-stale-first so a time-budget cutoff
+    // rotates fairly instead of always starving the users late in the table.
+    const eligible: { user: (typeof allUsers)[number]; lastDigestDate: string | null }[] = [];
     for (const user of allUsers) {
       const userInterests = await db.select().from(interests).where(eq(interests.userId, user.id)).limit(1);
       if (userInterests.length === 0) {
         results.push({ userId: user.id, status: "skipped", error: "no interests" });
         continue;
       }
+      const latest = await db
+        .select({ date: digests.date })
+        .from(digests)
+        .where(eq(digests.userId, user.id))
+        .orderBy(desc(digests.createdAt))
+        .limit(1);
+      eligible.push({ user, lastDigestDate: latest[0]?.date ?? null });
+    }
 
+    const orderedUsers = orderByStaleness(eligible.map((e) => ({ item: e.user, lastDigestDate: e.lastDigestDate })));
+    console.log(`[cron] ${orderedUsers.length} users with interests to process (most-stale-first)`);
+
+    let processed = 0;
+    for (const user of orderedUsers) {
+      processed++;
+      console.log(`[cron] (${processed}/${orderedUsers.length}) generating for ${user.id}`);
       const cadence = (user.cadence as "daily" | "biweekly" | "weekly") || "daily";
 
       // Step 1: Always generate a digest (builds the archive)
@@ -142,7 +171,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ ok: true, day: dayOfWeek, results });
+    const generated = results.filter((r) => r.status === "generated").length;
+    console.log(`[cron] done: generated ${generated}/${orderedUsers.length} eligible users`);
+    return NextResponse.json({ ok: true, day: dayOfWeek, eligible: orderedUsers.length, processed, results });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
