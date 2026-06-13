@@ -2,9 +2,6 @@ import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-// Test-only recipient — remove this gate when ready for production
-const TEST_EMAIL = "defnegenc@live.co.uk";
-
 interface PaperData {
   title: string;
   source: string;
@@ -217,10 +214,7 @@ export async function sendDigestEmail(
     return { sent: false, error: "RESEND_API_KEY not configured" };
   }
 
-  // Test gate: only send to test email during testing phase
-  if (userEmail !== TEST_EMAIL) {
-    return { sent: false, error: `Skipped — test mode, only sending to ${TEST_EMAIL}` };
-  }
+  // Recipient scoping (currently admin-only) is enforced by the caller (cron).
 
   const subject = cadence === "daily"
     ? bestDigest.theme

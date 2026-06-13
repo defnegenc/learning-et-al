@@ -109,7 +109,14 @@ export async function GET(req: NextRequest) {
         results.push({ userId: user.id, status: xResult.ok ? "x_posted" : "x_failed", error: xResult.error });
       }
 
-      // Step 2: Send email based on cadence
+      // Step 2: Send email based on cadence.
+      // For now only the admin gets emailed — generation still runs for everyone
+      // (it builds each user's archive), but we don't email the whole user base
+      // while deliverability is still being sorted out.
+      if (user.id !== process.env.ADMIN_USER_ID) {
+        results.push({ userId: user.id, status: "email_skipped_non_admin" });
+        continue;
+      }
       if (!user.email || user.emailOptOut) continue;
 
       const shouldEmail =
