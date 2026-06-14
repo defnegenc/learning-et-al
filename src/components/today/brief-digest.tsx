@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
@@ -114,11 +114,9 @@ export function toLines(paragraphs: string[], defs: { term: string; def: string 
   return out.map((ln, i) => ({ idx: i, segs: ln.segs, para: ln.para }));
 }
 
-// Reveal boundary: index just past the chunk containing line `from`'s paragraph.
-function nextChunkEnd(lines: Line[], from: number): number {
-  let j = from + 1;
-  while (j < lines.length && !lines[j].para) j++;
-  return j;
+// Word count for a line, used to pace the timed reveal.
+function lineWords(line: Line): number {
+  return line.segs.reduce((a, s) => a + (s.t === "cite" || s.t === "term" ? 1 : s.text.split(/\s+/).length), 0);
 }
 
 /* ---- chips ---- */
@@ -257,22 +255,19 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return map;
   }, [lines]);
 
-  const [n, setN] = useState(() => nextChunkEnd(lines, 0));
+  const [n, setN] = useState(1);
   const verdictDone = n >= lines.length;
   const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Reveal the next paragraph chunk when the sentinel scrolls into view.
+  // Reveal the verdict sentence-by-sentence on a timer. Timed (not scroll-gated):
+  // scroll-gating deadlocks when the first chunk fills the viewport but the page
+  // isn't tall enough to scroll the trigger into view.
   useEffect(() => {
     if (verdictDone) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) return;
-      setN((prev) => nextChunkEnd(lines, prev));
-    }, { rootMargin: "0px 0px -12% 0px" });
-    io.observe(el);
-    return () => io.disconnect();
+    const next = lines[n];
+    const delay = Math.min(1300, Math.max(480, 420 + (next ? lineWords(next) : 0) * 32));
+    const t = setTimeout(() => setN((x) => x + 1), delay);
+    return () => clearTimeout(t);
   }, [n, lines, verdictDone]);
 
   const openDetail = (paper: PaperItem) => setDetail({ paper, idx: Math.max(0, papers.indexOf(paper)) });
@@ -320,7 +315,6 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       `}</style>
 
       {els}
-      {!verdictDone && <div ref={sentinelRef} style={{ height: 1 }} />}
 
       {/* Threads mount immediately so seed preloads start, but stay hidden until the verdict is read */}
       <div style={{ marginTop: 32, display: verdictDone ? undefined : "none" }}>
