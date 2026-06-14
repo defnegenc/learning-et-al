@@ -150,23 +150,23 @@ function ExpandedCard({ paper, idx, theme, digestId, isLoggedIn, onSignIn, onOpe
   return (
     <div style={{ ...washStyle(idx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "16px 18px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
-        <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", color: "#666", border: "1px solid #cbd5e1", padding: "2px 6px" }}>{venueLabel(paper)}</span>
+        <span style={{ fontFamily: MONO, fontSize: "0.62rem", fontWeight: 600, letterSpacing: "1.5px", color: "#1a1a1a", background: "#fff", border: "1.5px solid #1a1a1a", padding: "3px 9px" }}>{venueLabel(paper)}</span>
         {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", color: "#1a1a1a", borderBottom: "1.5px solid #1a1a1a" }}>VIEW STUDY ↗</a>}
       </div>
       <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.05rem", lineHeight: 1.15, margin: "0 0 4px" }}>{paper.title}</h3>
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.58rem", fontStyle: "italic", color: "#888", margin: "0 0 9px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
       {summary && <p style={{ fontSize: "0.84rem", lineHeight: 1.55, color: "#222", margin: "0 0 8px" }}>{summary}</p>}
-      {paper.connectionReason && (
-        <p style={{ fontSize: "0.8rem", lineHeight: 1.5, color: "#1a1a1a", margin: "0 0 10px" }}>
-          <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", textTransform: "uppercase", color: "#888", marginRight: 6 }}>Why it&apos;s here</span>
-          {paper.connectionReason}
-        </p>
-      )}
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 4 }}>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: paper.connectionReason ? 14 : 4 }}>
         {paper.keywords.slice(0, 3).map((kw, i) => (
           <span key={kw} style={{ fontFamily: MONO, fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.5px", background: tags[i % 2], border: "1px solid #1a1a1a", padding: "2px 7px" }}>{kw}</span>
         ))}
       </div>
+      {paper.connectionReason && (
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 5 }}>Why it&apos;s here</div>
+          <p style={{ fontSize: "0.86rem", lineHeight: 1.5, color: "#1a1a1a", margin: 0 }}>{paper.connectionReason}</p>
+        </div>
+      )}
 
       {/* conversation */}
       {turns.map((t) => (
