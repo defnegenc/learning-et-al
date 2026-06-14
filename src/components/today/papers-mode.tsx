@@ -24,6 +24,15 @@ function venueLabel(p: PaperItem): string {
   return p.year ? `${kind} · ${p.year}` : kind;
 }
 
+// Short framing of the angle each paper offers — the "why you'd open this one".
+function lensLabel(p: PaperItem): string {
+  if (p.category === "news") return "to see recent news";
+  if (p.category === "foundational") return "for the foundational view";
+  const kw = p.keywords[0];
+  if (kw) return `for a ${kw.toLowerCase()} lens`;
+  return "for another angle";
+}
+
 // 1-2 sentence verdict from the synthesis lead, stripped of markdown + source markers.
 function verdictLead(synthesis: string, theme?: string): string {
   const { bodyText } = splitSynthesisTheme(synthesis, theme);
@@ -38,37 +47,55 @@ function verdictLead(synthesis: string, theme?: string): string {
   return sentences.slice(0, 2).map((s) => s.trim()).join(" ");
 }
 
-function starterQuestions(paper: PaperItem, theme: string): string[] {
-  return [
-    "What did it actually find?",
-    "How strong is the evidence?",
-    theme ? `How does this answer "${theme}"?` : "How does this connect to the big question?",
-  ];
+function paperToSource(p: PaperItem): AgentSource {
+  return {
+    id: p.id,
+    title: p.title,
+    authors: p.authors,
+    year: p.year ?? null,
+    venue: venueLabel(p),
+    url: p.sourceUrl,
+    summary: p.summary || p.abstract || "",
+    origin: "digest",
+  };
 }
 
-/* ---- one Q&A turn inside a paper's conversation ---- */
+// Cross-cutting starters: prefer the digest's suggested questions, else templates.
+function crossStarters(seeds: string[]): string[] {
+  if (seeds.length) return seeds.slice(0, 3).map((s) => s.replace(/\*\*/g, ""));
+  return ["Where do these three disagree?", "What's the common thread?"];
+}
+
+/* ---- a paper card in the row (the scannable menu) ---- */
+function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: () => void }) {
+  const [c1] = PALETTES[idx % PALETTES.length];
+  const summary = paper.summary || paper.abstract || "";
+  return (
+    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "13px 14px", cursor: "pointer", height: "100%" }}>
+      <span style={{ fontFamily: BODY, fontSize: "0.72rem", fontWeight: 500, color: "#8a8378", marginBottom: 5 }}>{venueLabel(paper)}</span>
+      <span style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "0.86rem", lineHeight: 1.15, marginBottom: 6 }}>{paper.title}</span>
+      {summary && <span style={{ fontSize: "0.76rem", lineHeight: 1.45, color: "#333", marginBottom: 10 }}>{summary.length > 150 ? summary.slice(0, 147) + "…" : summary}</span>}
+      <span style={{ marginTop: "auto", fontFamily: BODY, fontSize: "0.74rem", fontWeight: 600, color: "#1a1a1a", borderTop: `2px solid ${c1}`, paddingTop: 7 }}>
+        Open {lensLabel(paper)} →
+      </span>
+    </button>
+  );
+}
+
+/* ---- one Q&A turn in the cross-paper thread ---- */
 interface Turn { id: string; question: string; status: string[]; result: ResultPayload | null; error: string | null; }
 
-function TurnBlock({ turn, focusPaperId, onOpenDetail, onSourceSeen, cardedRef }: {
+function TurnBlock({ turn, onOpenDetail, onSourceSeen, cardedRef }: {
   turn: Turn;
-  focusPaperId: string;
   onOpenDetail: (s: AgentSource) => void;
   onSourceSeen: (s: AgentSource) => void;
   cardedRef: React.MutableRefObject<Set<string>>;
 }) {
   const [traceDone, setTraceDone] = useState(false);
-  // Belt-and-suspenders: never render a citation chip for the paper the reader is
-  // already reading — strip its [N] marker even if the model slips and cites it.
-  const lines = useMemo(() => {
-    if (!turn.result) return [];
-    let answer = turn.result.answer;
-    const focusIdx = turn.result.sources.findIndex((s) => s.id === focusPaperId);
-    if (focusIdx >= 0) answer = answer.replace(new RegExp(`\\s*\\[${focusIdx + 1}\\]`, "g"), "");
-    return toLines(answer);
-  }, [turn.result, focusPaperId]);
+  const lines = useMemo(() => (turn.result ? toLines(turn.result.answer) : []), [turn.result]);
   return (
-    <div style={{ marginTop: 18, paddingLeft: 14, borderLeft: "3px solid #1a1a1a" }}>
-      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.02rem", lineHeight: 1.25, marginBottom: 10 }}>{turn.question}</div>
+    <div style={{ marginTop: 20, paddingLeft: 16, borderLeft: "3px solid #1a1a1a" }}>
+      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.08rem", lineHeight: 1.25, marginBottom: 12 }}>{turn.question}</div>
       {turn.error ? (
         <div style={{ fontFamily: BODY, fontSize: "0.85rem", color: "#ff007f" }}>{turn.error}</div>
       ) : (
@@ -83,13 +110,85 @@ function TurnBlock({ turn, focusPaperId, onOpenDetail, onSourceSeen, cardedRef }
   );
 }
 
-/* ---- detail overlay for a cited source ---- */
+/* ---- the cross-paper thread: tell the agent what interests you ---- */
+function CrossThread({ digestId, seeds, isLoggedIn, onSignIn, onOpenDetail, onSourceSeen, cardedRef }: {
+  digestId: string;
+  seeds: string[];
+  isLoggedIn: boolean;
+  onSignIn?: () => void;
+  onOpenDetail: (s: AgentSource) => void;
+  onSourceSeen: (s: AgentSource) => void;
+  cardedRef: React.MutableRefObject<Set<string>>;
+}) {
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [draft, setDraft] = useState("");
+  const askedRef = useRef(0);
+  const starters = useMemo(() => crossStarters(seeds), [seeds]);
+
+  const ask = (question: string) => {
+    const q = question.trim();
+    if (!q) return;
+    if (!isLoggedIn) {
+      setTurns((t) => [...t, { id: `t${askedRef.current++}`, question: q, status: [], result: { answer: "Sign in to thread these papers together — the agent will weave them around your question.", seeds: [], sources: [] }, error: null }]);
+      return;
+    }
+    const id = `t${askedRef.current++}`;
+    setTurns((t) => [...t, { id, question: q, status: [], result: null, error: null }]);
+    const patch = (fn: (t: Turn) => Turn) => setTurns((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
+    streamThread(digestId, q, [], {
+      onStatus: (s) => patch((t) => ({ ...t, status: [...t.status, s] })),
+      onResult: (r) => patch((t) => ({ ...t, result: r })),
+      onError: (m) => patch((t) => ({ ...t, error: m })),
+    });
+  };
+
+  const lastResult = turns.length ? turns[turns.length - 1].result : null;
+  const followups = lastResult?.seeds ?? [];
+  const prompts = turns.length === 0 ? starters : followups;
+
+  return (
+    <div style={{ marginTop: 30 }}>
+      <div style={{ fontFamily: DISPLAY, fontSize: "1.05rem", fontWeight: 700, lineHeight: 1.25, color: "#1a1a1a", marginBottom: 12 }}>
+        What do you want to pull on across these three?
+      </div>
+
+      {turns.map((t) => (
+        <TurnBlock key={t.id} turn={t} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
+      ))}
+
+      {prompts.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: turns.length ? 18 : 4 }}>
+          {prompts.map((q) => (
+            <button key={q} onClick={() => ask(q)} className="pm-seed" style={{ fontFamily: BODY, fontSize: "0.84rem", fontWeight: 500, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "8px 13px", textAlign: "left", cursor: "pointer" }}>
+              {q}<span style={{ marginLeft: 8, color: "#b3a89a" }}>↳</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={(e) => { e.preventDefault(); ask(draft); setDraft(""); }} style={{ display: "flex", gap: 8, marginTop: 14 }}>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Say what interests you across all three…"
+          style={{ flex: 1, fontFamily: BODY, fontSize: "0.86rem", border: "1.5px solid #1a1a1a", padding: "9px 12px", outline: "none", background: "#fff" }}
+        />
+        <button type="submit" style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", padding: "9px 15px", cursor: "pointer" }}>Thread it</button>
+      </form>
+      {!isLoggedIn && onSignIn && (
+        <button onClick={onSignIn} style={{ marginTop: 8, background: "none", border: "none", color: "#1a1a1a", textDecoration: "underline", cursor: "pointer", fontFamily: BODY, fontSize: "0.78rem" }}>Sign in to research with the agent</button>
+      )}
+    </div>
+  );
+}
+
+/* ---- detail overlay for a paper / cited source ---- */
 function DetailOverlay({ src, idx, onClose }: { src: AgentSource; idx: number; onClose: () => void }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(idx), maxWidth: 520, width: "100%", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
         <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888", marginBottom: 14 }}>✕ Close</button>
-        {(src.venue || src.year) && <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", color: "#666", marginBottom: 10 }}>{src.venue}{src.venue && src.year ? " · " : ""}{src.year || ""}</div>}
+        {(src.venue || src.year) && <div style={{ fontFamily: BODY, fontSize: "0.74rem", fontWeight: 500, color: "#8a8378", marginBottom: 10 }}>{src.venue}{src.venue && src.year ? " · " : ""}{src.year || ""}</div>}
         <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.3rem", lineHeight: 1.15, margin: "0 0 6px" }}>{src.title}</h3>
         {src.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 16px" }}>{src.authors.slice(0, 4).join(", ")}</p>}
         <p style={{ fontSize: "0.95rem", lineHeight: 1.6, color: "#222", margin: 0 }}>{src.summary}</p>
@@ -99,137 +198,18 @@ function DetailOverlay({ src, idx, onClose }: { src: AgentSource; idx: number; o
   );
 }
 
-/* ---- compact (collapsed) paper row ---- */
-function CompactCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: () => void }) {
-  return (
-    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "block", width: "100%", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", cursor: "pointer" }}>
-      <span style={{ fontFamily: BODY, fontSize: "0.74rem", fontWeight: 500, color: "#8a8378" }}>{venueLabel(paper)}</span>
-      <span style={{ display: "block", fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "0.82rem", lineHeight: 1.15, marginTop: 3 }}>{paper.title}</span>
-    </button>
-  );
-}
-
-/* ---- expanded paper card with the conversation ---- */
-function ExpandedCard({ paper, idx, theme, digestId, isLoggedIn, onSignIn, onOpenDetail, onSourceSeen, cardedRef, hasNext, onNext }: {
-  paper: PaperItem;
-  idx: number;
-  theme: string;
-  digestId: string;
-  isLoggedIn: boolean;
-  onSignIn?: () => void;
-  onOpenDetail: (s: AgentSource) => void;
-  onSourceSeen: (s: AgentSource) => void;
-  cardedRef: React.MutableRefObject<Set<string>>;
-  hasNext: boolean;
-  onNext: () => void;
-}) {
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [draft, setDraft] = useState("");
-  const tags = PALETTES[idx % PALETTES.length];
-  const summary = paper.summary || paper.abstract || "";
-  const askedRef = useRef(0);
-
-  const ask = (question: string) => {
-    const q = question.trim();
-    if (!q) return;
-    if (!isLoggedIn) {
-      setTurns((t) => [...t, { id: `t${askedRef.current++}`, question: q, status: [], result: { answer: "Sign in to interrogate this paper — the agent will read it and answer.", seeds: [], sources: [] }, error: null }]);
-      return;
-    }
-    const id = `t${askedRef.current++}`;
-    setTurns((t) => [...t, { id, question: q, status: [], result: null, error: null }]);
-    const patch = (fn: (t: Turn) => Turn) => setTurns((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
-    streamThread(
-      digestId,
-      q,
-      [],
-      {
-        onStatus: (s) => patch((t) => ({ ...t, status: [...t.status, s] })),
-        onResult: (r) => patch((t) => ({ ...t, result: r })),
-        onError: (m) => patch((t) => ({ ...t, error: m })),
-      },
-      paper.id
-    );
-  };
-
-  const lastResult = turns.length ? turns[turns.length - 1].result : null;
-  const followups = lastResult?.seeds ?? [];
-  const starters = starterQuestions(paper, theme);
-
-  return (
-    <div style={{ ...washStyle(idx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "16px 18px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <span style={{ fontFamily: BODY, fontSize: "0.78rem", fontWeight: 500, color: "#8a8378" }}>{venueLabel(paper)}</span>
-        {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: BODY, fontSize: "0.78rem", fontWeight: 500, color: "#8a8378", borderBottom: "1px solid #c9c2b6" }}>View study ↗</a>}
-      </div>
-      <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.05rem", lineHeight: 1.15, margin: "0 0 4px" }}>{paper.title}</h3>
-      {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.58rem", fontStyle: "italic", color: "#888", margin: "0 0 9px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
-      {summary && <p style={{ fontSize: "0.84rem", lineHeight: 1.55, color: "#222", margin: "0 0 8px" }}>{summary}</p>}
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: paper.connectionReason ? 14 : 4 }}>
-        {paper.keywords.slice(0, 3).map((kw, i) => (
-          <span key={kw} style={{ fontFamily: MONO, fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.5px", background: tags[i % 2], border: "1px solid #1a1a1a", padding: "2px 7px" }}>{kw}</span>
-        ))}
-      </div>
-      {paper.connectionReason && (
-        <p style={{ fontSize: "0.86rem", lineHeight: 1.55, color: "#1a1a1a", margin: "0 0 4px" }}>
-          <strong style={{ fontWeight: 700 }}>Why it&apos;s here:</strong> {paper.connectionReason}
-        </p>
-      )}
-
-      {/* conversation */}
-      {turns.map((t) => (
-        <TurnBlock key={t.id} turn={t} focusPaperId={paper.id} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
-      ))}
-
-      {/* prompts: starters before first question, follow-ups after */}
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 9 }}>
-          {turns.length === 0 ? "Ask this paper" : followups.length ? "Keep going" : "Ask more"}
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {(turns.length === 0 ? starters : followups).map((q) => (
-            <button key={q} onClick={() => ask(q)} className="pm-seed" style={{ fontFamily: BODY, fontSize: "0.82rem", fontWeight: 500, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "7px 12px", textAlign: "left", cursor: "pointer" }}>
-              {q.replace(/\*\*/g, "")}<span style={{ marginLeft: 8, color: "#b3a89a" }}>↳</span>
-            </button>
-          ))}
-        </div>
-        <form onSubmit={(e) => { e.preventDefault(); ask(draft); setDraft(""); }} style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={`Ask this paper anything…`}
-            style={{ flex: 1, fontFamily: BODY, fontSize: "0.82rem", border: "1.5px solid #1a1a1a", padding: "8px 11px", outline: "none", background: "rgba(255,255,255,0.7)" }}
-          />
-          <button type="submit" style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", padding: "8px 13px", cursor: "pointer" }}>Ask</button>
-        </form>
-        {!isLoggedIn && onSignIn && (
-          <button onClick={onSignIn} style={{ marginTop: 8, background: "none", border: "none", color: "#1a1a1a", textDecoration: "underline", cursor: "pointer", fontFamily: BODY, fontSize: "0.78rem" }}>Sign in to research with the agent</button>
-        )}
-      </div>
-
-      {hasNext && (
-        <div style={{ marginTop: 18, borderTop: "1.5px solid #d8d3c8", paddingTop: 12 }}>
-          <button onClick={onNext} className="pm-seed" style={{ fontFamily: DISPLAY, fontSize: "0.84rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "8px 14px", cursor: "pointer" }}>
-            Next paper →
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ---- main ---- */
-export function PapersMode({ synthesis, theme, papers, digestId, isLoggedIn, onSignIn }: {
+export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLoggedIn, onSignIn }: {
   synthesis: string;
   theme?: string;
   papers: PaperItem[];
   digestId: string;
+  seeds: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
 }) {
   const verdict = useMemo(() => verdictLead(synthesis, theme), [synthesis, theme]);
   const trio = papers.slice(0, 3);
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [detail, setDetail] = useState<{ src: AgentSource; idx: number } | null>(null);
   const [coda, setCoda] = useState<AgentSource[]>([]);
   const [codaOpen, setCodaOpen] = useState(false);
@@ -237,15 +217,19 @@ export function PapersMode({ synthesis, theme, papers, digestId, isLoggedIn, onS
 
   const seeSource = (s: AgentSource) => setCoda((prev) => (prev.some((c) => c.id === s.id) ? prev : [...prev, s]));
   const sourceIndex = (s: AgentSource) => { const i = coda.findIndex((c) => c.id === s.id); return i >= 0 ? i : coda.length; };
+  // Drilling into a digest paper opens it at its row index for a stable wash colour.
+  const openSource = (s: AgentSource) => {
+    const trioIdx = trio.findIndex((p) => p.id === s.id);
+    setDetail({ src: s, idx: trioIdx >= 0 ? trioIdx : sourceIndex(s) });
+  };
 
   if (trio.length === 0) return null;
-  const displayTheme = theme || splitSynthesisTheme(synthesis, theme).displayTheme;
 
   return (
     <div>
       <style>{`
         .pm-card { transition: transform .12s ease, box-shadow .12s ease; }
-        .pm-card:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 0 rgba(0,0,0,1) !important; }
+        .pm-card:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(0,0,0,1) !important; }
         .pm-seed { transition: transform .12s ease, box-shadow .12s ease; }
         .pm-seed:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 0 rgba(255,0,127,1) !important; }
       `}</style>
@@ -258,28 +242,21 @@ export function PapersMode({ synthesis, theme, papers, digestId, isLoggedIn, onS
         Three papers to think with
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {trio.map((paper, i) =>
-          activeIdx === i ? (
-            <ExpandedCard
-              key={paper.id}
-              paper={paper}
-              idx={i}
-              theme={displayTheme}
-              digestId={digestId}
-              isLoggedIn={isLoggedIn}
-              onSignIn={onSignIn}
-              onOpenDetail={(s) => setDetail({ src: s, idx: sourceIndex(s) })}
-              onSourceSeen={seeSource}
-              cardedRef={cardedRef}
-              hasNext={i < trio.length - 1}
-              onNext={() => setActiveIdx(i + 1)}
-            />
-          ) : (
-            <CompactCard key={paper.id} paper={paper} idx={i} onOpen={() => setActiveIdx(i)} />
-          )
-        )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, alignItems: "stretch" }}>
+        {trio.map((paper, i) => (
+          <RowCard key={paper.id} paper={paper} idx={i} onOpen={() => openSource(paperToSource(paper))} />
+        ))}
       </div>
+
+      <CrossThread
+        digestId={digestId}
+        seeds={seeds}
+        isLoggedIn={isLoggedIn}
+        onSignIn={onSignIn}
+        onOpenDetail={openSource}
+        onSourceSeen={seeSource}
+        cardedRef={cardedRef}
+      />
 
       {coda.length > 0 && (
         <div style={{ marginTop: 36, borderTop: "1.5px solid #d8d3c8", paddingTop: 18 }}>
