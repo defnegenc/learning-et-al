@@ -32,15 +32,17 @@ export async function POST(req: NextRequest) {
   const digestId: string | undefined = body.digestId;
   const question: string | undefined = body.question;
   const trail: string[] = Array.isArray(body.trail) ? body.trail.map(String) : [];
+  const focusPaperId: string | undefined = body.focusPaperId || undefined;
   if (!digestId || !question) return new Response(JSON.stringify({ error: "Missing digestId or question" }), { status: 400 });
 
   const digest = await db.query.digests.findFirst({ where: eq(digests.id, digestId) });
   if (!digest) return new Response(JSON.stringify({ error: "Digest not found" }), { status: 404 });
 
   // Cache: thread answers are pinned to the digest's content, which never changes
-  // after generation — so one agent run per (digest, question, trail), ever.
+  // after generation — so one agent run per (digest, question, trail, focus), ever.
+  // focusPaperId is folded into the trail key so paper-first answers cache separately.
   // Cache failures are non-fatal (e.g. table not yet pushed to prod).
-  const trailKey = trail.join(" → ");
+  const trailKey = `${focusPaperId ? `focus:${focusPaperId}|` : ""}${trail.join(" → ")}`;
   const cached = await db.query.threadCache
     .findFirst({ where: and(eq(threadCache.digestId, digestId), eq(threadCache.question, question), eq(threadCache.trailKey, trailKey)) })
     .catch(() => null);
@@ -187,6 +189,7 @@ export async function POST(req: NextRequest) {
           claims,
           initialSources,
           tools,
+          focusPaperId,
           emit: (ev) => send(ev),
         });
         send({ type: "result", answer: result.answer, seeds: result.seeds, sources: result.sources });

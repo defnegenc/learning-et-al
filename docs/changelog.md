@@ -87,3 +87,6 @@
 | 2026-06-13 | Brief mode now renders the full dig-through experience (BriefDigest): scroll-revealed verdict, paper cards revealed inline on first mention, then agentic threads — replaces the normal synthesis + side rail when ?brief=1 | Done |
 | 2026-06-13 | Extracted splitSynthesisTheme / flattenSynthesis / resolvePaperFromBold from SynthesisBanner so brief mode reuses the exact paper-matching (handles both [Source N] and fuzzy bold-name digest formats) | Done |
 | 2026-06-13 | Fix daily cron starving users past the execution-time cutoff: set maxDuration, process most-stale-first, surface processed counts | Done |
+| 2026-06-13 | Email only the admin from the cron (generation still runs for all); removed hardcoded test-email gate | Done |
+| 2026-06-13 | Fix brief verdict reveal deadlock on short content (scroll-gated → timed sentence reveal) | Done |
+| 2026-06-13 | Papers mode (?papers=1): paper-first experience — verdict + 3 cards (summary + "why it's here") you interrogate via the thread agent seeded with focusPaperId. Behind its own flag to compare against ?brief=1. Spec in docs/superpowers/specs/2026-06-13-papers-mode-design.md | Done |

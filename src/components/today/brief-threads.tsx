@@ -7,7 +7,7 @@ const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
 const BODY = "var(--font-inter), sans-serif";
 
-const PALETTES: [string, string][] = [
+export const PALETTES: [string, string][] = [
   ["#C8F0D8", "#F0F5A8"],
   ["#FFD6E0", "#FFE89A"],
   ["#D0E3F7", "#E2D6F7"],
@@ -35,12 +35,12 @@ export interface AgentSource {
   origin: "digest" | "discovered";
 }
 
-interface ResultPayload { answer: string; seeds: string[]; sources: AgentSource[]; }
+export interface ResultPayload { answer: string; seeds: string[]; sources: AgentSource[]; }
 
 // One agent run, cached by question so threads can preload before they're opened.
 interface ThreadRun { status: string[]; result: ResultPayload | null; error: string | null; }
 
-function washStyle(idx: number): React.CSSProperties {
+export function washStyle(idx: number): React.CSSProperties {
   const [h1, h2] = PALETTES[idx % PALETTES.length];
   return {
     background: `radial-gradient(circle 120px at 2% 4%, ${h1}cc 0%, transparent 60%), radial-gradient(circle 120px at 98% 8%, ${h2}cc 0%, transparent 60%), radial-gradient(circle 110px at 96% 100%, ${h1}99 0%, transparent 60%), #fff`,
@@ -49,15 +49,16 @@ function washStyle(idx: number): React.CSSProperties {
 }
 
 /* ---- SSE consumer ---- */
-async function streamThread(
+export async function streamThread(
   digestId: string,
   question: string,
   trail: string[],
-  h: { onStatus: (t: string) => void; onResult: (r: ResultPayload) => void; onError: (m: string) => void }
+  h: { onStatus: (t: string) => void; onResult: (r: ResultPayload) => void; onError: (m: string) => void },
+  focusPaperId?: string
 ) {
   let res: Response;
   try {
-    res = await fetch("/api/thread", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId, question, trail }) });
+    res = await fetch("/api/thread", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId, question, trail, ...(focusPaperId ? { focusPaperId } : {}) }) });
   } catch { h.onError("Network error"); return; }
   if (!res.ok || !res.body) { h.onError(res.status === 401 ? "Sign in to pull threads" : "Thread failed"); return; }
   const reader = res.body.getReader();
@@ -113,7 +114,7 @@ function tokenize(text: string): Seg[] {
   return segs;
 }
 
-function toLines(answer: string): Line[] {
+export function toLines(answer: string): Line[] {
   const out: { segs: Seg[]; para: boolean }[] = [];
   const paras = answer.split(/\n{2,}/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean);
   for (const para of paras) {
@@ -197,7 +198,7 @@ function InlineCard({ src, idx, onOpen }: { src: AgentSource; idx: number; onOpe
 }
 
 /* ---- sentence-by-sentence reveal: paragraphs, bold runs, cards on first mention ---- */
-function LineReveal({ lines, sources, onOpen, onSourceSeen, onDone, cardedRef }: {
+export function LineReveal({ lines, sources, onOpen, onSourceSeen, onDone, cardedRef }: {
   lines: Line[];
   sources: AgentSource[];
   onOpen: (s: AgentSource) => void;
@@ -273,7 +274,7 @@ function LineReveal({ lines, sources, onOpen, onSourceSeen, onDone, cardedRef }:
 }
 
 /* ---- thinking trace: replays preloaded statuses, paces live ones, caret on the active line ---- */
-function ThinkingTrace({ status, done, onDone }: { status: string[]; done: boolean; onDone: () => void }) {
+export function ThinkingTrace({ status, done, onDone }: { status: string[]; done: boolean; onDone: () => void }) {
   const [n, setN] = useState(0); // completed count
   const doneRef = useRef(onDone);
   useEffect(() => { doneRef.current = onDone; });

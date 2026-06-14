@@ -66,17 +66,25 @@ export async function runThreadAgent(opts: {
   initialSources: AgentSource[];
   tools: AgentTool[];
   maxToolCalls?: number;
+  focusPaperId?: string;     // when set, answer primarily from this paper ("paper-first" mode)
   emit: (ev: AgentEvent) => void;
 }): Promise<AgentResult> {
-  const { config, question, verdict, trail, claims, initialSources, tools, emit } = opts;
+  const { config, question, verdict, trail, claims, initialSources, tools, focusPaperId, emit } = opts;
   const maxToolCalls = opts.maxToolCalls ?? 2;
   const client = clientFor(config);
   const model = config.model || defaultModel(config.provider);
 
   const pool: AgentSource[] = [...initialSources];
+  const focusPaper = focusPaperId ? pool.find((s) => s.id === focusPaperId) : undefined;
   const toolByName = new Map(tools.map((t) => [t.name, t]));
   const numbered = () =>
     pool.map((s, i) => `[${i + 1}] ${s.title}${s.year ? ` (${s.year})` : ""} — ${s.summary.slice(0, 220)}`).join("\n");
+
+  // Paper-first framing: the reader is interrogating one specific paper. Lead with
+  // it; the other digest papers and search are still available when they genuinely help.
+  const focusNote = focusPaper
+    ? `\n\nThe reader is asking specifically about "${focusPaper.title}". Answer PRIMARILY from that paper and cite it. Bring in the other digest papers or a search only when it genuinely sharpens the answer — never to pad it.`
+    : "";
 
   const gatherSystem = `You are a research agent answering a reader's follow-up question about a daily research digest.
 
@@ -87,7 +95,7 @@ What the digest's papers established:
 ${claims}
 
 Sources already available:
-${numbered()}
+${numbered()}${focusNote}
 
 Most follow-up questions can be answered from the claims above plus sound reasoning — you do NOT need to search for those. Only call a tool when the question genuinely hinges on a fact or domain the papers don't touch: search_papers for scholarly evidence, search_web for current/real-world facts, search_vault for what the reader has already saved.
 
@@ -148,7 +156,7 @@ If you do search and the results aren't a perfect match, that is FINE and expect
   }
 
   // WRITE phase — cited answer + nested follow-ups as JSON
-  const writeSystem = `Answer the reader's question directly and take a position. The iron rule: LEAD WITH THE ANSWER.
+  const writeSystem = `Answer the reader's question directly and take a position. The iron rule: LEAD WITH THE ANSWER.${focusNote}
 
 BANNED openers — never start the answer with any of these or a paraphrase of them:
 "The research doesn't directly address...", "The provided sources don't...", "While the sources don't cover...", "Although no study looks at...", "It's important to note...".
