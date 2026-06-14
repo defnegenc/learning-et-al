@@ -837,7 +837,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: focusMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+    <div style={{ maxWidth: papersMode ? 1100 : briefMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
       <div className={focusMode ? "" : "grid grid-cols-1 md:grid-cols-[1fr_400px] items-start"} style={{ gap: "48px" }}>
 
         {/* ── Left: title + synthesis + dig deeper ── */}

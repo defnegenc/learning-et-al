@@ -71,11 +71,11 @@ function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen
   const [c1] = PALETTES[idx % PALETTES.length];
   const summary = paper.summary || paper.abstract || "";
   return (
-    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "13px 14px", cursor: "pointer", height: "100%" }}>
-      <span style={{ fontFamily: BODY, fontSize: "0.72rem", fontWeight: 500, color: "#8a8378", marginBottom: 5 }}>{venueLabel(paper)}</span>
-      <span style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "0.86rem", lineHeight: 1.15, marginBottom: 6 }}>{paper.title}</span>
-      {summary && <span style={{ fontSize: "0.76rem", lineHeight: 1.45, color: "#333", marginBottom: 10 }}>{summary.length > 150 ? summary.slice(0, 147) + "…" : summary}</span>}
-      <span style={{ marginTop: "auto", fontFamily: BODY, fontSize: "0.74rem", fontWeight: 600, color: "#1a1a1a", borderTop: `2px solid ${c1}`, paddingTop: 7 }}>
+    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "18px 20px", cursor: "pointer", height: "100%" }}>
+      <span style={{ fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, color: "#8a8378", marginBottom: 7 }}>{venueLabel(paper)}</span>
+      <span style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.05rem", lineHeight: 1.18, marginBottom: 9 }}>{paper.title}</span>
+      {summary && <span style={{ fontSize: "0.88rem", lineHeight: 1.5, color: "#333", marginBottom: 14 }}>{summary.length > 220 ? summary.slice(0, 217) + "…" : summary}</span>}
+      <span style={{ marginTop: "auto", fontFamily: BODY, fontSize: "0.86rem", fontWeight: 600, color: "#1a1a1a", borderTop: `2px solid ${c1}`, paddingTop: 9 }}>
         Open {lensLabel(paper)} →
       </span>
     </button>
@@ -159,7 +159,7 @@ function CrossThread({ digestId, seeds, isLoggedIn, onSignIn, onOpenDetail, onSo
       {prompts.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: turns.length ? 18 : 4 }}>
           {prompts.map((q) => (
-            <button key={q} onClick={() => ask(q)} className="pm-seed" style={{ fontFamily: BODY, fontSize: "0.84rem", fontWeight: 500, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "8px 13px", textAlign: "left", cursor: "pointer" }}>
+            <button key={q} onClick={() => ask(q)} className="pm-seed" style={{ fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, color: "#1a1a1a", background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "10px 15px", textAlign: "left", cursor: "pointer" }}>
               {q}<span style={{ marginLeft: 8, color: "#b3a89a" }}>↳</span>
             </button>
           ))}
@@ -242,7 +242,7 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
         Three papers to think with
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, alignItems: "stretch" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, alignItems: "stretch" }}>
         {trio.map((paper, i) => (
           <RowCard key={paper.id} paper={paper} idx={i} onOpen={() => openSource(paperToSource(paper))} />
         ))}
