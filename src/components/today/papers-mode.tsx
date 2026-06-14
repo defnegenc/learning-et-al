@@ -49,14 +49,23 @@ function starterQuestions(paper: PaperItem, theme: string): string[] {
 /* ---- one Q&A turn inside a paper's conversation ---- */
 interface Turn { id: string; question: string; status: string[]; result: ResultPayload | null; error: string | null; }
 
-function TurnBlock({ turn, onOpenDetail, onSourceSeen, cardedRef }: {
+function TurnBlock({ turn, focusPaperId, onOpenDetail, onSourceSeen, cardedRef }: {
   turn: Turn;
+  focusPaperId: string;
   onOpenDetail: (s: AgentSource) => void;
   onSourceSeen: (s: AgentSource) => void;
   cardedRef: React.MutableRefObject<Set<string>>;
 }) {
   const [traceDone, setTraceDone] = useState(false);
-  const lines = useMemo(() => (turn.result ? toLines(turn.result.answer) : []), [turn.result]);
+  // Belt-and-suspenders: never render a citation chip for the paper the reader is
+  // already reading — strip its [N] marker even if the model slips and cites it.
+  const lines = useMemo(() => {
+    if (!turn.result) return [];
+    let answer = turn.result.answer;
+    const focusIdx = turn.result.sources.findIndex((s) => s.id === focusPaperId);
+    if (focusIdx >= 0) answer = answer.replace(new RegExp(`\\s*\\[${focusIdx + 1}\\]`, "g"), "");
+    return toLines(answer);
+  }, [turn.result, focusPaperId]);
   return (
     <div style={{ marginTop: 18, paddingLeft: 14, borderLeft: "3px solid #1a1a1a" }}>
       <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.02rem", lineHeight: 1.25, marginBottom: 10 }}>{turn.question}</div>
@@ -149,9 +158,9 @@ function ExpandedCard({ paper, idx, theme, digestId, isLoggedIn, onSignIn, onOpe
 
   return (
     <div style={{ ...washStyle(idx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "16px 18px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <span style={{ fontFamily: BODY, fontSize: "0.78rem", fontWeight: 500, color: "#8a8378" }}>{venueLabel(paper)}</span>
-        {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", color: "#1a1a1a", borderBottom: "1.5px solid #1a1a1a" }}>VIEW STUDY ↗</a>}
+        {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: BODY, fontSize: "0.78rem", fontWeight: 500, color: "#8a8378", borderBottom: "1px solid #c9c2b6" }}>View study ↗</a>}
       </div>
       <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.05rem", lineHeight: 1.15, margin: "0 0 4px" }}>{paper.title}</h3>
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.58rem", fontStyle: "italic", color: "#888", margin: "0 0 9px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
@@ -162,15 +171,14 @@ function ExpandedCard({ paper, idx, theme, digestId, isLoggedIn, onSignIn, onOpe
         ))}
       </div>
       {paper.connectionReason && (
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 5 }}>Why it&apos;s here</div>
-          <p style={{ fontSize: "0.86rem", lineHeight: 1.5, color: "#1a1a1a", margin: 0 }}>{paper.connectionReason}</p>
-        </div>
+        <p style={{ fontSize: "0.86rem", lineHeight: 1.55, color: "#1a1a1a", margin: "0 0 4px" }}>
+          <strong style={{ fontWeight: 700 }}>Why it&apos;s here:</strong> {paper.connectionReason}
+        </p>
       )}
 
       {/* conversation */}
       {turns.map((t) => (
-        <TurnBlock key={t.id} turn={t} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
+        <TurnBlock key={t.id} turn={t} focusPaperId={paper.id} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
       ))}
 
       {/* prompts: starters before first question, follow-ups after */}

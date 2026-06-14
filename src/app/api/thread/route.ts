@@ -190,6 +190,9 @@ export async function POST(req: NextRequest) {
           initialSources,
           tools,
           focusPaperId,
+          // Paper-first answers come straight from the paper — skip the gather/search
+          // loop so it's one model call, not two-plus. Keeps "thinking" short.
+          maxToolCalls: focusPaperId ? 0 : undefined,
           emit: (ev) => send(ev),
         });
         send({ type: "result", answer: result.answer, seeds: result.seeds, sources: result.sources });
