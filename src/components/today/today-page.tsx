@@ -6,6 +6,7 @@ import type { PaperItem } from "./paper-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
 import { BriefDigest } from "./brief-digest";
+import { PapersMode } from "./papers-mode";
 import React from "react";
 
 /* ── Types ── */
@@ -633,9 +634,16 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
-  /* ── Brief mode flag (?brief=1) — gated rollout of the interactive brief ── */
+  /* ── Experience flags (?brief=1, ?papers=1) — gated rollouts to compare ── */
   const [briefMode, setBriefMode] = useState(false);
-  useEffect(() => { setBriefMode(new URLSearchParams(window.location.search).get("brief") === "1"); }, []);
+  const [papersMode, setPapersMode] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setBriefMode(params.get("brief") === "1");
+    setPapersMode(params.get("papers") === "1");
+  }, []);
+  // Either flag collapses to the single-column reading layout + inline cards.
+  const focusMode = briefMode || papersMode;
 
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
   const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
@@ -829,8 +837,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: briefMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
-      <div className={briefMode ? "" : "grid grid-cols-1 md:grid-cols-[1fr_400px] items-start"} style={{ gap: "48px" }}>
+    <div style={{ maxWidth: focusMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+      <div className={focusMode ? "" : "grid grid-cols-1 md:grid-cols-[1fr_400px] items-start"} style={{ gap: "48px" }}>
 
         {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
@@ -908,9 +916,19 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
           </div>
 
-          {/* Synthesis — brief mode (?brief=1) renders the dig-through experience:
-              scroll-revealed verdict, paper cards inline on first mention, agentic threads */}
-          {digest.synthesisContent && briefMode && digest.id ? (
+          {/* Synthesis — gated experiences swap in here:
+              ?papers=1 → paper-first (verdict + 3 cards you interrogate)
+              ?brief=1  → dig-through (scroll-revealed verdict, inline cards, threads) */}
+          {digest.synthesisContent && papersMode && digest.id ? (
+            <PapersMode
+              synthesis={digest.synthesisContent}
+              theme={digest.theme ?? undefined}
+              papers={papers}
+              digestId={digest.id}
+              isLoggedIn={!!session}
+              onSignIn={onSignIn}
+            />
+          ) : digest.synthesisContent && briefMode && digest.id ? (
             <BriefDigest
               synthesis={digest.synthesisContent}
               theme={digest.theme ?? undefined}
@@ -956,10 +974,11 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             </div>
           )}
 
-          {/* Dig deeper — below synthesis. In brief mode the threads live inside
-              BriefDigest; keep standalone threads only as a no-synthesis fallback. */}
-          {briefMode && digest.id ? (
-            !digest.synthesisContent && (
+          {/* Dig deeper — below synthesis. Focus modes carry their own follow-up UI
+              (brief threads / papers chat); keep brief's standalone threads only as a
+              no-synthesis fallback, and show nothing extra for papers mode. */}
+          {focusMode && digest.id ? (
+            briefMode && !digest.synthesisContent && (
               <div style={{ marginTop: "40px" }}>
                 <BriefThreads
                   digestId={digest.id}
@@ -985,8 +1004,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           )}
         </main>
 
-        {/* ── Right: paper rail (brief mode reveals cards inline instead) ── */}
-        {papers.length > 0 && !briefMode && (
+        {/* ── Right: paper rail (focus modes reveal cards inline instead) ── */}
+        {papers.length > 0 && !focusMode && (
           <aside>
             <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
               Referenced sources
