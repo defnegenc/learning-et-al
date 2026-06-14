@@ -20,7 +20,7 @@ const BODY = "var(--font-inter), sans-serif";
 
 function venueLabel(p: PaperItem): string {
   const url = (p.sourceUrl || "").toLowerCase();
-  const kind = url.includes("arxiv") ? "ARXIV" : p.source === "rss" ? "NEWS" : "PAPER";
+  const kind = url.includes("arxiv") ? "arXiv" : p.source === "rss" ? "News" : "Paper";
   return p.year ? `${kind} · ${p.year}` : kind;
 }
 
@@ -94,7 +94,7 @@ function DetailOverlay({ src, idx, onClose }: { src: AgentSource; idx: number; o
 function CompactCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: () => void }) {
   return (
     <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "block", width: "100%", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", cursor: "pointer" }}>
-      <span style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "1.5px", color: "#666" }}>{venueLabel(paper)}</span>
+      <span style={{ fontFamily: BODY, fontSize: "0.74rem", fontWeight: 500, color: "#8a8378" }}>{venueLabel(paper)}</span>
       <span style={{ display: "block", fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "0.82rem", lineHeight: 1.15, marginTop: 3 }}>{paper.title}</span>
     </button>
   );
@@ -150,7 +150,7 @@ function ExpandedCard({ paper, idx, theme, digestId, isLoggedIn, onSignIn, onOpe
   return (
     <div style={{ ...washStyle(idx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "16px 18px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
-        <span style={{ fontFamily: MONO, fontSize: "0.62rem", fontWeight: 600, letterSpacing: "1.5px", color: "#1a1a1a", background: "#fff", border: "1.5px solid #1a1a1a", padding: "3px 9px" }}>{venueLabel(paper)}</span>
+        <span style={{ fontFamily: BODY, fontSize: "0.78rem", fontWeight: 500, color: "#8a8378" }}>{venueLabel(paper)}</span>
         {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", color: "#1a1a1a", borderBottom: "1.5px solid #1a1a1a" }}>VIEW STUDY ↗</a>}
       </div>
       <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.05rem", lineHeight: 1.15, margin: "0 0 4px" }}>{paper.title}</h3>
@@ -163,7 +163,7 @@ function ExpandedCard({ paper, idx, theme, digestId, isLoggedIn, onSignIn, onOpe
       </div>
       {paper.connectionReason && (
         <div style={{ marginBottom: 4 }}>
-          <div style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 5 }}>Why it&apos;s here</div>
+          <div style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 5 }}>Why it&apos;s here</div>
           <p style={{ fontSize: "0.86rem", lineHeight: 1.5, color: "#1a1a1a", margin: 0 }}>{paper.connectionReason}</p>
         </div>
       )}
@@ -175,7 +175,7 @@ function ExpandedCard({ paper, idx, theme, digestId, isLoggedIn, onSignIn, onOpe
 
       {/* prompts: starters before first question, follow-ups after */}
       <div style={{ marginTop: 16 }}>
-        <div style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 9 }}>
+        <div style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 9 }}>
           {turns.length === 0 ? "Ask this paper" : followups.length ? "Keep going" : "Ask more"}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
