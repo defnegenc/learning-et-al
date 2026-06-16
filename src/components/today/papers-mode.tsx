@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { splitSynthesisTheme } from "./synthesis-banner";
+import { journalName } from "@/lib/venue-name";
 import {
   type AgentSource,
   type ResultPayload,
@@ -24,9 +25,9 @@ const HEADING: React.CSSProperties = { fontFamily: DISPLAY, fontSize: "0.95rem",
 const VENUE_CHIP: React.CSSProperties = { display: "inline-block", fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#666", border: "1px solid #cbd5e1", padding: "2px 6px" };
 
 function venueLabel(p: PaperItem): string {
-  const url = (p.sourceUrl || "").toLowerCase();
-  const kind = url.includes("arxiv") ? "arXiv" : p.source === "rss" ? "News" : "Paper";
-  return p.year ? `${kind} · ${p.year}` : kind;
+  // Show the actual source (arXiv, Nature, PNAS…) rather than a generic "Paper".
+  const src = journalName(p.sourceUrl, p.authors) || (p.source === "rss" ? "News" : "Paper");
+  return p.year ? `${src} · ${p.year}` : src;
 }
 
 // The lens each paper brings, as a noun phrase (the card headline; the title
@@ -179,11 +180,14 @@ function PaperThread({ paper, theme, digestId, isLoggedIn, onSignIn, onOpenDetai
 }
 
 /* ---- shared overlay shell ---- */
-function OverlayShell({ idx, onClose, children }: { idx: number; onClose: () => void; children: React.ReactNode }) {
+function OverlayShell({ idx, onClose, topRight, children }: { idx: number; onClose: () => void; topRight?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(idx), maxWidth: 540, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
-        <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888", marginBottom: 14 }}>✕ Close</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888" }}>✕ Close</button>
+          {topRight}
+        </div>
         {children}
       </div>
     </div>
@@ -235,8 +239,7 @@ function PaperDetail({ paper, idx, blurb, theme, digestId, isLoggedIn, onSignIn,
   // the fallback — otherwise the longer fallback flashes then "shortens" to it.
   const relatesText = relates || (loading ? "" : (paper.connectionReason ? relatesFallback(paper.connectionReason) : ""));
   return (
-    <OverlayShell idx={idx} onClose={onClose}>
-      <div style={{ marginBottom: 10 }}><span style={VENUE_CHIP}>{venueLabel(paper)}</span></div>
+    <OverlayShell idx={idx} onClose={onClose} topRight={<span style={VENUE_CHIP}>{venueLabel(paper)}</span>}>
       <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.3rem", lineHeight: 1.15, margin: "0 0 6px" }}>{paper.title}</h3>
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: 0 }}>{paper.authors.slice(0, 4).join(", ")}</p>}
       {tldr && <Section label="TL;DR">{tldr}</Section>}
