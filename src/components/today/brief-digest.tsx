@@ -211,6 +211,14 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
   );
 }
 
+// Turn the headless connectionReason fragment ("shows X…") into a sentence.
+function relatesFallback(reason: string): string {
+  const r = reason.trim();
+  if (!r) return "";
+  const sentence = /^[a-z]/.test(r) ? `This study ${r}` : r;
+  return /[.!?]$/.test(sentence) ? sentence : sentence + ".";
+}
+
 // The lens each paper brings, for the compare view.
 function lensLabel(p: PaperItem): string {
   if (p.category === "news") return "Recent news";
@@ -241,12 +249,16 @@ function ContrastBody({ result, papers, onOpenPaper }: { result: ResultPayload; 
 /* ---- compare card: one paper's lens, side by side with the others ---- */
 function CompareCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: (p: PaperItem) => void }) {
   const [c1] = PALETTES[idx % PALETTES.length];
-  const summary = paper.summary || paper.abstract || "";
+  // Show this paper's DISTINCT take (its connection to the question), not the same
+  // generic summary shown elsewhere.
+  const distinct = paper.connectionReason
+    ? relatesFallback(paper.connectionReason)
+    : (paper.summary || paper.abstract || "");
   return (
     <button onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "16px 18px", cursor: "pointer", height: "100%" }}>
-      <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, color: "#1a1a1a", marginBottom: 9, paddingBottom: 4, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
-      {summary && <span style={{ fontSize: "0.82rem", lineHeight: 1.5, color: "#333" }}>{summary.length > 180 ? summary.slice(0, 177) + "…" : summary}</span>}
-      <span style={{ marginTop: "auto", paddingTop: 10, fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Open →</span>
+      <span style={{ display: "flex", alignItems: "flex-end", alignSelf: "flex-start", minHeight: "2.3em", fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, color: "#1a1a1a", marginBottom: 12, paddingBottom: 6, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
+      {distinct && <span style={{ fontSize: "0.84rem", lineHeight: 1.5, color: "#1a1a1a" }}>{distinct}</span>}
+      <span style={{ marginTop: "auto", paddingTop: 12, fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Open →</span>
     </button>
   );
 }
