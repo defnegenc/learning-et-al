@@ -355,11 +355,11 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   let pendingCards: number[] = [];
   const flush = () => {
     if (buf.length) {
-      els.push(<p key={`p${els.length}`} style={{ fontSize: "1.06rem", lineHeight: 1.78, color: "#1a1a1a", margin: firstEl ? 0 : "14px 0 0" }}>{buf}</p>);
+      els.push(<p key={`p${els.length}`} style={{ fontSize: "1.06rem", lineHeight: 1.85, color: "#1a1a1a", margin: firstEl ? 0 : "34px 0 0" }}>{buf}</p>);
       buf = []; firstEl = false;
     }
     for (const pi of pendingCards) {
-      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "16px 0 0" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} /></div>);
+      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} /></div>);
     }
     if (pendingCards.length) firstEl = false;
     pendingCards = [];
