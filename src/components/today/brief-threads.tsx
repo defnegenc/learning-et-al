@@ -162,16 +162,16 @@ function CiteChip({ src, idx, onOpen }: { src: AgentSource; idx: number; onOpen:
   const summary = src.summary.length > 150 ? src.summary.slice(0, 147) + "..." : src.summary;
   return (
     <span style={{ position: "relative", display: "inline" }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      {/* color marker (no name) — the paper's colour ties it to its card */}
       <button
         onClick={() => onOpen(src)}
+        aria-label={label}
         style={{
-          fontWeight: 700, color: "#111", border: "none", cursor: "pointer",
-          background: `linear-gradient(135deg, ${hover ? h1 : g1} 0%, ${hover ? h2 : g2} 100%)`,
-          padding: "1px 4px", margin: "0 -1px", borderRadius: 2, transition: "background 0.15s",
-          fontFamily: "inherit", fontSize: "inherit", lineHeight: "inherit",
-          WebkitBoxDecorationBreak: "clone", boxDecorationBreak: "clone" as React.CSSProperties["boxDecorationBreak"],
+          display: "inline-block", width: 20, height: 11, verticalAlign: "middle",
+          border: "1px solid #1a1a1a", borderRadius: 3, cursor: "pointer", padding: 0, margin: "0 3px",
+          background: `linear-gradient(135deg, ${hover ? h1 : g1} 0%, ${hover ? h2 : g2} 100%)`, transition: "background 0.15s",
         }}
-      >{label}</button>
+      />
       {hover && (
         <span style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, zIndex: 50, width: 280, background: "#1a1a1a", color: "#fff", fontFamily: BODY, fontSize: "0.75rem", fontWeight: 400, lineHeight: 1.5, padding: "10px 14px", boxShadow: "4px 4px 0 0 rgba(0,0,0,0.3)", pointerEvents: "none" }}>
           <span style={{ display: "block", fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", color: "#aaa", marginBottom: 5 }}>{src.title}</span>
@@ -350,11 +350,29 @@ function ThreadBlock({ entry, run, onOpenNested, onSourceSeen, onOpenDetail, onS
   const ref = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => (run.result ? toLines(run.result.answer) : []), [run.result]);
 
+  // Which of the digest's papers this thread draws on — shown as colour swatches
+  // so you can see at a glance which one (or which combo) you're looking at.
+  const citedIdxs = useMemo(() => {
+    if (!run.result) return [];
+    const seen = new Set<number>();
+    for (const m of run.result.answer.matchAll(/\[(\d+)\]/g)) {
+      const i = parseInt(m[1], 10) - 1;
+      if (run.result.sources[i]?.origin === "digest") seen.add(i);
+    }
+    return [...seen];
+  }, [run.result]);
+
   useEffect(() => { ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
 
   return (
     <div ref={ref} style={{ marginTop: 28, paddingLeft: 18, borderLeft: `3px solid ${entry.depth % 2 === 0 ? "#1a1a1a" : "#ff007f"}` }}>
-      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.2rem", lineHeight: 1.2, marginBottom: 14, letterSpacing: "-0.01em" }}>{entry.question}</div>
+      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.2rem", lineHeight: 1.2, marginBottom: citedIdxs.length ? 8 : 14, letterSpacing: "-0.01em" }}>{entry.question}</div>
+      {citedIdxs.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
+          <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", textTransform: "uppercase", color: "#8a8378" }}>Drawing on</span>
+          {citedIdxs.map((i) => { const [a, b] = PALETTES[i % PALETTES.length]; return <span key={i} title={run.result?.sources[i]?.title} style={{ width: 20, height: 11, borderRadius: 3, border: "1px solid #1a1a1a", background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)` }} />; })}
+        </div>
+      )}
       {run.error ? (
         <div style={{ fontFamily: BODY, fontSize: "0.85rem", color: "#ff007f" }}>
           {run.error}{!isLoggedIn && onSignIn && <> · <button onClick={onSignIn} style={{ background: "none", border: "none", color: "#1a1a1a", textDecoration: "underline", cursor: "pointer" }}>Sign in</button></>}
