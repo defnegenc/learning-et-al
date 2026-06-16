@@ -925,7 +925,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               theme={digest.theme ?? undefined}
               papers={papers}
               digestId={digest.id}
-              seeds={digest.suggestedQuestions || []}
               isLoggedIn={!!session}
               onSignIn={onSignIn}
             />
