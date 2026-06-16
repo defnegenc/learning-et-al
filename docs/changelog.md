@@ -90,3 +90,4 @@
 | 2026-06-13 | Email only the admin from the cron (generation still runs for all); removed hardcoded test-email gate | Done |
 | 2026-06-13 | Fix brief verdict reveal deadlock on short content (scroll-gated → timed sentence reveal) | Done |
 | 2026-06-13 | Papers mode (?papers=1): paper-first experience — verdict + 3 cards (summary + "why it's here") you interrogate via the thread agent seeded with focusPaperId. Behind its own flag to compare against ?brief=1. Spec in docs/superpowers/specs/2026-06-13-papers-mode-design.md | Done |
+| 2026-06-16 | Brief is now the DEFAULT experience (off the ?brief=1 flag): source-by-source reveal → compare the three (with generated "how they differ" contrast) → dig-deeper agentic threads with colour-coded papers + paper trail. ?classic=1 falls back to the original synthesis + paper-rail view; ?papers=1 / ?papersog=1 remain as comparison variants | Done |
