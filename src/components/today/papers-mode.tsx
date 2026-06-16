@@ -198,26 +198,19 @@ function relatesFallback(reason: string): string {
   return /[.!?]$/.test(sentence) ? sentence : sentence + ".";
 }
 
+interface Blurb { dinner: string; relates: string }
+
 /* ---- rich detail for a digest paper: TL;DR, how it relates, dinner-party line ---- */
-function PaperDetail({ paper, idx, onClose }: { paper: PaperItem; idx: number; onClose: () => void }) {
-  const cached = paper.dinnerLine != null && paper.relatesLine != null;
-  const [dinner, setDinner] = useState<string>(paper.dinnerLine ?? "");
-  const [relates, setRelates] = useState<string>(paper.relatesLine ?? "");
-  const [loading, setLoading] = useState(!cached);
-  useEffect(() => {
-    if (cached) return;
-    let cancelled = false;
-    fetch(`/api/papers/${paper.id}/blurb`)
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled) { setDinner(d.dinner || ""); setRelates(d.relates || ""); setLoading(false); } })
-      .catch(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [paper.id, cached]);
+function PaperDetail({ paper, idx, blurb, onClose }: { paper: PaperItem; idx: number; blurb?: Blurb; onClose: () => void }) {
+  // The blurb is owned + cached by PapersMode and prefetched on mount, so by the
+  // time you click it's usually ready (no flash) and reopening is instant.
+  const loading = !blurb;
+  const dinner = blurb?.dinner ?? "";
+  const relates = blurb?.relates ?? "";
 
   const tldr = paper.summary || paper.abstract || "";
-  // Don't show the fallback while the generated sentence is still loading — that
-  // causes a flash where the longer fallback briefly shows then "shortens" to the
-  // generated one. Show a loading state, then resolve once to the final text.
+  // While the generated sentence is still loading, show a loading state rather than
+  // the fallback — otherwise the longer fallback flashes then "shortens" to it.
   const relatesText = relates || (loading ? "" : (paper.connectionReason ? relatesFallback(paper.connectionReason) : ""));
   return (
     <OverlayShell idx={idx} onClose={onClose}>
@@ -273,6 +266,29 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
   const [coda, setCoda] = useState<AgentSource[]>([]);
   const [codaOpen, setCodaOpen] = useState(false);
   const cardedRef = useRef<Set<string>>(new Set());
+
+  // Blurb (TL;DR / how-it-relates / dinner line) cache, seeded from any values
+  // already on the paper, populated by a prefetch so opening a paper is instant
+  // and reopening never re-fetches (which caused the flash).
+  const [blurbs, setBlurbs] = useState<Record<string, Blurb>>(() => {
+    const init: Record<string, Blurb> = {};
+    for (const p of papers.slice(0, 3)) if (p.dinnerLine != null && p.relatesLine != null) init[p.id] = { dinner: p.dinnerLine, relates: p.relatesLine };
+    return init;
+  });
+  const inflight = useRef<Set<string>>(new Set());
+  const ensureBlurb = (id: string) => {
+    if (blurbs[id] || inflight.current.has(id)) return;
+    inflight.current.add(id);
+    fetch(`/api/papers/${id}/blurb`)
+      .then((r) => r.json())
+      .then((d) => setBlurbs((prev) => ({ ...prev, [id]: { dinner: d.dinner || "", relates: d.relates || "" } })))
+      .catch(() => {})
+      .finally(() => inflight.current.delete(id));
+  };
+  useEffect(() => {
+    trio.forEach((p) => ensureBlurb(p.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const seeSource = (s: AgentSource) => setCoda((prev) => (prev.some((c) => c.id === s.id) ? prev : [...prev, s]));
   const sourceIndex = (s: AgentSource) => { const i = coda.findIndex((c) => c.id === s.id); return i >= 0 ? i : coda.length; };
@@ -338,7 +354,7 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
       )}
 
       {detail && (detail.kind === "paper"
-        ? <PaperDetail paper={detail.paper} idx={detail.idx} onClose={() => setDetail(null)} />
+        ? <PaperDetail paper={detail.paper} idx={detail.idx} blurb={blurbs[detail.paper.id]} onClose={() => setDetail(null)} />
         : <DetailOverlay src={detail.src} idx={detail.idx} onClose={() => setDetail(null)} />)}
     </div>
   );
