@@ -552,29 +552,26 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
       {/* Paper trail — always available; fills in as you pull threads */}
       {showTrail ? (
         <div style={{ position: "fixed", right: 20, bottom: 20, width: 248, zIndex: 60, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 12px 14px", maxHeight: "60vh", overflowY: "auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a" }}>Paper trail</span>
             <button onClick={() => setShowTrail(false)} style={{ fontFamily: BODY, fontSize: "0.8rem", background: "none", border: "none", cursor: "pointer", color: "#a8a294" }}>✕</button>
           </div>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 600, background: "transparent", border: "none", padding: "4px 2px", cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
-          >
-            <span style={{ color: "#1a1a1a", fontSize: "0.55rem", flexShrink: 0 }}>●</span>
-            <span>The verdict</span>
-          </button>
           {trail.length === 0 ? (
-            <p style={{ fontFamily: BODY, fontSize: "0.72rem", color: "#a8a294", margin: "6px 2px 0", lineHeight: 1.4 }}>Pull a thread below and it builds here.</p>
-          ) : trail.map((entry) => (
-            <button
-              key={entry.key}
-              onClick={() => document.getElementById(`brief-thread-${entry.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
-              style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, background: "transparent", border: "none", padding: "4px 2px", marginLeft: (entry.depth + 1) * 12, cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
-            >
-              <span style={{ color: entry.depth % 2 === 0 ? "#1a1a1a" : "#ff007f", fontSize: "0.55rem", flexShrink: 0 }}>●</span>
-              <span>{entry.question.replace(/\*\*/g, "")}</span>
-            </button>
-          ))}
+            <p style={{ fontFamily: BODY, fontSize: "0.72rem", color: "#a8a294", margin: 0, lineHeight: 1.4 }}>Pull a thread below and it builds here.</p>
+          ) : (
+            <div style={{ borderLeft: "2px solid #1a1a1a", paddingLeft: 12, marginLeft: 3 }}>
+              {trail.map((entry) => (
+                <button
+                  key={entry.key}
+                  onClick={() => document.getElementById(`brief-thread-${entry.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                  style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, background: "transparent", border: "none", padding: "4px 2px", marginLeft: entry.depth * 14, cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
+                >
+                  <span style={{ color: entry.depth % 2 === 0 ? "#1a1a1a" : "#ff007f", fontSize: "0.55rem", flexShrink: 0, marginLeft: -17 }}>●</span>
+                  <span style={{ marginLeft: 6 }}>{entry.question.replace(/\*\*/g, "")}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <button onClick={() => setShowTrail(true)} style={{ position: "fixed", right: 20, bottom: 20, zIndex: 60, fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", background: "#1a1a1a", color: "#fff", border: "none", padding: "8px 14px", cursor: "pointer", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)" }}>◆ Paper trail</button>
