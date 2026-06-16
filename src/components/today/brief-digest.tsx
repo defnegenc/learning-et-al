@@ -274,15 +274,18 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return map;
   }, [lines]);
 
-  // User-paced reveal: each "Next source" click surfaces the next full PARAGRAPH —
-  // a complete thought — so a source's point never gets cut off mid-sentence. The
-  // card for a paper drops as its paragraph reveals.
+  // User-paced reveal, by full paragraph (a complete thought, never cut mid-point).
+  // Step 0 spans the intro PLUS the first source's paragraph, so the opening view
+  // already shows a complete first source; each "Next source" then adds one more.
   const stops = useMemo(() => {
-    const s: number[] = [];
-    for (let i = 1; i < lines.length; i++) if (lines[i].para) s.push(i);
-    s.push(lines.length);
-    return s.length ? s : [lines.length];
-  }, [lines]);
+    const boundaries: number[] = [];
+    for (let i = 1; i < lines.length; i++) if (lines[i].para) boundaries.push(i);
+    boundaries.push(lines.length);
+    const cardLines = Object.keys(cardsAfter).map(Number);
+    const firstCard = cardLines.length ? Math.min(...cardLines) : 0;
+    const start = boundaries.findIndex((b) => b > firstCard); // first paragraph end past the first card
+    return boundaries.slice(start >= 0 ? start : 0);
+  }, [lines, cardsAfter]);
 
   const [step, setStep] = useState(0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
