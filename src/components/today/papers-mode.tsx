@@ -18,6 +18,11 @@ const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
 const BODY = "var(--font-inter), sans-serif";
 
+// Shared section-heading format (matches the "Daily digest" eyebrow).
+const HEADING: React.CSSProperties = { fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" };
+// The "PAPER · 2026" chip used across prod (faint-bordered mono tag).
+const VENUE_CHIP: React.CSSProperties = { display: "inline-block", fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#666", border: "1px solid #cbd5e1", padding: "2px 6px" };
+
 function venueLabel(p: PaperItem): string {
   const url = (p.sourceUrl || "").toLowerCase();
   const kind = url.includes("arxiv") ? "arXiv" : p.source === "rss" ? "News" : "Paper";
@@ -54,7 +59,7 @@ function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen
   const teaser = paper.relatesLine || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
   return (
     <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "18px 20px", cursor: "pointer", height: "100%" }}>
-      <span style={{ fontFamily: BODY, fontSize: "0.72rem", fontWeight: 500, color: "#8a8378", marginBottom: 9 }}>{venueLabel(paper)}</span>
+      <span style={{ ...VENUE_CHIP, alignSelf: "flex-start", marginBottom: 11 }}>{venueLabel(paper)}</span>
       <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", marginBottom: 11, paddingBottom: 4, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
       {teaser && <span style={{ fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 600, lineHeight: 1.32, color: "#1a1a1a", marginBottom: 14 }}>{teaser}</span>}
       <span style={{ marginTop: "auto", fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Reveal the paper →</span>
@@ -141,7 +146,7 @@ function PaperThread({ paper, theme, digestId, isLoggedIn, onSignIn, onOpenDetai
 
   return (
     <div style={{ marginTop: 22, borderTop: "1.5px solid rgba(26,26,26,0.18)", paddingTop: 18 }}>
-      <div style={{ fontFamily: DISPLAY, fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#8a8378", marginBottom: 11 }}>Ask this paper</div>
+      <div style={{ ...HEADING, marginBottom: 11 }}>Dig deeper</div>
 
       {turns.map((t) => (
         <TurnBlock key={t.id} turn={t} focusPaperId={paper.id} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
@@ -231,7 +236,7 @@ function PaperDetail({ paper, idx, blurb, theme, digestId, isLoggedIn, onSignIn,
   const relatesText = relates || (loading ? "" : (paper.connectionReason ? relatesFallback(paper.connectionReason) : ""));
   return (
     <OverlayShell idx={idx} onClose={onClose}>
-      <div style={{ fontFamily: BODY, fontSize: "0.74rem", fontWeight: 500, color: "#8a8378", marginBottom: 10 }}>{venueLabel(paper)}</div>
+      <div style={{ marginBottom: 10 }}><span style={VENUE_CHIP}>{venueLabel(paper)}</span></div>
       <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.3rem", lineHeight: 1.15, margin: "0 0 6px" }}>{paper.title}</h3>
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: 0 }}>{paper.authors.slice(0, 4).join(", ")}</p>}
       {tldr && <Section label="TL;DR">{tldr}</Section>}
@@ -342,9 +347,7 @@ export function PapersMode({ synthesis, theme, papers, digestId, isLoggedIn, onS
         <p style={{ fontFamily: DISPLAY, fontSize: "1.18rem", fontWeight: 500, lineHeight: 1.45, color: "#1a1a1a", margin: "0 0 22px" }}>{verdict}</p>
       )}
 
-      <div style={{ fontFamily: DISPLAY, fontSize: "0.9rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 12 }}>
-        Three papers to think with
-      </div>
+      <div style={{ ...HEADING, marginBottom: 12 }}>Three papers</div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, alignItems: "stretch" }}>
         {trio.map((paper, i) => (
