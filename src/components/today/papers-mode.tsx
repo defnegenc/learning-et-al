@@ -48,12 +48,6 @@ function verdictLead(synthesis: string, theme?: string): string {
   return sentences.slice(0, 2).map((s) => s.trim()).join(" ");
 }
 
-// Cross-cutting starters: prefer the digest's suggested questions, else templates.
-function crossStarters(seeds: string[]): string[] {
-  if (seeds.length) return seeds.slice(0, 3).map((s) => s.replace(/\*\*/g, ""));
-  return ["Where do these three disagree?", "What's the common thread?"];
-}
-
 /* ---- an anonymized paper card: the lens + what it does, title hidden until reveal ---- */
 function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: () => void }) {
   const [c1] = PALETTES[idx % PALETTES.length];
@@ -68,20 +62,29 @@ function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen
   );
 }
 
-/* ---- one Q&A turn in the cross-paper thread ---- */
+/* ---- one Q&A turn ---- */
 interface Turn { id: string; question: string; status: string[]; result: ResultPayload | null; error: string | null; }
 
-function TurnBlock({ turn, onOpenDetail, onSourceSeen, cardedRef }: {
+function TurnBlock({ turn, focusPaperId, onOpenDetail, onSourceSeen, cardedRef }: {
   turn: Turn;
+  focusPaperId: string;
   onOpenDetail: (s: AgentSource) => void;
   onSourceSeen: (s: AgentSource) => void;
   cardedRef: React.MutableRefObject<Set<string>>;
 }) {
   const [traceDone, setTraceDone] = useState(false);
-  const lines = useMemo(() => (turn.result ? toLines(turn.result.answer) : []), [turn.result]);
+  // Never render a citation chip for the paper you're already reading — strip its
+  // [N] marker even if the model slips and cites it.
+  const lines = useMemo(() => {
+    if (!turn.result) return [];
+    let answer = turn.result.answer;
+    const focusIdx = turn.result.sources.findIndex((s) => s.id === focusPaperId);
+    if (focusIdx >= 0) answer = answer.replace(new RegExp(`\\s*\\[${focusIdx + 1}\\]`, "g"), "");
+    return toLines(answer);
+  }, [turn.result, focusPaperId]);
   return (
-    <div style={{ marginTop: 20, paddingLeft: 16, borderLeft: "3px solid #1a1a1a" }}>
-      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.08rem", lineHeight: 1.25, marginBottom: 12 }}>{turn.question}</div>
+    <div style={{ marginTop: 18, paddingLeft: 14, borderLeft: "3px solid #1a1a1a" }}>
+      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.0rem", lineHeight: 1.25, marginBottom: 10 }}>{turn.question}</div>
       {turn.error ? (
         <div style={{ fontFamily: BODY, fontSize: "0.85rem", color: "#ff007f" }}>{turn.error}</div>
       ) : (
@@ -96,10 +99,11 @@ function TurnBlock({ turn, onOpenDetail, onSourceSeen, cardedRef }: {
   );
 }
 
-/* ---- the cross-paper thread: tell the agent what interests you ---- */
-function CrossThread({ digestId, seeds, isLoggedIn, onSignIn, onOpenDetail, onSourceSeen, cardedRef }: {
+/* ---- agentic Q&A about ONE paper, baked into its detail view ---- */
+function PaperThread({ paper, theme, digestId, isLoggedIn, onSignIn, onOpenDetail, onSourceSeen, cardedRef }: {
+  paper: PaperItem;
+  theme: string;
   digestId: string;
-  seeds: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
   onOpenDetail: (s: AgentSource) => void;
@@ -109,13 +113,17 @@ function CrossThread({ digestId, seeds, isLoggedIn, onSignIn, onOpenDetail, onSo
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const askedRef = useRef(0);
-  const starters = useMemo(() => crossStarters(seeds), [seeds]);
+  const starters = [
+    "What did it actually find?",
+    "How strong is the evidence?",
+    theme ? `How does this answer "${theme}"?` : "How does this connect to the big question?",
+  ];
 
   const ask = (question: string) => {
     const q = question.trim();
     if (!q) return;
     if (!isLoggedIn) {
-      setTurns((t) => [...t, { id: `t${askedRef.current++}`, question: q, status: [], result: { answer: "Sign in to thread these papers together — the agent will weave them around your question.", seeds: [], sources: [] }, error: null }]);
+      setTurns((t) => [...t, { id: `t${askedRef.current++}`, question: q, status: [], result: { answer: "Sign in to interrogate this paper — the agent reads it and answers.", seeds: [], sources: [] }, error: null }]);
       return;
     }
     const id = `t${askedRef.current++}`;
@@ -125,41 +133,38 @@ function CrossThread({ digestId, seeds, isLoggedIn, onSignIn, onOpenDetail, onSo
       onStatus: (s) => patch((t) => ({ ...t, status: [...t.status, s] })),
       onResult: (r) => patch((t) => ({ ...t, result: r })),
       onError: (m) => patch((t) => ({ ...t, error: m })),
-    }, { concise: true });
+    }, { focusPaperId: paper.id, concise: true });
   };
 
-  const lastResult = turns.length ? turns[turns.length - 1].result : null;
-  const followups = lastResult?.seeds ?? [];
+  const followups = turns.length ? turns[turns.length - 1].result?.seeds ?? [] : [];
   const prompts = turns.length === 0 ? starters : followups;
 
   return (
-    <div style={{ marginTop: 30 }}>
-      <div style={{ fontFamily: DISPLAY, fontSize: "1.05rem", fontWeight: 700, lineHeight: 1.25, color: "#1a1a1a", marginBottom: 12 }}>
-        What do you want to pull on across these three?
-      </div>
+    <div style={{ marginTop: 22, borderTop: "1.5px solid rgba(26,26,26,0.18)", paddingTop: 18 }}>
+      <div style={{ fontFamily: DISPLAY, fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#8a8378", marginBottom: 11 }}>Ask this paper</div>
 
       {turns.map((t) => (
-        <TurnBlock key={t.id} turn={t} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
+        <TurnBlock key={t.id} turn={t} focusPaperId={paper.id} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
       ))}
 
       {prompts.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: turns.length ? 18 : 4 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: turns.length ? 16 : 0 }}>
           {prompts.map((q) => (
-            <button key={q} onClick={() => ask(q)} className="pm-seed" style={{ fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, color: "#1a1a1a", background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "10px 15px", textAlign: "left", cursor: "pointer" }}>
+            <button key={q} onClick={() => ask(q)} className="pm-seed" style={{ fontFamily: DISPLAY, fontSize: "0.86rem", fontWeight: 700, color: "#1a1a1a", background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "8px 13px", textAlign: "left", cursor: "pointer" }}>
               {q}<span style={{ marginLeft: 8, color: "#b3a89a" }}>↳</span>
             </button>
           ))}
         </div>
       )}
 
-      <form onSubmit={(e) => { e.preventDefault(); ask(draft); setDraft(""); }} style={{ display: "flex", gap: 8, marginTop: 14 }}>
+      <form onSubmit={(e) => { e.preventDefault(); ask(draft); setDraft(""); }} style={{ display: "flex", gap: 8, marginTop: 12 }}>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Say what interests you across all three…"
-          style={{ flex: 1, fontFamily: BODY, fontSize: "0.86rem", border: "1.5px solid #1a1a1a", padding: "9px 12px", outline: "none", background: "#fff" }}
+          placeholder="Ask this paper anything…"
+          style={{ flex: 1, fontFamily: BODY, fontSize: "0.84rem", border: "1.5px solid #1a1a1a", padding: "8px 11px", outline: "none", background: "#fff" }}
         />
-        <button type="submit" style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", padding: "9px 15px", cursor: "pointer" }}>Thread it</button>
+        <button type="submit" style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", padding: "8px 13px", cursor: "pointer" }}>Ask</button>
       </form>
       {!isLoggedIn && onSignIn && (
         <button onClick={onSignIn} style={{ marginTop: 8, background: "none", border: "none", color: "#1a1a1a", textDecoration: "underline", cursor: "pointer", fontFamily: BODY, fontSize: "0.78rem" }}>Sign in to research with the agent</button>
@@ -200,8 +205,20 @@ function relatesFallback(reason: string): string {
 
 interface Blurb { dinner: string; relates: string }
 
-/* ---- rich detail for a digest paper: TL;DR, how it relates, dinner-party line ---- */
-function PaperDetail({ paper, idx, blurb, onClose }: { paper: PaperItem; idx: number; blurb?: Blurb; onClose: () => void }) {
+/* ---- rich detail for a digest paper: TL;DR, how it relates, dinner-party line, + Q&A ---- */
+function PaperDetail({ paper, idx, blurb, theme, digestId, isLoggedIn, onSignIn, onOpenDetail, onSourceSeen, cardedRef, onClose }: {
+  paper: PaperItem;
+  idx: number;
+  blurb?: Blurb;
+  theme: string;
+  digestId: string;
+  isLoggedIn: boolean;
+  onSignIn?: () => void;
+  onOpenDetail: (s: AgentSource) => void;
+  onSourceSeen: (s: AgentSource) => void;
+  cardedRef: React.MutableRefObject<Set<string>>;
+  onClose: () => void;
+}) {
   // The blurb is owned + cached by PapersMode and prefetched on mount, so by the
   // time you click it's usually ready (no flash) and reopening is instant.
   const loading = !blurb;
@@ -229,6 +246,16 @@ function PaperDetail({ paper, idx, blurb, onClose }: { paper: PaperItem; idx: nu
         </Section>
       )}
       {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 20, fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", background: "#1a1a1a", color: "#fff", padding: "7px 12px" }}>VIEW STUDY ↗</a>}
+      <PaperThread
+        paper={paper}
+        theme={theme}
+        digestId={digestId}
+        isLoggedIn={isLoggedIn}
+        onSignIn={onSignIn}
+        onOpenDetail={onOpenDetail}
+        onSourceSeen={onSourceSeen}
+        cardedRef={cardedRef}
+      />
     </OverlayShell>
   );
 }
@@ -250,16 +277,16 @@ function DetailOverlay({ src, idx, onClose }: { src: AgentSource; idx: number; o
 }
 
 /* ---- main ---- */
-export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLoggedIn, onSignIn }: {
+export function PapersMode({ synthesis, theme, papers, digestId, isLoggedIn, onSignIn }: {
   synthesis: string;
   theme?: string;
   papers: PaperItem[];
   digestId: string;
-  seeds: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
 }) {
   const verdict = useMemo(() => verdictLead(synthesis, theme), [synthesis, theme]);
+  const displayTheme = useMemo(() => theme || splitSynthesisTheme(synthesis, theme).displayTheme, [synthesis, theme]);
   const trio = papers.slice(0, 3);
   type Detail = { kind: "paper"; paper: PaperItem; idx: number } | { kind: "src"; src: AgentSource; idx: number };
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -325,16 +352,6 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
         ))}
       </div>
 
-      <CrossThread
-        digestId={digestId}
-        seeds={seeds}
-        isLoggedIn={isLoggedIn}
-        onSignIn={onSignIn}
-        onOpenDetail={openSource}
-        onSourceSeen={seeSource}
-        cardedRef={cardedRef}
-      />
-
       {coda.length > 0 && (
         <div style={{ marginTop: 36, borderTop: "1.5px solid #d8d3c8", paddingTop: 18 }}>
           <button onClick={() => setCodaOpen((o) => !o)} style={{ fontFamily: DISPLAY, fontSize: "0.9rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.045em", background: "none", border: "none", cursor: "pointer", color: "#1a1a1a", padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
@@ -354,7 +371,7 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
       )}
 
       {detail && (detail.kind === "paper"
-        ? <PaperDetail paper={detail.paper} idx={detail.idx} blurb={blurbs[detail.paper.id]} onClose={() => setDetail(null)} />
+        ? <PaperDetail paper={detail.paper} idx={detail.idx} blurb={blurbs[detail.paper.id]} theme={displayTheme} digestId={digestId} isLoggedIn={isLoggedIn} onSignIn={onSignIn} onOpenDetail={openSource} onSourceSeen={seeSource} cardedRef={cardedRef} onClose={() => setDetail(null)} />
         : <DetailOverlay src={detail.src} idx={detail.idx} onClose={() => setDetail(null)} />)}
     </div>
   );
