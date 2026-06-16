@@ -7,6 +7,7 @@ import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner
 import { BriefThreads } from "./brief-threads";
 import { BriefDigest } from "./brief-digest";
 import { PapersMode } from "./papers-mode";
+import { PapersModeOg } from "./papers-mode-og";
 import { journalName } from "@/lib/venue-name";
 import React from "react";
 
@@ -600,13 +601,15 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   /* ── Experience flags (?brief=1, ?papers=1) — gated rollouts to compare ── */
   const [briefMode, setBriefMode] = useState(false);
   const [papersMode, setPapersMode] = useState(false);
+  const [papersOgMode, setPapersOgMode] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setBriefMode(params.get("brief") === "1");
     setPapersMode(params.get("papers") === "1");
+    setPapersOgMode(params.get("papersog") === "1");
   }, []);
-  // Either flag collapses to the single-column reading layout + inline cards.
-  const focusMode = briefMode || papersMode;
+  // Any focus flag collapses to the single-column reading layout + inline cards.
+  const focusMode = briefMode || papersMode || papersOgMode;
 
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
   const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
@@ -800,7 +803,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: papersMode ? 1100 : briefMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+    <div style={{ maxWidth: papersMode ? 1100 : briefMode || papersOgMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
       <div className={focusMode ? "" : "grid grid-cols-1 md:grid-cols-[1fr_400px] items-start"} style={{ gap: "48px" }}>
 
         {/* ── Left: title + synthesis + dig deeper ── */}
@@ -882,7 +885,16 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           {/* Synthesis — gated experiences swap in here:
               ?papers=1 → paper-first (verdict + 3 cards you interrogate)
               ?brief=1  → dig-through (scroll-revealed verdict, inline cards, threads) */}
-          {digest.synthesisContent && papersMode && digest.id ? (
+          {digest.synthesisContent && papersOgMode && digest.id ? (
+            <PapersModeOg
+              synthesis={digest.synthesisContent}
+              theme={digest.theme ?? undefined}
+              papers={papers}
+              digestId={digest.id}
+              isLoggedIn={!!session}
+              onSignIn={onSignIn}
+            />
+          ) : digest.synthesisContent && papersMode && digest.id ? (
             <PapersMode
               synthesis={digest.synthesisContent}
               theme={digest.theme ?? undefined}
