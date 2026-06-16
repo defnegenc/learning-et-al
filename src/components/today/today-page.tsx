@@ -886,6 +886,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             <PapersMode
               synthesis={digest.synthesisContent}
               theme={digest.theme ?? undefined}
+              keyConcepts={digest.keyConcepts}
               papers={papers}
               digestId={digest.id}
               isLoggedIn={!!session}

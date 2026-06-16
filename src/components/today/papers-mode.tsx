@@ -59,11 +59,10 @@ function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen
   const [c1] = PALETTES[idx % PALETTES.length];
   const teaser = paper.relatesLine || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
   return (
-    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "18px 20px", cursor: "pointer", height: "100%" }}>
-      <span style={{ ...VENUE_CHIP, alignSelf: "flex-start", marginBottom: 11 }}>{venueLabel(paper)}</span>
-      <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", marginBottom: 11, paddingBottom: 4, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
-      {teaser && <span style={{ fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 600, lineHeight: 1.32, color: "#1a1a1a", marginBottom: 14 }}>{teaser}</span>}
-      <span style={{ marginTop: "auto", fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Reveal the paper →</span>
+    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "20px 22px", cursor: "pointer", height: "100%" }}>
+      <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "1.15rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, letterSpacing: "-0.01em", color: "#1a1a1a", marginBottom: 12, paddingBottom: 5, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
+      {teaser && <span style={{ fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 600, lineHeight: 1.32, color: "#1a1a1a", marginBottom: 16 }}>{teaser}</span>}
+      <span style={{ marginTop: "auto", alignSelf: "flex-end", fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Reveal the paper →</span>
     </button>
   );
 }
@@ -147,7 +146,7 @@ function PaperThread({ paper, theme, digestId, isLoggedIn, onSignIn, onOpenDetai
 
   return (
     <div style={{ marginTop: 22, borderTop: "1.5px solid rgba(26,26,26,0.18)", paddingTop: 18 }}>
-      <div style={{ ...HEADING, marginBottom: 11 }}>Dig deeper</div>
+      <div style={{ ...HEADING, marginBottom: 11 }}>Ask this paper</div>
 
       {turns.map((t) => (
         <TurnBlock key={t.id} turn={t} focusPaperId={paper.id} onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
@@ -284,10 +283,68 @@ function DetailOverlay({ src, idx, onClose }: { src: AgentSource; idx: number; o
   );
 }
 
+/* ---- "Dig deeper": explore the topic in different directions (concept-led, not Q&A) ---- */
+function DigDeeper({ concepts, digestId, isLoggedIn, onSignIn, onOpenDetail, onSourceSeen, cardedRef }: {
+  concepts: string[];
+  digestId: string;
+  isLoggedIn: boolean;
+  onSignIn?: () => void;
+  onOpenDetail: (s: AgentSource) => void;
+  onSourceSeen: (s: AgentSource) => void;
+  cardedRef: React.MutableRefObject<Set<string>>;
+}) {
+  const directions = useMemo(
+    () => concepts.map((c) => (c.includes(": ") ? c.split(": ")[0] : c).trim()).filter(Boolean).slice(0, 5),
+    [concepts]
+  );
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const askedRef = useRef(0);
+
+  if (directions.length === 0) return null;
+
+  const explore = (direction: string) => {
+    if (!isLoggedIn) {
+      setTurns((t) => [...t, { id: `d${askedRef.current++}`, question: direction, status: [], result: { answer: "Sign in to explore this direction across all three papers.", seeds: [], sources: [] }, error: null }]);
+      return;
+    }
+    const id = `d${askedRef.current++}`;
+    setTurns((t) => [...t, { id, question: direction, status: [], result: null, error: null }]);
+    const patch = (fn: (t: Turn) => Turn) => setTurns((prev) => prev.map((t) => (t.id === id ? fn(t) : t)));
+    streamThread(digestId, `Across these three papers, what's the story on "${direction}"? Pull the threads together.`, [], {
+      onStatus: (s) => patch((t) => ({ ...t, status: [...t.status, s] })),
+      onResult: (r) => patch((t) => ({ ...t, result: r })),
+      onError: (m) => patch((t) => ({ ...t, error: m })),
+    }, { concise: true });
+  };
+
+  const exploredKeys = new Set(turns.map((t) => t.question));
+  const remaining = directions.filter((d) => !exploredKeys.has(d));
+
+  return (
+    <div style={{ marginTop: 34 }}>
+      <div style={{ ...HEADING, marginBottom: 12 }}>Dig deeper</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
+        {remaining.map((d) => (
+          <button key={d} onClick={() => explore(d)} className="pm-seed" style={{ fontFamily: DISPLAY, fontSize: "0.9rem", fontWeight: 700, color: "#1a1a1a", background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "9px 14px", textAlign: "left", cursor: "pointer" }}>
+            {d}<span style={{ marginLeft: 8, color: "#b3a89a" }}>→</span>
+          </button>
+        ))}
+      </div>
+      {turns.map((t) => (
+        <TurnBlock key={t.id} turn={t} focusPaperId="" onOpenDetail={onOpenDetail} onSourceSeen={onSourceSeen} cardedRef={cardedRef} />
+      ))}
+      {!isLoggedIn && onSignIn && turns.length === 0 && (
+        <button onClick={onSignIn} style={{ marginTop: 10, background: "none", border: "none", color: "#1a1a1a", textDecoration: "underline", cursor: "pointer", fontFamily: BODY, fontSize: "0.78rem" }}>Sign in to research with the agent</button>
+      )}
+    </div>
+  );
+}
+
 /* ---- main ---- */
-export function PapersMode({ synthesis, theme, papers, digestId, isLoggedIn, onSignIn }: {
+export function PapersMode({ synthesis, theme, keyConcepts, papers, digestId, isLoggedIn, onSignIn }: {
   synthesis: string;
   theme?: string;
+  keyConcepts: string[];
   papers: PaperItem[];
   digestId: string;
   isLoggedIn: boolean;
@@ -357,6 +414,16 @@ export function PapersMode({ synthesis, theme, papers, digestId, isLoggedIn, onS
           <RowCard key={paper.id} paper={paper} idx={i} onOpen={() => setDetail({ kind: "paper", paper, idx: i })} />
         ))}
       </div>
+
+      <DigDeeper
+        concepts={keyConcepts}
+        digestId={digestId}
+        isLoggedIn={isLoggedIn}
+        onSignIn={onSignIn}
+        onOpenDetail={openSource}
+        onSourceSeen={seeSource}
+        cardedRef={cardedRef}
+      />
 
       {coda.length > 0 && (
         <div style={{ marginTop: 36, borderTop: "1.5px solid #d8d3c8", paddingTop: 18 }}>
