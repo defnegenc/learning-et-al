@@ -83,6 +83,7 @@ export const papers = sqliteTable("papers", {
   year: integer("year"),
   sourceIndex: integer("source_index"),
   dinnerLine: text("dinner_line"), // casual "mention it at a dinner party" one-liner, generated on demand
+  relatesLine: text("relates_line"), // clean one-sentence "how this relates to today's question", generated on demand
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

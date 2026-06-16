@@ -19,6 +19,7 @@ export interface PaperItem {
   keyFindings?: string[];
   connectionReason?: string | null;
   dinnerLine?: string | null;
+  relatesLine?: string | null;
 }
 
 interface PaperCardProps {
