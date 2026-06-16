@@ -245,8 +245,7 @@ function CompareCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; on
   return (
     <button onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "16px 18px", cursor: "pointer", height: "100%" }}>
       <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, color: "#1a1a1a", marginBottom: 9, paddingBottom: 4, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
-      <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "0.82rem", textTransform: "uppercase", lineHeight: 1.18, marginBottom: 7 }}>{paper.title}</span>
-      {summary && <span style={{ fontSize: "0.78rem", lineHeight: 1.45, color: "#333" }}>{summary.length > 150 ? summary.slice(0, 147) + "…" : summary}</span>}
+      {summary && <span style={{ fontSize: "0.82rem", lineHeight: 1.5, color: "#333" }}>{summary.length > 180 ? summary.slice(0, 177) + "…" : summary}</span>}
       <span style={{ marginTop: "auto", paddingTop: 10, fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Open →</span>
     </button>
   );
@@ -317,7 +316,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     setContrast({ status: [], result: null });
     streamThread(
       digestId,
-      "In 3 sentences, how do these three papers DIFFER in what they claim or emphasize? Contrast them — name each one's distinct take, don't just summarize.",
+      "In 3 sentences, how do these three papers DIFFER in what they claim or emphasize? Contrast their distinct takes. Refer to each only by its [N] citation and its finding — never by author name or title.",
       [],
       {
         onStatus: (s) => setContrast((c) => (c ? { ...c, status: [...c.status, s] } : c)),
