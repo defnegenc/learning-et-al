@@ -214,7 +214,10 @@ function PaperDetail({ paper, idx, onClose }: { paper: PaperItem; idx: number; o
   }, [paper.id, cached]);
 
   const tldr = paper.summary || paper.abstract || "";
-  const relatesText = relates || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
+  // Don't show the fallback while the generated sentence is still loading — that
+  // causes a flash where the longer fallback briefly shows then "shortens" to the
+  // generated one. Show a loading state, then resolve once to the final text.
+  const relatesText = relates || (loading ? "" : (paper.connectionReason ? relatesFallback(paper.connectionReason) : ""));
   return (
     <OverlayShell idx={idx} onClose={onClose}>
       <div style={{ fontFamily: BODY, fontSize: "0.74rem", fontWeight: 500, color: "#8a8378", marginBottom: 10 }}>{venueLabel(paper)}</div>
@@ -223,7 +226,7 @@ function PaperDetail({ paper, idx, onClose }: { paper: PaperItem; idx: number; o
       {tldr && <Section label="TL;DR">{tldr}</Section>}
       {(loading || relatesText) && (
         <Section label="How it relates">
-          {loading && !relatesText ? <span style={{ color: "#8a8378", fontStyle: "italic" }}>…</span> : relatesText}
+          {loading && !relates ? <span style={{ color: "#8a8378", fontStyle: "italic" }}>…</span> : relatesText}
         </Section>
       )}
       {(loading || dinner) && (
