@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
@@ -115,10 +115,6 @@ export function toLines(paragraphs: string[], defs: { term: string; def: string 
 }
 
 // Word count for a line, used to pace the timed reveal.
-function lineWords(line: Line): number {
-  return line.segs.reduce((a, s) => a + (s.t === "cite" || s.t === "term" ? 1 : s.text.split(/\s+/).length), 0);
-}
-
 /* ---- chips ---- */
 
 function PaperChip({ paper, paperIdx, label, cap, onOpen }: { paper: PaperItem; paperIdx: number; label: string; cap: boolean; onOpen: (p: PaperItem) => void }) {
@@ -215,7 +211,30 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
   );
 }
 
-/* ---- main: scroll-revealed verdict with inline paper cards, then threads ---- */
+// The lens each paper brings, for the compare view.
+function lensLabel(p: PaperItem): string {
+  if (p.category === "news") return "Recent news";
+  if (p.category === "foundational") return "The foundational view";
+  const kw = p.keywords[0]?.toLowerCase();
+  if (kw) return `${/^[aeiou]/.test(kw) ? "An" : "A"} ${kw} lens`;
+  return "Another angle";
+}
+
+/* ---- compare card: one paper's lens, side by side with the others ---- */
+function CompareCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: (p: PaperItem) => void }) {
+  const [c1] = PALETTES[idx % PALETTES.length];
+  const summary = paper.summary || paper.abstract || "";
+  return (
+    <button onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "16px 18px", cursor: "pointer", height: "100%" }}>
+      <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, color: "#1a1a1a", marginBottom: 9, paddingBottom: 4, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
+      <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "0.82rem", textTransform: "uppercase", lineHeight: 1.18, marginBottom: 7 }}>{paper.title}</span>
+      {summary && <span style={{ fontSize: "0.78rem", lineHeight: 1.45, color: "#333" }}>{summary.length > 150 ? summary.slice(0, 147) + "…" : summary}</span>}
+      <span style={{ marginTop: "auto", paddingTop: 10, fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Open →</span>
+    </button>
+  );
+}
+
+/* ---- main: user-paced verdict (Next source) → compare the three → dig deeper ---- */
 
 export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn }: {
   synthesis: string;
@@ -255,20 +274,21 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return map;
   }, [lines]);
 
-  const [n, setN] = useState(1);
-  const verdictDone = n >= lines.length;
-  const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
+  // User-paced reveal: each "Next source" click surfaces the argument up through
+  // the next paper. `stops[k]` = how many lines to show at step k (through card k);
+  // the final stop reveals the closing too.
+  const stops = useMemo(() => {
+    const cardLines = Object.keys(cardsAfter).map(Number).sort((a, b) => a - b);
+    const s = cardLines.map((idx) => idx + 1);
+    if (s.length === 0 || s[s.length - 1] < lines.length) s.push(lines.length);
+    return s;
+  }, [cardsAfter, lines.length]);
 
-  // Reveal the verdict sentence-by-sentence on a timer. Timed (not scroll-gated):
-  // scroll-gating deadlocks when the first chunk fills the viewport but the page
-  // isn't tall enough to scroll the trigger into view.
-  useEffect(() => {
-    if (verdictDone) return;
-    const next = lines[n];
-    const delay = Math.min(1300, Math.max(480, 420 + (next ? lineWords(next) : 0) * 32));
-    const t = setTimeout(() => setN((x) => x + 1), delay);
-    return () => clearTimeout(t);
-  }, [n, lines, verdictDone]);
+  const [step, setStep] = useState(0);
+  const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
+  const allRevealed = n >= lines.length;
+  const [compared, setCompared] = useState(false);
+  const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
 
   const openDetail = (paper: PaperItem) => setDetail({ paper, idx: Math.max(0, papers.indexOf(paper)) });
 
@@ -312,12 +332,37 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
         .brief-line { animation: briefRise 0.4s ease both; }
         .brief-card { transition: transform .12s ease, box-shadow .12s ease; }
         .brief-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 0 rgba(0,0,0,1) !important; }
+        .brief-advance { transition: transform .12s ease, box-shadow .12s ease; }
+        .brief-advance:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(255,0,127,1) !important; }
       `}</style>
 
       {els}
 
-      {/* Threads mount immediately so seed preloads start, but stay hidden until the verdict is read */}
-      <div style={{ marginTop: 32, display: verdictDone ? undefined : "none" }}>
+      {/* User-paced: reveal one source at a time, then compare, then dig deeper */}
+      {!allRevealed && (
+        <button onClick={() => setStep((s) => s + 1)} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#fff", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#1a1a1a" }}>
+          Next source →
+        </button>
+      )}
+      {allRevealed && !compared && (
+        <button onClick={() => setCompared(true)} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#1a1a1a", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#fff" }}>
+          Compare the three →
+        </button>
+      )}
+
+      {compared && (
+        <div className="brief-line" style={{ marginTop: 36 }}>
+          <div style={{ fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#1a1a1a", marginBottom: 14 }}>Three lenses, side by side</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, alignItems: "stretch" }}>
+            {papers.slice(0, 3).map((p, i) => (
+              <CompareCard key={p.id} paper={p} idx={i} onOpen={openDetail} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Threads mount immediately so seed preloads start, but stay hidden until you compare */}
+      <div style={{ marginTop: 36, display: compared ? undefined : "none" }}>
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
 
