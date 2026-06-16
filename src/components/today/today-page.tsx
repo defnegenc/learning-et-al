@@ -598,18 +598,21 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
-  /* ── Experience flags (?brief=1, ?papers=1) — gated rollouts to compare ── */
-  const [briefMode, setBriefMode] = useState(false);
+  /* ── Experience modes — brief is the DEFAULT; flags select alternatives ──
+     ?classic=1 → original synthesis + paper-rail view
+     ?papers=1 / ?papersog=1 → paper-first comparison variants                */
   const [papersMode, setPapersMode] = useState(false);
   const [papersOgMode, setPapersOgMode] = useState(false);
+  const [classicMode, setClassicMode] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setBriefMode(params.get("brief") === "1");
     setPapersMode(params.get("papers") === "1");
     setPapersOgMode(params.get("papersog") === "1");
+    setClassicMode(params.get("classic") === "1");
   }, []);
-  // Any focus flag collapses to the single-column reading layout + inline cards.
-  const focusMode = briefMode || papersMode || papersOgMode;
+  // Brief is the default reading experience; everything but classic is single-column.
+  const briefMode = !papersMode && !papersOgMode && !classicMode;
+  const focusMode = !classicMode;
 
   /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
   const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
@@ -803,7 +806,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: papersMode ? 1100 : briefMode || papersOgMode ? 760 : 1380, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+    <div style={{ maxWidth: papersMode ? 1100 : classicMode ? 1380 : 760, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
       <div className={focusMode ? "" : "grid grid-cols-1 md:grid-cols-[1fr_400px] items-start"} style={{ gap: "48px" }}>
 
         {/* ── Left: title + synthesis + dig deeper ── */}
