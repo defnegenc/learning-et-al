@@ -187,28 +187,44 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+// Fallback when generation isn't available: turn the headless connectionReason
+// fragment ("shows X…") into a complete sentence ("This study shows X…").
+function relatesFallback(reason: string): string {
+  const r = reason.trim();
+  if (!r) return "";
+  const sentence = /^[a-z]/.test(r) ? `This study ${r}` : r;
+  return /[.!?]$/.test(sentence) ? sentence : sentence + ".";
+}
+
 /* ---- rich detail for a digest paper: TL;DR, how it relates, dinner-party line ---- */
 function PaperDetail({ paper, idx, onClose }: { paper: PaperItem; idx: number; onClose: () => void }) {
-  const [dinner, setDinner] = useState<string | null>(paper.dinnerLine ?? null);
-  const [loading, setLoading] = useState(!paper.dinnerLine);
+  const cached = paper.dinnerLine != null && paper.relatesLine != null;
+  const [dinner, setDinner] = useState<string>(paper.dinnerLine ?? "");
+  const [relates, setRelates] = useState<string>(paper.relatesLine ?? "");
+  const [loading, setLoading] = useState(!cached);
   useEffect(() => {
-    if (paper.dinnerLine) return;
+    if (cached) return;
     let cancelled = false;
     fetch(`/api/papers/${paper.id}/blurb`)
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) { setDinner(d.dinner || ""); setLoading(false); } })
-      .catch(() => { if (!cancelled) { setDinner(""); setLoading(false); } });
+      .then((d) => { if (!cancelled) { setDinner(d.dinner || ""); setRelates(d.relates || ""); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [paper.id, paper.dinnerLine]);
+  }, [paper.id, cached]);
 
   const tldr = paper.summary || paper.abstract || "";
+  const relatesText = relates || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
   return (
     <OverlayShell idx={idx} onClose={onClose}>
       <div style={{ fontFamily: BODY, fontSize: "0.74rem", fontWeight: 500, color: "#8a8378", marginBottom: 10 }}>{venueLabel(paper)}</div>
       <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.3rem", lineHeight: 1.15, margin: "0 0 6px" }}>{paper.title}</h3>
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: 0 }}>{paper.authors.slice(0, 4).join(", ")}</p>}
       {tldr && <Section label="TL;DR">{tldr}</Section>}
-      {paper.connectionReason && <Section label="How it relates">{paper.connectionReason}</Section>}
+      {(loading || relatesText) && (
+        <Section label="How it relates">
+          {loading && !relatesText ? <span style={{ color: "#8a8378", fontStyle: "italic" }}>…</span> : relatesText}
+        </Section>
+      )}
       {(loading || dinner) && (
         <Section label="At a dinner party">
           {loading ? <span style={{ color: "#8a8378", fontStyle: "italic" }}>Finding the one-liner…</span> : dinner}
