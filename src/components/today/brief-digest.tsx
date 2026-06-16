@@ -292,18 +292,16 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return map;
   }, [lines]);
 
-  // User-paced reveal, by full paragraph (a complete thought, never cut mid-point).
-  // Step 0 spans the intro PLUS the first source's paragraph, so the opening view
-  // already shows a complete first source; each "Next source" then adds one more.
+  // User-paced reveal by SOURCE: each step shows everything up to where the next
+  // source is first introduced, so a source's full discussion appears at once
+  // (never split). Step 0 = intro + the whole first source; "Next source" adds the
+  // next; the final step adds the last source + closing.
   const stops = useMemo(() => {
-    const boundaries: number[] = [];
-    for (let i = 1; i < lines.length; i++) if (lines[i].para) boundaries.push(i);
-    boundaries.push(lines.length);
-    const cardLines = Object.keys(cardsAfter).map(Number);
-    const firstCard = cardLines.length ? Math.min(...cardLines) : 0;
-    const start = boundaries.findIndex((b) => b > firstCard); // first paragraph end past the first card
-    return boundaries.slice(start >= 0 ? start : 0);
-  }, [lines, cardsAfter]);
+    const cardLines = Object.keys(cardsAfter).map(Number).sort((a, b) => a - b);
+    const s = cardLines.slice(1); // reveal up to each subsequent source's first mention
+    s.push(lines.length);
+    return s.length ? s : [lines.length];
+  }, [cardsAfter, lines.length]);
 
   const [step, setStep] = useState(0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
@@ -340,28 +338,29 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return paper ? <PaperChip key={i} paper={paper} paperIdx={s.paperIdx} label={s.label} cap={lineStart && i === 0} onOpen={openDetail} /> : <strong key={i}>{s.label}</strong>;
   };
 
-  // Assemble revealed lines into paragraphs with cards interleaved.
+  // Assemble revealed lines into paragraphs. A paper's card is deferred to the end
+  // of its paragraph (not dropped mid-sentence), so a source reads as one block.
   const revealed = lines.slice(0, n);
   const els: React.ReactNode[] = [];
   let buf: React.ReactNode[] = [];
   let firstEl = true;
+  let pendingCards: number[] = [];
   const flush = () => {
     if (buf.length) {
       els.push(<p key={`p${els.length}`} style={{ fontSize: "1.06rem", lineHeight: 1.78, color: "#1a1a1a", margin: firstEl ? 0 : "14px 0 0" }}>{buf}</p>);
       buf = []; firstEl = false;
     }
+    for (const pi of pendingCards) {
+      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "16px 0 0" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} /></div>);
+    }
+    if (pendingCards.length) firstEl = false;
+    pendingCards = [];
   };
   for (const ln of revealed) {
-    if (ln.para && buf.length) flush();
+    if (ln.para && (buf.length || pendingCards.length)) flush();
     buf.push(<span key={ln.idx} className="brief-line">{ln.segs.map((s, i) => renderSeg(s, i, ln.para))}{" "}</span>);
     const cards = cardsAfter[ln.idx];
-    if (cards) {
-      flush();
-      for (const pi of cards) {
-        if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "16px 0 0" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} /></div>);
-      }
-      firstEl = false;
-    }
+    if (cards) pendingCards.push(...cards);
   }
   flush();
 
