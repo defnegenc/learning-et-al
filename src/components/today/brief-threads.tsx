@@ -54,11 +54,11 @@ export async function streamThread(
   question: string,
   trail: string[],
   h: { onStatus: (t: string) => void; onResult: (r: ResultPayload) => void; onError: (m: string) => void },
-  focusPaperId?: string
+  opts?: { focusPaperId?: string; concise?: boolean }
 ) {
   let res: Response;
   try {
-    res = await fetch("/api/thread", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId, question, trail, ...(focusPaperId ? { focusPaperId } : {}) }) });
+    res = await fetch("/api/thread", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId, question, trail, ...(opts?.focusPaperId ? { focusPaperId: opts.focusPaperId } : {}), ...(opts?.concise ? { concise: true } : {}) }) });
   } catch { h.onError("Network error"); return; }
   if (!res.ok || !res.body) { h.onError(res.status === 401 ? "Sign in to pull threads" : "Thread failed"); return; }
   const reader = res.body.getReader();

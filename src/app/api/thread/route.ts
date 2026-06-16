@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
   const question: string | undefined = body.question;
   const trail: string[] = Array.isArray(body.trail) ? body.trail.map(String) : [];
   const focusPaperId: string | undefined = body.focusPaperId || undefined;
+  const concise: boolean = body.concise === true;
   if (!digestId || !question) return new Response(JSON.stringify({ error: "Missing digestId or question" }), { status: 400 });
 
   const digest = await db.query.digests.findFirst({ where: eq(digests.id, digestId) });
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
   // after generation — so one agent run per (digest, question, trail, focus), ever.
   // focusPaperId is folded into the trail key so paper-first answers cache separately.
   // Cache failures are non-fatal (e.g. table not yet pushed to prod).
-  const trailKey = `${focusPaperId ? `focus:${focusPaperId}|` : ""}${trail.join(" → ")}`;
+  const trailKey = `${concise ? "c|" : ""}${focusPaperId ? `focus:${focusPaperId}|` : ""}${trail.join(" → ")}`;
   const cached = await db.query.threadCache
     .findFirst({ where: and(eq(threadCache.digestId, digestId), eq(threadCache.question, question), eq(threadCache.trailKey, trailKey)) })
     .catch(() => null);
@@ -190,6 +191,7 @@ export async function POST(req: NextRequest) {
           initialSources,
           tools,
           focusPaperId,
+          concise,
           // Paper-first answers come straight from the paper — skip the gather/search
           // loop so it's one model call, not two-plus. Keeps "thinking" short.
           maxToolCalls: focusPaperId ? 0 : undefined,

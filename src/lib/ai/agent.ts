@@ -67,9 +67,10 @@ export async function runThreadAgent(opts: {
   tools: AgentTool[];
   maxToolCalls?: number;
   focusPaperId?: string;     // when set, answer primarily from this paper ("paper-first" mode)
+  concise?: boolean;         // when set, keep the answer to ~3 sentences (papers mode)
   emit: (ev: AgentEvent) => void;
 }): Promise<AgentResult> {
-  const { config, question, verdict, trail, claims, initialSources, tools, focusPaperId, emit } = opts;
+  const { config, question, verdict, trail, claims, initialSources, tools, focusPaperId, concise, emit } = opts;
   const maxToolCalls = opts.maxToolCalls ?? 2;
   const client = clientFor(config);
   const model = config.model || defaultModel(config.provider);
@@ -163,8 +164,8 @@ BANNED openers — never start the answer with any of these or a paraphrase of t
 "The research doesn't directly address...", "The provided sources don't...", "While the sources don't cover...", "Although no study looks at...", "It's important to note...".
 If no paper studied the exact question, you STILL answer it — reason from the evidence to the reader's actual situation. The papers are support, not a fence. Lead with your best answer ("Probably yes, but...", "Mostly no — the catch is..."), then earn it.
 
-${focusPaper
-  ? `Keep it SHORT — 2 sentences, 3 at the very most, one paragraph. Answer the question and stop; do not summarize the whole paper. Bold the single load-bearing phrase with **double asterisks**.`
+${focusPaper || concise
+  ? `Keep it SHORT — 3 sentences max, one paragraph. Answer the question directly and stop; the reader will ask follow-ups if they want more. Bold the single load-bearing phrase with **double asterisks**.`
   : `Write 4–7 sentences split into 2–3 SHORT paragraphs separated by a blank line — one move per paragraph (the answer, the mechanism/evidence, the catch). Never return one long paragraph. Bold the load-bearing phrase with **double asterisks** — one per paragraph at most.`} Cite a source as [N] when it backs a specific point — you do NOT need a citation on every sentence; reasoning from the evidence is allowed and expected. When you extrapolate beyond what a paper directly tested, do it confidently; a brief caveat can come later in the answer, never as the opening.
 
 Then propose 2–3 short follow-up questions a curious reader would ask next — gaps your answer hints at but doesn't fully resolve.
