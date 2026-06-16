@@ -29,7 +29,7 @@ function getClientConfig(config: AIConfig) {
 
 function getDefaultModel(provider: AIConfig["provider"]) {
   switch (provider) {
-    case "anthropic": return "claude-sonnet-4-20250514";
+    case "anthropic": return "claude-sonnet-4-6";
     case "gemini": return "gemini-2.5-flash";
     case "openai": return "gpt-4o";
     default: return "gpt-4o";

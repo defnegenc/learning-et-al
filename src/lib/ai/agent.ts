@@ -47,7 +47,7 @@ function clientFor(config: AIConfig): OpenAI {
 }
 
 function defaultModel(p: AIConfig["provider"]): string {
-  return p === "anthropic" ? "claude-sonnet-4-20250514" : p === "gemini" ? "gemini-2.5-flash" : "gpt-4o";
+  return p === "anthropic" ? "claude-sonnet-4-6" : p === "gemini" ? "gemini-2.5-flash" : "gpt-4o";
 }
 
 /**

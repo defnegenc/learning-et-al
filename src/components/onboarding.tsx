@@ -38,7 +38,7 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
 
   const providerDefaults: Record<Provider, { model: string; baseUrl: string; label: string }> = {
     openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1", label: "OPENAI" },
-    anthropic: { model: "claude-sonnet-4-20250514", baseUrl: "https://api.anthropic.com", label: "ANTHROPIC" },
+    anthropic: { model: "claude-sonnet-4-6", baseUrl: "https://api.anthropic.com", label: "ANTHROPIC" },
     gemini: { model: "gemini-2.5-flash", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", label: "GEMINI" },
     other: { model: "", baseUrl: "", label: "OTHER" },
   };

@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const cronProvider = (process.env.CRON_AI_PROVIDER || "gemini") as AIConfig["provider"];
     const cronModel =
       process.env.CRON_AI_MODEL ||
-      (cronProvider === "anthropic" ? "claude-sonnet-4-20250514" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash");
+      (cronProvider === "anthropic" ? "claude-sonnet-4-6" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash");
     const config: AIConfig = { apiKey: process.env.CRON_AI_KEY || "", provider: cronProvider, model: cronModel, baseUrl: process.env.CRON_AI_BASE_URL || "" };
     if (!config.apiKey) return NextResponse.json({ dinner: "", relates: "" });
 
