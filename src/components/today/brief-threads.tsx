@@ -405,6 +405,7 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
   const [detail, setDetail] = useState<{ src: AgentSource; idx: number } | null>(null);
   const [coda, setCoda] = useState<AgentSource[]>([]);
   const [codaOpen, setCodaOpen] = useState(false);
+  const [showTrail, setShowTrail] = useState(true);
   const startedRef = useRef<Set<string>>(new Set());
   const cardedRef = useRef<Set<string>>(new Set());
 
@@ -475,17 +476,18 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
       </div>
 
       {trail.map((entry) => (
-        <ThreadBlock
-          key={entry.key}
-          entry={entry}
-          run={runs[entry.question] || { status: [], result: null, error: null }}
-          onOpenNested={openThread}
-          onSourceSeen={seeSource}
-          onOpenDetail={(s) => setDetail({ src: s, idx: sourceIndex(s) })}
-          onSignIn={onSignIn}
-          isLoggedIn={isLoggedIn}
-          cardedRef={cardedRef}
-        />
+        <div key={entry.key} id={`brief-thread-${entry.key}`}>
+          <ThreadBlock
+            entry={entry}
+            run={runs[entry.question] || { status: [], result: null, error: null }}
+            onOpenNested={openThread}
+            onSourceSeen={seeSource}
+            onOpenDetail={(s) => setDetail({ src: s, idx: sourceIndex(s) })}
+            onSignIn={onSignIn}
+            isLoggedIn={isLoggedIn}
+            cardedRef={cardedRef}
+          />
+        </div>
       ))}
 
       {coda.length > 0 && (
@@ -511,6 +513,28 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
           )}
         </div>
       )}
+
+      {/* Paper trail — the threads you've explored, click to jump back */}
+      {trail.length > 0 && (showTrail ? (
+        <div style={{ position: "fixed", right: 20, bottom: 20, width: 248, zIndex: 60, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 12px 14px", maxHeight: "60vh", overflowY: "auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a" }}>Paper trail</span>
+            <button onClick={() => setShowTrail(false)} style={{ fontFamily: BODY, fontSize: "0.8rem", background: "none", border: "none", cursor: "pointer", color: "#a8a294" }}>✕</button>
+          </div>
+          {trail.map((entry) => (
+            <button
+              key={entry.key}
+              onClick={() => document.getElementById(`brief-thread-${entry.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+              style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, background: "transparent", border: "none", padding: "4px 2px", marginLeft: entry.depth * 12, cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
+            >
+              <span style={{ color: entry.depth % 2 === 0 ? "#1a1a1a" : "#ff007f", fontSize: "0.55rem", flexShrink: 0 }}>●</span>
+              <span>{entry.question.replace(/\*\*/g, "")}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <button onClick={() => setShowTrail(true)} style={{ position: "fixed", right: 20, bottom: 20, zIndex: 60, fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", background: "#1a1a1a", color: "#fff", border: "none", padding: "8px 14px", cursor: "pointer", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)" }}>◆ Paper trail</button>
+      ))}
 
       {detail && <DetailOverlay src={detail.src} idx={detail.idx} onClose={() => setDetail(null)} />}
     </div>
