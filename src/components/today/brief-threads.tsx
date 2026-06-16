@@ -48,6 +48,26 @@ export function washStyle(idx: number): React.CSSProperties {
   };
 }
 
+// Which of the digest's papers (by index/colour) a result draws on.
+function citedDigestIdxs(result: ResultPayload): number[] {
+  const seen = new Set<number>();
+  for (const m of result.answer.matchAll(/\[(\d+)\]/g)) {
+    const i = parseInt(m[1], 10) - 1;
+    if (result.sources[i]?.origin === "digest") seen.add(i);
+  }
+  return [...seen];
+}
+
+// A small row of paper-colour swatches.
+function Swatches({ idxs }: { idxs: number[] }) {
+  if (idxs.length === 0) return null;
+  return (
+    <span style={{ display: "inline-flex", gap: 4, marginLeft: 8, verticalAlign: "middle" }}>
+      {idxs.map((i) => { const [a, b] = PALETTES[i % PALETTES.length]; return <span key={i} style={{ width: 16, height: 9, borderRadius: 2, border: "1px solid #1a1a1a", background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)` }} />; })}
+    </span>
+  );
+}
+
 /* ---- SSE consumer ---- */
 export async function streamThread(
   digestId: string,
@@ -350,17 +370,8 @@ function ThreadBlock({ entry, run, onOpenNested, onSourceSeen, onOpenDetail, onS
   const ref = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => (run.result ? toLines(run.result.answer) : []), [run.result]);
 
-  // Which of the digest's papers this thread draws on — shown as colour swatches
-  // so you can see at a glance which one (or which combo) you're looking at.
-  const citedIdxs = useMemo(() => {
-    if (!run.result) return [];
-    const seen = new Set<number>();
-    for (const m of run.result.answer.matchAll(/\[(\d+)\]/g)) {
-      const i = parseInt(m[1], 10) - 1;
-      if (run.result.sources[i]?.origin === "digest") seen.add(i);
-    }
-    return [...seen];
-  }, [run.result]);
+  // Which of the digest's papers this thread draws on — shown as colour swatches.
+  const citedIdxs = useMemo(() => (run.result ? citedDigestIdxs(run.result) : []), [run.result]);
 
   useEffect(() => { ref.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
 
@@ -370,7 +381,7 @@ function ThreadBlock({ entry, run, onOpenNested, onSourceSeen, onOpenDetail, onS
       {citedIdxs.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
           <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", textTransform: "uppercase", color: "#8a8378" }}>Drawing on</span>
-          {citedIdxs.map((i) => { const [a, b] = PALETTES[i % PALETTES.length]; return <span key={i} title={run.result?.sources[i]?.title} style={{ width: 20, height: 11, borderRadius: 3, border: "1px solid #1a1a1a", background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)` }} />; })}
+          <Swatches idxs={citedIdxs} />
         </div>
       )}
       {run.error ? (
@@ -484,13 +495,19 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
         .brief-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 0 rgba(0,0,0,1) !important; }
       `}</style>
 
-      <div style={{ fontFamily: DISPLAY, fontSize: "0.9rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 12 }}>Pull a thread</div>
+      <div style={{ fontFamily: DISPLAY, fontSize: "0.9rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a", marginBottom: 12 }}>Dig deeper</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
-        {visibleSeeds.map((q, i) => (
-          <button key={i} onClick={() => openThread(q, 0)} className="brief-seed" style={{ fontFamily: BODY, fontSize: "0.86rem", fontWeight: 500, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "9px 14px", textAlign: "left", cursor: "pointer" }}>
-            {q.replace(/\*\*/g, "")}<span style={{ marginLeft: 8, color: "#b3a89a" }}>↳</span>
-          </button>
-        ))}
+        {visibleSeeds.map((q, i) => {
+          // Once a seed's thread has preloaded, show which papers (colours) it draws on.
+          const r = runs[q]?.result;
+          const cited = r ? citedDigestIdxs(r) : [];
+          return (
+            <button key={i} onClick={() => openThread(q, 0)} className="brief-seed" style={{ display: "inline-flex", alignItems: "center", fontFamily: BODY, fontSize: "0.86rem", fontWeight: 500, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "9px 14px", textAlign: "left", cursor: "pointer" }}>
+              <span>{q.replace(/\*\*/g, "")}</span>
+              {cited.length > 0 ? <Swatches idxs={cited} /> : <span style={{ marginLeft: 8, color: "#b3a89a" }}>↳</span>}
+            </button>
+          );
+        })}
       </div>
 
       {trail.map((entry) => (
@@ -532,18 +549,27 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
         </div>
       )}
 
-      {/* Paper trail — the threads you've explored, click to jump back */}
-      {trail.length > 0 && (showTrail ? (
+      {/* Paper trail — always available; fills in as you pull threads */}
+      {showTrail ? (
         <div style={{ position: "fixed", right: 20, bottom: 20, width: 248, zIndex: 60, background: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 12px 14px", maxHeight: "60vh", overflowY: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <span style={{ fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.045em", color: "#1a1a1a" }}>Paper trail</span>
             <button onClick={() => setShowTrail(false)} style={{ fontFamily: BODY, fontSize: "0.8rem", background: "none", border: "none", cursor: "pointer", color: "#a8a294" }}>✕</button>
           </div>
-          {trail.map((entry) => (
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 600, background: "transparent", border: "none", padding: "4px 2px", cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
+          >
+            <span style={{ color: "#1a1a1a", fontSize: "0.55rem", flexShrink: 0 }}>●</span>
+            <span>The verdict</span>
+          </button>
+          {trail.length === 0 ? (
+            <p style={{ fontFamily: BODY, fontSize: "0.72rem", color: "#a8a294", margin: "6px 2px 0", lineHeight: 1.4 }}>Pull a thread below and it builds here.</p>
+          ) : trail.map((entry) => (
             <button
               key={entry.key}
               onClick={() => document.getElementById(`brief-thread-${entry.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
-              style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, background: "transparent", border: "none", padding: "4px 2px", marginLeft: entry.depth * 12, cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
+              style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, background: "transparent", border: "none", padding: "4px 2px", marginLeft: (entry.depth + 1) * 12, cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
             >
               <span style={{ color: entry.depth % 2 === 0 ? "#1a1a1a" : "#ff007f", fontSize: "0.55rem", flexShrink: 0 }}>●</span>
               <span>{entry.question.replace(/\*\*/g, "")}</span>
@@ -552,7 +578,7 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
         </div>
       ) : (
         <button onClick={() => setShowTrail(true)} style={{ position: "fixed", right: 20, bottom: 20, zIndex: 60, fontFamily: DISPLAY, fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", background: "#1a1a1a", color: "#fff", border: "none", padding: "8px 14px", cursor: "pointer", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)" }}>◆ Paper trail</button>
-      ))}
+      )}
 
       {detail && <DetailOverlay src={detail.src} idx={detail.idx} onClose={() => setDetail(null)} />}
     </div>
