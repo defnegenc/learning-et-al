@@ -394,8 +394,17 @@ function ThreadBlock({ entry, run, onOpenNested, onSourceSeen, onOpenDetail, onS
           {traceDone && run.result && (
             <LineReveal lines={lines} sources={run.result.sources} onOpen={onOpenDetail} onSourceSeen={onSourceSeen} onDone={() => setBodyDone(true)} cardedRef={cardedRef} />
           )}
-          {bodyDone && run.result && (
+          {bodyDone && run.result && isLoggedIn && (
             <SeedRow seeds={run.result.seeds} onTap={(q) => onOpenNested(q, entry.depth + 1)} label="Keep pulling" />
+          )}
+          {/* Guests get the 3 pre-written answers only; the live agent (follow-ups,
+              your own questions) needs an account. */}
+          {bodyDone && run.result && !isLoggedIn && onSignIn && (
+            <div style={{ marginTop: 20 }}>
+              <button onClick={onSignIn} className="brief-seed" style={{ fontFamily: BODY, fontSize: "0.84rem", fontWeight: 600, background: "#1a1a1a", color: "#fff", border: "1.5px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "9px 14px", cursor: "pointer" }}>
+                Sign in to keep pulling this thread — and ask your own →
+              </button>
+            </div>
           )}
         </>
       )}
@@ -435,6 +444,7 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
   const [coda, setCoda] = useState<AgentSource[]>([]);
   const [codaOpen, setCodaOpen] = useState(false);
   const [showTrail, setShowTrail] = useState(true);
+  const [draft, setDraft] = useState("");
   const startedRef = useRef<Set<string>>(new Set());
   const cardedRef = useRef<Set<string>>(new Set());
 
@@ -509,6 +519,19 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
           );
         })}
       </div>
+
+      {/* Logged in → ask anything (live agent). Logged out → the 3 above are
+          pre-written; the agent needs an account. */}
+      {isLoggedIn ? (
+        <form onSubmit={(e) => { e.preventDefault(); if (draft.trim()) { openThread(draft.trim(), 0); setDraft(""); } }} style={{ display: "flex", gap: 8, marginTop: 12, maxWidth: 560 }}>
+          <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask your own question…" style={{ flex: 1, fontFamily: BODY, fontSize: "0.86rem", border: "1.5px solid #1a1a1a", padding: "9px 12px", outline: "none", background: "#fff" }} />
+          <button type="submit" style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", padding: "9px 15px", cursor: "pointer" }}>Ask</button>
+        </form>
+      ) : onSignIn && (
+        <p style={{ marginTop: 12, fontFamily: BODY, fontSize: "0.82rem", color: "#7c766c" }}>
+          These three come pre-answered. <button onClick={onSignIn} style={{ background: "none", border: "none", color: "#1a1a1a", textDecoration: "underline", cursor: "pointer", fontFamily: "inherit", fontSize: "inherit", padding: 0 }}>Sign in</button> to follow up and ask your own.
+        </p>
+      )}
 
       {trail.map((entry) => (
         <div key={entry.key} id={`brief-thread-${entry.key}`}>
