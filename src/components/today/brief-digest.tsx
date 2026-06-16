@@ -274,15 +274,15 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return map;
   }, [lines]);
 
-  // User-paced reveal: each "Next source" click surfaces the argument up through
-  // the next paper. `stops[k]` = how many lines to show at step k (through card k);
-  // the final stop reveals the closing too.
+  // User-paced reveal: each "Next source" click surfaces the next full PARAGRAPH —
+  // a complete thought — so a source's point never gets cut off mid-sentence. The
+  // card for a paper drops as its paragraph reveals.
   const stops = useMemo(() => {
-    const cardLines = Object.keys(cardsAfter).map(Number).sort((a, b) => a - b);
-    const s = cardLines.map((idx) => idx + 1);
-    if (s.length === 0 || s[s.length - 1] < lines.length) s.push(lines.length);
-    return s;
-  }, [cardsAfter, lines.length]);
+    const s: number[] = [];
+    for (let i = 1; i < lines.length; i++) if (lines[i].para) s.push(i);
+    s.push(lines.length);
+    return s.length ? s : [lines.length];
+  }, [lines]);
 
   const [step, setStep] = useState(0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
