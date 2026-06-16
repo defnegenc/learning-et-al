@@ -24,13 +24,14 @@ function venueLabel(p: PaperItem): string {
   return p.year ? `${kind} · ${p.year}` : kind;
 }
 
-// Short framing of the angle each paper offers — the "why you'd open this one".
+// The lens each paper brings, as a noun phrase (the card headline; the title
+// stays hidden until you reveal it).
 function lensLabel(p: PaperItem): string {
-  if (p.category === "news") return "To see recent news";
-  if (p.category === "foundational") return "For the foundational view";
+  if (p.category === "news") return "Recent news";
+  if (p.category === "foundational") return "A foundational view";
   const kw = p.keywords[0]?.toLowerCase();
-  if (kw) return `For ${/^[aeiou]/.test(kw) ? "an" : "a"} ${kw} lens`;
-  return "For another angle";
+  if (kw) return `${/^[aeiou]/.test(kw) ? "An" : "A"} ${kw} lens`;
+  return "Another angle";
 }
 
 // 1-2 sentence verdict from the synthesis lead, stripped of markdown + source markers.
@@ -53,15 +54,15 @@ function crossStarters(seeds: string[]): string[] {
   return ["Where do these three disagree?", "What's the common thread?"];
 }
 
-/* ---- a paper card in the row: just the title + the lens it brings ---- */
+/* ---- an anonymized paper card: the lens + what it does, title hidden until reveal ---- */
 function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: () => void }) {
   const [c1] = PALETTES[idx % PALETTES.length];
+  const teaser = paper.relatesLine || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
   return (
     <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "18px 20px", cursor: "pointer", height: "100%" }}>
-      <span style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.1rem", lineHeight: 1.18 }}>{paper.title}</span>
-      <span style={{ marginTop: "auto", paddingTop: 16, fontFamily: BODY, fontSize: "0.9rem", fontWeight: 600, color: "#1a1a1a" }}>
-        <span style={{ borderBottom: `3px solid ${c1}`, paddingBottom: 1 }}>{lensLabel(paper)}</span>
-      </span>
+      <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", marginBottom: 11, paddingBottom: 4, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
+      {teaser && <span style={{ fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 600, lineHeight: 1.32, color: "#1a1a1a", marginBottom: 14 }}>{teaser}</span>}
+      <span style={{ marginTop: "auto", fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Reveal the paper →</span>
     </button>
   );
 }
