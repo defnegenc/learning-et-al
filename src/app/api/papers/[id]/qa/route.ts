@@ -47,7 +47,7 @@ export async function POST(
     }
 
     const cronProvider = (process.env.CRON_AI_PROVIDER || "gemini") as "gemini" | "anthropic" | "openai" | "other";
-    const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-20250514" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
+    const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-6" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
     const apiKey = process.env.CRON_AI_KEY || "";
     const provider = cronProvider;
     const model = process.env.CRON_AI_MODEL || cronDefaultModel;

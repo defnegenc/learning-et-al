@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     const valid = VALID_CODES.has(code.trim().toLowerCase());
     const provider = process.env.CRON_AI_PROVIDER || "gemini";
-    const defaultModel = provider === "anthropic" ? "claude-sonnet-4-20250514"
+    const defaultModel = provider === "anthropic" ? "claude-sonnet-4-6"
       : provider === "openai" ? "gpt-4o"
       : "gemini-2.5-flash";
     return NextResponse.json({ valid });

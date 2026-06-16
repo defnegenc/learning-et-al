@@ -287,7 +287,7 @@ Rules:
 - For beginner interests: concrete and real-world, avoid pure theory
 - For a single interest: find the unexpected angle within it
 - Only combine 2 interests if they NATURALLY connect (AI + design, robotics + cooking, biology + fashion-tech). If interests are truly unrelated (like microbiome + cryptocurrency), just pick ONE and find a great angle within it.
-- The theme must sound like something a real person would actually wonder about. "Can we wear our gut health?" is great. "Can bacteria become your personal health stylist?" is too goofy.
+- The theme must sound like something a real person would actually wonder about. "Can we see our gut health?" is great. "Can bacteria become your personal health stylist?" is too goofy.
 
 SEARCH QUERY RULES:
 - All 3 queries must find papers a PERSON WITH THESE INTERESTS would actually want to read
