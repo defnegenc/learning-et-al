@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { papers, digests } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { aiComplete, type AIConfig } from "@/lib/ai/provider";
-import { extractJson } from "@/lib/ai/parse";
 
 export const maxDuration = 30;
 
@@ -32,22 +31,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const config: AIConfig = { apiKey: process.env.CRON_AI_KEY || "", provider: cronProvider, model: cronModel, baseUrl: process.env.CRON_AI_BASE_URL || "" };
     if (!config.apiKey) return NextResponse.json({ dinner: "", relates: "" });
 
-    const system = `You describe one research paper for a curious reader. Return ONLY JSON with two fields, each ONE complete sentence:
-- "dinner": how you'd mention this study at a dinner party — casual, starts like "A recent study found…" or "Turns out…", one specific X-affects-Y takeaway, no jargon, no author names, under 30 words.
-- "relates": how this paper helps answer the question "${theme}" — a complete, specific sentence (start with "It " or the subject, never a bare verb), plain language, under 25 words.
-Return ONLY: {"dinner":"...","relates":"..."}`;
     const user = `Question of the day: ${theme}\n\nPaper: ${paper.title}\n${basis}`;
+    const dinnerSystem = `Write ONE casual sentence a curious person could drop at a dinner party to describe this study — starts like "A recent study found…" or "Turns out…", one specific X-affects-Y takeaway, no jargon, no author names or citation, under 30 words. Return ONLY the sentence, no quotes.`;
+    const relatesSystem = `Write ONE complete sentence on how this paper helps answer the question "${theme}". Start with "It" or the subject — never a bare verb. Be specific about its contribution, plain language, under 25 words. Return ONLY the sentence, no quotes.`;
 
-    const raw = await aiComplete(config, system, user);
-    const parsed = extractJson<{ dinner?: string; relates?: string }>(raw);
-    const clean = (s: string | undefined, max: number) => {
-      const t = (s || "").trim().replace(/^["']+|["']+$/g, "");
+    // Two plain-text calls (parallel) — far more reliable than asking one call for
+    // JSON. Keep any existing cached value if a call comes back empty.
+    const [dinnerRaw, relatesRaw] = await Promise.all([
+      aiComplete(config, dinnerSystem, user).catch(() => ""),
+      aiComplete(config, relatesSystem, user).catch(() => ""),
+    ]);
+    const clean = (s: string, max: number) => {
+      const t = s.trim().replace(/^["']+|["']+$/g, "").split("\n")[0].trim();
       return t.length > max ? t.slice(0, max - 1) + "…" : t;
     };
-    const dinner = clean(parsed?.dinner, 240);
-    const relates = clean(parsed?.relates, 200);
-    // Store null (not "") for blanks so a failed field is retried on the next open
-    // rather than cached as permanently empty.
+    const dinner = clean(dinnerRaw, 240) || paper.dinnerLine || "";
+    const relates = clean(relatesRaw, 200) || paper.relatesLine || "";
+    // Store null (not "") for blanks so a failed field is retried on the next open.
     if (dinner || relates) await db.update(papers).set({ dinnerLine: dinner || null, relatesLine: relates || null }).where(eq(papers.id, id)).catch(() => {});
     return NextResponse.json({ dinner, relates });
   } catch {

@@ -60,6 +60,7 @@ function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen
   const teaser = paper.relatesLine || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
   return (
     <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "18px 20px", cursor: "pointer", height: "100%" }}>
+      <span style={{ fontFamily: BODY, fontSize: "0.72rem", fontWeight: 500, color: "#8a8378", marginBottom: 9 }}>{venueLabel(paper)}</span>
       <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", marginBottom: 11, paddingBottom: 4, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
       {teaser && <span style={{ fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 600, lineHeight: 1.32, color: "#1a1a1a", marginBottom: 14 }}>{teaser}</span>}
       <span style={{ marginTop: "auto", fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Reveal the paper →</span>
