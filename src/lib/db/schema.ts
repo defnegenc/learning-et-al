@@ -82,6 +82,7 @@ export const papers = sqliteTable("papers", {
   category: text("category", { enum: ["foundational", "recent", "news"] }),
   year: integer("year"),
   sourceIndex: integer("source_index"),
+  dinnerLine: text("dinner_line"), // casual "mention it at a dinner party" one-liner, generated on demand
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

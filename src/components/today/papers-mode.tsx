@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { splitSynthesisTheme } from "./synthesis-banner";
 import {
@@ -26,11 +26,11 @@ function venueLabel(p: PaperItem): string {
 
 // Short framing of the angle each paper offers — the "why you'd open this one".
 function lensLabel(p: PaperItem): string {
-  if (p.category === "news") return "to see recent news";
-  if (p.category === "foundational") return "for the foundational view";
-  const kw = p.keywords[0];
-  if (kw) return `for a ${kw.toLowerCase()} lens`;
-  return "for another angle";
+  if (p.category === "news") return "To see recent news";
+  if (p.category === "foundational") return "For the foundational view";
+  const kw = p.keywords[0]?.toLowerCase();
+  if (kw) return `For ${/^[aeiou]/.test(kw) ? "an" : "a"} ${kw} lens`;
+  return "For another angle";
 }
 
 // 1-2 sentence verdict from the synthesis lead, stripped of markdown + source markers.
@@ -47,36 +47,20 @@ function verdictLead(synthesis: string, theme?: string): string {
   return sentences.slice(0, 2).map((s) => s.trim()).join(" ");
 }
 
-function paperToSource(p: PaperItem): AgentSource {
-  return {
-    id: p.id,
-    title: p.title,
-    authors: p.authors,
-    year: p.year ?? null,
-    venue: venueLabel(p),
-    url: p.sourceUrl,
-    summary: p.summary || p.abstract || "",
-    origin: "digest",
-  };
-}
-
 // Cross-cutting starters: prefer the digest's suggested questions, else templates.
 function crossStarters(seeds: string[]): string[] {
   if (seeds.length) return seeds.slice(0, 3).map((s) => s.replace(/\*\*/g, ""));
   return ["Where do these three disagree?", "What's the common thread?"];
 }
 
-/* ---- a paper card in the row (the scannable menu) ---- */
+/* ---- a paper card in the row: just the title + the lens it brings ---- */
 function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: () => void }) {
   const [c1] = PALETTES[idx % PALETTES.length];
-  const summary = paper.summary || paper.abstract || "";
   return (
     <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "18px 20px", cursor: "pointer", height: "100%" }}>
-      <span style={{ fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, color: "#8a8378", marginBottom: 7 }}>{venueLabel(paper)}</span>
-      <span style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.05rem", lineHeight: 1.18, marginBottom: 9 }}>{paper.title}</span>
-      {summary && <span style={{ fontSize: "0.88rem", lineHeight: 1.5, color: "#333", marginBottom: 14 }}>{summary.length > 220 ? summary.slice(0, 217) + "…" : summary}</span>}
-      <span style={{ marginTop: "auto", fontFamily: BODY, fontSize: "0.86rem", fontWeight: 600, color: "#1a1a1a", borderTop: `2px solid ${c1}`, paddingTop: 9 }}>
-        Open {lensLabel(paper)} →
+      <span style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.1rem", lineHeight: 1.18 }}>{paper.title}</span>
+      <span style={{ marginTop: "auto", paddingTop: 16, fontFamily: BODY, fontSize: "0.9rem", fontWeight: 600, color: "#1a1a1a" }}>
+        <span style={{ borderBottom: `3px solid ${c1}`, paddingBottom: 1 }}>{lensLabel(paper)}</span>
       </span>
     </button>
   );
@@ -139,7 +123,7 @@ function CrossThread({ digestId, seeds, isLoggedIn, onSignIn, onOpenDetail, onSo
       onStatus: (s) => patch((t) => ({ ...t, status: [...t.status, s] })),
       onResult: (r) => patch((t) => ({ ...t, result: r })),
       onError: (m) => patch((t) => ({ ...t, error: m })),
-    });
+    }, { concise: true });
   };
 
   const lastResult = turns.length ? turns[turns.length - 1].result : null;
@@ -182,7 +166,60 @@ function CrossThread({ digestId, seeds, isLoggedIn, onSignIn, onOpenDetail, onSo
   );
 }
 
-/* ---- detail overlay for a paper / cited source ---- */
+/* ---- shared overlay shell ---- */
+function OverlayShell({ idx, onClose, children }: { idx: number; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(idx), maxWidth: 540, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
+        <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888", marginBottom: 14 }}>✕ Close</button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontFamily: DISPLAY, fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#8a8378", marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: "0.92rem", lineHeight: 1.55, color: "#1a1a1a" }}>{children}</div>
+    </div>
+  );
+}
+
+/* ---- rich detail for a digest paper: TL;DR, how it relates, dinner-party line ---- */
+function PaperDetail({ paper, idx, onClose }: { paper: PaperItem; idx: number; onClose: () => void }) {
+  const [dinner, setDinner] = useState<string | null>(paper.dinnerLine ?? null);
+  const [loading, setLoading] = useState(!paper.dinnerLine);
+  useEffect(() => {
+    if (paper.dinnerLine) return;
+    let cancelled = false;
+    fetch(`/api/papers/${paper.id}/blurb`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) { setDinner(d.dinner || ""); setLoading(false); } })
+      .catch(() => { if (!cancelled) { setDinner(""); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [paper.id, paper.dinnerLine]);
+
+  const tldr = paper.summary || paper.abstract || "";
+  return (
+    <OverlayShell idx={idx} onClose={onClose}>
+      <div style={{ fontFamily: BODY, fontSize: "0.74rem", fontWeight: 500, color: "#8a8378", marginBottom: 10 }}>{venueLabel(paper)}</div>
+      <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "1.3rem", lineHeight: 1.15, margin: "0 0 6px" }}>{paper.title}</h3>
+      {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: 0 }}>{paper.authors.slice(0, 4).join(", ")}</p>}
+      {tldr && <Section label="TL;DR">{tldr}</Section>}
+      {paper.connectionReason && <Section label="How it relates">{paper.connectionReason}</Section>}
+      {(loading || dinner) && (
+        <Section label="At a dinner party">
+          {loading ? <span style={{ color: "#8a8378", fontStyle: "italic" }}>Finding the one-liner…</span> : dinner}
+        </Section>
+      )}
+      {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 20, fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", background: "#1a1a1a", color: "#fff", padding: "7px 12px" }}>VIEW STUDY ↗</a>}
+    </OverlayShell>
+  );
+}
+
+/* ---- basic detail for a discovered (cited) source ---- */
 function DetailOverlay({ src, idx, onClose }: { src: AgentSource; idx: number; onClose: () => void }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -210,17 +247,20 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
 }) {
   const verdict = useMemo(() => verdictLead(synthesis, theme), [synthesis, theme]);
   const trio = papers.slice(0, 3);
-  const [detail, setDetail] = useState<{ src: AgentSource; idx: number } | null>(null);
+  type Detail = { kind: "paper"; paper: PaperItem; idx: number } | { kind: "src"; src: AgentSource; idx: number };
+  const [detail, setDetail] = useState<Detail | null>(null);
   const [coda, setCoda] = useState<AgentSource[]>([]);
   const [codaOpen, setCodaOpen] = useState(false);
   const cardedRef = useRef<Set<string>>(new Set());
 
   const seeSource = (s: AgentSource) => setCoda((prev) => (prev.some((c) => c.id === s.id) ? prev : [...prev, s]));
   const sourceIndex = (s: AgentSource) => { const i = coda.findIndex((c) => c.id === s.id); return i >= 0 ? i : coda.length; };
-  // Drilling into a digest paper opens it at its row index for a stable wash colour.
+  // A citation that points at one of the three digest papers drills into the rich
+  // paper detail; anything else (a discovered source) gets the basic overlay.
   const openSource = (s: AgentSource) => {
     const trioIdx = trio.findIndex((p) => p.id === s.id);
-    setDetail({ src: s, idx: trioIdx >= 0 ? trioIdx : sourceIndex(s) });
+    if (trioIdx >= 0) setDetail({ kind: "paper", paper: trio[trioIdx], idx: trioIdx });
+    else setDetail({ kind: "src", src: s, idx: sourceIndex(s) });
   };
 
   if (trio.length === 0) return null;
@@ -244,7 +284,7 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, alignItems: "stretch" }}>
         {trio.map((paper, i) => (
-          <RowCard key={paper.id} paper={paper} idx={i} onOpen={() => openSource(paperToSource(paper))} />
+          <RowCard key={paper.id} paper={paper} idx={i} onOpen={() => setDetail({ kind: "paper", paper, idx: i })} />
         ))}
       </div>
 
@@ -266,7 +306,7 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
           {codaOpen && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, marginTop: 16 }}>
               {coda.map((s, i) => (
-                <div key={s.id} onClick={() => setDetail({ src: s, idx: i })} className="pm-card" style={{ ...washStyle(i), border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
+                <div key={s.id} onClick={() => setDetail({ kind: "src", src: s, idx: i })} className="pm-card" style={{ ...washStyle(i), border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
                   <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, textTransform: "uppercase", fontSize: "0.82rem", lineHeight: 1.15, margin: "0 0 6px" }}>{s.title}</h4>
                   {s.url && <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "1px", color: "#1a1a1a", borderBottom: "1px solid #1a1a1a" }}>VIEW STUDY ↗</a>}
                 </div>
@@ -276,7 +316,9 @@ export function PapersMode({ synthesis, theme, papers, digestId, seeds, isLogged
         </div>
       )}
 
-      {detail && <DetailOverlay src={detail.src} idx={detail.idx} onClose={() => setDetail(null)} />}
+      {detail && (detail.kind === "paper"
+        ? <PaperDetail paper={detail.paper} idx={detail.idx} onClose={() => setDetail(null)} />
+        : <DetailOverlay src={detail.src} idx={detail.idx} onClose={() => setDetail(null)} />)}
     </div>
   );
 }
