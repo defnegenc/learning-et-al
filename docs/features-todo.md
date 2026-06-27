@@ -21,3 +21,10 @@ Needs a research deep dive in `docs/summarize-papers.md` — look at:
 - Spaced repetition / active recall techniques applied to paper digests
 - How podcasts/newsletters achieve this (Morning Brew, TLDR, Huberman)
 - The role of narrative + surprise + personal connection in memory formation
+
+## 6. Homework Queue
+Let the user assign the agent "homework" — a personal queue of topics/areas they want explored (e.g. "generative UI", "ubiquitous computing in the 21st century", "surveillance capitalism"). The user adds items to the list; the digest pipeline pulls from this queue to seed the central question/theme, instead of (or alongside) the user's standing interests.
+- **UX:** A floating "Give me homework" button, top-right of the digest, opens an input to add a topic to the queue.
+- **Behavior:** Queue-like — the pipeline picks an item (FIFO or weighted) to drive that day's theme. Decide whether items are consumed once or recur.
+- **Open questions:** Does a homework item override the normal interest-based theme for that digest, or just bias it? How do consumed items get surfaced back ("here's what I found on X")? Should the user see/reorder/delete the queue?
+- **Differs from interests:** Interests are a standing profile; homework is a directed, ephemeral request — "go look into *this* next."
