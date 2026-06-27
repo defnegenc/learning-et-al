@@ -60,6 +60,7 @@ export const digests = sqliteTable("digests", {
   keyConcepts: text("key_concepts"),
   suggestedQuestions: text("suggested_questions"),
   suggestedAnswers: text("suggested_answers"),
+  notes: text("notes"),
   starred: integer("starred", { mode: "boolean" }).$default(() => false),
   hidden: integer("hidden", { mode: "boolean" }).$default(() => false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
