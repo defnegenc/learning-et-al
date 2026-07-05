@@ -88,13 +88,19 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
+    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" } }
   ],
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
   "suggestedQuestions": ["question 1", "question 2", "question 3"]
 }
 
 ${METADATA_RULES(ctx)}
+
+TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just readable:
+- hook: the SINGLE most surprising or counterintuitive thing this paper shows, in one plain sentence a non-expert would actually repeat. NOT a summary of the whole paper. Lead with the surprise.
+- stat: one concrete number or vivid fact from the paper that anchors the hook (e.g. "hacked 83% of Linux servers with no human help"). Use null if the paper genuinely has no such number — NEVER invent one.
+- line: how you'd bring it up in conversation — casual, contractions, spoken. e.g. "you know sentiment analysis? turns out sarcasm is the hard part." Sound like a person, not a summary.
+- All three obey the voice rules: no "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm"; no em dashes; plain words.
 
 PLAIN NAME RULES (per paper):
 - A human-friendly name for what the paper is ABOUT — what you'd call it explaining it to a friend, NOT the academic title.

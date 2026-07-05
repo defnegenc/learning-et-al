@@ -162,7 +162,9 @@ function TermChip({ text, def }: { text: string; def: string }) {
 
 function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
-  const summary = paper.summary || paper.abstract || "";
+  // Lead with the takeaway hook (the surprise that affords reading); fall back to the flat
+  // summary for older digests without a takeaway.
+  const summary = paper.takeawayHook || paper.summary || paper.abstract || "";
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
       <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2, margin: "0 0 3px" }}>{paper.plainName || paper.title}</h4>
@@ -189,6 +191,9 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
   // Click-in shows something the homepage card does NOT: how it relates to the theme
   // (bold, starred) + the actual abstract (expandable) — not the same summary again.
   const relates = paper.connectionReason ? relatesFallback(paper.connectionReason) : (paper.relatesLine || "");
+  const hook = paper.takeawayHook || "";
+  const stat = paper.takeawayStat || "";
+  const line = paper.takeawayLine || "";
   const abstract = paper.abstract || paper.fullText || "";
   const LIMIT = 340;
   const isLong = abstract.length > LIMIT;
@@ -206,6 +211,21 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
           <div style={{ borderLeft: "3px solid #1a1a1a", paddingLeft: 12, margin: "0 0 18px" }}>
             <div style={{ fontSize: "0.72rem", letterSpacing: "2px", color: "#f5a623", marginBottom: 4 }}>★ ★ ★</div>
             <p style={{ fontSize: "0.98rem", fontWeight: 700, lineHeight: 1.45, color: "#1a1a1a", margin: 0 }}>{relates}</p>
+          </div>
+        )}
+
+        {hook && (
+          <p style={{ fontSize: "1.05rem", fontWeight: 600, lineHeight: 1.45, color: "#1a1a1a", margin: "0 0 12px" }}>{hook}</p>
+        )}
+
+        {stat && (
+          <div style={{ display: "inline-block", background: tags[1], border: "1.5px solid #1a1a1a", padding: "6px 12px", margin: "0 0 16px", fontSize: "0.86rem", fontWeight: 600, lineHeight: 1.3 }}>{stat}</div>
+        )}
+
+        {line && (
+          <div style={{ borderLeft: "3px solid #f5a623", background: "rgba(245,166,35,0.09)", padding: "10px 14px", margin: "0 0 18px" }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.54rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#b07d1a", marginBottom: 4 }}>Say it like</div>
+            <p style={{ fontSize: "0.95rem", fontStyle: "italic", lineHeight: 1.5, color: "#1a1a1a", margin: 0 }}>&ldquo;{line}&rdquo;</p>
           </div>
         )}
 

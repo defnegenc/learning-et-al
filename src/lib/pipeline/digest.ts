@@ -36,7 +36,7 @@ type PaperSearchResult = {
 };
 
 interface DigestAIResponse {
-  items: { index: number; plainName?: string; summary: string; keywords: string[]; findings?: string[]; connectionToTheme?: string }[];
+  items: { index: number; plainName?: string; summary: string; keywords: string[]; findings?: string[]; connectionToTheme?: string; takeaway?: { hook?: string; stat?: string | null; line?: string } }[];
   synthesis: string;
   keyConcepts: string[];
 }
@@ -1344,12 +1344,16 @@ Return JSON (no markdown fences):
 
   await db.insert(papers).values(
     items.map((item, i) => {
-      const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "", plainName: "" };
+      const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "", plainName: "", takeaway: undefined };
       return {
         digestId: digest.id,
         title: item.title, authors: JSON.stringify(item.authors),
         abstract: item.abstract, fullText: item.abstract,
-        summary: aiItem.summary, plainName: aiItem.plainName || null, source: item.source,
+        summary: aiItem.summary, plainName: aiItem.plainName || null,
+        takeawayHook: aiItem.takeaway?.hook || null,
+        takeawayStat: aiItem.takeaway?.stat || null,
+        takeawayLine: aiItem.takeaway?.line || null,
+        source: item.source,
         sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
         keywords: JSON.stringify(aiItem.keywords),
         keyFindings: JSON.stringify(aiItem.findings || []),
