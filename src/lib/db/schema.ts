@@ -60,6 +60,11 @@ export const digests = sqliteTable("digests", {
   keyConcepts: text("key_concepts"),
   suggestedQuestions: text("suggested_questions"),
   suggestedAnswers: text("suggested_answers"),
+  seedInterests: text("seed_interests"), // JSON [{keyword, field}] — interests that seeded this digest (drives header chips)
+  gist: text("gist"),                     // one-line answer to the central question (zero-click hook)
+  framing: text("framing"),               // faint italic curatorial provenance line
+  homeworkTopic: text("homework_topic"),  // null = standing digest; set when a homework item seeds it (homework UI ships later)
+  notes: text("notes"),
   starred: integer("starred", { mode: "boolean" }).$default(() => false),
   hidden: integer("hidden", { mode: "boolean" }).$default(() => false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
@@ -82,6 +87,10 @@ export const papers = sqliteTable("papers", {
   category: text("category", { enum: ["foundational", "recent", "news"] }),
   year: integer("year"),
   sourceIndex: integer("source_index"),
+  plainName: text("plain_name"), // plain-language name for the paper, shown on cards alongside the academic title (E)
+  takeawayHook: text("takeaway_hook"), // the one surprising, repeatable sentence — the card's draw (Conversational Papers)
+  takeawayStat: text("takeaway_stat"), // concrete anchor: a number or vivid fact; nullable
+  takeawayLine: text("takeaway_line"), // "say it like this" — ready-to-repeat casual sentence
   dinnerLine: text("dinner_line"), // casual "mention it at a dinner party" one-liner, generated on demand
   relatesLine: text("relates_line"), // clean one-sentence "how this relates to today's question", generated on demand
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),

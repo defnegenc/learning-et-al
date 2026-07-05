@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
-import { BriefThreads, streamThread, toLines as answerToLines, LineReveal, ThinkingTrace, type AgentSource, type ResultPayload } from "./brief-threads";
+import { BriefThreads } from "./brief-threads";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
@@ -162,10 +162,13 @@ function TermChip({ text, def }: { text: string; def: string }) {
 
 function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
-  const summary = paper.summary || paper.abstract || "";
+  // Lead with the takeaway hook (the surprise that affords reading); fall back to the flat
+  // summary for older digests without a takeaway.
+  const summary = paper.takeawayHook || paper.summary || paper.abstract || "";
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
-      <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2, margin: "0 0 3px" }}>{paper.title}</h4>
+      <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2, margin: "0 0 3px" }}>{paper.plainName || paper.title}</h4>
+      {paper.plainName && <p style={{ fontSize: "0.66rem", color: "#666", lineHeight: 1.35, margin: "0 0 4px" }}>{paper.title}</p>}
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.58rem", fontStyle: "italic", color: "#888", margin: "0 0 7px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
       {summary && <p style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#333", margin: 0 }}>{summary.length > 260 ? summary.slice(0, 257) + "..." : summary}</p>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 9, gap: 8 }}>
@@ -184,16 +187,61 @@ function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx
 
 function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
-  const summary = paper.summary || paper.abstract || "";
+  const [expanded, setExpanded] = useState(false);
+  // Click-in shows something the homepage card does NOT: how it relates to the theme
+  // (bold, starred) + the actual abstract (expandable) — not the same summary again.
+  const relates = paper.connectionReason ? relatesFallback(paper.connectionReason) : (paper.relatesLine || "");
+  const hook = paper.takeawayHook || "";
+  const stat = paper.takeawayStat || "";
+  const line = paper.takeawayLine || "";
+  const abstract = paper.abstract || paper.fullText || "";
+  const LIMIT = 340;
+  const isLong = abstract.length > LIMIT;
+  const shownAbstract = expanded || !isLong ? abstract : abstract.slice(0, LIMIT).trimEnd() + "…";
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 520, width: "100%", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
         <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888", marginBottom: 14 }}>✕ Close</button>
         <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", color: "#666", marginBottom: 10 }}>{venueLabel(paper)}</div>
-        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.2, margin: "0 0 6px" }}>{paper.title}</h3>
+        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.2, margin: "0 0 6px" }}>{paper.plainName || paper.title}</h3>
+        {paper.plainName && <p style={{ fontSize: "0.8rem", color: "#555", lineHeight: 1.4, margin: "0 0 8px" }}>{paper.title}</p>}
         {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 16px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
-        {summary && <p style={{ fontSize: "0.95rem", lineHeight: 1.6, color: "#222", margin: 0 }}>{summary}</p>}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 18, gap: 12, flexWrap: "wrap" }}>
+
+        {relates && (
+          <div style={{ borderLeft: "3px solid #1a1a1a", paddingLeft: 12, margin: "0 0 18px" }}>
+            <div style={{ fontSize: "0.72rem", letterSpacing: "2px", color: "#f5a623", marginBottom: 4 }}>★ ★ ★</div>
+            <p style={{ fontSize: "0.98rem", fontWeight: 700, lineHeight: 1.45, color: "#1a1a1a", margin: 0 }}>{relates}</p>
+          </div>
+        )}
+
+        {hook && (
+          <p style={{ fontSize: "1.05rem", fontWeight: 600, lineHeight: 1.45, color: "#1a1a1a", margin: "0 0 12px" }}>{hook}</p>
+        )}
+
+        {stat && (
+          <div style={{ display: "inline-block", background: tags[1], border: "1.5px solid #1a1a1a", padding: "6px 12px", margin: "0 0 16px", fontSize: "0.86rem", fontWeight: 600, lineHeight: 1.3 }}>{stat}</div>
+        )}
+
+        {line && (
+          <div style={{ borderLeft: "3px solid #f5a623", background: "rgba(245,166,35,0.09)", padding: "10px 14px", margin: "0 0 18px" }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.54rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#b07d1a", marginBottom: 4 }}>Say it like</div>
+            <p style={{ fontSize: "0.95rem", fontStyle: "italic", lineHeight: 1.5, color: "#1a1a1a", margin: 0 }}>&ldquo;{line}&rdquo;</p>
+          </div>
+        )}
+
+        {abstract && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>Abstract</div>
+            <p style={{ fontSize: "0.9rem", lineHeight: 1.62, color: "#333", margin: 0 }}>{shownAbstract}</p>
+            {isLong && (
+              <button onClick={() => setExpanded(v => !v)} style={{ marginTop: 8, fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1px", textTransform: "uppercase", background: "none", border: "none", borderBottom: "1.5px solid #1a1a1a", padding: "0 0 1px", cursor: "pointer", color: "#1a1a1a" }}>
+                {expanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {paper.keywords.slice(0, 4).map((kw, i) => (
               <span key={kw} style={{ fontFamily: MONO, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.5px", background: tags[i % 2], border: "1px solid #1a1a1a", padding: "3px 9px" }}>{kw}</span>
@@ -216,51 +264,7 @@ function relatesFallback(reason: string): string {
   return /[.!?]$/.test(sentence) ? sentence : sentence + ".";
 }
 
-// The lens each paper brings, for the compare view.
-function lensLabel(p: PaperItem): string {
-  if (p.category === "news") return "Recent news";
-  if (p.category === "foundational") return "The foundational view";
-  const kw = p.keywords[0]?.toLowerCase();
-  if (kw) return `${/^[aeiou]/.test(kw) ? "An" : "A"} ${kw} lens`;
-  return "Another angle";
-}
-
-/* ---- generated "how they differ" contrast, citations drill into the paper ---- */
-function ContrastBody({ result, papers, onOpenPaper }: { result: ResultPayload; papers: PaperItem[]; onOpenPaper: (p: PaperItem) => void }) {
-  const lines = useMemo(() => answerToLines(result.answer), [result.answer]);
-  const cardedRef = useRef<Set<string>>(new Set());
-  return (
-    <div style={{ fontSize: "1.02rem", lineHeight: 1.7, color: "#1a1a1a" }}>
-      <LineReveal
-        lines={lines}
-        sources={result.sources}
-        onOpen={(s: AgentSource) => { const p = papers.find((pp) => pp.id === s.id); if (p) onOpenPaper(p); }}
-        onSourceSeen={() => {}}
-        onDone={() => {}}
-        cardedRef={cardedRef}
-      />
-    </div>
-  );
-}
-
-/* ---- compare card: one paper's lens, side by side with the others ---- */
-function CompareCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: (p: PaperItem) => void }) {
-  const [c1] = PALETTES[idx % PALETTES.length];
-  // Show this paper's DISTINCT take (its connection to the question), not the same
-  // generic summary shown elsewhere.
-  const distinct = paper.connectionReason
-    ? relatesFallback(paper.connectionReason)
-    : (paper.summary || paper.abstract || "");
-  return (
-    <button onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "16px 18px", cursor: "pointer", height: "100%" }}>
-      <span style={{ display: "flex", alignItems: "flex-end", alignSelf: "flex-start", minHeight: "2.3em", fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, color: "#1a1a1a", marginBottom: 12, paddingBottom: 6, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
-      {distinct && <span style={{ fontSize: "0.84rem", lineHeight: 1.5, color: "#1a1a1a" }}>{distinct}</span>}
-      <span style={{ marginTop: "auto", paddingTop: 12, fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Open →</span>
-    </button>
-  );
-}
-
-/* ---- main: user-paced verdict (Next source) → compare the three → dig deeper ---- */
+/* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
 export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn }: {
   synthesis: string;
@@ -314,29 +318,16 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   const [step, setStep] = useState(0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
   const allRevealed = n >= lines.length;
-  const [compared, setCompared] = useState(false);
-  const [contrast, setContrast] = useState<{ status: string[]; result: ResultPayload | null } | null>(null);
   const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
 
-  // On "Compare", generate a concise "how they differ" contrast across the three.
-  const openCompare = () => {
-    setCompared(true);
-    if (contrast || !isLoggedIn) return;
-    setContrast({ status: [], result: null });
-    streamThread(
-      digestId,
-      "In 3 sentences, how do these three papers DIFFER in what they claim or emphasize? Contrast their distinct takes. Refer to each only by its [N] citation and its finding — never by author name or title.",
-      [],
-      {
-        onStatus: (s) => setContrast((c) => (c ? { ...c, status: [...c.status, s] } : c)),
-        onResult: (r) => setContrast((c) => (c ? { ...c, result: r } : c)),
-        onError: () => {},
-      },
-      { concise: true }
-    );
+  // Match the card's color: index by paper id (reference equality broke for agent-found
+  // papers rebuilt from a different source). If it's not one of the main papers, derive a
+  // stable index from the id so the color is at least consistent per paper, never always 0.
+  const openDetail = (paper: PaperItem) => {
+    const i = papers.findIndex(p => p.id === paper.id);
+    const idx = i >= 0 ? i : Math.abs([...paper.id].reduce((a, c) => a + c.charCodeAt(0), 0)) % PALETTES.length;
+    setDetail({ paper, idx });
   };
-
-  const openDetail = (paper: PaperItem) => setDetail({ paper, idx: Math.max(0, papers.indexOf(paper)) });
 
   const renderSeg = (s: Seg, i: number, lineStart: boolean) => {
     if (s.t === "w") return <span key={i}>{s.text}</span>;
@@ -385,38 +376,15 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
 
       {els}
 
-      {/* User-paced: reveal one source at a time, then compare, then dig deeper */}
+      {/* User-paced: reveal one source at a time, then straight into dig deeper */}
       {!allRevealed && (
         <button onClick={() => setStep((s) => s + 1)} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#fff", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#1a1a1a" }}>
           Next source →
         </button>
       )}
-      {allRevealed && !compared && (
-        <button onClick={openCompare} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#1a1a1a", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#fff" }}>
-          Compare the three →
-        </button>
-      )}
 
-      {compared && (
-        <div className="brief-line" style={{ marginTop: 36 }}>
-          {isLoggedIn && (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#1a1a1a", marginBottom: 14 }}>How they differ</div>
-              {contrast && !contrast.result && <ThinkingTrace status={contrast.status} done={false} onDone={() => {}} />}
-              {contrast?.result && <ContrastBody result={contrast.result} papers={papers} onOpenPaper={openDetail} />}
-            </div>
-          )}
-          <div style={{ fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#1a1a1a", marginBottom: 14 }}>Three lenses, side by side</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, alignItems: "stretch" }}>
-            {papers.slice(0, 3).map((p, i) => (
-              <CompareCard key={p.id} paper={p} idx={i} onOpen={openDetail} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Threads mount immediately so seed preloads start, but stay hidden until you compare */}
-      <div style={{ marginTop: 36, display: compared ? undefined : "none" }}>
+      {/* Threads mount immediately so seed preloads start, but stay hidden until the walk ends */}
+      <div style={{ marginTop: 36, display: allRevealed ? undefined : "none" }}>
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
 

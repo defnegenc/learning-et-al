@@ -4,6 +4,11 @@ import { AIConfig } from "@/lib/ai/provider";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
 
+// The manual Generate button runs the full 9-15 call pipeline. Without this it inherits the
+// platform default timeout, and a long run gets its connection cut mid-flight — the browser
+// then shows "Network error — couldn't reach the server." Match the cron route's budget.
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   const userId = await getAuthUser(req);
   if (!userId) {

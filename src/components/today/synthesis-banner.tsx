@@ -92,45 +92,6 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
   );
 }
 
-// Floating note card — sits right of synthesis text
-function DigestNotes({ digestId }: { digestId: string }) {
-  const [notes, setNotes] = useState("");
-  const storageKey = `digest_notes_${digestId}`;
-
-  React.useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) setNotes(saved);
-  }, [storageKey]);
-
-  const handleBlur = () => {
-    if (notes.trim()) localStorage.setItem(storageKey, notes);
-  };
-
-  return (
-    <div style={{
-      width: "220px", flexShrink: 0, marginLeft: "24px",
-      border: "2px solid #1a1a1a", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)",
-      background: "white", padding: "14px", alignSelf: "flex-start",
-    }}>
-      <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a", fontFamily: "var(--font-mono), monospace", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-        ✦ Note
-      </div>
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        onBlur={handleBlur}
-        placeholder="Jot down your thoughts..."
-        style={{
-          width: "100%", minHeight: "120px", background: "transparent",
-          border: "none", outline: "none", resize: "vertical",
-          fontSize: "0.8rem", lineHeight: 1.6, color: "#333",
-          fontFamily: "inherit",
-        }}
-      />
-    </div>
-  );
-}
-
 // Inline tooltip for hard words — shows definition on hover (position:fixed to avoid mobile overflow)
 function DefinitionTooltip({ term, definition, children }: { term: string; definition: string; children: React.ReactNode }) {
   const [show, setShow] = useState(false);
@@ -424,6 +385,7 @@ interface SynthesisBannerProps {
   renderPaperCard?: (paper: PaperItem, index: number) => React.ReactNode;
   isLoggedIn?: boolean;
   onSignIn?: () => void;
+  onAppendNote?: (text: string) => void;
   hideHeader?: boolean;
   hideInteractionUI?: boolean;
 }
@@ -569,21 +531,18 @@ export function AnswerBlock({ text, paperLinks }: { text: string; paperLinks?: {
 
 function AnswerEntry({
   entry,
-  digestId,
+  onAppendNote,
   showDivider,
 }: {
   entry: { q: string; a: string; paperLinks?: { title: string; sourceUrl: string | null }[] };
-  digestId?: string;
+  onAppendNote?: (text: string) => void;
   showDivider: boolean;
 }) {
   const [added, setAdded] = useState(false);
 
   function addToNotes() {
-    if (!digestId) return;
-    const key = `digest_notes_${digestId}`;
-    const existing = localStorage.getItem(key) || "";
-    const block = `Q: ${entry.q}\n${entry.a}`;
-    localStorage.setItem(key, existing ? `${existing}\n\n${block}` : block);
+    if (!onAppendNote) return;
+    onAppendNote(`Q: ${entry.q}\n${entry.a}`);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   }
@@ -656,6 +615,7 @@ export function SynthesisBanner({
   renderPaperCard,
   isLoggedIn,
   onSignIn,
+  onAppendNote,
   hideHeader = false,
   hideInteractionUI = false,
 }: SynthesisBannerProps) {
@@ -1035,7 +995,7 @@ export function SynthesisBanner({
                 <AnswerEntry
                   key={i}
                   entry={entry}
-                  digestId={digestId}
+                  onAppendNote={onAppendNote}
                   showDivider={i < digDeeperHistory.length - 1}
                 />
               ))}

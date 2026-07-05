@@ -18,6 +18,10 @@ export interface PaperItem {
   category?: "foundational" | "recent" | "news" | null;
   keyFindings?: string[];
   connectionReason?: string | null;
+  plainName?: string | null;
+  takeawayHook?: string | null;
+  takeawayStat?: string | null;
+  takeawayLine?: string | null;
   dinnerLine?: string | null;
   relatesLine?: string | null;
 }

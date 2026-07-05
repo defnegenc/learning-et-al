@@ -88,13 +88,34 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
+    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" } }
   ],
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
   "suggestedQuestions": ["question 1", "question 2", "question 3"]
 }
 
 ${METADATA_RULES(ctx)}
+
+TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just readable:
+- hook: the SINGLE most surprising or counterintuitive thing this paper shows, in one plain sentence a non-expert would actually repeat. NOT a summary of the whole paper. Lead with the surprise.
+- stat: one concrete number or vivid fact from the paper that anchors the hook (e.g. "hacked 83% of Linux servers with no human help"). Use null if the paper genuinely has no such number — NEVER invent one.
+- line: how you'd bring it up in conversation — casual, contractions, spoken. e.g. "you know sentiment analysis? turns out sarcasm is the hard part." Sound like a person, not a summary.
+- All three obey the voice rules: no "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm"; no em dashes; plain words.
+
+PLAIN NAME RULES (per paper):
+- A human-friendly name for what the paper is ABOUT — what you'd call it explaining it to a friend, NOT the academic title.
+- MAX 6 words, plain English, no jargon, no acronyms, no author names, no "a study of…".
+- BAD: "An Intelligent Sentiment Analysis Model Based on Fine-Tuned BERT Architecture" (the real title — too long, jargon)
+- GOOD: "Reading emotion in social-media text"
+- BAD: "EEGSeizureSense: A Hybrid CNN-Transformer for Seizure Detection"
+- GOOD: "Spotting seizures in brain waves"
+
+KEY CONCEPTS RULES (jargon a non-expert would trip on):
+- Extract EVERY term in the papers' summaries/findings a smart non-expert would NOT already know, then define each in one plain sentence.
+- This MUST include: model/system names (e.g. "RoBERTa", "DistilBERT"), technical methods (e.g. "subword tokenization", "self-attention", "CNN"), and field acronyms (e.g. "EEG", "NLP").
+- Define what it IS and why it matters, not a circular restatement. BAD: "RoBERTa: a RoBERTa model." GOOD: "RoBERTa: a language model that learns word meaning from context by reading huge amounts of text."
+- Aim for 4-8 concepts. Better to over-include than leave a scary word undefined — undefined jargon is the #1 reason a reader disengages.
+- Only include terms that actually appear in the summaries/findings (so they can be matched and underlined in the synthesis).
 
 SUGGESTED QUESTIONS RULES:
 - Generate exactly 3 questions based on GAPS — things the synthesis hints at but doesn't fully explain.
@@ -291,7 +312,7 @@ STYLE RULES:
 - Intro: start with the insight or tension, not a build-up. Contractions. Casual.
 - Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - Write for smart non-experts. Translate ALL jargon.
-- NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
+- NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
 - NO em dashes. Use periods, "but", "and" instead.
 - Bullets start with a verb ("found", "shows", "tested", "asked", "says"). Not "Instead of..." or setup phrases.
 - Use **bold** on 1-2 key words/phrases per bullet — the number, the surprise, the most striking term. Not the paper name (already bold). E.g. "found that **83% of models** failed" or "shows **sleep beats practice** by 2x."
@@ -368,6 +389,7 @@ Scoring guide:
   * "the pattern's clear" / "the [X] is clear" / "what we see is" / "the lesson here" / "the bigger picture" / "together they show" / "what these papers reveal"
   * tautological closings like "the most vulnerable are the ones who..." / "the [X]est are the ones who need [Y] most"
   * vague buzzwords without specifics: "structural limitations", "systemic issues", "performative [anything]"
+  * AI-tell adverbs/words: "quietly", "seamlessly", "notably", "crucially", "essentially", "ultimately", "delve", "leverage", "underscore", "testament", "landscape", "realm"
   * "it turns out that" used more than once
   Score: 5=zero banned phrases, 4=one minor slip, 3=one major phrase, 2=two+ phrases, 1=multiple + formulaic closing.
 
@@ -499,7 +521,7 @@ RULES:
 - After first mention, just use the short bold name.
 - Include one specific number or finding.
 - End naturally. No formulaic closing.
-- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably.
+- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
 - NO em dashes. Use periods, "but", "and" instead.
 - NEVER write "The question of whether X isn't just about Y — it's about Z" or any variation of this pattern.
 - NO restating the theme. Sound like a person, not a speech.`;
