@@ -193,11 +193,9 @@ function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx
 function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
   const [expanded, setExpanded] = useState(false);
-  // Click-in shows something the homepage card does NOT: how it relates to the theme
-  // (bold, starred) + the actual abstract (expandable) — not the same summary again.
+  // Click-in shows only what the card doesn't: how it relates to the theme, the abstract,
+  // and the "say it like this" line at the bottom. The hook + stat already live on the card.
   const relates = paper.connectionReason ? relatesFallback(paper.connectionReason) : (paper.relatesLine || "");
-  const hook = paper.takeawayHook || "";
-  const stat = paper.takeawayStat || "";
   const line = paper.takeawayLine || "";
   const abstract = paper.abstract || paper.fullText || "";
   const LIMIT = 340;
@@ -219,21 +217,6 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
           </div>
         )}
 
-        {hook && (
-          <p style={{ fontSize: "1.05rem", fontWeight: 600, lineHeight: 1.45, color: "#1a1a1a", margin: "0 0 12px" }}>{hook}</p>
-        )}
-
-        {stat && (
-          <div style={{ display: "inline-block", background: tags[1], border: "1.5px solid #1a1a1a", padding: "6px 12px", margin: "0 0 16px", fontSize: "0.86rem", fontWeight: 600, lineHeight: 1.3 }}>{stat}</div>
-        )}
-
-        {line && (
-          <div style={{ borderLeft: "3px solid #f5a623", background: "rgba(245,166,35,0.09)", padding: "10px 14px", margin: "0 0 18px" }}>
-            <div style={{ fontFamily: MONO, fontSize: "0.54rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#b07d1a", marginBottom: 4 }}>Say it like</div>
-            <p style={{ fontSize: "0.95rem", fontStyle: "italic", lineHeight: 1.5, color: "#1a1a1a", margin: 0 }}>&ldquo;{line}&rdquo;</p>
-          </div>
-        )}
-
         {abstract && (
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>Abstract</div>
@@ -243,6 +226,13 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
                 {expanded ? "Show less" : "Show more"}
               </button>
             )}
+          </div>
+        )}
+
+        {line && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>Say it like</div>
+            <p style={{ fontSize: "0.9rem", lineHeight: 1.62, color: "#333", fontStyle: "italic", margin: 0 }}>&ldquo;{line}&rdquo;</p>
           </div>
         )}
 

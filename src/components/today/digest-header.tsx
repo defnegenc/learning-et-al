@@ -28,9 +28,9 @@ export function DigestHeader({ seedInterests, gist, framing }: {
   if (!chips.length && !gist && !framing) return null;
 
   return (
-    <div style={{ marginTop: 16, marginBottom: 4 }}>
+    <div style={{ marginTop: 8, marginBottom: 4 }}>
       {chips.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: gist || framing ? 16 : 0 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: gist || framing ? 26 : 0 }}>
           {chips.map((c) => (
             <span
               key={c.keyword}
@@ -53,12 +53,12 @@ export function DigestHeader({ seedInterests, gist, framing }: {
         </div>
       )}
       {gist && (
-        <p style={{ fontFamily: BODY, fontSize: "1.06rem", lineHeight: 1.55, color: "#1a1a1a", fontWeight: 500, margin: 0 }}>
+        <p style={{ fontFamily: BODY, fontSize: "1.12rem", lineHeight: 1.5, color: "#1a1a1a", fontWeight: 700, margin: 0 }}>
           {gist}
         </p>
       )}
       {framing && (
-        <p style={{ fontFamily: BODY, fontSize: "0.8rem", fontStyle: "italic", color: "#8a8a8a", lineHeight: 1.5, margin: gist ? "10px 0 0" : 0 }}>
+        <p style={{ fontFamily: BODY, fontSize: "0.9rem", color: "#555", lineHeight: 1.5, margin: gist ? "10px 0 0" : 0 }}>
           {framing}
         </p>
       )}
