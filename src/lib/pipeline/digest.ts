@@ -1325,7 +1325,7 @@ VOICE: Sound like a real person talking to a friend. Use contractions. Plain wor
 
 Return JSON (no markdown fences):
 {
-  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. Lead with the answer, even if it's 'sort of' or 'it depends'.",
+  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. START with the verdict word ('No.', 'Yes.', 'Sort of.', 'Not quite.') then the substance. Do NOT echo the question's own words back — the question is right above this on the page. BAD (for 'Does good UX design ignore how users feel?'): 'Good UX design can't ignore how users feel...' (restates the question). GOOD: 'No. Treating emotion as optional turns out to be a design gap, not a real tradeoff.'",
   "framing": "One short line (max 15 words) on why this is interesting — the tension or the surprising pairing across the papers. Straightforward and human. Grounded ONLY in the actual papers; never invent trends."
 }`
     );
