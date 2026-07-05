@@ -98,7 +98,7 @@ ${METADATA_RULES(ctx)}
 
 TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just readable:
 - hook: the SINGLE most surprising or counterintuitive thing this paper shows, in one plain sentence a non-expert would actually repeat. NOT a summary of the whole paper. Lead with the surprise.
-- stat: one concrete number or vivid fact from the paper that anchors the hook (e.g. "hacked 83% of Linux servers with no human help"). Use null if the paper genuinely has no such number — NEVER invent one.
+- stat: one concrete number or vivid fact from the paper that anchors the hook (e.g. "hacked 83% of Linux servers with no human help"). Use null if the paper genuinely has no such number — NEVER invent one. Translate raw metrics (F1, AUC, 0.4 out of 1.0) into plain meaning ("matched a real teacher less than half the time"); a number only earns its place if a normal person instantly gets it.
 - line: how you'd bring it up in conversation — casual, contractions, spoken. e.g. "you know sentiment analysis? turns out sarcasm is the hard part." Sound like a person, not a summary.
 - All three obey the voice rules: no "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm"; no em dashes; plain words.
 
@@ -313,6 +313,7 @@ STYLE RULES:
 - Intro: start with a concrete detail, not a build-up or a thesis. Contractions. Casual.
 - Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - Write for smart non-experts. Translate ALL jargon.
+- NEVER state a raw metric or its name (F1, AUC, BLEU, R², p-value, accuracy=0.4, RMSE) — translate it into what it MEANS in plain terms. BAD: "scores below 0.4 F1 across every configuration". GOOD: "matched a real teacher's feedback less than half the time, no matter how it was set up." A number is only worth keeping if a normal person instantly gets what it means (like "$2.87 billion" or "83% of servers").
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
 - NO em dashes. Use periods, "but", "and" instead.
 - Bullets start with a verb ("found", "shows", "tested", "asked", "says"). Not "Instead of..." or setup phrases.

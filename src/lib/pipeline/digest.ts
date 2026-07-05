@@ -1331,7 +1331,7 @@ VOICE: Sound like a real person talking to a friend. Use contractions. Plain wor
 
 Return JSON (no markdown fences):
 {
-  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. START with the verdict word ('No.', 'Yes.', 'Sort of.', 'Not quite.') then the substance. Do NOT echo the question's own words back — the question is right above this on the page. BAD (for 'Does good UX design ignore how users feel?'): 'Good UX design can't ignore how users feel...' (restates the question). GOOD: 'No. Treating emotion as optional turns out to be a design gap, not a real tradeoff.'",
+  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question. If it's a who/what/how/why question, answer it DIRECTLY with the real answer — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT echo the question's own words back (it sits right above this on the page). No jargon or metrics. Examples — Q 'Does good UX ignore how users feel?' -> 'No. Treating emotion as optional is a design gap, not a real tradeoff.' | Q 'Who checks AI when it grades students?' -> 'Almost nobody yet: one new system flags bad AI scores, but teachers haven't started using it.'",
   "framing": "ONE sentence naming what you pulled, first person, like: 'I pulled ${sourceCount} sources — a X, a Y, and a Z.' Describe each source in a few plain words (what it IS), based on the sources listed above. Do NOT restate the answer or the tension. Just say what the sources are. Max 25 words."
 }`
     );
