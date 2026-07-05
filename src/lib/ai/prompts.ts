@@ -306,7 +306,7 @@ STYLE RULES:
 - Intro: start with the insight or tension, not a build-up. Contractions. Casual.
 - Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - Write for smart non-experts. Translate ALL jargon.
-- NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably.
+- NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
 - NO em dashes. Use periods, "but", "and" instead.
 - Bullets start with a verb ("found", "shows", "tested", "asked", "says"). Not "Instead of..." or setup phrases.
 - Use **bold** on 1-2 key words/phrases per bullet — the number, the surprise, the most striking term. Not the paper name (already bold). E.g. "found that **83% of models** failed" or "shows **sleep beats practice** by 2x."
@@ -383,6 +383,7 @@ Scoring guide:
   * "the pattern's clear" / "the [X] is clear" / "what we see is" / "the lesson here" / "the bigger picture" / "together they show" / "what these papers reveal"
   * tautological closings like "the most vulnerable are the ones who..." / "the [X]est are the ones who need [Y] most"
   * vague buzzwords without specifics: "structural limitations", "systemic issues", "performative [anything]"
+  * AI-tell adverbs/words: "quietly", "seamlessly", "notably", "crucially", "essentially", "ultimately", "delve", "leverage", "underscore", "testament", "landscape", "realm"
   * "it turns out that" used more than once
   Score: 5=zero banned phrases, 4=one minor slip, 3=one major phrase, 2=two+ phrases, 1=multiple + formulaic closing.
 
@@ -514,7 +515,7 @@ RULES:
 - After first mention, just use the short bold name.
 - Include one specific number or finding.
 - End naturally. No formulaic closing.
-- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably.
+- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
 - NO em dashes. Use periods, "but", "and" instead.
 - NEVER write "The question of whether X isn't just about Y — it's about Z" or any variation of this pattern.
 - NO restating the theme. Sound like a person, not a speech.`;
