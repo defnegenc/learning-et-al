@@ -162,15 +162,20 @@ function TermChip({ text, def }: { text: string; def: string }) {
 
 function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
-  // Lead with the takeaway hook (the surprise that affords reading); fall back to the flat
-  // summary for older digests without a takeaway.
-  const summary = paper.takeawayHook || paper.summary || paper.abstract || "";
+  // The card's job is the takeaway: hook (+ stat), NOT a restatement of the synthesis.
+  // The 40-word summary lives in the detail/vault; it only shows here as a fallback for
+  // older digests without a takeaway.
+  const hook = paper.takeawayHook || "";
+  const stat = paper.takeawayStat || "";
+  const body = hook || paper.summary || paper.abstract || "";
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
+      <div style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "1.5px", color: "#888", marginBottom: 4 }}>{venueLabel(paper)}</div>
       <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2, margin: "0 0 3px" }}>{paper.plainName || paper.title}</h4>
       {paper.plainName && <p style={{ fontSize: "0.66rem", color: "#666", lineHeight: 1.35, margin: "0 0 4px" }}>{paper.title}</p>}
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.58rem", fontStyle: "italic", color: "#888", margin: "0 0 7px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
-      {summary && <p style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#333", margin: 0 }}>{summary.length > 260 ? summary.slice(0, 257) + "..." : summary}</p>}
+      {body && <p style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#333", margin: 0 }}>{body.length > 260 ? body.slice(0, 257) + "..." : body}</p>}
+      {hook && stat && <p style={{ fontSize: "0.68rem", fontWeight: 600, color: "#555", margin: "5px 0 0" }}>{stat}</p>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 9, gap: 8 }}>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {paper.keywords.slice(0, 3).map((kw, i) => (
