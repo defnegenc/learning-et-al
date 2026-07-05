@@ -19,6 +19,9 @@ export interface PaperItem {
   keyFindings?: string[];
   connectionReason?: string | null;
   plainName?: string | null;
+  takeawayHook?: string | null;
+  takeawayStat?: string | null;
+  takeawayLine?: string | null;
   dinnerLine?: string | null;
   relatesLine?: string | null;
 }

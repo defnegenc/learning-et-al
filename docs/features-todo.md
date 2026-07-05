@@ -20,20 +20,23 @@ their components to cut maintenance surface. Confirm none are linked/depended on
 Rethink dig deeper to actually prompt the user to explore further. Current suggested
 questions feel generic. Should feel like a curious friend pulling you in deeper.
 
-### Research Deep Dive: Making Papers Conversational
+### Conversational Papers — Build 2: the recall loop
 **Core question:** How might we make it so the user doesn't have to read the paper at all
-to feel like they've learned something? How can we make it so that short interaction is
-enough to bring it up in conversation?
+to feel like they've learned something, and *remember* it well enough to bring it up later?
 
-Needs a research deep dive in `docs/summarize-papers.md` — look at:
-- Cognitive science of knowledge retention from summaries vs. full reads
-- "Cocktail party knowledge" — what's the minimum viable understanding to discuss a topic?
-- Spaced repetition / active recall techniques applied to paper digests
-- How podcasts/newsletters achieve this (Morning Brew, TLDR, Huberman)
-- The role of narrative + surprise + personal connection in memory formation
+Build 1 (The Takeaway) shipped 2026-07-05 — each paper now has a hook + stat + "say it like
+this" line, surfaced on the card and detail overlay. Spec:
+`docs/superpowers/specs/2026-07-05-conversational-papers-takeaway-design.md`.
 
-Note: the readability pass (A–E above) is the near-term surface fix; this is the deeper
-"make it memorable" bet, to be done after.
+**Build 2 (next):** the retention layer — spaced-repetition / active-recall resurfacing of past
+takeaways ("remember Tuesday's paper?") inside a new digest, so knowledge persists. The
+`homework_topic` column already exists so the recall loop can prioritize homework topics when
+the homework queue lands. Still worth a research pass in `docs/summarize-papers.md`:
+- Cognitive science of retention from summaries vs. full reads; "cocktail party knowledge"
+- Spaced repetition / active recall applied to digests
+- How podcasts/newsletters make things stick (Morning Brew, TLDR, Huberman): narrative + surprise + personal connection
+
+Later builds: conversational rehearsal ("how would I bring this up?"), narrated/audio brief.
 
 ### Homework Queue
 Let the user assign the agent "homework" — a personal queue of topics/areas they want
