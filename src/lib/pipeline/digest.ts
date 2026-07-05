@@ -1307,17 +1307,19 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
     const seedList = seedInterests.map(s => s.keyword).join(", ");
     const gistResp = await aiComplete(
       aiConfig,
-      "You write punchy, plain-English digest headers. Return only JSON.",
+      "You write punchy, plain-English digest headers that sound like a smart friend talking, not an AI. Return only JSON.",
       `Central question: "${finalTheme}"
 Seed interests: ${seedList}
 
 Today's synthesis:
 ${synthesis}
 
+VOICE: Sound like a real person talking to a friend. Use contractions. Plain words. NO AI-speak — never use "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm", "testament", "at the frontier". No em dashes. No "the studies show".
+
 Return JSON (no markdown fences):
 {
-  "gist": "In ONE punchy sentence (max 25 words), answer the central question the way the synthesis does. Lead with the answer, even if it's 'sort of' or 'it depends'. No jargon. No 'the studies show'.",
-  "framing": "A curator's one-liner (max 15 words) framing WHY this is interesting — name the tension or the surprising pairing across the papers. Intriguing, not a summary. Grounded ONLY in the actual papers; never invent trends or 'frontier' claims."
+  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. Lead with the answer, even if it's 'sort of' or 'it depends'.",
+  "framing": "One short line (max 15 words) on why this is interesting — the tension or the surprising pairing across the papers. Straightforward and human. Grounded ONLY in the actual papers; never invent trends."
 }`
     );
     const gp = extractJson<{ gist?: string; framing?: string }>(gistResp);
