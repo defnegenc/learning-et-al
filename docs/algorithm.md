@@ -117,7 +117,7 @@ LLM sees actual papers (600 chars of abstract each) and conditionally revises th
 
 Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
 
-**Stage A: Metadata** (AI call 7) — per-paper summaries, keywords, findings, connectionToTheme, keyConcepts, suggestedQuestions. Uses `metadataPrompt`.
+**Stage A: Metadata** (AI call 7) — per-paper summaries, keywords, findings, connectionToTheme, **plainName** (plain-language paper name shown on cards above the academic title), **takeaway** (`hook` = the one surprise, `stat` = concrete anchor or null, `line` = "say it like this" casual repeatable sentence — powers Conversational Papers; the card leads with the hook, the detail overlay shows hook→stat→line), keyConcepts, suggestedQuestions. Uses `metadataPrompt`. keyConcepts now aggressively captures jargon a non-expert trips on — model/system names (RoBERTa, DistilBERT), technical methods (subword tokenization, self-attention), and acronyms (EEG, NLP) — so the synthesis hover-definitions actually fire on scary words.
 
 **Stage B: Argument Skeleton** (AI call 8) — cross-document relations (agrees/contradicts/extends/alternative_mechanism/unrelated), paper roles, core tension, argument arc. Uses `skeletonPrompt`.
 
@@ -129,10 +129,25 @@ Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
 
 **Final Coverage Gate** (AI call 14, conditional) — runs AFTER all revisions. Extracts all `**bold phrases**` from synthesis and checks each paper's shortName/title/author against them. If any paper is missing from bold text, a targeted revision adds it. This is the last synthesis modification — nothing overwrites after this.
 
+### Step 6b: Digest Header — gist + framing (AI call, always after final synthesis)
+
+Powers the zero-click header rendered under the central question (`DigestHeader` in
+`today-page.tsx`, shown in all modes). One JSON call over the FINAL synthesis returns:
+- **gist** — a one-sentence answer to the central question (≤25 words, plain English, leads with the answer). The reader gets the payoff before clicking through sources.
+- **framing** — a curatorial one-liner (≤15 words) naming the tension or surprising pairing; grounded only in the papers (no invented trends).
+
+Also persisted: **seed_interests** (`[{keyword, field}]`, the interests the Step-1 LLM
+selected) — free, no AI call — which drives the header's domain chips (colored via
+`field-hierarchy.ts`). Generated in the same block as `suggestedAnswers` so both logged-in
+and public paths get them.
+
+Note: the Step-1 theme prompt (`hypothesisPrompt`) now also requires at least one concrete,
+picturable noun, so titles are graspable, not just punchy.
+
 ### Step 7: Storage
 
-- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, starred flag.
-- Papers saved with: summaries, keywords, key findings, connectionReason.
+- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, gist, framing, starred flag.
+- Papers saved with: summaries, keywords, key findings, connectionReason, plainName.
 - All linked to user and dated.
 
 ---

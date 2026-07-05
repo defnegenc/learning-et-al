@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { FIELD_HIERARCHY, type S2Field } from "@/lib/field-hierarchy";
 
+// Max interests a user can select. The digest samples 5 candidates/day from the
+// whole pool (see docs/algorithm.md Step 1), so this is only a UI guardrail, not
+// an algorithmic constraint. Single source of truth — referenced by the ledger's
+// warning + dimming AND the guards in settings-dialog + the useInterestLedger hook.
+export const MAX_INTERESTS = 30;
+
 export interface SelectedTopic {
   keyword: string;
   field: S2Field;
@@ -40,16 +46,20 @@ function GlassTag({
   palette: pal,
   onClick,
   onRemove,
+  disabled = false,
 }: {
   label: string;
   active: boolean;
   palette: [string, string];
   onClick?: () => void;
   onRemove?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      title={disabled ? `Remove an interest to add more (max ${MAX_INTERESTS}).` : undefined}
       style={{
         background: active ? tagGradient(pal) : "transparent",
         color: "#1a1a1a",
@@ -66,10 +76,10 @@ function GlassTag({
         lineHeight: 1,
         borderRadius: 3,
         whiteSpace: "nowrap",
-        cursor: onClick ? "pointer" : "default",
+        cursor: disabled ? "not-allowed" : onClick ? "pointer" : "default",
         transition: "all 120ms",
         boxShadow: active ? "inset 0 1px 0 rgba(255,255,255,0.5)" : "none",
-        opacity: active ? 1 : 0.75,
+        opacity: active ? 1 : disabled ? 0.3 : 0.75,
       }}
     >
       {label}
@@ -95,7 +105,7 @@ function GlassTag({
 }
 
 // Inline "+ ADD" button that expands to a small input for custom topics
-function RowAdder({ onAdd }: { onAdd: (topic: string) => void }) {
+function RowAdder({ onAdd, disabled = false }: { onAdd: (topic: string) => void; disabled?: boolean }) {
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -103,6 +113,8 @@ function RowAdder({ onAdd }: { onAdd: (topic: string) => void }) {
     return (
       <button
         onClick={() => setOpen(true)}
+        disabled={disabled}
+        title={disabled ? `Remove an interest to add more (max ${MAX_INTERESTS}).` : undefined}
         style={{
           background: "transparent",
           border: "1px dashed #1a1a1a",
@@ -112,9 +124,10 @@ function RowAdder({ onAdd }: { onAdd: (topic: string) => void }) {
           letterSpacing: 1.2,
           color: "#1a1a1a",
           padding: "5px 10px",
-          cursor: "pointer",
+          cursor: disabled ? "not-allowed" : "pointer",
           textTransform: "uppercase",
           borderRadius: 3,
+          opacity: disabled ? 0.3 : 1,
         }}
       >+ ADD</button>
     );
@@ -175,12 +188,34 @@ export function InterestLedger({
   onToggle,
   onAddCustom,
   onRemoveCustom,
+  maxSelected = MAX_INTERESTS,
 }: InterestLedgerProps) {
   const selectedSet = new Set(selected.map(s => s.keyword));
   const entries = Object.entries(FIELD_HIERARCHY);
+  const atMax = selected.length >= maxSelected;
 
   return (
-    <div style={{ border: "1px solid #1a1a1a", background: "#fff" }}>
+    <div>
+      {atMax && (
+        <div
+          role="status"
+          style={{
+            border: "2px solid #1a1a1a",
+            background: "#FFE89A",
+            boxShadow: "3px 3px 0 0 rgba(0,0,0,1)",
+            padding: "9px 14px",
+            marginBottom: 12,
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: 0.4,
+            color: "#1a1a1a",
+          }}
+        >
+          You&rsquo;ve selected the maximum of {maxSelected} interests. Remove one to add another.
+        </div>
+      )}
+      <div style={{ border: "1px solid #1a1a1a", background: "#fff" }}>
       {entries.map(([fieldKey, fieldDef], i) => {
         const pal = palette(fieldKey);
         const customTopics = custom[fieldKey] || [];
@@ -224,22 +259,25 @@ export function InterestLedger({
             >
               {allTopics.map((topic) => {
                 const isCustom = customTopics.includes(topic);
+                const isSelected = selectedSet.has(topic);
                 return (
                   <GlassTag
                     key={topic}
                     label={topic}
-                    active={selectedSet.has(topic)}
+                    active={isSelected}
                     palette={pal}
                     onClick={() => onToggle(topic, fieldKey)}
                     onRemove={isCustom ? () => onRemoveCustom(fieldKey, topic) : undefined}
+                    disabled={atMax && !isSelected}
                   />
                 );
               })}
-              <RowAdder onAdd={(t) => onAddCustom(fieldKey, t)} />
+              <RowAdder onAdd={(t) => onAddCustom(fieldKey, t)} disabled={atMax} />
             </div>
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -256,7 +294,7 @@ export function useInterestLedger(initialSelected: SelectedTopic[] = []) {
     setSelected((prev) => {
       const exists = prev.findIndex((t) => t.keyword === topic);
       if (exists > -1) return prev.filter((t) => t.keyword !== topic);
-      if (prev.length >= 20) return prev;
+      if (prev.length >= MAX_INTERESTS) return prev;
       return [
         ...prev,
         {
@@ -281,7 +319,7 @@ export function useInterestLedger(initialSelected: SelectedTopic[] = []) {
     });
     setSelected((prev) => {
       if (prev.some((t) => t.keyword === trimmed)) return prev;
-      if (prev.length >= 20) return prev;
+      if (prev.length >= MAX_INTERESTS) return prev;
       return [
         ...prev,
         {

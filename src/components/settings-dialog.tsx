@@ -11,7 +11,7 @@ import { Settings, Loader2, CheckCircle, RefreshCw, LogOut } from "lucide-react"
 import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
-import { InterestLedger, type CustomTopics } from "@/components/interest-ledger";
+import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
 
 export type SettingsTab = "interests" | "account";
 
@@ -93,7 +93,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
     const exists = selectedTopics.findIndex(t => t.keyword === keyword);
     if (exists > -1) {
       setSelectedTopics(prev => prev.filter(t => t.keyword !== keyword));
-    } else if (selectedTopics.length < 20) {
+    } else if (selectedTopics.length < MAX_INTERESTS) {
       setSelectedTopics(prev => [...prev, {
         keyword, field: fieldDef.s2Field, fieldLabel: fieldDef.label, color: fieldDef.color,
       }]);
@@ -102,7 +102,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
 
   function addCustom(fieldKey: string, topic: string) {
     const val = topic.trim();
-    if (!val || selectedTopics.length >= 20) return;
+    if (!val || selectedTopics.length >= MAX_INTERESTS) return;
     const fieldDef = FIELD_HIERARCHY[fieldKey];
     if (!fieldDef) return;
     setCustomTopics(prev => {

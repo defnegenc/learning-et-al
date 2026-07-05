@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
         keyConcepts: digest.keyConcepts ? JSON.parse(digest.keyConcepts) : [],
         suggestedQuestions: digest.suggestedQuestions ? JSON.parse(digest.suggestedQuestions) : [],
         suggestedAnswers: digest.suggestedAnswers ? JSON.parse(digest.suggestedAnswers) : [],
+        seedInterests: digest.seedInterests ? JSON.parse(digest.seedInterests) : [],
       },
       papers: digestPapers.map((p) => ({
         ...p,

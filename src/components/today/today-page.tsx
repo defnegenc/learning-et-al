@@ -6,6 +6,7 @@ import type { PaperItem } from "./paper-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
 import { BriefDigest } from "./brief-digest";
+import { DigestHeader } from "./digest-header";
 import { PapersMode } from "./papers-mode";
 import { PapersModeOg } from "./papers-mode-og";
 import { journalName } from "@/lib/venue-name";
@@ -420,23 +421,14 @@ function DigDeeperRail({
 }
 
 /* ── Floating Notepad ── */
-function NotepadFloat({ digestId }: { digestId: string }) {
+function NotepadFloat({ notes, onChange, onSave }: { notes: string; onChange: (v: string) => void; onSave: () => void }) {
   const [open, setOpen] = useState(false);
-  const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
-  const storageKey = `digest_notes_${digestId}`;
-
-  useEffect(() => {
-    const s = localStorage.getItem(storageKey);
-    if (s) setNotes(s);
-  }, [storageKey]);
 
   const handleBlur = () => {
-    if (notes.trim()) {
-      localStorage.setItem(storageKey, notes);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }
+    onSave();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -450,7 +442,7 @@ function NotepadFloat({ digestId }: { digestId: string }) {
           <div style={{ padding: 14 }}>
             <textarea
               value={notes}
-              onChange={e => { setNotes(e.target.value); setSaved(false); }}
+              onChange={e => { onChange(e.target.value); setSaved(false); }}
               onBlur={handleBlur}
               placeholder="Jot down your thoughts..."
               style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", resize: "vertical", fontSize: "0.875rem", lineHeight: 1.65, color: "#333", fontFamily: "inherit", boxSizing: "border-box" }}
@@ -566,6 +558,10 @@ interface Digest {
   keyConcepts: string[];
   suggestedQuestions?: string[];
   suggestedAnswers?: string[];
+  seedInterests?: { keyword: string; field: string }[];
+  gist?: string | null;
+  framing?: string | null;
+  notes?: string | null;
   starred: boolean | null;
   hidden?: boolean | null;
   date: string;
@@ -628,6 +624,62 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       setDigDeeperHistory([]);
     }
   }, [historyKey]);
+
+  /* ── Digest notes — DB-backed, tied to this digest's permanent history ──
+     Single source of truth lives here; the floating notepad and the dig-deeper
+     "add to notes" action both read/write this state, which persists to the DB. */
+  const [notes, setNotes] = useState("");
+  const lastPersistedNotes = useRef<string>("");
+  const hydratedDigestId = useRef<string | null>(null);
+
+  const saveNotes = useCallback(async (digestId: string, value: string) => {
+    if (!session) return; // notes need an authenticated owner
+    try {
+      const res = await fetch("/api/digest/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ digestId, notes: value }),
+      });
+      if (res.ok) lastPersistedNotes.current = value;
+    } catch {
+      /* leave lastPersistedNotes unchanged so the next edit/blur retries */
+    }
+  }, [session]);
+
+  // Hydrate notes when the digest changes; migrate any legacy localStorage notes once.
+  useEffect(() => {
+    if (!digest) return;
+    if (hydratedDigestId.current === digest.id) return;
+    hydratedDigestId.current = digest.id;
+    const dbNotes = digest.notes ?? "";
+    if (dbNotes) {
+      setNotes(dbNotes);
+      lastPersistedNotes.current = dbNotes;
+      return;
+    }
+    const legacy = typeof window !== "undefined" ? localStorage.getItem(`digest_notes_${digest.id}`) : null;
+    if (legacy && legacy.trim()) {
+      setNotes(legacy);
+      lastPersistedNotes.current = ""; // force the migration save below
+      saveNotes(digest.id, legacy);
+    } else {
+      setNotes("");
+      lastPersistedNotes.current = "";
+    }
+  }, [digest, session, saveNotes]);
+
+  // Debounced autosave while typing (blur also saves immediately).
+  useEffect(() => {
+    if (!digest || !session) return;
+    if (notes === lastPersistedNotes.current) return;
+    const t = setTimeout(() => saveNotes(digest.id, notes), 800);
+    return () => clearTimeout(t);
+  }, [notes, digest, session, saveNotes]);
+
+  // Append a block to the notes (used by dig-deeper "add to notes").
+  const appendNote = useCallback((block: string) => {
+    setNotes(prev => (prev.trim() ? `${prev}\n\n${block}` : block));
+  }, []);
 
   const fetchDigest = useCallback(async (digestId?: string) => {
     try {
@@ -883,6 +935,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
             <SweepTitle text={displayTheme} palettes={SOURCE_PALETTES} />
 
+            <DigestHeader seedInterests={digest.seedInterests} gist={digest.gist} framing={digest.framing} />
+
           </div>
 
           {/* Synthesis — gated experiences swap in here:
@@ -934,6 +988,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               onSelectPaper={openSource}
               onRegenerate={() => handleGenerate(true)}
               generating={generating}
+              onAppendNote={appendNote}
               onSignIn={onSignIn}
               hideHeader
               hideInteractionUI
@@ -1001,7 +1056,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       {/* ── Floating notepad — desktop only ── */}
       {digest.id && session && (
         <div className="hidden md:block">
-          <NotepadFloat digestId={digest.id} />
+          <NotepadFloat notes={notes} onChange={setNotes} onSave={() => saveNotes(digest.id, notes)} />
         </div>
       )}
     </div>
