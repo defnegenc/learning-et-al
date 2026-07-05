@@ -1312,11 +1312,17 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
   let framing = "";
   try {
     const seedList = seedInterests.map(s => s.keyword).join(", ");
+    const sourceCount = items.length;
+    const sourceList = parsedAI.items
+      .map((ai, i) => ai.plainName || items[i]?.title || "")
+      .filter(Boolean)
+      .join("; ");
     const gistResp = await aiComplete(
       aiConfig,
       "You write punchy, plain-English digest headers that sound like a smart friend talking, not an AI. Return only JSON.",
       `Central question: "${finalTheme}"
 Seed interests: ${seedList}
+Sources I pulled (${sourceCount}): ${sourceList}
 
 Today's synthesis:
 ${synthesis}
@@ -1326,7 +1332,7 @@ VOICE: Sound like a real person talking to a friend. Use contractions. Plain wor
 Return JSON (no markdown fences):
 {
   "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. START with the verdict word ('No.', 'Yes.', 'Sort of.', 'Not quite.') then the substance. Do NOT echo the question's own words back — the question is right above this on the page. BAD (for 'Does good UX design ignore how users feel?'): 'Good UX design can't ignore how users feel...' (restates the question). GOOD: 'No. Treating emotion as optional turns out to be a design gap, not a real tradeoff.'",
-  "framing": "One short line (max 15 words) on why this is interesting — the tension or the surprising pairing across the papers. Straightforward and human. Grounded ONLY in the actual papers; never invent trends."
+  "framing": "ONE sentence naming what you pulled, first person, like: 'I pulled ${sourceCount} sources — a X, a Y, and a Z.' Describe each source in a few plain words (what it IS), based on the sources listed above. Do NOT restate the answer or the tension. Just say what the sources are. Max 25 words."
 }`
     );
     const gp = extractJson<{ gist?: string; framing?: string }>(gistResp);

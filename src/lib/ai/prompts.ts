@@ -290,7 +290,7 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
-[Intro: 1–2 sentences. A one-line answer to the theme question already sits ABOVE the synthesis on the page — do NOT restate it or open with a flat yes/no/"sort of". Open with the sharpest counterintuitive finding or the strangest tension the papers surface — the "wait, what?" that makes the reader need the rest. Don't describe the papers. Don't meta-frame ("Three studies ask..."). Use **bold** on 1–2 key words — the sharpest noun or the most surprising claim. No em dashes. Not italics.]
+[Intro: 1 sentence. Both a one-line answer AND a "here's what I pulled" line already sit ABOVE this on the page. So this must NOT be a thesis, a bottom-line, or a yes/no — that would be the THIRD restatement in a row. Open on a CONCRETE specific: a number, a named case, or a scene from ONE of the papers, that pulls the reader in. "The Bybit hack cleared 40 wallets in an hour while the person who authorized it still blamed the AI." Don't describe the papers. Don't meta-frame ("Three studies ask..."). Use **bold** on the sharpest number or claim. No em dashes. Not italics.]
 
 ${skeleton.paperRoles.map((r, i, arr) => {
   const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences, HARD MAX 3, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
@@ -309,7 +309,8 @@ CRITICAL FORMAT RULES:
 
 STYLE RULES:
 - ALWAYS prefix bold paper names with [Source N]. MAX 4 WORDS for the name after the prefix.
-- Intro: start with the insight or tension, not a build-up. Contractions. Casual.
+- STRATEGIC BOLD: in EACH bullet, also wrap the single sharpest number or claim in **bold** (in addition to the paper name), so someone scanning catches the point without reading every word. e.g. "...stole **$2.87 billion** across 150 hacks" or "felt **less responsible** and were more willing to cheat". Exactly ONE such bold phrase per bullet — don't bold whole sentences.
+- Intro: start with a concrete detail, not a build-up or a thesis. Contractions. Casual.
 - Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - Write for smart non-experts. Translate ALL jargon.
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
