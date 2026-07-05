@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
-import { BriefThreads, streamThread, toLines as answerToLines, LineReveal, ThinkingTrace, type AgentSource, type ResultPayload } from "./brief-threads";
+import { BriefThreads } from "./brief-threads";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
@@ -264,51 +264,7 @@ function relatesFallback(reason: string): string {
   return /[.!?]$/.test(sentence) ? sentence : sentence + ".";
 }
 
-// The lens each paper brings, for the compare view.
-function lensLabel(p: PaperItem): string {
-  if (p.category === "news") return "Recent news";
-  if (p.category === "foundational") return "The foundational view";
-  const kw = p.keywords[0]?.toLowerCase();
-  if (kw) return `${/^[aeiou]/.test(kw) ? "An" : "A"} ${kw} lens`;
-  return "Another angle";
-}
-
-/* ---- generated "how they differ" contrast, citations drill into the paper ---- */
-function ContrastBody({ result, papers, onOpenPaper }: { result: ResultPayload; papers: PaperItem[]; onOpenPaper: (p: PaperItem) => void }) {
-  const lines = useMemo(() => answerToLines(result.answer), [result.answer]);
-  const cardedRef = useRef<Set<string>>(new Set());
-  return (
-    <div style={{ fontSize: "1.02rem", lineHeight: 1.7, color: "#1a1a1a" }}>
-      <LineReveal
-        lines={lines}
-        sources={result.sources}
-        onOpen={(s: AgentSource) => { const p = papers.find((pp) => pp.id === s.id); if (p) onOpenPaper(p); }}
-        onSourceSeen={() => {}}
-        onDone={() => {}}
-        cardedRef={cardedRef}
-      />
-    </div>
-  );
-}
-
-/* ---- compare card: one paper's lens, side by side with the others ---- */
-function CompareCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: (p: PaperItem) => void }) {
-  const [c1] = PALETTES[idx % PALETTES.length];
-  // Show this paper's DISTINCT take (its connection to the question), not the same
-  // generic summary shown elsewhere.
-  const distinct = paper.connectionReason
-    ? relatesFallback(paper.connectionReason)
-    : (paper.summary || paper.abstract || "");
-  return (
-    <button onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "16px 18px", cursor: "pointer", height: "100%" }}>
-      <span style={{ display: "flex", alignItems: "flex-end", alignSelf: "flex-start", minHeight: "2.3em", fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, color: "#1a1a1a", marginBottom: 12, paddingBottom: 6, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
-      {distinct && <span style={{ fontSize: "0.84rem", lineHeight: 1.5, color: "#1a1a1a" }}>{distinct}</span>}
-      <span style={{ marginTop: "auto", paddingTop: 12, fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Open →</span>
-    </button>
-  );
-}
-
-/* ---- main: user-paced verdict (Next source) → compare the three → dig deeper ---- */
+/* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
 export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn }: {
   synthesis: string;
@@ -362,27 +318,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   const [step, setStep] = useState(0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
   const allRevealed = n >= lines.length;
-  const [compared, setCompared] = useState(false);
-  const [contrast, setContrast] = useState<{ status: string[]; result: ResultPayload | null } | null>(null);
   const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
-
-  // On "Compare", generate a concise "how they differ" contrast across the three.
-  const openCompare = () => {
-    setCompared(true);
-    if (contrast || !isLoggedIn) return;
-    setContrast({ status: [], result: null });
-    streamThread(
-      digestId,
-      "In 3 sentences, how do these three papers DIFFER in what they claim or emphasize? Contrast their distinct takes. Refer to each only by its [N] citation and its finding — never by author name or title.",
-      [],
-      {
-        onStatus: (s) => setContrast((c) => (c ? { ...c, status: [...c.status, s] } : c)),
-        onResult: (r) => setContrast((c) => (c ? { ...c, result: r } : c)),
-        onError: () => {},
-      },
-      { concise: true }
-    );
-  };
 
   // Match the card's color: index by paper id (reference equality broke for agent-found
   // papers rebuilt from a different source). If it's not one of the main papers, derive a
@@ -440,38 +376,15 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
 
       {els}
 
-      {/* User-paced: reveal one source at a time, then compare, then dig deeper */}
+      {/* User-paced: reveal one source at a time, then straight into dig deeper */}
       {!allRevealed && (
         <button onClick={() => setStep((s) => s + 1)} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#fff", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#1a1a1a" }}>
           Next source →
         </button>
       )}
-      {allRevealed && !compared && (
-        <button onClick={openCompare} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#1a1a1a", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#fff" }}>
-          Compare the three →
-        </button>
-      )}
 
-      {compared && (
-        <div className="brief-line" style={{ marginTop: 36 }}>
-          {isLoggedIn && (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#1a1a1a", marginBottom: 14 }}>How they differ</div>
-              {contrast && !contrast.result && <ThinkingTrace status={contrast.status} done={false} onDone={() => {}} />}
-              {contrast?.result && <ContrastBody result={contrast.result} papers={papers} onOpenPaper={openDetail} />}
-            </div>
-          )}
-          <div style={{ fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#1a1a1a", marginBottom: 14 }}>Three lenses, side by side</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, alignItems: "stretch" }}>
-            {papers.slice(0, 3).map((p, i) => (
-              <CompareCard key={p.id} paper={p} idx={i} onOpen={openDetail} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Threads mount immediately so seed preloads start, but stay hidden until you compare */}
-      <div style={{ marginTop: 36, display: compared ? undefined : "none" }}>
+      {/* Threads mount immediately so seed preloads start, but stay hidden until the walk ends */}
+      <div style={{ marginTop: 36, display: allRevealed ? undefined : "none" }}>
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
 
