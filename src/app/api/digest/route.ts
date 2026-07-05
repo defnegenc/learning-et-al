@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
         ...digest,
         keyConcepts: digest.keyConcepts ? JSON.parse(digest.keyConcepts) : [],
         suggestedQuestions: digest.suggestedQuestions ? JSON.parse(digest.suggestedQuestions) : [],
+        seedInterests: digest.seedInterests ? JSON.parse(digest.seedInterests) : [],
       },
       papers: digestPapers.map((p) => ({
         ...p,
