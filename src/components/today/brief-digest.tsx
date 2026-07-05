@@ -185,17 +185,43 @@ function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx
 
 function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
-  const summary = paper.summary || paper.abstract || "";
+  const [expanded, setExpanded] = useState(false);
+  // Click-in shows something the homepage card does NOT: how it relates to the theme
+  // (bold, starred) + the actual abstract (expandable) — not the same summary again.
+  const relates = paper.connectionReason ? relatesFallback(paper.connectionReason) : (paper.relatesLine || "");
+  const abstract = paper.abstract || paper.fullText || "";
+  const LIMIT = 340;
+  const isLong = abstract.length > LIMIT;
+  const shownAbstract = expanded || !isLong ? abstract : abstract.slice(0, LIMIT).trimEnd() + "…";
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 520, width: "100%", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
         <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888", marginBottom: 14 }}>✕ Close</button>
         <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", color: "#666", marginBottom: 10 }}>{venueLabel(paper)}</div>
         <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.2, margin: "0 0 6px" }}>{paper.plainName || paper.title}</h3>
         {paper.plainName && <p style={{ fontSize: "0.8rem", color: "#555", lineHeight: 1.4, margin: "0 0 8px" }}>{paper.title}</p>}
         {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 16px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
-        {summary && <p style={{ fontSize: "0.95rem", lineHeight: 1.6, color: "#222", margin: 0 }}>{summary}</p>}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 18, gap: 12, flexWrap: "wrap" }}>
+
+        {relates && (
+          <div style={{ borderLeft: "3px solid #1a1a1a", paddingLeft: 12, margin: "0 0 18px" }}>
+            <div style={{ fontSize: "0.72rem", letterSpacing: "2px", color: "#f5a623", marginBottom: 4 }}>★ ★ ★</div>
+            <p style={{ fontSize: "0.98rem", fontWeight: 700, lineHeight: 1.45, color: "#1a1a1a", margin: 0 }}>{relates}</p>
+          </div>
+        )}
+
+        {abstract && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>Abstract</div>
+            <p style={{ fontSize: "0.9rem", lineHeight: 1.62, color: "#333", margin: 0 }}>{shownAbstract}</p>
+            {isLong && (
+              <button onClick={() => setExpanded(v => !v)} style={{ marginTop: 8, fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1px", textTransform: "uppercase", background: "none", border: "none", borderBottom: "1.5px solid #1a1a1a", padding: "0 0 1px", cursor: "pointer", color: "#1a1a1a" }}>
+                {expanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {paper.keywords.slice(0, 4).map((kw, i) => (
               <span key={kw} style={{ fontFamily: MONO, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.5px", background: tags[i % 2], border: "1px solid #1a1a1a", padding: "3px 9px" }}>{kw}</span>
@@ -338,7 +364,14 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     );
   };
 
-  const openDetail = (paper: PaperItem) => setDetail({ paper, idx: Math.max(0, papers.indexOf(paper)) });
+  // Match the card's color: index by paper id (reference equality broke for agent-found
+  // papers rebuilt from a different source). If it's not one of the main papers, derive a
+  // stable index from the id so the color is at least consistent per paper, never always 0.
+  const openDetail = (paper: PaperItem) => {
+    const i = papers.findIndex(p => p.id === paper.id);
+    const idx = i >= 0 ? i : Math.abs([...paper.id].reduce((a, c) => a + c.charCodeAt(0), 0)) % PALETTES.length;
+    setDetail({ paper, idx });
+  };
 
   const renderSeg = (s: Seg, i: number, lineStart: boolean) => {
     if (s.t === "w") return <span key={i}>{s.text}</span>;
