@@ -290,10 +290,10 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
-[Intro: 1–2 sentences. The theme is a question — open by answering it directly, even if the answer is "it depends" or "sort of, but not the way you'd expect." Don't describe the papers. Don't meta-frame ("Three studies ask..."). Lead with the answer or the sharpest counterintuitive finding that the papers collectively support. Use **bold** on 1–2 key words — the sharpest noun or the most surprising claim. No em dashes. Not italics. A declarative statement that answers the question first, then earns it.]
+[Intro: 1–2 sentences. A one-line answer to the theme question already sits ABOVE the synthesis on the page — do NOT restate it or open with a flat yes/no/"sort of". Open with the sharpest counterintuitive finding or the strangest tension the papers surface — the "wait, what?" that makes the reader need the rest. Don't describe the papers. Don't meta-frame ("Three studies ask..."). Use **bold** on 1–2 key words — the sharpest noun or the most surprising claim. No em dashes. Not italics.]
 
 ${skeleton.paperRoles.map((r, i, arr) => {
-  const bullet = `- **[Source ${r.index}] ${r.shortName}** [one sentence starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend, with a specific detail or number]`;
+  const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences, HARD MAX 3, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
   const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
   return bullet + bridge;
 }).join("\n\n")}
@@ -302,7 +302,7 @@ ${skeleton.paperRoles.map((r, i, arr) => {
 
 CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
-- Each bullet is exactly ONE sentence. No line breaks within bullets.
+- Each bullet is 1–3 sentences, HARD MAX 3. No line breaks within a bullet.
 - Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
 - Structure is: intro, then alternating bullet/bridge, then closing. No other paragraphs.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
@@ -322,6 +322,7 @@ SPECIFICITY GATE — when any bullet uses: barrier, limitation, challenge, probl
   GOOD: "robo-advisors still require a $10K minimum balance, locking out the 40% of Americans who'd benefit most."
 
 BANNED PATTERNS:
+- NEVER write that a source "doesn't weigh in", "doesn't address", "isn't about", or "doesn't speak to" the theme question. If a source connects only weakly, give it ONE short honest sentence about what it DOES show — never narrate its irrelevance, and never invent a connection either.
 - "X don't just Y — they Z" / "isn't just X — it's Y" / "it isn't about X, it's about Y" — banned.
 - "Instead of asking..." / "Rather than X, Y" / "The real question isn't X, it's Y" — banned.
 - "Here's where it gets [ANY adjective]" / "But here's where..." — banned.
@@ -390,6 +391,8 @@ Scoring guide:
   * tautological closings like "the most vulnerable are the ones who..." / "the [X]est are the ones who need [Y] most"
   * vague buzzwords without specifics: "structural limitations", "systemic issues", "performative [anything]"
   * AI-tell adverbs/words: "quietly", "seamlessly", "notably", "crucially", "essentially", "ultimately", "delve", "leverage", "underscore", "testament", "landscape", "realm"
+  * narrated irrelevance: any sentence saying a source "doesn't weigh in on", "doesn't address", or "isn't about" the theme — the reader should never be told content is irrelevant
+  * any single source bullet longer than 3 sentences
   * "it turns out that" used more than once
   Score: 5=zero banned phrases, 4=one minor slip, 3=one major phrase, 2=two+ phrases, 1=multiple + formulaic closing.
 
@@ -428,7 +431,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences answering the theme question, with bold key words), one bullet per paper (- **[Source N] name** [conversational verb phrase]), bridges between bullets, closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences, with bold key words), one bullet per paper (- **[Source N] name** [1–3 sentences, HARD MAX 3]), bridges between bullets, closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
@@ -452,10 +455,11 @@ SUMMARY RULES:
 - If the abstract is thin or unclear, write a shorter, more cautious summary. Never fabricate findings to fill the word count.
 - BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..." (boring, tells nothing)
 - BAD: "AI tracked 350 students' behaviors and predicted grades." (too vague — WHAT behaviors? HOW accurately?)
-- GOOD: "Researchers logged every click, login time, and assignment submission for 350 online students — and predicted who'd fail with 87% accuracy."
+- GOOD: "Every click, login time, and assignment submission from 350 online students fed a model that predicted who'd fail with 87% accuracy."
 - GOOD: "They gave GPT-4 real Linux servers with known vulnerabilities. It exploited 33-83% of them autonomously, matching human hackers."
 - GOOD: "FintechNews reports multi-agent collaboration, agentic RAG, and vertical AI agents are the three biggest trends heading into 2026."
 - The reader should think "wait, they actually did that?" or "huh, I didn't know that was possible."
+- OPENERS: NEVER start a summary (or a takeaway hook/line) with "Researchers...", "A researcher...", "Scientists...", "A team...", "This study/paper...", "The authors...", or "A tech outlet...". Three cards starting the same way reads as a template. Start with the finding, the setup, or the surprise itself — vary across papers.
 
 FINDINGS RULES:
 - 3 findings per paper. Each one answers: "what did they FIND OUT?" not "what did they DO?"
