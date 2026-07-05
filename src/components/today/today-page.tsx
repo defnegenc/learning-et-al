@@ -6,6 +6,7 @@ import type { PaperItem } from "./paper-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
 import { BriefDigest } from "./brief-digest";
+import { DigestHeader } from "./digest-header";
 import { PapersMode } from "./papers-mode";
 import { PapersModeOg } from "./papers-mode-og";
 import { journalName } from "@/lib/venue-name";
@@ -557,6 +558,9 @@ interface Digest {
   keyConcepts: string[];
   suggestedQuestions?: string[];
   suggestedAnswers?: string[];
+  seedInterests?: { keyword: string; field: string }[];
+  gist?: string | null;
+  framing?: string | null;
   notes?: string | null;
   starred: boolean | null;
   hidden?: boolean | null;
@@ -930,6 +934,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             </div>
 
             <SweepTitle text={displayTheme} palettes={SOURCE_PALETTES} />
+
+            <DigestHeader seedInterests={digest.seedInterests} gist={digest.gist} framing={digest.framing} />
 
           </div>
 

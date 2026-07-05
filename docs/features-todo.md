@@ -3,24 +3,6 @@
 Running list of future features. Shipped items move to the "Shipped" section at the
 bottom (dates live in `docs/changelog.md`).
 
-## In progress
-
-### Digest Readability & Curiosity Pass
-Making the digest graspable and engaging at a glance. Motivated by: obscure titles,
-unexplained jargon (e.g. RoBERTa, "subword tokenization"), confusing paper names, and
-too many clicks to reach the gist. Split into two specs:
-
-- **A/B/C — Header + gist hook** (being specced): domain chips under the title (colored
-  by field via `field-hierarchy.ts`), a one-line "gist" answer to the central question
-  surfaced in **zero clicks**, and a faint italic framing line naming the seed interests.
-  Adds `seed_interests`, `gist`, `framing` columns to `digests`. The one-by-one source
-  walk in `brief-digest.tsx` stays unchanged. May also include a small tweak to the
-  central-question prompt (`hypothesisPrompt` in `digest.ts`) requiring at least one
-  concrete, picturable noun so titles are graspable, not just punchy.
-- **D/E — Jargon + paper naming** (next): stop relying on the `keyConcepts` whitelist so
-  model names and technical terms get underlined + hover-defined; give each paper a
-  plain-language name alongside its real academic title.
-
 ## Open
 
 ### Share Digest (partially shipped)
@@ -70,3 +52,7 @@ to seed the central question/theme, instead of (or alongside) the user's standin
   `/api/cron` (processes most-stale-first, surfaces processed counts). *(was #2)*
 - **Delivery cadence** — daily / bi-weekly (Tue & Fri) / weekly (Sunday recap), with
   cadence-aware "best-of" email selection via Resend. *(was #4)*
+- **Digest Readability & Curiosity Pass (A–E)** — zero-click header (domain chips + gist +
+  curatorial framing), concrete-noun title rule, aggressive jargon capture for hover defs,
+  and plain-language paper names on cards. Spec:
+  `docs/superpowers/specs/2026-07-05-digest-header-gist-hook-design.md`. *(2026-07-05)*

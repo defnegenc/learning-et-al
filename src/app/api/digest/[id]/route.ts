@@ -27,6 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       digest: {
         ...digest,
         keyConcepts: digest.keyConcepts ? JSON.parse(digest.keyConcepts) : [],
+        seedInterests: digest.seedInterests ? JSON.parse(digest.seedInterests) : [],
       },
       papers: digestPapers.map((p) => ({
         ...p,

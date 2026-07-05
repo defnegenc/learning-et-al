@@ -88,13 +88,28 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
+    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
   ],
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
   "suggestedQuestions": ["question 1", "question 2", "question 3"]
 }
 
 ${METADATA_RULES(ctx)}
+
+PLAIN NAME RULES (per paper):
+- A human-friendly name for what the paper is ABOUT — what you'd call it explaining it to a friend, NOT the academic title.
+- MAX 6 words, plain English, no jargon, no acronyms, no author names, no "a study of…".
+- BAD: "An Intelligent Sentiment Analysis Model Based on Fine-Tuned BERT Architecture" (the real title — too long, jargon)
+- GOOD: "Reading emotion in social-media text"
+- BAD: "EEGSeizureSense: A Hybrid CNN-Transformer for Seizure Detection"
+- GOOD: "Spotting seizures in brain waves"
+
+KEY CONCEPTS RULES (jargon a non-expert would trip on):
+- Extract EVERY term in the papers' summaries/findings a smart non-expert would NOT already know, then define each in one plain sentence.
+- This MUST include: model/system names (e.g. "RoBERTa", "DistilBERT"), technical methods (e.g. "subword tokenization", "self-attention", "CNN"), and field acronyms (e.g. "EEG", "NLP").
+- Define what it IS and why it matters, not a circular restatement. BAD: "RoBERTa: a RoBERTa model." GOOD: "RoBERTa: a language model that learns word meaning from context by reading huge amounts of text."
+- Aim for 4-8 concepts. Better to over-include than leave a scary word undefined — undefined jargon is the #1 reason a reader disengages.
+- Only include terms that actually appear in the summaries/findings (so they can be matched and underlined in the synthesis).
 
 SUGGESTED QUESTIONS RULES:
 - Generate exactly 3 questions based on GAPS — things the synthesis hints at but doesn't fully explain.

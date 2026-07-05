@@ -36,7 +36,7 @@ type PaperSearchResult = {
 };
 
 interface DigestAIResponse {
-  items: { index: number; summary: string; keywords: string[]; findings?: string[]; connectionToTheme?: string }[];
+  items: { index: number; plainName?: string; summary: string; keywords: string[]; findings?: string[]; connectionToTheme?: string }[];
   synthesis: string;
   keyConcepts: string[];
 }
@@ -282,6 +282,9 @@ BAD themes are wordy, academic, or just topic labels:
 
 Rules:
 - MAX 8 WORDS. Shorten ruthlessly.
+- At least ONE concrete, picturable noun — a real thing the reader can see — not only abstractions. A title made entirely of abstract words ("signals", "models", "systems") leaves the reader unable to tell what it's about.
+  BAD: "When signals speak, do our models truly listen?" — all abstractions; you can't tell it's about reading emotion in text and brainwaves.
+  GOOD: "Can AI read emotion in text and brainwaves?" — same idea, but graspable.
 - NO JARGON in the theme. If it contains words like "computational", "architecture", "optimization", "framework", "methodology", "paradigm", "scalability" — REWRITE in plain English. Your grandma should understand the question.
 - The theme must pass the DINNER TABLE TEST: would a smart non-expert actually wonder about this? "Why can't robots fold laundry?" passes. "Can better architecture solve computational bottlenecks?" fails — nobody talks like that.
 - For beginner interests: concrete and real-world, avoid pure theory
@@ -1291,6 +1294,40 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
     }
   }
 
+  // Seed interests (drives header chips) — map the LLM's chosen keywords back to their field.
+  const seedInterests = selectedInterestKeywords.map((kw) => {
+    const match = candidateInterests.find(ci => ci.keyword.toLowerCase() === kw.toLowerCase());
+    return { keyword: kw, field: match?.field || focusFields[0] || "Computer Science" };
+  });
+
+  // Gist (zero-click answer) + framing (curatorial provenance line) — one cheap call over the FINAL synthesis.
+  let gist = "";
+  let framing = "";
+  try {
+    const seedList = seedInterests.map(s => s.keyword).join(", ");
+    const gistResp = await aiComplete(
+      aiConfig,
+      "You write punchy, plain-English digest headers. Return only JSON.",
+      `Central question: "${finalTheme}"
+Seed interests: ${seedList}
+
+Today's synthesis:
+${synthesis}
+
+Return JSON (no markdown fences):
+{
+  "gist": "In ONE punchy sentence (max 25 words), answer the central question the way the synthesis does. Lead with the answer, even if it's 'sort of' or 'it depends'. No jargon. No 'the studies show'.",
+  "framing": "A curator's one-liner (max 15 words) framing WHY this is interesting — name the tension or the surprising pairing across the papers. Intriguing, not a summary. Grounded ONLY in the actual papers; never invent trends or 'frontier' claims."
+}`
+    );
+    const gp = extractJson<{ gist?: string; framing?: string }>(gistResp);
+    if (gp?.gist) gist = gp.gist.trim();
+    if (gp?.framing) framing = gp.framing.trim();
+    console.log(`[Digest] Gist: "${gist}" | Framing: "${framing}"`);
+  } catch (err) {
+    console.log(`[Digest] Gist/framing generation failed (${err}), continuing without`);
+  }
+
   const [digest] = await db.insert(digests).values({
     userId, date: today,
     theme: finalTheme,
@@ -1298,16 +1335,19 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
     keyConcepts: JSON.stringify(parsedAI.keyConcepts || []),
     suggestedQuestions: JSON.stringify(suggestedQuestions),
     suggestedAnswers: JSON.stringify(suggestedAnswers),
+    seedInterests: JSON.stringify(seedInterests),
+    gist: gist || null,
+    framing: framing || null,
   }).returning();
 
   await db.insert(papers).values(
     items.map((item, i) => {
-      const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "" };
+      const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "", plainName: "" };
       return {
         digestId: digest.id,
         title: item.title, authors: JSON.stringify(item.authors),
         abstract: item.abstract, fullText: item.abstract,
-        summary: aiItem.summary, source: item.source,
+        summary: aiItem.summary, plainName: aiItem.plainName || null, source: item.source,
         sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
         keywords: JSON.stringify(aiItem.keywords),
         keyFindings: JSON.stringify(aiItem.findings || []),
