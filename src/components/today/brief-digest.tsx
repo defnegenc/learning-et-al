@@ -213,8 +213,8 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
         {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 16px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
 
         {relates && (
-          <div style={{ borderLeft: "3px solid #1a1a1a", paddingLeft: 12, margin: "0 0 18px" }}>
-            <div style={{ fontSize: "0.72rem", letterSpacing: "2px", color: "#f5a623", marginBottom: 4 }}>★ ★ ★</div>
+          <div style={{ background: tags[0], border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", margin: "0 0 18px" }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.54rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.65, marginBottom: 4 }}>How it relates</div>
             <p style={{ fontSize: "0.98rem", fontWeight: 700, lineHeight: 1.45, color: "#1a1a1a", margin: 0 }}>{relates}</p>
           </div>
         )}
