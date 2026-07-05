@@ -907,10 +907,16 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
                   category: originalCategory,
                 };
                 seenTitles.add(replacement.p.title.toLowerCase());
+              } else if (isOffTopic && items.length >= 3) {
+                // No replacement, and the paper is genuinely off-topic (relevance=1).
+                // Drop it: 2 good sources beat 3 with one the synthesis would have to
+                // narrate as irrelevant ("doesn't weigh in on the question at all").
+                console.log(`[Digest] Dropping off-topic paper "${items[itemIdx].title.slice(0, 40)}" — no replacement, ${items.length - 1} sources remain`);
+                items.splice(itemIdx, 1);
               } else {
-                // No replacement available. Keep the paper — dropping without a refill
-                // collapses digests to 2 papers, which the synthesis then has to stretch
-                // across anyway. Let the synthesis prompt decide how much airtime to give it.
+                // Weak-but-relevant, or dropping would leave <2 sources. Keep the paper —
+                // the synthesis prompt decides how much airtime to give it (one honest
+                // sentence, never narrated irrelevance).
                 console.log(`[Digest] Keeping ${isOffTopic ? "off-topic" : "weak"} paper "${items[itemIdx].title.slice(0, 40)}" — no replacement in qualified pool`);
               }
             }
@@ -1126,6 +1132,7 @@ Return JSON:
         `Fix these factual accuracy issues in the synthesis. Keep the same tone and style.
 
 CRITICAL: ALL these papers MUST remain referenced in bold: ${paperNames}. Do NOT drop any paper.
+CRITICAL: Keep the EXACT structure of the original — intro, one "- **[Source N] name**" bullet per paper (1–3 sentences each, HARD MAX 3), "> bridge" lines between bullets, one closing sentence. Fix ONLY the flagged facts; do not expand bullets or turn the structure into prose. Never write that a source "doesn't address" or "doesn't weigh in on" the theme.
 
 Issues: ${issueDesc}
 
@@ -1134,7 +1141,7 @@ Current synthesis:
 ${synthesis}
 """
 
-Return ONLY the corrected paragraph.`
+Return ONLY the corrected synthesis.`
       );
       const revised = stripFences(factRevision);
       if (revised.length > 50) {
@@ -1241,7 +1248,7 @@ REQUIRED STRUCTURE:
 [One intro sentence]
 
 ${skeleton.paperRoles.map((r, idx, arr) => {
-  const bullet = `- **[Source ${r.index}] ${r.shortName}** [one sentence with a specific detail]`;
+  const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences with a specific detail, HARD MAX 3]`;
   const bridge = idx < arr.length - 1 ? `\n\n> [one short bridge, max 12 words]` : "";
   return bullet + bridge;
 }).join("\n\n")}

@@ -103,7 +103,7 @@ After all items are assembled, papers are scored on two dimensions:
 - **Relevance** (1-3): does the paper directly address the theme question?
 - **Insight** (1-3): does it offer a surprising or useful lens?
 
-Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists, the paper is kept** — dropping-without-refill collapsed digests to 2 items and stretched the synthesis thin. Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
+Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** a genuinely off-topic paper (relevance=1) is now DROPPED when ≥2 sources remain — 2 good sources beat 3 where the synthesis has to narrate one as irrelevant ("doesn't weigh in on the question at all"). A weak-but-relevant paper (or when dropping would leave <2 sources) is still kept and the synthesis gives it one honest sentence. Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
 
 ### Step 5: Theme Revision (AI call 6, lines ~900-925)
 
