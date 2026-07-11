@@ -1338,6 +1338,16 @@ Return JSON (no markdown fences):
     const gp = extractJson<{ gist?: string; framing?: string }>(gistResp);
     if (gp?.gist) gist = gp.gist.trim();
     if (gp?.framing) framing = gp.framing.trim();
+
+    // Deterministic guard: a hedge verdict ("Sort of.") only makes sense for a yes/no question.
+    // The prompt says so, but models slip — so strip a leading hedge when the theme isn't a
+    // yes/no question. (We don't strip "Yes."/"No." here: "No one checks it..." is a valid
+    // answer to a "who" question and must survive.)
+    const isYesNo = /^(is|are|do|does|did|can|could|will|would|should|has|have|had|was|were|am)\b/i.test(finalTheme.trim());
+    if (gist && !isYesNo) {
+      const stripped = gist.replace(/^\s*(sort of|sorta|kind of|kinda|not quite|not really|maybe)[.,!:—-]+\s*/i, "");
+      if (stripped && stripped !== gist) gist = stripped.charAt(0).toUpperCase() + stripped.slice(1);
+    }
     console.log(`[Digest] Gist: "${gist}" | Framing: "${framing}"`);
   } catch (err) {
     console.log(`[Digest] Gist/framing generation failed (${err}), continuing without`);
