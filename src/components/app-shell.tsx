@@ -8,6 +8,7 @@ import { VaultPage } from "@/components/vault/vault-page";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import type { SettingsTab } from "@/components/settings-dialog";
+import { Wordmark, NavTab } from "@/components/design-system";
 
 interface Session {
   userId: string | null;
@@ -48,64 +49,18 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px" }}
       >
         {/* Logo */}
-        <h1
-          className="hidden md:block"
-          style={{
-            fontSize: "1.25rem", fontWeight: 700, letterSpacing: "0.2em",
-            textTransform: "uppercase", color: "#1a1a1a",
-            fontFamily: "var(--font-logo), sans-serif",
-          }}
-        >
-          LEARNING ET AL.
-        </h1>
-        <span
-          className="block md:hidden"
-          style={{
-            fontSize: "0.95rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.12em", color: "#1a1a1a",
-            fontFamily: "var(--font-logo), sans-serif",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Learning et al.
-        </span>
+        <h1 className="hidden md:block" style={{ margin: 0 }}><Wordmark /></h1>
+        <span className="block md:hidden"><Wordmark compact /></span>
 
         {/* Right side: nav tabs + settings */}
         <div className="flex items-center gap-1 md:gap-0">
           {/* Desktop nav tabs */}
           <div className="hidden md:flex items-center gap-6 mr-4">
             {(["today", "vault"] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
-                  textTransform: "uppercase", letterSpacing: "0.12em",
-                  fontFamily: "var(--font-mono), monospace",
-                  border: "none", background: "transparent",
-                  color: activeTab === tab ? "#1a1a1a" : "#999",
-                  borderBottom: activeTab === tab ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
-                  cursor: "pointer", transition: "color 0.15s",
-                }}
-              >
-                {tab}
-              </button>
+              <NavTab key={tab} active={activeTab === tab} onClick={() => setActiveTab(tab)}>{tab}</NavTab>
             ))}
             {adminVerified && (
-              <button
-                onClick={() => setActiveTab("admin")}
-                style={{
-                  padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
-                  textTransform: "uppercase", letterSpacing: "0.12em",
-                  fontFamily: "var(--font-mono), monospace",
-                  border: "none", background: "transparent",
-                  color: activeTab === "admin" ? "#1a1a1a" : "#999",
-                  borderBottom: activeTab === "admin" ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
-                  cursor: "pointer", transition: "color 0.15s",
-                }}
-              >
-                admin
-              </button>
+              <NavTab active={activeTab === "admin"} onClick={() => setActiveTab("admin")}>admin</NavTab>
             )}
           </div>
 

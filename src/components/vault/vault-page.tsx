@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { GitCompare, Loader2, Search, ChevronLeft, ChevronRight, Star, X, Bookmark } from "lucide-react";
-import React from "react";
 import { CompareView } from "./compare-view";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { PaperItem } from "@/components/today/paper-card";
+import { SourceCard } from "@/components/today/source-card";
+import { NavTab, PageTitle, SectionLabel, ActionButton } from "@/components/design-system";
 
 interface VaultPageProps {
   session: {
@@ -30,152 +31,6 @@ interface Interest {
 }
 
 const LIMIT = 12;
-
-const SOURCE_PALETTES: [string, string][] = [
-  ["#C8F0D8", "#F0F5A8"],
-  ["#FFD6E0", "#FFE89A"],
-  ["#D0E3F7", "#E2D6F7"],
-  ["#FFE89A", "#FFD6E0"],
-];
-
-function dispersedWash(palette: [string, string], intensity = 0.5): React.CSSProperties {
-  const a = Math.min(255, Math.round(intensity * 255)).toString(16).padStart(2, "0");
-  const b = Math.min(255, Math.round(intensity * 0.6 * 255)).toString(16).padStart(2, "0");
-  const [h1, h2] = palette;
-  return {
-    background: `
-      radial-gradient(circle 170px at 2% 2%, ${h1}${a} 0%, transparent 62%),
-      radial-gradient(circle 160px at 98% 6%, ${h2}${a} 0%, transparent 62%),
-      radial-gradient(circle 150px at 96% 100%, ${h1}${b} 0%, transparent 62%),
-      radial-gradient(circle 170px at 2% 98%, ${h2}${b} 0%, transparent 62%),
-      #fff`,
-    backgroundBlendMode: "multiply, multiply, multiply, multiply, normal",
-  } as React.CSSProperties;
-}
-
-function getJournalName(sourceUrl: string | null, authors: string[]): string | null {
-  if (!sourceUrl) return null;
-  try {
-    const hostname = new URL(sourceUrl).hostname.replace("www.", "");
-    const domainMap: Record<string, string> = {
-      "arxiv.org": "arXiv", "nature.com": "Nature", "sciencedirect.com": "ScienceDirect",
-      "springer.com": "Springer", "ieee.org": "IEEE", "acm.org": "ACM", "pnas.org": "PNAS",
-      "frontiersin.org": "Frontiers", "mdpi.com": "MDPI", "wiley.com": "Wiley",
-      "tandfonline.com": "Taylor & Francis", "sagepub.com": "SAGE", "cambridge.org": "Cambridge UP",
-      "oup.com": "Oxford UP", "plos.org": "PLOS", "biorxiv.org": "bioRxiv",
-      "medrxiv.org": "medRxiv", "ssrn.com": "SSRN",
-    };
-    for (const [domain, name] of Object.entries(domainMap)) {
-      if (hostname.includes(domain)) return name;
-    }
-    const parts = hostname.split(".");
-    const name = parts.length > 2 ? parts.slice(0, -2).join(".") : parts[0];
-    if (name.length < 3) return null;
-    const derived = name.charAt(0).toUpperCase() + name.slice(1);
-    // Don't repeat what's already in authors
-    if (authors.some(a => a.toLowerCase() === derived.toLowerCase())) return null;
-    return derived;
-  } catch { return null; }
-}
-
-function VaultCard({
-  paper, index, compareMode, isSelected, onSelect,
-}: {
-  paper: PaperItem; index: number; compareMode?: boolean; isSelected?: boolean; onSelect?: (p: PaperItem) => void;
-}) {
-  const palette = SOURCE_PALETTES[index % SOURCE_PALETTES.length];
-  const url = (paper.sourceUrl || "").toLowerCase();
-  const sourceType = url.includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper";
-  const journalName = getJournalName(paper.sourceUrl, paper.authors);
-  const baseWash = dispersedWash(palette, 0.82);
-  const hoverWash = dispersedWash(palette, 0.97);
-
-  return (
-    <div
-      onClick={() => {
-        if (compareMode) { onSelect?.(paper); return; }
-        if (paper.sourceUrl) window.open(paper.sourceUrl, "_blank", "noopener,noreferrer");
-      }}
-      style={{
-        ...baseWash,
-        border: isSelected ? "2px solid #1a1a1a" : "2px solid #1a1a1a",
-        display: "block",
-        padding: "16px 18px 18px",
-        color: "inherit",
-        position: "relative",
-        overflow: "hidden",
-        transition: "background 320ms, transform 150ms",
-        cursor: "pointer",
-      }}
-      onMouseEnter={e => {
-        Object.assign((e.currentTarget as HTMLElement).style, hoverWash);
-        (e.currentTarget as HTMLElement).style.transform = "translate(-1px,-1px)";
-      }}
-      onMouseLeave={e => {
-        Object.assign((e.currentTarget as HTMLElement).style, baseWash);
-        (e.currentTarget as HTMLElement).style.transform = "";
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-        <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.625rem", letterSpacing: "0.12em", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "6px" }}>
-          <span>{sourceType}</span>
-          <span style={{ color: "#aaa" }}>·</span>
-          <span>{paper.year || "2025"}</span>
-        </div>
-        {compareMode ? (
-          <div style={{ width: 18, height: 18, border: "2px solid #1a1a1a", borderRadius: "50%", background: isSelected ? "#1a1a1a" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "white" }} />}
-          </div>
-        ) : (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
-            <path d="M7 1h4v4M11 1L6 6M9 7v3.5H1.5V2H5" stroke="#1a1a1a" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </div>
-
-      <h3 style={{ margin: "0 0 8px", fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.01em", color: "#1a1a1a", textTransform: "uppercase" }}>
-        {paper.title}
-      </h3>
-
-      {(paper.authors.length > 0 || journalName) && (
-        <div style={{ fontStyle: "italic", color: "#666", fontSize: "0.75rem", lineHeight: 1.4, marginBottom: "10px" }}>
-          {paper.authors.length > 0 && (
-            paper.authors.length <= 2 ? paper.authors.join(" & ") : `${paper.authors[0]}${paper.authors[1] ? `, ${paper.authors[1]}` : ""} et al.`
-          )}
-          {paper.authors.length > 0 && journalName ? " — " : ""}
-          {journalName && <em>{journalName}</em>}
-        </div>
-      )}
-
-      {paper.summary && (
-        <div style={{ display: "flex", gap: "10px", alignItems: "stretch", paddingTop: "10px", marginBottom: "12px" }}>
-          <div style={{ width: 3, flexShrink: 0, borderRadius: 1, background: "#ddd" }} />
-          <div style={{ fontSize: "0.8rem", lineHeight: 1.55, color: "#333" }}>
-            {paper.summary.length > 160 ? paper.summary.slice(0, 157) + "..." : paper.summary}
-          </div>
-        </div>
-      )}
-
-      {paper.keywords.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-          {paper.keywords.slice(0, 2).map((kw) => (
-            <span key={kw} style={{
-              background: "rgba(255,255,255,0.55)", color: "#1a1a1a",
-              border: "1px solid rgba(26,26,26,0.35)",
-              fontFamily: "var(--font-mono), monospace",
-              fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.08em",
-              padding: "4px 9px", textTransform: "uppercase",
-              display: "inline-block", lineHeight: 1, whiteSpace: "nowrap",
-              backdropFilter: "blur(6px)",
-            }}>
-              {kw}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 type FilterMode = "all" | "theme" | "domain" | "starred" | "bookmarked";
 
@@ -365,16 +220,6 @@ export function VaultPage({ session }: VaultPageProps) {
     );
   }
 
-  const navTabStyle = (active: boolean): React.CSSProperties => ({
-    padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
-    textTransform: "uppercase", letterSpacing: "0.12em",
-    fontFamily: "var(--font-mono), monospace",
-    border: "none", background: "transparent",
-    color: active ? "#1a1a1a" : "#999",
-    borderBottom: active ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
-    cursor: "pointer", transition: "color 0.15s",
-  });
-
   const setMode = (mode: FilterMode) => {
     const isToggleOff = filterMode === mode;
     setFilterMode(isToggleOff ? "all" : mode);
@@ -405,9 +250,9 @@ export function VaultPage({ session }: VaultPageProps) {
         display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid rgba(26,26,26,0.12)", flexShrink: 0 }}>
-          <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#1a1a1a" }}>
+          <SectionLabel style={{ color: "#1a1a1a" }}>
             {filterMode === "starred" ? "Starred Digests" : "All Digests"}
-          </span>
+          </SectionLabel>
           <button onClick={() => setDrawerOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#888", padding: 4, display: "flex" }}>
             <X size={14} />
           </button>
@@ -453,51 +298,29 @@ export function VaultPage({ session }: VaultPageProps) {
         style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: "12px", marginBottom: "16px" }}
       >
         <div className="flex items-center gap-4 md:gap-6 flex-1 min-w-0">
-          <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.1rem", fontWeight: 800, letterSpacing: "-0.02em", color: "#1a1a1a", flexShrink: 0 }}>
-            Vault
-          </span>
-          <button style={navTabStyle(filterMode === "theme")} onClick={() => setMode("theme")}>By Digest</button>
-          <button style={navTabStyle(filterMode === "domain")} onClick={() => setMode("domain")}>By Domain</button>
-          <button
-            onClick={() => setMode("starred")}
-            style={{ ...navTabStyle(filterMode === "starred"), display: "flex", alignItems: "center", gap: "5px" }}
-          >
+          <PageTitle size="sm" style={{ flexShrink: 0 }}>Vault</PageTitle>
+          <NavTab active={filterMode === "theme"} onClick={() => setMode("theme")}>By Digest</NavTab>
+          <NavTab active={filterMode === "domain"} onClick={() => setMode("domain")}>By Domain</NavTab>
+          <NavTab active={filterMode === "starred"} onClick={() => setMode("starred")}>
             <Star size={10} className={filterMode === "starred" ? "fill-current" : ""} />
             Starred
-          </button>
-          <button
-            onClick={() => setMode("bookmarked")}
-            style={{ ...navTabStyle(filterMode === "bookmarked"), display: "flex", alignItems: "center", gap: "5px" }}
-          >
+          </NavTab>
+          <NavTab active={filterMode === "bookmarked"} onClick={() => setMode("bookmarked")}>
             <Bookmark size={10} className={filterMode === "bookmarked" ? "fill-current" : ""} />
             Bookmarked
-          </button>
+          </NavTab>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           {compareMode && selectedIds.size >= 2 && (
-            <button
-              onClick={runCompare}
-              disabled={comparing}
-              style={{
-                border: "1.5px solid #1a1a1a", background: "#1a1a1a", color: "white",
-                padding: "5px 12px", fontSize: "0.6rem", fontWeight: 700,
-                textTransform: "uppercase", letterSpacing: "1.5px",
-                fontFamily: "var(--font-mono), monospace",
-                display: "flex", alignItems: "center", gap: "5px",
-                opacity: comparing ? 0.5 : 1, cursor: comparing ? "not-allowed" : "pointer",
-              }}
-            >
+            <ActionButton size="sm" variant="primary" disabled={comparing} onClick={runCompare}>
               {comparing ? <Loader2 size={11} className="animate-spin" /> : <GitCompare size={11} />}
               Compare ({selectedIds.size})
-            </button>
+            </ActionButton>
           )}
-          <button
-            onClick={() => { setCompareMode(v => !v); setSelectedIds(new Set()); }}
-            style={{ ...navTabStyle(compareMode), display: "flex", alignItems: "center", gap: "5px" }}
-          >
+          <NavTab active={compareMode} onClick={() => { setCompareMode(v => !v); setSelectedIds(new Set()); }}>
             <GitCompare size={11} />Compare
-          </button>
+          </NavTab>
         </div>
       </div>
 
@@ -593,13 +416,14 @@ export function VaultPage({ session }: VaultPageProps) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {displayedPapers.map((paper, idx) => (
-            <VaultCard
+            <SourceCard
               key={paper.id}
               paper={paper}
               index={idx}
+              loggedIn={!!session.userId}
               compareMode={compareMode}
               isSelected={selectedIds.has(paper.id)}
-              onSelect={p => compareMode ? toggleSelect(p.id) : undefined}
+              onSelect={p => toggleSelect(p.id)}
             />
           ))}
         </div>
@@ -608,35 +432,15 @@ export function VaultPage({ session }: VaultPageProps) {
       {/* ── Pagination ── */}
       {!loading && displayTotalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", paddingTop: "32px" }}>
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(p => p - 1)}
-            style={{
-              border: "1.5px solid #1a1a1a", background: "transparent", padding: "6px 14px",
-              fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px",
-              fontFamily: "var(--font-mono), monospace", fontWeight: 700,
-              display: "flex", alignItems: "center", gap: "4px",
-              opacity: page <= 1 ? 0.3 : 1, color: "#1a1a1a", cursor: page <= 1 ? "default" : "pointer",
-            }}
-          >
+          <ActionButton size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
             <ChevronLeft style={{ width: 12, height: 12 }} />Prev
-          </button>
+          </ActionButton>
           <span style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", fontWeight: 700 }}>
             {page} / {displayTotalPages}
           </span>
-          <button
-            disabled={page >= displayTotalPages}
-            onClick={() => setPage(p => p + 1)}
-            style={{
-              border: "1.5px solid #1a1a1a", background: "transparent", padding: "6px 14px",
-              fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px",
-              fontFamily: "var(--font-mono), monospace", fontWeight: 700,
-              display: "flex", alignItems: "center", gap: "4px",
-              opacity: page >= displayTotalPages ? 0.3 : 1, color: "#1a1a1a", cursor: page >= displayTotalPages ? "default" : "pointer",
-            }}
-          >
+          <ActionButton size="sm" disabled={page >= displayTotalPages} onClick={() => setPage(p => p + 1)}>
             Next<ChevronRight style={{ width: 12, height: 12 }} />
-          </button>
+          </ActionButton>
         </div>
       )}
     </div>
