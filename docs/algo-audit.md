@@ -251,3 +251,23 @@ Based on observing a bad digest ("Can better architecture solve computational bo
 2. **Selection skeleton prompt**: added explicit rule "if two papers make the SAME POINT, drop one", rejected manufactured tensions ("people haven't adopted it" is not a tension), added staleness guard (>5yr old papers must justify inclusion)
 3. **Re-ranking prompt**: expanded scoring rubric, score ≤2 for redundancy or staleness, score ≤2 if "a non-expert would say 'isn't that the same thing as paper N?'"
 4. **Skeleton prompt (Stage B)**: added redundancy detection, honest tension instruction ("if you can't find genuine tension, say so")
+
+---
+
+## Part 5: Theme Monoculture (audited 2026-07-19)
+
+Why every central question converges on the same "Who decides / Can we trust X?" register:
+
+### 5.1 Every few-shot example rewards one rhetorical shape
+The exemplars across `hypothesisPrompt` (digest.ts:262), the Step-5 `revisePrompt` (digest.ts:940, "has a villain", "implies a reversal"), and even the gist prompt ("Who checks AI when it grades students?") all model the same move: agency/trust framing with an implied villain. For any paper set, the cheapest way to satisfy "counterintuitive + villain + dinner-table test" is a governance question — "Who decides/checks/controls X?" — so the model regresses to that modal template.
+
+### 5.2 Novelty guard compares topic words, not question shape
+`digest.ts:361-387` rejects a theme only when ≥2 non-stop words overlap with a recent theme. "Who decides what AI can say?" vs "Who checks AI grading?" share only "AI", so the identical template passes day after day. Nothing tracks structure (leading word, who/can/do, question vs statement).
+
+### 5.3 The final revision is never novelty-checked
+The recent-themes constraint runs in Step 1 only. The Step-5 revise-to-fit-papers call (digest.ts:934-1002) — which frequently rewrites the theme — receives no recent themes and re-applies the same "surprise" instructions, so up to 4 sequential rewrites (initial → shorten → novelty retry → search-fail retry → revise) drift back to the house style with no guard at the end.
+
+### Recommended fixes (top 3)
+1. **Structure-aware novelty, enforced at the end.** Derive each recent theme's shape (leading-word class + question/statement), feed the last 7 themes + shapes into BOTH the hypothesis and Step-5 prompts ("don't reuse a shape used in the last 3 days"), and add a deterministic post-Step-5 guard: if the leading word matches ≥2 of the last 5 themes, one re-roll demanding a different shape.
+2. **Rotate an exemplar bank.** Replace the fixed examples with ~15 spanning mechanism ("Why sarcasm breaks emotion-reading AI"), scale/statement ("Concrete from mine waste, minus 90% emissions"), paradox, and how-it-works forms; sample 3-4 per run so no single register anchors generation. Fix the gist example too.
+3. **Collapse the rewrite chain.** One call generates 3 candidate themes (required different shapes); code picks the winner (novelty + length), keeping only the fit-to-papers revision. Fewer rewrites = less regression to the mode, and it saves 2-3 AI calls.

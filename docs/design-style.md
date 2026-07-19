@@ -32,7 +32,28 @@ Brutalist research archive. Information-dense, no decoration for decoration's sa
 
 ---
 
-## Components
+## Shared components (`src/components/design-system.tsx`)
+
+One file exports the primitives every surface composes. The Today page is the
+reference look; Vault, Settings, and Onboarding must use these instead of
+restyling their own. Added 2026-07-19.
+
+| Component | What it is | Used in |
+|-----------|-----------|---------|
+| `Wordmark` | "Learning et al." lockup — Space Grotesk 700, 0.2em tracking | App-shell header, Settings dialog header |
+| `NavTab` | Mono uppercase tab, active underline | App-shell nav (today/vault/admin), Settings tabs, Vault filter bar (By Digest / By Domain / Starred / Bookmarked / Compare) |
+| `SectionLabel` | Mono uppercase eyebrow, 2px tracking, #888 | Settings "Delivery cadence" / "Email digests", Vault drawer title |
+| `PageTitle` | Cabinet Grotesk heading, 700, -0.02em (sm/md/lg) | Settings "Curate your feed" / "Account", Vault "Vault" |
+| `ActionButton` | Brutalist button (2px ink border, hard shadow; primary = ink fill, outline = white; sm/md) | Settings Save / Regenerate / Sign out, Vault pagination + Compare CTA (same voice as Today's "Next source") |
+| `TopicChip` | Interest chip — idle: white + dashed grey border; selected: soft field tint (`chipTint`, pastel mixed 45% into white) + solid border; 6px radius (the only rounded element) | InterestLedger (Settings + Onboarding) |
+| `AddChip` | "+ Add" chip — dashed ink border, bold | InterestLedger row adder |
+| `SourceCard` (`today/source-card.tsx`) | The paper/news card: blob wash, mono venue line, display title, glass tags; optional compare-select mode | Today source grid, Vault grid (identical card in both) |
+
+Chip palette follows the 2026-07-19 reference mock (soft solid tints, not gradients).
+The old gradient `GlassTag` is gone; `CATEGORY_PALETTES` remains only for
+synthesis concept tags.
+
+## Legacy component notes (some predate the white-background redesign)
 
 ### Header
 - Horizontal line with centered bordered title box: "LEARNING ET AL."

@@ -1,19 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
+import { fieldColor, topicColor } from "@/lib/field-hierarchy";
 
 const MONO = "var(--font-mono), monospace";
 const BODY = "var(--font-inter), sans-serif";
-
-// Stored interest field is an S2Field ("Computer Science", "Art", …). Match it to a
-// FIELD_HIERARCHY entry's color; fall back to the key, then a neutral grey.
-function fieldColor(field: string): string {
-  for (const def of Object.values(FIELD_HIERARCHY)) {
-    if (def.s2Field === field) return def.color;
-  }
-  return FIELD_HIERARCHY[field]?.color || "#e5e7eb";
-}
 
 const CHIP: React.CSSProperties = {
   fontFamily: MONO,
@@ -105,7 +96,7 @@ export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, 
             </span>
           ))}
           {extraTopics.map((t, i) => (
-            <TopicChip key={t} topic={t} color={TOPIC_COLORS[i % TOPIC_COLORS.length]} field={defaultField} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
+            <TopicChip key={t} topic={t} color={topicColor(t) || TOPIC_COLORS[i % TOPIC_COLORS.length]} field={defaultField} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
           ))}
         </div>
       )}
