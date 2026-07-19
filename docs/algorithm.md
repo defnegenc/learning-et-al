@@ -129,12 +129,15 @@ Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
 
 **Final Coverage Gate** (AI call 14, conditional) — runs AFTER all revisions. Extracts all `**bold phrases**` from synthesis and checks each paper's shortName/title/author against them. If any paper is missing from bold text, a targeted revision adds it. This is the last synthesis modification — nothing overwrites after this.
 
-### Step 6b: Digest Header — gist + framing (AI call, always after final synthesis)
+### Step 6b: Digest Header — gist (AI call, always after final synthesis)
 
 Powers the zero-click header rendered under the central question (`DigestHeader` in
 `today-page.tsx`, shown in all modes). One JSON call over the FINAL synthesis returns:
 - **gist** — a one-sentence answer to the central question (≤25 words, plain English, leads with the answer). The reader gets the payoff before clicking through sources.
-- **framing** — a curatorial one-liner (≤15 words) naming the tension or surprising pairing; grounded only in the papers (no invented trends).
+
+(A second field, **framing** — an "I pulled N sources — a X, a Y, a Z" provenance line —
+was generated here until July 2026, but was removed as too distracting. The DB column
+remains for old rows; nothing renders it.)
 
 Also persisted: **seed_interests** (`[{keyword, field}]`, the interests the Step-1 LLM
 selected) — free, no AI call — which drives the header's domain chips (colored via
@@ -146,7 +149,7 @@ picturable noun, so titles are graspable, not just punchy.
 
 ### Step 7: Storage
 
-- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, gist, framing, starred flag.
+- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, gist, starred flag.
 - Papers saved with: summaries, keywords, key findings, connectionReason, plainName.
 - All linked to user and dated.
 

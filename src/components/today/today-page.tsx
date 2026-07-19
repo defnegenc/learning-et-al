@@ -560,7 +560,6 @@ interface Digest {
   suggestedAnswers?: string[];
   seedInterests?: { keyword: string; field: string }[];
   gist?: string | null;
-  framing?: string | null;
   notes?: string | null;
   starred: boolean | null;
   hidden?: boolean | null;
@@ -935,7 +934,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
             <SweepTitle text={displayTheme} palettes={SOURCE_PALETTES} />
 
-            <DigestHeader seedInterests={digest.seedInterests} gist={digest.gist} framing={digest.framing} />
+            <DigestHeader seedInterests={digest.seedInterests} gist={digest.gist} />
 
           </div>
 
