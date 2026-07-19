@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       keyword,
       weight: 0.5,
       source: "star",
-      field: "Computer Science",
+      field: typeof body.field === "string" && body.field ? body.field : "Computer Science",
       level: "intermediate",
     });
 

@@ -40,42 +40,6 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// Append a single interest (e.g. "+" on a digest topic chip). Unlike PUT, this
-// does not replace the existing set.
-export async function POST(req: NextRequest) {
-  const userId = await getAuthUser(req);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const body = await req.json();
-    const keyword = typeof body.keyword === "string" ? body.keyword.trim() : "";
-    if (!keyword) {
-      return NextResponse.json({ error: "keyword required" }, { status: 400 });
-    }
-
-    const existing = await db.query.interests.findMany({ where: eq(interests.userId, userId) });
-    if (existing.some((i) => i.keyword.toLowerCase() === keyword.toLowerCase())) {
-      return NextResponse.json({ ok: true, duplicate: true });
-    }
-
-    await db.insert(interests).values({
-      userId,
-      keyword,
-      field: typeof body.field === "string" && body.field ? body.field : "Computer Science",
-      weight: 1.0,
-      source: "engagement",
-      level: "intermediate",
-    });
-
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error("Interest add error:", error);
-    return NextResponse.json({ error: "Failed to add interest" }, { status: 500 });
-  }
-}
-
 export async function GET(req: NextRequest) {
   const userId = await getAuthUser(req);
   if (!userId) {

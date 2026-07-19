@@ -47,7 +47,7 @@ function TopicChip({ topic, color, field, isLoggedIn, onSignIn }: {
     if (!isLoggedIn) { onSignIn?.(); return; }
     setState("saving");
     try {
-      const res = await fetch("/api/interests", {
+      const res = await fetch("/api/interests/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyword: topic, field }),
