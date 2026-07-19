@@ -581,7 +581,18 @@ interface TodayPageProps {
 export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignIn }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
+  const [interestKeywords, setInterestKeywords] = useState<string[]>([]);
   const [hiddenStash, setHiddenStash] = useState<{ digest: Digest; papers: PaperItem[] } | null>(null);
+
+  // Load the reader's interest keywords so card tags can mark which are already theirs
+  // vs. new topics they can add.
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/interests")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.interests) setInterestKeywords(d.interests.map((i: { keyword: string }) => i.keyword)); })
+      .catch(() => {});
+  }, [session]);
   const [loading, setLoading] = useState(true);
   const [publicDigestList, setPublicDigestList] = useState<{ id: string; date: string; theme: string | null }[]>([]);
   const [publicDigestIdx, setPublicDigestIdx] = useState(0);
@@ -970,6 +981,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               seeds={digest.suggestedQuestions || []}
               guestAnswers={digest.suggestedAnswers}
               isLoggedIn={!!session}
+              interests={interestKeywords}
               onSignIn={onSignIn}
             />
           ) : digest.synthesisContent ? (
