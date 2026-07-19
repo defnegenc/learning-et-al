@@ -157,12 +157,45 @@ function TermChip({ text, def }: { text: string; def: string }) {
   );
 }
 
+/* ---- keyword tags: interest ones get a dot, new ones get a "+" to add ---- */
+// Surfaces more than just your standing interests. A keyword already in your interests reads
+// as "yours" (filled dot); the rest are fresh topics with a "+" that adds them to your
+// interests — so you grow interests straight from what you read. Add is logged-in only.
+function KeywordTags({ keywords, interestSet, palette, isLoggedIn, size = "sm" }: {
+  keywords: string[]; interestSet: Set<string>; palette: [string, string]; isLoggedIn: boolean; size?: "sm" | "md";
+}) {
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const fs = size === "md" ? "0.6rem" : "0.55rem";
+  const pad = size === "md" ? "3px 9px" : "2px 7px";
+  const add = (kw: string) => {
+    if (!isLoggedIn) return;
+    setAdded((p) => new Set(p).add(kw.toLowerCase()));
+    fetch("/api/interests/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: kw }) }).catch(() => {});
+  };
+  return (
+    <div style={{ display: "flex", gap: size === "md" ? 6 : 5, flexWrap: "wrap" }}>
+      {keywords.map((kw, i) => {
+        const mine = interestSet.has(kw.toLowerCase()) || added.has(kw.toLowerCase());
+        const base: React.CSSProperties = { fontFamily: MONO, fontSize: fs, textTransform: "uppercase", letterSpacing: "0.5px", background: palette[i % 2], border: "1px solid #1a1a1a", padding: pad, display: "flex", alignItems: "center", gap: 5, color: "#1a1a1a", lineHeight: 1.1 };
+        if (mine) return (
+          <span key={kw} style={base}><span style={{ width: 5, height: 5, borderRadius: "50%", background: "#1a1a1a", flexShrink: 0 }} />{kw}</span>
+        );
+        return (
+          <button key={kw} onClick={(e) => { e.stopPropagation(); add(kw); }} title={isLoggedIn ? "Add to your interests" : "Sign in to add"} style={{ ...base, cursor: isLoggedIn ? "pointer" : "default", fontFamily: MONO }}>
+            {kw}<span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, border: "1px solid #1a1a1a", background: "#fff", fontWeight: 700, lineHeight: 1, fontSize: "0.72rem", flexShrink: 0 }}>+</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ---- inline paper card (revealed on first mention) ---- */
 
 function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void }) {
   // The card's job is "what is this paper" in plain terms (the summary). The
   // surrounding prose already says how it relates, and the overlay carries the
-  // takeaway — no surface repeats another.
+  // takeaway + keyword tags — no surface repeats another.
   const body = paper.summary || paper.abstract || "";
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
@@ -179,7 +212,7 @@ function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx
   );
 }
 
-function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
+function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, isLoggedIn }: { paper: PaperItem; paperIdx: number; onClose: () => void; interestSet: Set<string>; isLoggedIn: boolean }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
   // Click-in is deliberately calm: the say-it-like line leads (boxed, so it reads
   // as the takeaway), then how it relates to today's question — same type size.
@@ -208,9 +241,12 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
           <p style={{ fontSize: "0.95rem", lineHeight: 1.62, color: "#333", margin: "0 0 18px" }}>{paper.abstract.length > 340 ? paper.abstract.slice(0, 337).trimEnd() + "…" : paper.abstract}</p>
         )}
 
-        {paper.sourceUrl && (
-          <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", background: "#1a1a1a", color: "#fff", padding: "7px 12px", whiteSpace: "nowrap" }}>VIEW STUDY ↗</a>
-        )}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
+          <KeywordTags keywords={paper.keywords.slice(0, 4)} interestSet={interestSet} palette={tags} isLoggedIn={isLoggedIn} size="md" />
+          {paper.sourceUrl && (
+            <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", background: "#1a1a1a", color: "#fff", padding: "7px 12px", whiteSpace: "nowrap" }}>VIEW STUDY ↗</a>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -226,7 +262,7 @@ function relatesFallback(reason: string): string {
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, interests = [] }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
@@ -236,7 +272,9 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   guestAnswers?: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
+  interests?: string[];
 }) {
+  const interestSet = useMemo(() => new Set(interests.map((k) => k.toLowerCase())), [interests]);
   const lines = useMemo(() => {
     const { bodyText } = splitSynthesisTheme(synthesis, theme);
     const defs = keyConcepts
@@ -348,7 +386,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
 
-      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} />}
+      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} interestSet={interestSet} isLoggedIn={isLoggedIn} />}
     </div>
   );
 }
