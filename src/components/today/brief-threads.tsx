@@ -587,10 +587,12 @@ export function BriefThreads({ digestId, seeds, guestAnswers, isLoggedIn, onSign
                 <button
                   key={entry.key}
                   onClick={() => document.getElementById(`brief-thread-${entry.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                  style={{ display: "flex", alignItems: "baseline", gap: 7, width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, background: "transparent", border: "none", padding: "4px 2px", marginLeft: entry.depth * 14, cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
+                  style={{ position: "relative", display: "block", width: "100%", textAlign: "left", fontFamily: BODY, fontSize: "0.8rem", fontWeight: 500, background: "transparent", border: "none", padding: "4px 2px", cursor: "pointer", lineHeight: 1.3, color: "#1a1a1a" }}
                 >
-                  <span style={{ color: entry.depth % 2 === 0 ? "#1a1a1a" : "#ff007f", fontSize: "0.55rem", flexShrink: 0, marginLeft: -17 }}>●</span>
-                  <span style={{ marginLeft: 6 }}>{entry.question.replace(/\*\*/g, "")}</span>
+                  {/* Dot pinned to the spine (container padding 12 + 2px border → center at -13px);
+                      depth indents only the text so the dot never leaves the line. */}
+                  <span style={{ position: "absolute", left: -16.5, top: 9, width: 7, height: 7, borderRadius: "50%", background: entry.depth % 2 === 0 ? "#1a1a1a" : "#ff007f" }} />
+                  <span style={{ display: "block", marginLeft: entry.depth * 14 }}>{entry.question.replace(/\*\*/g, "")}</span>
                 </button>
               ))}
             </div>
