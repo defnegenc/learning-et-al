@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
+import { fieldColor, topicColor } from "@/lib/field-hierarchy";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
@@ -162,8 +163,8 @@ function TermChip({ text, def }: { text: string; def: string }) {
 // Surfaces more than just your standing interests. A keyword already in your interests reads
 // as "yours" (filled dot); the rest are fresh topics with a "+" that adds them to your
 // interests — so you grow interests straight from what you read. Add is logged-in only.
-function KeywordTags({ keywords, interestSet, palette, isLoggedIn, size = "sm" }: {
-  keywords: string[]; interestSet: Set<string>; palette: [string, string]; isLoggedIn: boolean; size?: "sm" | "md";
+function KeywordTags({ keywords, interestSet, colorFor, isLoggedIn, size = "sm" }: {
+  keywords: string[]; interestSet: Set<string>; colorFor: (kw: string) => string; isLoggedIn: boolean; size?: "sm" | "md";
 }) {
   const [added, setAdded] = useState<Set<string>>(new Set());
   const fs = size === "md" ? "0.6rem" : "0.55rem";
@@ -175,9 +176,9 @@ function KeywordTags({ keywords, interestSet, palette, isLoggedIn, size = "sm" }
   };
   return (
     <div style={{ display: "flex", gap: size === "md" ? 6 : 5, flexWrap: "wrap" }}>
-      {keywords.map((kw, i) => {
+      {keywords.map((kw) => {
         const mine = interestSet.has(kw.toLowerCase()) || added.has(kw.toLowerCase());
-        const base: React.CSSProperties = { fontFamily: MONO, fontSize: fs, textTransform: "uppercase", letterSpacing: "0.5px", background: palette[i % 2], border: "1px solid #1a1a1a", padding: pad, display: "flex", alignItems: "center", gap: 5, color: "#1a1a1a", lineHeight: 1.1 };
+        const base: React.CSSProperties = { fontFamily: MONO, fontSize: fs, textTransform: "uppercase", letterSpacing: "0.5px", background: colorFor(kw), border: "1px solid #1a1a1a", padding: pad, display: "flex", alignItems: "center", gap: 5, color: "#1a1a1a", lineHeight: 1.1 };
         if (mine) return (
           <span key={kw} style={base}><span style={{ width: 5, height: 5, borderRadius: "50%", background: "#1a1a1a", flexShrink: 0 }} />{kw}</span>
         );
@@ -193,8 +194,7 @@ function KeywordTags({ keywords, interestSet, palette, isLoggedIn, size = "sm" }
 
 /* ---- inline paper card (revealed on first mention) ---- */
 
-function PaperBlobCard({ paper, paperIdx, onOpen, interestSet, isLoggedIn }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; interestSet: Set<string>; isLoggedIn: boolean }) {
-  const tags = PALETTES[paperIdx % PALETTES.length];
+function PaperBlobCard({ paper, paperIdx, onOpen, interestSet, tagColorFor, isLoggedIn }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; interestSet: Set<string>; tagColorFor: (kw: string) => string; isLoggedIn: boolean }) {
   // The card's job is the takeaway: hook (+ stat), NOT a restatement of the synthesis.
   // The 40-word summary lives in the detail/vault; it only shows here as a fallback for
   // older digests without a takeaway.
@@ -210,7 +210,7 @@ function PaperBlobCard({ paper, paperIdx, onOpen, interestSet, isLoggedIn }: { p
       {body && <p style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#333", margin: 0 }}>{body.length > 260 ? body.slice(0, 257) + "..." : body}</p>}
       {hook && stat && <p style={{ fontSize: "0.68rem", fontWeight: 600, color: "#555", margin: "5px 0 0" }}>{stat}</p>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 9, gap: 8 }}>
-        <KeywordTags keywords={paper.keywords.slice(0, 3)} interestSet={interestSet} palette={tags} isLoggedIn={isLoggedIn} size="sm" />
+        <KeywordTags keywords={paper.keywords.slice(0, 3)} interestSet={interestSet} colorFor={tagColorFor} isLoggedIn={isLoggedIn} size="sm" />
         {paper.sourceUrl && (
           <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", color: "#1a1a1a", whiteSpace: "nowrap", borderBottom: "1.5px solid #1a1a1a", paddingBottom: 1 }}>VIEW STUDY ↗</a>
         )}
@@ -219,8 +219,7 @@ function PaperBlobCard({ paper, paperIdx, onOpen, interestSet, isLoggedIn }: { p
   );
 }
 
-function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, isLoggedIn }: { paper: PaperItem; paperIdx: number; onClose: () => void; interestSet: Set<string>; isLoggedIn: boolean }) {
-  const tags = PALETTES[paperIdx % PALETTES.length];
+function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, tagColorFor, isLoggedIn }: { paper: PaperItem; paperIdx: number; onClose: () => void; interestSet: Set<string>; tagColorFor: (kw: string) => string; isLoggedIn: boolean }) {
   const [expanded, setExpanded] = useState(false);
   // Click-in shows only what the card doesn't: how it relates to the theme, the abstract,
   // and the "say it like this" line at the bottom. The hook + stat already live on the card.
@@ -240,7 +239,7 @@ function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, isLoggedIn 
         {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 16px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
 
         {relates && (
-          <div style={{ background: tags[0], border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", margin: "0 0 18px" }}>
+          <div style={{ background: PALETTES[paperIdx % PALETTES.length][0], border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", margin: "0 0 18px" }}>
             <div style={{ fontFamily: MONO, fontSize: "0.54rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.65, marginBottom: 4 }}>How it relates</div>
             <p style={{ fontSize: "0.98rem", fontWeight: 700, lineHeight: 1.45, color: "#1a1a1a", margin: 0 }}>{relates}</p>
           </div>
@@ -266,7 +265,7 @@ function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, isLoggedIn 
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
-          <KeywordTags keywords={paper.keywords.slice(0, 4)} interestSet={interestSet} palette={tags} isLoggedIn={isLoggedIn} size="md" />
+          <KeywordTags keywords={paper.keywords.slice(0, 4)} interestSet={interestSet} colorFor={tagColorFor} isLoggedIn={isLoggedIn} size="md" />
           {paper.sourceUrl && (
             <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", background: "#1a1a1a", color: "#fff", padding: "7px 12px", whiteSpace: "nowrap" }}>VIEW STUDY ↗</a>
           )}
@@ -286,7 +285,7 @@ function relatesFallback(reason: string): string {
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, interests = [] }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, interests = [], seedField }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
@@ -296,9 +295,18 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   guestAnswers?: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
-  interests?: string[];
+  interests?: { keyword: string; field: string }[];
+  seedField?: string;
 }) {
-  const interestSet = useMemo(() => new Set(interests.map((k) => k.toLowerCase())), [interests]);
+  const interestSet = useMemo(() => new Set(interests.map((i) => i.keyword.toLowerCase())), [interests]);
+  // Tag colors mirror the preferences picker: an interest keyword gets its field's color;
+  // known hierarchy topics get their field's color; the rest fall back to the digest's
+  // primary seed field.
+  const tagColorFor = useMemo(() => {
+    const byKw = new Map(interests.map((i) => [i.keyword.toLowerCase(), fieldColor(i.field)]));
+    const fallback = fieldColor(seedField);
+    return (kw: string) => byKw.get(kw.toLowerCase()) || topicColor(kw) || fallback;
+  }, [interests, seedField]);
   const lines = useMemo(() => {
     const { bodyText } = splitSynthesisTheme(synthesis, theme);
     const defs = keyConcepts
@@ -372,7 +380,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       buf = []; firstEl = false;
     }
     for (const pi of pendingCards) {
-      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} interestSet={interestSet} isLoggedIn={isLoggedIn} /></div>);
+      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} interestSet={interestSet} tagColorFor={tagColorFor} isLoggedIn={isLoggedIn} /></div>);
     }
     if (pendingCards.length) firstEl = false;
     pendingCards = [];
@@ -410,7 +418,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
 
-      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} interestSet={interestSet} isLoggedIn={isLoggedIn} />}
+      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} interestSet={interestSet} tagColorFor={tagColorFor} isLoggedIn={isLoggedIn} />}
     </div>
   );
 }
