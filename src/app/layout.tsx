@@ -60,8 +60,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://api.fontshare.com" />
-        <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap" rel="stylesheet" />
+        {/* Cabinet Grotesk is self-hosted in globals.css (see @font-face) — no
+            runtime fontshare CDN dependency, so the display font never flashes
+            a fallback sans. */}
+        <link rel="preload" href="/fonts/CabinetGrotesk-Extrabold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body className={`${inter.variable} ${plexMono.variable} ${spaceGrotesk.variable} antialiased`}>
         <Providers>{children}</Providers>
