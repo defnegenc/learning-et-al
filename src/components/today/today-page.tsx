@@ -691,8 +691,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
         {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
-          {/* DigestTitleBlock */}
-          <div style={{ marginBottom: "32px" }}>
+          {/* DigestTitleBlock — 28px below matches the tag→gist gap inside DigestHeader */}
+          <div style={{ marginBottom: "28px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -763,7 +763,30 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
             <SweepTitle text={displayTheme} palettes={SOURCE_PALETTES} />
 
-            <DigestHeader seedInterests={digest.seedInterests} gist={digest.gist} />
+            <DigestHeader
+              seedInterests={digest.seedInterests}
+              gist={digest.gist}
+              topics={(() => {
+                // Digest topics beyond your interests: paper keywords first (the
+                // pipeline's topic labels), then key-concept terms, deduped and
+                // capped so the row stays one calm line.
+                const seeded = new Set((digest.seedInterests || []).map((s) => s.keyword.toLowerCase()));
+                const candidates = [
+                  ...papers.flatMap((p) => p.keywords),
+                  ...(digest.keyConcepts || []).map((c) => (c.includes(": ") ? c.split(": ")[0] : c).trim()),
+                ];
+                const out: string[] = [];
+                for (const t of candidates) {
+                  const k = t.toLowerCase();
+                  if (!t || seeded.has(k) || out.some((o) => o.toLowerCase() === k)) continue;
+                  out.push(t);
+                  if (out.length >= 3) break;
+                }
+                return out;
+              })()}
+              isLoggedIn={!!session}
+              onSignIn={onSignIn}
+            />
 
           </div>
 

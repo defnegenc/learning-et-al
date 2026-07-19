@@ -119,8 +119,8 @@ export function toLines(paragraphs: string[], defs: { term: string; def: string 
 /* ---- chips ---- */
 
 function PaperChip({ paper, paperIdx, label, cap, onOpen }: { paper: PaperItem; paperIdx: number; label: string; cap: boolean; onOpen: (p: PaperItem) => void }) {
-  const [g1, g2] = PALETTES[paperIdx % PALETTES.length];
-  const [h1, h2] = HOVER_PALETTES[paperIdx % HOVER_PALETTES.length];
+  const [g1] = PALETTES[paperIdx % PALETTES.length];
+  const [h1] = HOVER_PALETTES[paperIdx % HOVER_PALETTES.length];
   const [hover, setHover] = useState(false);
   const summary = paper.summary || paper.abstract || "";
   return (
@@ -129,10 +129,9 @@ function PaperChip({ paper, paperIdx, label, cap, onOpen }: { paper: PaperItem; 
         onClick={() => onOpen(paper)}
         style={{
           fontWeight: 700, color: "#111", border: "none", cursor: "pointer",
-          background: `linear-gradient(135deg, ${hover ? h1 : g1} 0%, ${hover ? h2 : g2} 100%)`,
-          padding: "1px 4px", margin: "0 -1px", borderRadius: 2, transition: "background 0.15s",
+          background: "none", padding: 0,
+          borderBottom: `3px solid ${hover ? h1 : g1}`, transition: "border-color 0.15s",
           fontFamily: "inherit", fontSize: "inherit", lineHeight: "inherit",
-          WebkitBoxDecorationBreak: "clone", boxDecorationBreak: "clone" as React.CSSProperties["boxDecorationBreak"],
         }}
       >{cap ? label.charAt(0).toUpperCase() + label.slice(1) : label}</button>
       {hover && summary && (
@@ -194,74 +193,53 @@ function KeywordTags({ keywords, interestSet, colorFor, isLoggedIn, size = "sm" 
 
 /* ---- inline paper card (revealed on first mention) ---- */
 
-function PaperBlobCard({ paper, paperIdx, onOpen, interestSet, tagColorFor, isLoggedIn }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; interestSet: Set<string>; tagColorFor: (kw: string) => string; isLoggedIn: boolean }) {
-  // The card's job is the takeaway: hook (+ stat), NOT a restatement of the synthesis.
-  // The 40-word summary lives in the detail/vault; it only shows here as a fallback for
-  // older digests without a takeaway.
-  const hook = paper.takeawayHook || "";
-  const stat = paper.takeawayStat || "";
-  const body = hook || paper.summary || paper.abstract || "";
+function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void }) {
+  // The card's job is "what is this paper" in plain terms (the summary). The
+  // surrounding prose already says how it relates, and the overlay carries the
+  // takeaway + keyword tags — no surface repeats another.
+  const body = paper.summary || paper.abstract || "";
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
       <div style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "1.5px", color: "#888", marginBottom: 4 }}>{venueLabel(paper)}</div>
-      <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2, margin: "0 0 3px" }}>{paper.plainName || paper.title}</h4>
-      {paper.plainName && <p style={{ fontSize: "0.66rem", color: "#666", lineHeight: 1.35, margin: "0 0 4px" }}>{paper.title}</p>}
+      <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2, margin: "0 0 3px", textTransform: "capitalize" }}>{paper.title}</h4>
       {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.58rem", fontStyle: "italic", color: "#888", margin: "0 0 7px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
       {body && <p style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#333", margin: 0 }}>{body.length > 260 ? body.slice(0, 257) + "..." : body}</p>}
-      {hook && stat && <p style={{ fontSize: "0.68rem", fontWeight: 600, color: "#555", margin: "5px 0 0" }}>{stat}</p>}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 9, gap: 8 }}>
-        <KeywordTags keywords={paper.keywords.slice(0, 3)} interestSet={interestSet} colorFor={tagColorFor} isLoggedIn={isLoggedIn} size="sm" />
-        {paper.sourceUrl && (
+      {paper.sourceUrl && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 9 }}>
           <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", color: "#1a1a1a", whiteSpace: "nowrap", borderBottom: "1.5px solid #1a1a1a", paddingBottom: 1 }}>VIEW STUDY ↗</a>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, tagColorFor, isLoggedIn }: { paper: PaperItem; paperIdx: number; onClose: () => void; interestSet: Set<string>; tagColorFor: (kw: string) => string; isLoggedIn: boolean }) {
-  const [expanded, setExpanded] = useState(false);
-  // Click-in shows only what the card doesn't: how it relates to the theme, the abstract,
-  // and the "say it like this" line at the bottom. The hook + stat already live on the card.
-  const relates = paper.connectionReason ? relatesFallback(paper.connectionReason) : (paper.relatesLine || "");
+  const tags = PALETTES[paperIdx % PALETTES.length];
+  // Click-in is deliberately calm: the say-it-like line leads (boxed, so it reads
+  // as the takeaway), then how it relates to today's question — same type size,
+  // with keyword tags (+ add-to-interests) in the footer. No abstract; depth
+  // lives behind VIEW STUDY.
   const line = paper.takeawayLine || "";
-  const abstract = paper.abstract || paper.fullText || "";
-  const LIMIT = 340;
-  const isLong = abstract.length > LIMIT;
-  const shownAbstract = expanded || !isLong ? abstract : abstract.slice(0, LIMIT).trimEnd() + "…";
+  const relates = paper.relatesLine || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
+  const about = relates || paper.summary || "";
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
-        <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888", marginBottom: 14 }}>✕ Close</button>
-        <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", color: "#666", marginBottom: 10 }}>{venueLabel(paper)}</div>
-        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.2, margin: "0 0 6px" }}>{paper.plainName || paper.title}</h3>
-        {paper.plainName && <p style={{ fontSize: "0.8rem", color: "#555", lineHeight: 1.4, margin: "0 0 8px" }}>{paper.title}</p>}
-        {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 16px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
-
-        {relates && (
-          <div style={{ background: PALETTES[paperIdx % PALETTES.length][0], border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", margin: "0 0 18px" }}>
-            <div style={{ fontFamily: MONO, fontSize: "0.54rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.65, marginBottom: 4 }}>How it relates</div>
-            <p style={{ fontSize: "0.98rem", fontWeight: 700, lineHeight: 1.45, color: "#1a1a1a", margin: 0 }}>{relates}</p>
-          </div>
-        )}
-
-        {abstract && (
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>Abstract</div>
-            <p style={{ fontSize: "0.9rem", lineHeight: 1.62, color: "#333", margin: 0 }}>{shownAbstract}</p>
-            {isLong && (
-              <button onClick={() => setExpanded(v => !v)} style={{ marginTop: 8, fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1px", textTransform: "uppercase", background: "none", border: "none", borderBottom: "1.5px solid #1a1a1a", padding: "0 0 1px", cursor: "pointer", color: "#1a1a1a" }}>
-                {expanded ? "Show less" : "Show more"}
-              </button>
-            )}
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", color: "#666" }}>{venueLabel(paper)}</span>
+          <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888" }}>✕ Close</button>
+        </div>
+        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.2, margin: "0 0 6px", textTransform: "capitalize" }}>{paper.title}</h3>
+        {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 18px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
 
         {line && (
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>Say it like</div>
-            <p style={{ fontSize: "0.9rem", lineHeight: 1.62, color: "#333", fontStyle: "italic", margin: 0 }}>&ldquo;{line}&rdquo;</p>
+          <div style={{ background: tags[0], border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", margin: "0 0 16px" }}>
+            <p style={{ fontSize: "0.95rem", fontWeight: 600, lineHeight: 1.55, color: "#1a1a1a", margin: 0 }}>{line}</p>
           </div>
+        )}
+        {about && <p style={{ fontSize: "0.95rem", lineHeight: 1.62, color: "#333", margin: "0 0 18px" }}>{about}</p>}
+        {!line && !about && paper.abstract && (
+          <p style={{ fontSize: "0.95rem", lineHeight: 1.62, color: "#333", margin: "0 0 18px" }}>{paper.abstract.length > 340 ? paper.abstract.slice(0, 337).trimEnd() + "…" : paper.abstract}</p>
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
@@ -380,7 +358,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       buf = []; firstEl = false;
     }
     for (const pi of pendingCards) {
-      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} interestSet={interestSet} tagColorFor={tagColorFor} isLoggedIn={isLoggedIn} /></div>);
+      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} /></div>);
     }
     if (pendingCards.length) firstEl = false;
     pendingCards = [];
