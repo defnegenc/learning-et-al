@@ -158,9 +158,42 @@ function TermChip({ text, def }: { text: string; def: string }) {
   );
 }
 
+/* ---- keyword tags: interest ones get a dot, new ones get a "+" to add ---- */
+// Surfaces more than just your standing interests. A keyword already in your interests reads
+// as "yours" (filled dot); the rest are fresh topics with a "+" that adds them to your
+// interests — so you grow interests straight from what you read. Add is logged-in only.
+function KeywordTags({ keywords, interestSet, palette, isLoggedIn, size = "sm" }: {
+  keywords: string[]; interestSet: Set<string>; palette: [string, string]; isLoggedIn: boolean; size?: "sm" | "md";
+}) {
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const fs = size === "md" ? "0.6rem" : "0.55rem";
+  const pad = size === "md" ? "3px 9px" : "2px 7px";
+  const add = (kw: string) => {
+    if (!isLoggedIn) return;
+    setAdded((p) => new Set(p).add(kw.toLowerCase()));
+    fetch("/api/interests/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: kw }) }).catch(() => {});
+  };
+  return (
+    <div style={{ display: "flex", gap: size === "md" ? 6 : 5, flexWrap: "wrap" }}>
+      {keywords.map((kw, i) => {
+        const mine = interestSet.has(kw.toLowerCase()) || added.has(kw.toLowerCase());
+        const base: React.CSSProperties = { fontFamily: MONO, fontSize: fs, textTransform: "uppercase", letterSpacing: "0.5px", background: palette[i % 2], border: "1px solid #1a1a1a", padding: pad, display: "flex", alignItems: "center", gap: 5, color: "#1a1a1a", lineHeight: 1.1 };
+        if (mine) return (
+          <span key={kw} style={base}><span style={{ width: 5, height: 5, borderRadius: "50%", background: "#1a1a1a", flexShrink: 0 }} />{kw}</span>
+        );
+        return (
+          <button key={kw} onClick={(e) => { e.stopPropagation(); add(kw); }} title={isLoggedIn ? "Add to your interests" : "Sign in to add"} style={{ ...base, cursor: isLoggedIn ? "pointer" : "default", fontFamily: MONO }}>
+            {kw}<span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, border: "1px solid #1a1a1a", background: "#fff", fontWeight: 700, lineHeight: 1, fontSize: "0.72rem", flexShrink: 0 }}>+</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ---- inline paper card (revealed on first mention) ---- */
 
-function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void }) {
+function PaperBlobCard({ paper, paperIdx, onOpen, interestSet, isLoggedIn }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; interestSet: Set<string>; isLoggedIn: boolean }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
   // The card's job is the takeaway: hook (+ stat), NOT a restatement of the synthesis.
   // The 40-word summary lives in the detail/vault; it only shows here as a fallback for
@@ -177,11 +210,7 @@ function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx
       {body && <p style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#333", margin: 0 }}>{body.length > 260 ? body.slice(0, 257) + "..." : body}</p>}
       {hook && stat && <p style={{ fontSize: "0.68rem", fontWeight: 600, color: "#555", margin: "5px 0 0" }}>{stat}</p>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 9, gap: 8 }}>
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {paper.keywords.slice(0, 3).map((kw, i) => (
-            <span key={kw} style={{ fontFamily: MONO, fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.5px", background: tags[i % 2], border: "1px solid #1a1a1a", padding: "2px 7px" }}>{kw}</span>
-          ))}
-        </div>
+        <KeywordTags keywords={paper.keywords.slice(0, 3)} interestSet={interestSet} palette={tags} isLoggedIn={isLoggedIn} size="sm" />
         {paper.sourceUrl && (
           <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", color: "#1a1a1a", whiteSpace: "nowrap", borderBottom: "1.5px solid #1a1a1a", paddingBottom: 1 }}>VIEW STUDY ↗</a>
         )}
@@ -190,7 +219,7 @@ function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx
   );
 }
 
-function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
+function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, isLoggedIn }: { paper: PaperItem; paperIdx: number; onClose: () => void; interestSet: Set<string>; isLoggedIn: boolean }) {
   const tags = PALETTES[paperIdx % PALETTES.length];
   const [expanded, setExpanded] = useState(false);
   // Click-in shows only what the card doesn't: how it relates to the theme, the abstract,
@@ -237,11 +266,7 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {paper.keywords.slice(0, 4).map((kw, i) => (
-              <span key={kw} style={{ fontFamily: MONO, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.5px", background: tags[i % 2], border: "1px solid #1a1a1a", padding: "3px 9px" }}>{kw}</span>
-            ))}
-          </div>
+          <KeywordTags keywords={paper.keywords.slice(0, 4)} interestSet={interestSet} palette={tags} isLoggedIn={isLoggedIn} size="md" />
           {paper.sourceUrl && (
             <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", background: "#1a1a1a", color: "#fff", padding: "7px 12px", whiteSpace: "nowrap" }}>VIEW STUDY ↗</a>
           )}
@@ -261,7 +286,7 @@ function relatesFallback(reason: string): string {
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, interests = [] }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
@@ -271,7 +296,9 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   guestAnswers?: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
+  interests?: string[];
 }) {
+  const interestSet = useMemo(() => new Set(interests.map((k) => k.toLowerCase())), [interests]);
   const lines = useMemo(() => {
     const { bodyText } = splitSynthesisTheme(synthesis, theme);
     const defs = keyConcepts
@@ -345,7 +372,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       buf = []; firstEl = false;
     }
     for (const pi of pendingCards) {
-      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} /></div>);
+      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} interestSet={interestSet} isLoggedIn={isLoggedIn} /></div>);
     }
     if (pendingCards.length) firstEl = false;
     pendingCards = [];
@@ -383,7 +410,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
 
-      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} />}
+      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} interestSet={interestSet} isLoggedIn={isLoggedIn} />}
     </div>
   );
 }
