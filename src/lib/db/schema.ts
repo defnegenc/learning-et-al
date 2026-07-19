@@ -62,7 +62,7 @@ export const digests = sqliteTable("digests", {
   suggestedAnswers: text("suggested_answers"),
   seedInterests: text("seed_interests"), // JSON [{keyword, field}] — interests that seeded this digest (drives header chips)
   gist: text("gist"),                     // one-line answer to the central question (zero-click hook)
-  framing: text("framing"),               // faint italic curatorial provenance line
+  framing: text("framing"),               // legacy "I pulled N sources" line — no longer generated or shown (kept for old rows)
   homeworkTopic: text("homework_topic"),  // null = standing digest; set when a homework item seeds it (homework UI ships later)
   notes: text("notes"),
   starred: integer("starred", { mode: "boolean" }).$default(() => false),

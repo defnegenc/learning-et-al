@@ -1307,22 +1307,15 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
     return { keyword: kw, field: match?.field || focusFields[0] || "Computer Science" };
   });
 
-  // Gist (zero-click answer) + framing (curatorial provenance line) — one cheap call over the FINAL synthesis.
+  // Gist (zero-click answer) — one cheap call over the FINAL synthesis.
   let gist = "";
-  let framing = "";
   try {
     const seedList = seedInterests.map(s => s.keyword).join(", ");
-    const sourceCount = items.length;
-    const sourceList = parsedAI.items
-      .map((ai, i) => ai.plainName || items[i]?.title || "")
-      .filter(Boolean)
-      .join("; ");
     const gistResp = await aiComplete(
       aiConfig,
       "You write punchy, plain-English digest headers that sound like a smart friend talking, not an AI. Return only JSON.",
       `Central question: "${finalTheme}"
 Seed interests: ${seedList}
-Sources I pulled (${sourceCount}): ${sourceList}
 
 Today's synthesis:
 ${synthesis}
@@ -1331,13 +1324,11 @@ VOICE: Sound like a real person talking to a friend. Use contractions. Plain wor
 
 Return JSON (no markdown fences):
 {
-  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question. If it's a who/what/how/why question, answer it DIRECTLY with the real answer — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT echo the question's own words back (it sits right above this on the page). No jargon or metrics. Examples — Q 'Does good UX ignore how users feel?' -> 'No. Treating emotion as optional is a design gap, not a real tradeoff.' | Q 'Who checks AI when it grades students?' -> 'Almost nobody yet: one new system flags bad AI scores, but teachers haven't started using it.'",
-  "framing": "ONE sentence naming what you pulled, first person, like: 'I pulled ${sourceCount} sources — a X, a Y, and a Z.' Describe each source in a few plain words (what it IS), based on the sources listed above. Do NOT restate the answer or the tension. Just say what the sources are. Max 25 words."
+  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question. If it's a who/what/how/why question, answer it DIRECTLY with the real answer — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT echo the question's own words back (it sits right above this on the page). No jargon or metrics. Examples — Q 'Does good UX ignore how users feel?' -> 'No. Treating emotion as optional is a design gap, not a real tradeoff.' | Q 'Who checks AI when it grades students?' -> 'Almost nobody yet: one new system flags bad AI scores, but teachers haven't started using it.'"
 }`
     );
-    const gp = extractJson<{ gist?: string; framing?: string }>(gistResp);
+    const gp = extractJson<{ gist?: string }>(gistResp);
     if (gp?.gist) gist = gp.gist.trim();
-    if (gp?.framing) framing = gp.framing.trim();
 
     // Deterministic guard: a hedge verdict ("Sort of.") only makes sense for a yes/no question.
     // The prompt says so, but models slip — so strip a leading hedge when the theme isn't a
@@ -1348,9 +1339,9 @@ Return JSON (no markdown fences):
       const stripped = gist.replace(/^\s*(sort of|sorta|kind of|kinda|not quite|not really|maybe)[.,!:—-]+\s*/i, "");
       if (stripped && stripped !== gist) gist = stripped.charAt(0).toUpperCase() + stripped.slice(1);
     }
-    console.log(`[Digest] Gist: "${gist}" | Framing: "${framing}"`);
+    console.log(`[Digest] Gist: "${gist}"`);
   } catch (err) {
-    console.log(`[Digest] Gist/framing generation failed (${err}), continuing without`);
+    console.log(`[Digest] Gist generation failed (${err}), continuing without`);
   }
 
   const [digest] = await db.insert(digests).values({
@@ -1362,7 +1353,6 @@ Return JSON (no markdown fences):
     suggestedAnswers: JSON.stringify(suggestedAnswers),
     seedInterests: JSON.stringify(seedInterests),
     gist: gist || null,
-    framing: framing || null,
   }).returning();
 
   await db.insert(papers).values(
