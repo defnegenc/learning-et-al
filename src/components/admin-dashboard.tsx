@@ -7,6 +7,7 @@ interface UserStat {
   id: string;
   name: string | null;
   email: string | null;
+  digestPaused: boolean;
   createdAt: string;
   lastActive: string;
   digestCount: number;
@@ -51,6 +52,24 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("users");
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  async function togglePause(u: UserStat) {
+    if (togglingId) return;
+    setTogglingId(u.id);
+    const next = !u.digestPaused;
+    try {
+      const res = await fetch("/api/admin", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: u.id, digestPaused: next }),
+      });
+      if (res.ok) {
+        setData(d => d ? { ...d, users: d.users.map(x => x.id === u.id ? { ...x, digestPaused: next } : x) } : d);
+      }
+    } catch { /* leave state as-is */ }
+    finally { setTogglingId(null); }
+  }
 
   useEffect(() => {
     fetch("/api/admin")
@@ -109,7 +128,7 @@ export function AdminDashboard() {
         <table className="w-full" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "2px solid #1a1a1a" }}>
-              {["User", "Joined", "Last Active", "Digests", "Stars", "Questions", "Regens", "Interests"].map(h => (
+              {["User", "Auto-Digest", "Joined", "Last Active", "Digests", "Stars", "Questions", "Regens", "Interests"].map(h => (
                 <th key={h} style={{ textAlign: "left", padding: "8px 12px", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#888" }}>{h}</th>
               ))}
             </tr>
@@ -120,6 +139,23 @@ export function AdminDashboard() {
                 <td style={{ padding: "10px 12px" }}>
                   <p style={{ fontSize: "0.85rem", fontWeight: 700 }}>{u.name || "—"}</p>
                   <p style={{ fontSize: "0.65rem", color: "#888" }}>{u.email || "—"}</p>
+                </td>
+                <td style={{ padding: "10px 12px" }}>
+                  <button
+                    onClick={() => togglePause(u)}
+                    disabled={togglingId === u.id}
+                    title={u.digestPaused ? "Resume automatic digest generation" : "Pause automatic digest generation"}
+                    style={{
+                      fontSize: "0.55rem", fontWeight: 700, padding: "3px 8px",
+                      fontFamily: "var(--font-mono), monospace", textTransform: "uppercase",
+                      letterSpacing: "1px", whiteSpace: "nowrap",
+                      border: "1.5px solid #1a1a1a", cursor: "pointer",
+                      background: u.digestPaused ? "#f8d7da" : "#d4edda",
+                      color: "#1a1a1a", opacity: togglingId === u.id ? 0.5 : 1,
+                    }}
+                  >
+                    {u.digestPaused ? "Paused" : "On"}
+                  </button>
                 </td>
                 <td style={{ padding: "10px 12px", fontSize: "0.75rem", color: "#666" }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
                 <td style={{ padding: "10px 12px", fontSize: "0.75rem", color: "#666" }}>{u.lastActive ? new Date(u.lastActive).toLocaleDateString() : "—"}</td>
