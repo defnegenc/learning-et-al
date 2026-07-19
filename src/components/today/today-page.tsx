@@ -581,16 +581,16 @@ interface TodayPageProps {
 export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignIn }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
-  const [interestKeywords, setInterestKeywords] = useState<string[]>([]);
+  const [interestKeywords, setInterestKeywords] = useState<{ keyword: string; field: string }[]>([]);
   const [hiddenStash, setHiddenStash] = useState<{ digest: Digest; papers: PaperItem[] } | null>(null);
 
-  // Load the reader's interest keywords so card tags can mark which are already theirs
-  // vs. new topics they can add.
+  // Load the reader's interests (keyword + field) so card tags can mark which are already
+  // theirs vs. new topics they can add, and color them by field like the preferences picker.
   useEffect(() => {
     if (!session) return;
     fetch("/api/interests")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d?.interests) setInterestKeywords(d.interests.map((i: { keyword: string }) => i.keyword)); })
+      .then((d) => { if (d?.interests) setInterestKeywords(d.interests.map((i: { keyword: string; field: string }) => ({ keyword: i.keyword, field: i.field }))); })
       .catch(() => {});
   }, [session]);
   const [loading, setLoading] = useState(true);
@@ -982,6 +982,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               guestAnswers={digest.suggestedAnswers}
               isLoggedIn={!!session}
               interests={interestKeywords}
+              seedField={digest.seedInterests?.[0]?.field}
               onSignIn={onSignIn}
             />
           ) : digest.synthesisContent ? (
