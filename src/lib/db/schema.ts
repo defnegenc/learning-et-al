@@ -7,6 +7,7 @@ export const users = sqliteTable("users", {
   contentMix: integer("content_mix").default(50),
   cadence: text("cadence", { enum: ["daily", "biweekly", "weekly"] }).default("daily"),
   emailOptOut: integer("email_opt_out", { mode: "boolean" }).default(false),
+  digestPaused: integer("digest_paused", { mode: "boolean" }).default(false), // admin kill-switch: cron skips this user
   email: text("email"),
   name: text("name"),
   image: text("image"),
