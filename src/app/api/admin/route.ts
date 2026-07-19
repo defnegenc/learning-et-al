@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
           id: u.id,
           name: u.name,
           email: u.email,
+          digestPaused: !!u.digestPaused,
           createdAt: u.createdAt,
           lastActive: lastEvent?.createdAt || u.createdAt,
           digestCount: userDigests.length,
@@ -88,6 +89,29 @@ export async function GET(req: NextRequest) {
         starred: allDigests.filter(d => d.starred).length,
       },
     });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
+// Pause/resume automatic digest generation for a user. The cron skips paused users.
+export async function PATCH(req: NextRequest) {
+  const userId = await getAuthUser(req);
+  if (!userId || userId !== ADMIN_ID) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  try {
+    const body = await req.json();
+    const targetId = typeof body.userId === "string" ? body.userId : "";
+    if (!targetId || typeof body.digestPaused !== "boolean") {
+      return NextResponse.json({ error: "userId and digestPaused required" }, { status: 400 });
+    }
+    const target = await db.query.users.findFirst({ where: eq(users.id, targetId) });
+    if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    await db.update(users).set({ digestPaused: body.digestPaused }).where(eq(users.id, targetId));
+    return NextResponse.json({ ok: true, userId: targetId, digestPaused: body.digestPaused });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

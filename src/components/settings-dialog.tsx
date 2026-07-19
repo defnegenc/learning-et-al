@@ -12,6 +12,7 @@ import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
+import { Wordmark, NavTab, PageTitle, SectionLabel, ActionButton } from "@/components/design-system";
 
 export type SettingsTab = "interests" | "account";
 
@@ -165,29 +166,11 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
           style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px", flexShrink: 0 }}
         >
-          <span className="hidden md:block" style={{ fontSize: "1.25rem", fontWeight: 400, letterSpacing: "0.2em", textTransform: "uppercase", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
-            LEARNING ET AL.
-          </span>
-          <span className="md:hidden" style={{ fontSize: "0.95rem", fontWeight: 400, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif" }}>
-            Settings
-          </span>
+          <span className="hidden md:block"><Wordmark /></span>
+          <span className="md:hidden"><Wordmark compact /></span>
           <div className="flex items-center gap-4">
             {navItems.map(n => (
-              <button
-                key={n.key}
-                onClick={() => setTab(n.key)}
-                style={{
-                  padding: "4px 0", fontSize: "0.625rem", fontWeight: 600,
-                  textTransform: "uppercase", letterSpacing: "0.12em",
-                  fontFamily: "var(--font-mono), monospace",
-                  border: "none", background: "transparent",
-                  color: tab === n.key ? "#1a1a1a" : "#999",
-                  borderBottom: tab === n.key ? "1.5px solid #1a1a1a" : "1.5px solid transparent",
-                  cursor: "pointer", transition: "color 0.15s",
-                }}
-              >
-                {n.label}
-              </button>
+              <NavTab key={n.key} active={tab === n.key} onClick={() => setTab(n.key)}>{n.label}</NavTab>
             ))}
             <button
               onClick={() => setOpen(false)}
@@ -204,17 +187,13 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="px-5 pt-6 pb-4 md:px-10 md:pt-10 md:pb-5">
-                <h3 style={{ fontSize: "2rem", fontWeight: 400, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-                  Curate Your Feed
-                </h3>
+                <PageTitle size="lg" style={{ marginBottom: "8px" }}>Curate your feed</PageTitle>
                 <p style={{ fontSize: "0.9rem", color: "#666" }}>Pick topics to personalize your daily digest.</p>
               </div>
 
               {/* Delivery cadence */}
               <div className="px-5 md:px-10 pb-4" style={{ borderBottom: "1px solid #eee" }}>
-                <label style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace", display: "block", marginBottom: "10px" }}>
-                  Delivery Cadence
-                </label>
+                <SectionLabel style={{ marginBottom: "10px" }}>Delivery Cadence</SectionLabel>
                 <div className="flex gap-0">
                   {([
                     { key: "daily" as const, label: "Daily", desc: "The morning digest." },
@@ -242,7 +221,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               {/* Email opt-out */}
               <div className="px-5 md:px-10 py-3" style={{ borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>Email digests</div>
+                  <SectionLabel>Email digests</SectionLabel>
                   <div style={{ fontSize: "0.7rem", color: "#aaa", marginTop: "2px" }}>Receive your digest by email</div>
                 </div>
                 <button
@@ -289,19 +268,9 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                   >
                     Clear All
                   </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex items-center gap-2 hover:bg-[#333] disabled:opacity-50"
-                    style={{
-                      padding: "10px 20px", background: "#1a1a1a", color: "white",
-                      border: "2px solid #1a1a1a", cursor: "pointer",
-                      fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-                      letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
-                    }}
-                  >
+                  <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
                     {saving ? <Loader2 className="size-3 animate-spin" /> : "Save"}
-                  </button>
+                  </ActionButton>
                 </div>
               )}
             </div>
@@ -310,9 +279,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {/* ── Account tab ── */}
           {tab === "account" && (
             <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
-              <h3 style={{ fontSize: "2rem", fontWeight: 400, fontFamily: "var(--font-display), sans-serif", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-                Account
-              </h3>
+              <PageTitle size="lg" style={{ marginBottom: "8px" }}>Account</PageTitle>
               {authSession?.user && (
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "32px", paddingBottom: "24px", borderBottom: "1px solid #e5e7eb" }}>
                   {authSession.user.image && (
@@ -326,36 +293,20 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start" }}>
                 {isAdmin && (
-                  <button
-                    onClick={() => { onRegenerate?.(); setOpen(false); }}
-                    className="flex items-center gap-2 hover:bg-[#1a1a1a] hover:text-white transition-colors"
-                    style={{
-                      border: "2px solid #1a1a1a", padding: "10px 20px",
-                      background: "white", cursor: "pointer",
-                      fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
-                      letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
-                    }}
-                  >
+                  <ActionButton onClick={() => { onRegenerate?.(); setOpen(false); }}>
                     <RefreshCw className="size-3.5" />
                     Regenerate digest
-                  </button>
+                  </ActionButton>
                 )}
-                <button
+                <ActionButton
                   onClick={() => {
                     localStorage.removeItem("pp_session");
                     window.location.href = "/api/logout";
                   }}
-                  className="flex items-center gap-2 hover:bg-[#1a1a1a] hover:text-white transition-colors"
-                  style={{
-                    border: "2px solid #1a1a1a", padding: "10px 20px",
-                    background: "white", cursor: "pointer",
-                    fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
-                    letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
-                  }}
                 >
                   <LogOut className="size-3.5" />
                   Sign out
-                </button>
+                </ActionButton>
               </div>
             </div>
           )}
