@@ -1,18 +1,9 @@
 "use client";
 
-import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
+import { fieldColor } from "@/lib/field-hierarchy";
 
 const MONO = "var(--font-mono), monospace";
 const BODY = "var(--font-inter), sans-serif";
-
-// Stored interest field is an S2Field ("Computer Science", "Art", …). Match it to a
-// FIELD_HIERARCHY entry's color; fall back to the key, then a neutral grey.
-function fieldColor(field: string): string {
-  for (const def of Object.values(FIELD_HIERARCHY)) {
-    if (def.s2Field === field) return def.color;
-  }
-  return FIELD_HIERARCHY[field]?.color || "#e5e7eb";
-}
 
 /**
  * The zero-click header under the central question: domain chips (which of your

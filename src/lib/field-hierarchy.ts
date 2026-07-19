@@ -112,3 +112,23 @@ export const FIELD_HIERARCHY: Record<string, FieldDef> = {
     ],
   },
 };
+
+// One color per field, same mapping the preferences interest picker uses.
+// Accepts either a hierarchy key ("Design & Art") or a stored S2Field ("Art").
+export function fieldColor(field?: string | null): string {
+  if (!field) return "#e5e7eb";
+  for (const def of Object.values(FIELD_HIERARCHY)) {
+    if (def.s2Field === field) return def.color;
+  }
+  return FIELD_HIERARCHY[field]?.color || "#e5e7eb";
+}
+
+// Color for a keyword whose field we don't know: if it's a known topic in the
+// hierarchy, use that field's color; otherwise undefined so callers can fall back.
+export function topicColor(keyword: string): string | undefined {
+  const kw = keyword.toLowerCase();
+  for (const def of Object.values(FIELD_HIERARCHY)) {
+    if (def.topics.some((t) => t.toLowerCase() === kw)) return def.color;
+  }
+  return undefined;
+}
