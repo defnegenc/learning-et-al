@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FIELD_HIERARCHY, type S2Field } from "@/lib/field-hierarchy";
+import { TopicChip, AddChip } from "@/components/design-system";
 
 // Max interests a user can select. The digest samples 5 candidates/day from the
 // whole pool (see docs/algorithm.md Step 1), so this is only a UI guardrail, not
@@ -31,79 +32,6 @@ export const CATEGORY_PALETTES: Record<string, [string, string]> = {
   "Education":              ["#FFD6E0", "#FFE89A"], // pink → yellow
 };
 
-function palette(category: string): [string, string] {
-  return CATEGORY_PALETTES[category] || ["#E2D6F7", "#D0E3F7"];
-}
-
-function tagGradient([a, b]: [string, string]) {
-  return `linear-gradient(135deg, ${a} 0%, ${b} 100%)`;
-}
-
-// Glass tag — inactive = dashed outline, active = gradient fill
-function GlassTag({
-  label,
-  active,
-  palette: pal,
-  onClick,
-  onRemove,
-  disabled = false,
-}: {
-  label: string;
-  active: boolean;
-  palette: [string, string];
-  onClick?: () => void;
-  onRemove?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      title={disabled ? `Remove an interest to add more (max ${MAX_INTERESTS}).` : undefined}
-      style={{
-        background: active ? tagGradient(pal) : "transparent",
-        color: "#1a1a1a",
-        border: active ? "1px solid rgba(26,26,26,0.25)" : "1px dashed rgba(26,26,26,0.4)",
-        fontFamily: "var(--font-mono), monospace",
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: 1.2,
-        padding: "5px 10px",
-        textTransform: "uppercase",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        lineHeight: 1,
-        borderRadius: 3,
-        whiteSpace: "nowrap",
-        cursor: disabled ? "not-allowed" : onClick ? "pointer" : "default",
-        transition: "all 120ms",
-        boxShadow: active ? "inset 0 1px 0 rgba(255,255,255,0.5)" : "none",
-        opacity: active ? 1 : disabled ? 0.3 : 0.75,
-      }}
-    >
-      {label}
-      {onRemove && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          style={{
-            background: "none",
-            border: "none",
-            color: "inherit",
-            cursor: "pointer",
-            padding: 0,
-            fontSize: 12,
-            lineHeight: 1,
-            fontFamily: "inherit",
-            opacity: 0.7,
-          }}
-          aria-label={`Remove ${label}`}
-        >×</button>
-      )}
-    </button>
-  );
-}
-
 // Inline "+ ADD" button that expands to a small input for custom topics
 function RowAdder({ onAdd, disabled = false }: { onAdd: (topic: string) => void; disabled?: boolean }) {
   const [value, setValue] = useState("");
@@ -111,25 +39,11 @@ function RowAdder({ onAdd, disabled = false }: { onAdd: (topic: string) => void;
 
   if (!open) {
     return (
-      <button
+      <AddChip
         onClick={() => setOpen(true)}
         disabled={disabled}
         title={disabled ? `Remove an interest to add more (max ${MAX_INTERESTS}).` : undefined}
-        style={{
-          background: "transparent",
-          border: "1px dashed #1a1a1a",
-          fontFamily: "var(--font-mono), monospace",
-          fontSize: 10,
-          fontWeight: 600,
-          letterSpacing: 1.2,
-          color: "#1a1a1a",
-          padding: "5px 10px",
-          cursor: disabled ? "not-allowed" : "pointer",
-          textTransform: "uppercase",
-          borderRadius: 3,
-          opacity: disabled ? 0.3 : 1,
-        }}
-      >+ ADD</button>
+      />
     );
   }
 
@@ -162,7 +76,7 @@ function RowAdder({ onAdd, disabled = false }: { onAdd: (topic: string) => void;
         color: "#1a1a1a",
         padding: "5px 10px",
         outline: "none",
-        borderRadius: 3,
+        borderRadius: 6,
         width: 140,
       }}
     />
@@ -217,7 +131,6 @@ export function InterestLedger({
       )}
       <div style={{ border: "1px solid #1a1a1a", background: "#fff" }}>
       {entries.map(([fieldKey, fieldDef], i) => {
-        const pal = palette(fieldKey);
         const customTopics = custom[fieldKey] || [];
         const allTopics = [...fieldDef.topics, ...customTopics];
         const selCount = allTopics.filter((t) => selectedSet.has(t)).length;
@@ -261,14 +174,15 @@ export function InterestLedger({
                 const isCustom = customTopics.includes(topic);
                 const isSelected = selectedSet.has(topic);
                 return (
-                  <GlassTag
+                  <TopicChip
                     key={topic}
                     label={topic}
-                    active={isSelected}
-                    palette={pal}
+                    selected={isSelected}
+                    tint={fieldDef.color}
                     onClick={() => onToggle(topic, fieldKey)}
                     onRemove={isCustom ? () => onRemoveCustom(fieldKey, topic) : undefined}
                     disabled={atMax && !isSelected}
+                    title={atMax && !isSelected ? `Remove an interest to add more (max ${MAX_INTERESTS}).` : undefined}
                   />
                 );
               })}

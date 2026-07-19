@@ -57,6 +57,10 @@ export async function GET(req: NextRequest) {
     // rotates fairly instead of always starving the users late in the table.
     const eligible: { user: (typeof allUsers)[number]; lastDigestDate: string | null }[] = [];
     for (const user of allUsers) {
+      if (user.digestPaused) {
+        results.push({ userId: user.id, status: "skipped", error: "digest paused by admin" });
+        continue;
+      }
       const userInterests = await db.select().from(interests).where(eq(interests.userId, user.id)).limit(1);
       if (userInterests.length === 0) {
         results.push({ userId: user.id, status: "skipped", error: "no interests" });
