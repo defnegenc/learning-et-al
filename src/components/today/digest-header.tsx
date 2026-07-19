@@ -16,21 +16,20 @@ function fieldColor(field: string): string {
 
 /**
  * The zero-click header under the central question: domain chips (which of your
- * interests seeded this), the gist (the one-line answer), and a faint curatorial
- * framing line. Renders nothing if the digest predates these fields.
+ * interests seeded this) and the gist (the one-line answer). Renders nothing if
+ * the digest predates these fields.
  */
-export function DigestHeader({ seedInterests, gist, framing }: {
+export function DigestHeader({ seedInterests, gist }: {
   seedInterests?: { keyword: string; field: string }[];
   gist?: string | null;
-  framing?: string | null;
 }) {
   const chips = (seedInterests || []).filter((c) => c.keyword);
-  if (!chips.length && !gist && !framing) return null;
+  if (!chips.length && !gist) return null;
 
   return (
     <div style={{ marginTop: 8, marginBottom: 4 }}>
       {chips.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: gist || framing ? 26 : 0 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: gist ? 26 : 0 }}>
           {chips.map((c) => (
             <span
               key={c.keyword}
@@ -55,11 +54,6 @@ export function DigestHeader({ seedInterests, gist, framing }: {
       {gist && (
         <p style={{ fontFamily: BODY, fontSize: "1.12rem", lineHeight: 1.5, color: "#1a1a1a", fontWeight: 700, margin: 0 }}>
           {gist}
-        </p>
-      )}
-      {framing && (
-        <p style={{ fontFamily: BODY, fontSize: "0.9rem", color: "#555", lineHeight: 1.5, margin: gist ? "10px 0 0" : 0 }}>
-          {framing}
         </p>
       )}
     </div>
