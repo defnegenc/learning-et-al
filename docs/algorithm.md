@@ -285,6 +285,9 @@ Feedback events also store contextual features (paper category, source, year, ke
 
 ## Top 3 Ideas to Improve (rolling)
 
-1. **Consolidate complementarity selection + skeleton**: Step 3b's `argumentArc`/`paperRoles` output is wasted, then re-derived in Stage B. Could save 1 LLM call.
-2. **Apply `isNewsRelevant` to primary web search path**: currently only guards RSS fallback, not the main news path.
-3. **User digest feedback loop**: rate digests 1-5 to fine-tune interest weights and theme quality.
+Theme monoculture — see `algo-audit.md` Part 5 for the full audit (2026-07-19):
+1. **Structure-aware theme novelty, enforced after Step 5**: track recent themes' question SHAPES (who/can/do/statement), constrain both the hypothesis and revise prompts with them, and add a deterministic re-roll if the leading word repeats.
+2. **Rotating exemplar bank**: ~15 theme examples across mechanism/scale/paradox/how-it-works forms, sample 3-4 per run, so the "villain/trust" register stops anchoring every question.
+3. **Collapse the rewrite chain**: 3 candidate themes in one call, programmatic pick, keep only the fit-to-papers revision (saves 2-3 AI calls and reduces drift to the modal phrasing).
+
+(Displaced but still valid: consolidate complementarity+skeleton; apply `isNewsRelevant` to primary news path; digest rating feedback loop.)
