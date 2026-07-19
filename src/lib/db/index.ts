@@ -7,4 +7,22 @@ const client = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
+// Idempotent micro-migrations. Turso prod can't be reached from dev machines
+// (secrets are Vercel-sensitive), so additive columns are applied here on cold
+// start: the ALTER fails silently once the column exists. Remove entries once
+// they're known to have run in prod.
+const MICRO_MIGRATIONS = [
+  "ALTER TABLE users ADD COLUMN digest_paused INTEGER DEFAULT 0",
+];
+let migrated: Promise<void> | null = null;
+export function ensureSchema(): Promise<void> {
+  migrated ??= (async () => {
+    for (const sql of MICRO_MIGRATIONS) {
+      try { await client.execute(sql); } catch { /* column already exists */ }
+    }
+  })();
+  return migrated;
+}
+ensureSchema();
+
 export const db = drizzle(client, { schema });
