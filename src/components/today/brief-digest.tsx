@@ -145,12 +145,35 @@ function PaperChip({ paper, paperIdx, label, cap, onOpen }: { paper: PaperItem; 
 }
 
 function TermChip({ text, def }: { text: string; def: string }) {
-  const [hover, setHover] = useState(false);
+  const [open, setOpen] = useState(false);
   return (
-    <span style={{ position: "relative", display: "inline" }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <span style={{ borderBottom: "2px dotted #1a1a1a", cursor: "help", fontWeight: 500 }}>{text}</span>
-      {hover && (
-        <span style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, zIndex: 40, width: 240, background: "#1a1a1a", color: "#fff", fontFamily: BODY, fontSize: "0.74rem", fontWeight: 400, lineHeight: 1.5, padding: "10px 12px", boxShadow: "4px 4px 0 0 rgba(0,0,0,0.3)", pointerEvents: "none" }}>
+    <span
+      style={{ position: "relative", display: "inline" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen(v => !v)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setOpen(v => !v); }}
+        style={{
+          borderBottom: "2px dotted #888",
+          cursor: "help",
+          fontWeight: 500,
+          textDecorationSkipInk: "none",
+        }}
+      >{text}</span>
+      {open && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: 0, zIndex: 40,
+          width: 260, maxWidth: "80vw",
+          background: "#1a1a1a", color: "#fff",
+          fontFamily: BODY, fontSize: "0.78rem", fontWeight: 400, lineHeight: 1.55,
+          padding: "10px 14px",
+          boxShadow: "4px 4px 0 0 rgba(0,0,0,0.3)",
+        }}>
+          <span style={{ display: "block", fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#aaa", marginBottom: 4 }}>Definition</span>
           {def}
         </span>
       )}
