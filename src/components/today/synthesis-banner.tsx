@@ -342,9 +342,15 @@ export function resolvePaperFromBold(
 // bridges) into one prose paragraph per source. Paper-name markers survive.
 export function flattenSynthesis(bodyText: string): string[] {
   const sections = parseBodySections(bodyText);
+  // Drop intro paragraphs that precede the first source bullet — the gist already
+  // serves as the hook, so standalone intro text is redundant.
+  const firstBullet = sections.findIndex(s => s.kind === "bullet");
+  const trimmed = firstBullet > 0
+    ? sections.filter((s, i) => !(i < firstBullet && s.kind === "paragraph"))
+    : sections;
   const paragraphs: string[] = [];
-  let pendingBridge = ""; // bridges connect into the next source, so prepend rather than dangle
-  for (const section of sections) {
+  let pendingBridge = "";
+  for (const section of trimmed) {
     if (section.kind === "bridge") { pendingBridge = section.text.trim(); continue; }
     let text: string;
     if (section.kind === "bullet") {

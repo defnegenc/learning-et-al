@@ -290,8 +290,6 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
-[Intro: 1 sentence. A one-line answer already sits ABOVE this on the page. So this must NOT be a thesis, a bottom-line, or a yes/no — that would be a restatement. Open on a CONCRETE specific: a number, a named case, or a scene from ONE of the papers, that pulls the reader in. "The Bybit hack cleared 40 wallets in an hour while the person who authorized it still blamed the AI." Don't describe the papers. Don't meta-frame ("Three studies ask..."). Use **bold** on the sharpest number or claim. No em dashes. Not italics.]
-
 ${skeleton.paperRoles.map((r, i, arr) => {
   const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences, HARD MAX 3, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
   const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
