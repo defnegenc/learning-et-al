@@ -1132,7 +1132,7 @@ Return JSON:
         `Fix these factual accuracy issues in the synthesis. Keep the same tone and style.
 
 CRITICAL: ALL these papers MUST remain referenced in bold: ${paperNames}. Do NOT drop any paper.
-CRITICAL: Keep the EXACT structure of the original — intro, one "- **[Source N] name**" bullet per paper (1–3 sentences each, HARD MAX 3), "> bridge" lines between bullets, one closing sentence. Fix ONLY the flagged facts; do not expand bullets or turn the structure into prose. Never write that a source "doesn't address" or "doesn't weigh in on" the theme.
+CRITICAL: Keep the EXACT structure of the original — one "- **[Source N] name**" bullet per paper (1–3 sentences each, HARD MAX 3), "> bridge" lines between bullets, one closing sentence. NO intro paragraph before the first bullet. Fix ONLY the flagged facts; do not expand bullets or turn the structure into prose. Never write that a source "doesn't address" or "doesn't weigh in on" the theme.
 
 Issues: ${issueDesc}
 
@@ -1244,8 +1244,7 @@ Rewrite to INCLUDE the missing paper(s) using the exact **[Source N] name** form
         SYNTHESIS_PROSE_SYSTEM,
         `The synthesis below must be converted to the required structure. Keep ALL the content and tone — just reformat.
 
-REQUIRED STRUCTURE:
-[One intro sentence]
+REQUIRED STRUCTURE (NO intro paragraph — start directly with the first bullet):
 
 ${skeleton.paperRoles.map((r, idx, arr) => {
   const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences with a specific detail, HARD MAX 3]`;

@@ -302,13 +302,12 @@ CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
 - Each bullet is 1–3 sentences, HARD MAX 3. No line breaks within a bullet.
 - Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
-- Structure is: intro, then alternating bullet/bridge, then closing. No other paragraphs.
+- Structure is: alternating bullet/bridge, then closing. No intro paragraph — the gist already hooks the reader.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
 
 STYLE RULES:
 - ALWAYS prefix bold paper names with [Source N]. MAX 4 WORDS for the name after the prefix.
 - STRATEGIC BOLD: in EACH bullet, also wrap the single sharpest number or claim in **bold** (in addition to the paper name), so someone scanning catches the point without reading every word. e.g. "...stole **$2.87 billion** across 150 hacks" or "felt **less responsible** and were more willing to cheat". Exactly ONE such bold phrase per bullet — don't bold whole sentences.
-- Intro: start with a concrete detail, not a build-up or a thesis. Contractions. Casual.
 - Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - Write for smart non-experts. Translate ALL jargon.
 - NEVER state a raw metric or its name (F1, AUC, BLEU, R², p-value, accuracy=0.4, RMSE) — translate it into what it MEANS in plain terms. BAD: "scores below 0.4 F1 across every configuration". GOOD: "matched a real teacher's feedback less than half the time, no matter how it was set up." A number is only worth keeping if a normal person instantly gets what it means (like "$2.87 billion" or "83% of servers").
@@ -431,7 +430,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences, with bold key words), one bullet per paper (- **[Source N] name** [1–3 sentences, HARD MAX 3]), bridges between bullets, closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: one bullet per paper (- **[Source N] name** [1–3 sentences, HARD MAX 3]), bridges between bullets, closing sentence. NO intro paragraph before the first bullet. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
