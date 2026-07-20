@@ -118,9 +118,13 @@ function DefinitionTooltip({ term, definition, children }: { term: string; defin
   return (
     <span
       ref={ref}
+      role="button"
+      tabIndex={0}
       style={{ position: "relative", borderBottom: "1.5px dotted #999", cursor: "help" }}
       onMouseEnter={() => { setShow(true); updateTooltip(); }}
       onMouseLeave={() => setShow(false)}
+      onClick={() => { setShow(v => !v); updateTooltip(); }}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { setShow(v => !v); updateTooltip(); } }}
     >
       {children}
       {show && (
