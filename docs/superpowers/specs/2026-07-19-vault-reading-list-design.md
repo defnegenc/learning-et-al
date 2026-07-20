@@ -7,9 +7,9 @@
 
 The vault stops being an all-papers archive with compare tools and becomes two things:
 a **Reading List** (your bookmarked papers, each with a rich detail view) and a
-**Digest History** (a two-pane browser of every past digest). Digest starring is kept
-but renamed **Favorite** and visually separated from paper bookmarking. The
-undiscoverable hide/regenerate flow moves to a big end-of-digest CTA.
+**Digest History** (a two-pane browser of every past digest). Digest starring is
+removed entirely — papers are the only thing you save. The undiscoverable
+hide/regenerate flow moves to a big end-of-digest CTA.
 
 Nav stays: **Today's Digest / Vault**. The vault page's default view is the Reading
 List; a **"Digest History"** button top-right switches to the history view.
@@ -48,27 +48,22 @@ List; a **"Digest History"** button top-right switches to the history view.
 - **Two-pane layout, like a chat app:** left rail lists all digests (date + theme,
   newest first, from `/api/digest?all=true`); clicking one renders that digest on the
   right (papers via `/api/digest?id=`).
-- Favorited digests show a **★ badge** in the left rail, with a small
-  **All / Favorites** filter at the top of the rail.
 - No archiving concept — it's simply the full history. Mobile: rail collapses to a
   list; tapping a digest navigates to it full-screen with a back affordance.
 
-## 3. Bookmark vs. Favorite — vocabulary split
+## 3. Digest starring removed — bookmark is the only save
 
-The old confusion: "star" on digests, "save" on papers, similar icons. New rule:
+The old confusion: "star" on digests, "save" on papers, similar icons. Resolution:
+digest-level saving goes away entirely.
 
-| Object | Verb | Icon | Where |
-|--------|------|------|-------|
-| Paper | **Save** | Bookmark | Top right of each paper/source card |
-| Digest | **Favorite** | Star | Today page header + Digest History badge/filter |
-
-- Today page: the current "Save/Saved" digest button becomes **"★ Favorite /
-  ★ Favorited"** (same `/api/digest/star` endpoint, same `digests.starred` column).
-- Email best-of logic is **unchanged** — `cron/route.ts` still prefers the starred
-  digest for biweekly/weekly sends.
-- Paper cards keep only the bookmark icon. `paper-card.tsx`'s local-state-only
-  bookmark must be wired to persist via `/api/papers/[id]/feedback` like
-  `source-card.tsx` already does.
+- **Remove** the "Save/Saved" digest button from the today page and delete the
+  `/api/digest/star` route. The `digests.starred` column stays in the schema
+  (no destructive migration) but nothing writes to it.
+- **Email best-of** (`cron/route.ts`): drop the starred-digest preference — best is
+  simply the most recent digest of the period (the existing fallback).
+- Papers keep the **bookmark** icon, top right of each card, as the single save
+  affordance. `paper-card.tsx`'s local-state-only bookmark must be wired to persist
+  via `/api/papers/[id]/feedback` like `source-card.tsx` already does.
 
 ## 4. "Don't like this digest? Regenerate." (end-of-digest CTA)
 
@@ -105,5 +100,5 @@ The old confusion: "star" on digests, "save" on papers, similar icons. New rule:
 
 No test suite — manual QA via the UI: bookmark/unbookmark round-trip, detail view
 jargon hover on desktop + tap on mobile, ELI5 generate + cached reopen, history
-two-pane navigation + favorites filter, favorite toggle still drives best-of email
-selection (verify via cron route logic), end-of-digest regenerate flow with reason.
+two-pane navigation, best-of email falls back to most recent digest (verify via
+cron route logic), end-of-digest regenerate flow with reason.
