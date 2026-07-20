@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { fieldColor, topicColor } from "@/lib/field-hierarchy";
+import { fieldColor } from "@/lib/field-hierarchy";
 
 const MONO = "var(--font-mono), monospace";
 const BODY = "var(--font-inter), sans-serif";
@@ -18,15 +18,10 @@ const CHIP: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-// Topic chips rotate through the actual field colors from FIELD_HIERARCHY
-// (CS blue, Design pink, Bio green, Physics yellow, Psych purple, Econ orange) —
-// the exact palette the interests tab uses.
-const TOPIC_COLORS = ["#bfdbfe", "#fbcfe8", "#bbf7d0", "#fef08a", "#e9d5ff", "#fed7aa"];
-
 // A digest topic that isn't one of your interests yet — click + to follow it.
-function TopicChip({ topic, color, field, isLoggedIn, onSignIn }: {
+// Unselected = no color (white); adding it fills with the topic's field color.
+function TopicChip({ topic, field, isLoggedIn, onSignIn }: {
   topic: string;
-  color: string;
   field: string;
   isLoggedIn: boolean;
   onSignIn?: () => void;
@@ -55,7 +50,7 @@ function TopicChip({ topic, color, field, isLoggedIn, onSignIn }: {
       title={state === "added" ? "Added to your interests" : "Add to your interests"}
       style={{
         ...CHIP,
-        background: color,
+        background: state === "added" ? fieldColor(field) : "#fff",
         cursor: state === "added" ? "default" : "pointer",
         display: "inline-flex",
         alignItems: "center",
@@ -84,23 +79,29 @@ export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, 
   const chips = (seedInterests || []).filter((c) => c.keyword);
   const extraTopics = topics || [];
   const defaultField = chips[0]?.field || "Computer Science";
-  if (!chips.length && !extraTopics.length && !gist) return null;
+  // Dead-simple digest: the tag row and gist one-liner are hidden for now (flip
+  // SHOW_TAGS / SHOW_GIST to bring them back). Fields kept in the pipeline/DB.
+  const SHOW_TAGS = false;
+  const SHOW_GIST = false;
+  const showTags = SHOW_TAGS && (chips.length > 0 || extraTopics.length > 0);
+  const showGist = SHOW_GIST && !!gist;
+  if (!showTags && !showGist) return null;
 
   return (
     <div style={{ marginTop: 8 }}>
-      {(chips.length > 0 || extraTopics.length > 0) && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: gist ? 28 : 0 }}>
+      {showTags && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: showGist ? 28 : 0 }}>
           {chips.map((c) => (
             <span key={c.keyword} style={{ ...CHIP, background: fieldColor(c.field) }}>
               {c.keyword}
             </span>
           ))}
-          {extraTopics.map((t, i) => (
-            <TopicChip key={t} topic={t} color={topicColor(t) || TOPIC_COLORS[i % TOPIC_COLORS.length]} field={defaultField} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
+          {extraTopics.map((t) => (
+            <TopicChip key={t} topic={t} field={defaultField} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
           ))}
         </div>
       )}
-      {gist && (
+      {showGist && (
         <p style={{ fontFamily: BODY, fontSize: "1.12rem", lineHeight: 1.5, color: "#1a1a1a", fontWeight: 700, margin: 0 }}>
           {gist}
         </p>

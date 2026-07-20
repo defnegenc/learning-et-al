@@ -4,7 +4,6 @@ import React, { useMemo, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
-import { fieldColor, topicColor } from "@/lib/field-hierarchy";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
@@ -16,13 +15,6 @@ const PALETTES: [string, string][] = [
   ["#D0E3F7", "#E2D6F7"],
   ["#FFE89A", "#FFD6E0"],
   ["#D8C8F0", "#F0C8D8"],
-];
-const HOVER_PALETTES: [string, string][] = [
-  ["#A4E0BC", "#DCF060"],
-  ["#FFB0C8", "#FFD870"],
-  ["#B0CCF0", "#C8B4F0"],
-  ["#FFD870", "#FFB0C8"],
-  ["#C8B0F0", "#F0B0C8"],
 ];
 
 function washStyle(idx: number): React.CSSProperties {
@@ -44,6 +36,7 @@ function venueLabel(p: PaperItem): string {
 type Seg =
   | { t: "w"; text: string }
   | { t: "b"; text: string }
+  | { t: "i"; text: string }
   | { t: "cite"; paperIdx: number; label: string }
   | { t: "term"; text: string; def: string };
 interface Line { idx: number; segs: Seg[]; para: boolean; }
@@ -74,20 +67,37 @@ function annotateTerms(text: string, defs: { term: string; def: string }[], used
 
 type PaperLite = { title: string; keywords: string[]; authors: string[] };
 
-function tokenize(text: string, defs: { term: string; def: string }[], usedTerms: Set<string>, papers: PaperLite[]): Seg[] {
+function tokenize(text: string, defs: { term: string; def: string }[], usedTerms: Set<string>, papers: PaperLite[], strictCites: boolean): Seg[] {
   const segs: Seg[] = [];
   const re = /\*\*([^*]+)\*\*/g;
   let last = 0;
   let m: RegExpExecArray | null;
-  const pushPlain = (run: string) => { if (run) segs.push(...annotateTerms(run, defs, usedTerms)); };
+  // Plain runs may still carry *italics* (single asterisks — the ** bold pass ran first).
+  const pushPlain = (run: string) => {
+    if (!run) return;
+    const ire = /\*([^*\n]+)\*/g;
+    let l = 0;
+    let im: RegExpExecArray | null;
+    while ((im = ire.exec(run)) !== null) {
+      if (im.index > l) segs.push(...annotateTerms(run.slice(l, im.index), defs, usedTerms));
+      segs.push({ t: "i", text: im[1] });
+      l = im.index + im[0].length;
+    }
+    if (l < run.length) segs.push(...annotateTerms(run.slice(l), defs, usedTerms));
+  };
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) pushPlain(text.slice(last, m.index));
     const inner = m[1];
-    // "[Source N] name" → explicit; otherwise fuzzy-match the bold run to a paper
-    // (older digests name papers inline without a marker)
-    const { paperIdx, displayText } = resolvePaperFromBold(inner, papers);
-    if (paperIdx >= 0) segs.push({ t: "cite", paperIdx, label: displayText.trim() || papers[paperIdx].title });
-    else segs.push({ t: "b", text: inner });
+    // "[Source N] name" → explicit paper cite. Fuzzy-matching unmarked bold to a
+    // paper only runs for older digests without markers (strictCites=false) — in
+    // marker-era digests, plain bold is strategic emphasis, not a paper name.
+    if (strictCites && !/^\s*\[/.test(inner)) {
+      segs.push({ t: "b", text: inner });
+    } else {
+      const { paperIdx, displayText } = resolvePaperFromBold(inner, papers);
+      if (paperIdx >= 0) segs.push({ t: "cite", paperIdx, label: displayText.trim() || papers[paperIdx].title });
+      else segs.push({ t: "b", text: inner });
+    }
     last = m.index + m[0].length;
   }
   pushPlain(text.slice(last));
@@ -97,12 +107,14 @@ function tokenize(text: string, defs: { term: string; def: string }[], usedTerms
 export function toLines(paragraphs: string[], defs: { term: string; def: string }[], papers: PaperLite[]): Line[] {
   const out: { segs: Seg[]; para: boolean }[] = [];
   const usedTerms = new Set<string>();
+  // Marker-era digests cite papers as **[Source N] name** — any other bold is emphasis.
+  const strictCites = paragraphs.some((p) => /\*\*\s*\[(?:source\s*)?\d+\]/i.test(p));
   for (const para of paragraphs) {
     let cur: Seg[] = [];
     let first = true;
     const flush = () => { if (cur.length) { out.push({ segs: cur, para: first }); cur = []; first = false; } };
-    for (const s of tokenize(para.replace(/\s+/g, " ").trim(), defs, usedTerms, papers)) {
-      if (s.t === "cite" || s.t === "term") { cur.push(s); continue; }
+    for (const s of tokenize(para.replace(/\s+/g, " ").trim(), defs, usedTerms, papers, strictCites)) {
+      if (s.t === "cite" || s.t === "term" || s.t === "i") { cur.push(s); continue; }
       // segments keep their exact text — punctuation after a chip lives in the next segment
       for (const piece of s.text.split(/(?<=[.!?])\s+/)) {
         if (!piece) continue;
@@ -119,18 +131,15 @@ export function toLines(paragraphs: string[], defs: { term: string; def: string 
 /* ---- chips ---- */
 
 function PaperChip({ paper, paperIdx, label, cap, onOpen }: { paper: PaperItem; paperIdx: number; label: string; cap: boolean; onOpen: (p: PaperItem) => void }) {
-  const [g1] = PALETTES[paperIdx % PALETTES.length];
-  const [h1] = HOVER_PALETTES[paperIdx % HOVER_PALETTES.length];
   const [hover, setHover] = useState(false);
   const summary = paper.summary || paper.abstract || "";
   return (
     <span style={{ position: "relative", display: "inline" }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <button
-        onClick={() => onOpen(paper)}
+        onClick={(e) => { e.stopPropagation(); onOpen(paper); }}
         style={{
-          fontWeight: 700, color: "#111", border: "none", cursor: "pointer",
-          background: "none", padding: 0,
-          borderBottom: `3px solid ${hover ? h1 : g1}`, transition: "border-color 0.15s",
+          fontWeight: 700, color: hover ? "#555" : "#111", border: "none", cursor: "pointer",
+          background: "none", padding: 0, transition: "color 0.15s",
           fontFamily: "inherit", fontSize: "inherit", lineHeight: "inherit",
         }}
       >{cap ? label.charAt(0).toUpperCase() + label.slice(1) : label}</button>
@@ -181,96 +190,67 @@ function TermChip({ text, def }: { text: string; def: string }) {
   );
 }
 
-/* ---- keyword tags: interest ones get a dot, new ones get a "+" to add ---- */
-// Surfaces more than just your standing interests. A keyword already in your interests reads
-// as "yours" (filled dot); the rest are fresh topics with a "+" that adds them to your
-// interests — so you grow interests straight from what you read. Add is logged-in only.
-function KeywordTags({ keywords, interestSet, colorFor, isLoggedIn, size = "sm" }: {
-  keywords: string[]; interestSet: Set<string>; colorFor: (kw: string) => string; isLoggedIn: boolean; size?: "sm" | "md";
-}) {
-  const [added, setAdded] = useState<Set<string>>(new Set());
-  const fs = size === "md" ? "0.6rem" : "0.55rem";
-  const pad = size === "md" ? "3px 9px" : "2px 7px";
-  const add = (kw: string) => {
-    if (!isLoggedIn) return;
-    setAdded((p) => new Set(p).add(kw.toLowerCase()));
-    fetch("/api/interests/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: kw }) }).catch(() => {});
-  };
-  return (
-    <div style={{ display: "flex", gap: size === "md" ? 6 : 5, flexWrap: "wrap" }}>
-      {keywords.map((kw) => {
-        const mine = interestSet.has(kw.toLowerCase()) || added.has(kw.toLowerCase());
-        const base: React.CSSProperties = { fontFamily: MONO, fontSize: fs, textTransform: "uppercase", letterSpacing: "0.5px", background: colorFor(kw), border: "1px solid #1a1a1a", padding: pad, display: "flex", alignItems: "center", gap: 5, color: "#1a1a1a", lineHeight: 1.1 };
-        if (mine) return (
-          <span key={kw} style={base}><span style={{ width: 5, height: 5, borderRadius: "50%", background: "#1a1a1a", flexShrink: 0 }} />{kw}</span>
-        );
-        return (
-          <button key={kw} onClick={(e) => { e.stopPropagation(); add(kw); }} title={isLoggedIn ? "Add to your interests" : "Sign in to add"} style={{ ...base, cursor: isLoggedIn ? "pointer" : "default", fontFamily: MONO }}>
-            {kw}<span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, border: "1px solid #1a1a1a", background: "#fff", fontWeight: 700, lineHeight: 1, fontSize: "0.72rem", flexShrink: 0 }}>+</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 /* ---- inline paper card (revealed on first mention) ---- */
 
-function PaperBlobCard({ paper, paperIdx, onOpen }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void }) {
-  // The card's job is "what is this paper" in plain terms (the summary). The
-  // surrounding prose already says how it relates, and the overlay carries the
-  // takeaway + keyword tags — no surface repeats another.
+function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; prose?: React.ReactNode }) {
+  // Dead-simple card: a "Study N" chip in the card's color top-left, then the
+  // plain-English first sentence as the hero, then the digest's explanation. The
+  // paper name/date/authors + abstract preview + link out live behind "View study".
+  const [c1] = PALETTES[paperIdx % PALETTES.length];
   const body = paper.summary || paper.abstract || "";
   return (
-    <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "12px 14px", cursor: "pointer" }}>
-      <div style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "1.5px", color: "#888", marginBottom: 4 }}>{venueLabel(paper)}</div>
-      <h4 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2, margin: "0 0 3px", textTransform: "capitalize" }}>{paper.title}</h4>
-      {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.58rem", fontStyle: "italic", color: "#888", margin: "0 0 7px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
-      {body && <p style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#333", margin: 0 }}>{body.length > 260 ? body.slice(0, 257) + "..." : body}</p>}
-      {paper.sourceUrl && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 9 }}>
-          <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", color: "#1a1a1a", whiteSpace: "nowrap", borderBottom: "1.5px solid #1a1a1a", paddingBottom: 1 }}>VIEW STUDY ↗</a>
-        </div>
+    <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 18, cursor: "pointer" }}>
+      {/* Study chip, top-left, in the card's color. The whole card opens the paper. */}
+      <span style={{ alignSelf: "flex-start", fontFamily: MONO, fontSize: "0.72rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", background: c1, border: "1.5px solid #1a1a1a", padding: "6px 13px" }}>
+        Study {paperIdx + 1}
+      </span>
+
+      {/* Hero — the plain-English first sentence, the thing you read */}
+      {body && (
+        <p style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.5rem", lineHeight: 1.32, color: "#1a1a1a", margin: 0, letterSpacing: "-0.01em" }}>
+          {body}
+        </p>
+      )}
+
+      {/* The digest's explanation of this study */}
+      {prose && (
+        <div style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333" }}>{prose}</div>
       )}
     </div>
   );
 }
 
-function PaperDetailOverlay({ paper, paperIdx, onClose, interestSet, tagColorFor, isLoggedIn }: { paper: PaperItem; paperIdx: number; onClose: () => void; interestSet: Set<string>; tagColorFor: (kw: string) => string; isLoggedIn: boolean }) {
-  const tags = PALETTES[paperIdx % PALETTES.length];
-  // Click-in is deliberately calm: the say-it-like line leads (boxed, so it reads
-  // as the takeaway), then how it relates to today's question — same type size,
-  // with keyword tags (+ add-to-interests) in the footer. No abstract; depth
-  // lives behind VIEW STUDY.
-  const line = paper.takeawayLine || "";
-  const relates = paper.relatesLine || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
-  const about = relates || paper.summary || "";
+// Study-details view — opened from a card's "View study". Shows the paper's formal
+// identity (name, venue, year, authors), the start of the abstract, and a link out
+// to the full paper.
+function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
+  const abstract = paper.abstract || paper.fullText || "";
+  const preview = abstract.length > 420 ? abstract.slice(0, 417).trimEnd() + "…" : abstract;
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", color: "#666" }}>{venueLabel(paper)}</span>
           <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888" }}>✕ Close</button>
         </div>
-        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.2, margin: "0 0 6px", textTransform: "capitalize" }}>{paper.title}</h3>
-        {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 18px" }}>{paper.authors.slice(0, 4).join(", ")}</p>}
 
-        {line && (
-          <div style={{ background: tags[0], border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "11px 14px", margin: "0 0 16px" }}>
-            <p style={{ fontSize: "0.95rem", fontWeight: 600, lineHeight: 1.55, color: "#1a1a1a", margin: 0 }}>{line}</p>
+        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.25, margin: "0 0 8px", textTransform: "capitalize" }}>{paper.title}</h3>
+        {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 20px" }}>{paper.authors.slice(0, 6).join(", ")}</p>}
+
+        {preview ? (
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.56rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#999", marginBottom: 7 }}>Abstract</div>
+            <p style={{ fontSize: "0.92rem", lineHeight: 1.65, color: "#333", margin: 0 }}>{preview}</p>
           </div>
-        )}
-        {about && <p style={{ fontSize: "0.95rem", lineHeight: 1.62, color: "#333", margin: "0 0 18px" }}>{about}</p>}
-        {!line && !about && paper.abstract && (
-          <p style={{ fontSize: "0.95rem", lineHeight: 1.62, color: "#333", margin: "0 0 18px" }}>{paper.abstract.length > 340 ? paper.abstract.slice(0, 337).trimEnd() + "…" : paper.abstract}</p>
+        ) : (
+          <p style={{ fontSize: "0.88rem", color: "#999", fontStyle: "italic", marginBottom: 22 }}>No abstract available.</p>
         )}
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
-          <KeywordTags keywords={paper.keywords.slice(0, 4)} interestSet={interestSet} colorFor={tagColorFor} isLoggedIn={isLoggedIn} size="md" />
-          {paper.sourceUrl && (
-            <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1px", background: "#1a1a1a", color: "#fff", padding: "7px 12px", whiteSpace: "nowrap" }}>VIEW STUDY ↗</a>
-          )}
-        </div>
+        {paper.sourceUrl && (
+          <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "10px 16px", whiteSpace: "nowrap" }}>
+            Read the full paper ↗
+          </a>
+        )}
       </div>
     </div>
   );
@@ -286,7 +266,7 @@ function relatesFallback(reason: string): string {
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, interests = [], seedField }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
@@ -296,18 +276,11 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   guestAnswers?: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
+  // Accepted for API compatibility with today-page; keyword tags were removed from
+  // the dead-simple card, so these are no longer read here.
   interests?: { keyword: string; field: string }[];
   seedField?: string;
 }) {
-  const interestSet = useMemo(() => new Set(interests.map((i) => i.keyword.toLowerCase())), [interests]);
-  // Tag colors mirror the preferences picker: an interest keyword gets its field's color;
-  // known hierarchy topics get their field's color; the rest fall back to the digest's
-  // primary seed field.
-  const tagColorFor = useMemo(() => {
-    const byKw = new Map(interests.map((i) => [i.keyword.toLowerCase(), fieldColor(i.field)]));
-    const fallback = fieldColor(seedField);
-    return (kw: string) => byKw.get(kw.toLowerCase()) || topicColor(kw) || fallback;
-  }, [interests, seedField]);
   const lines = useMemo(() => {
     const { bodyText } = splitSynthesisTheme(synthesis, theme);
     const defs = keyConcepts
@@ -335,16 +308,23 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return map;
   }, [lines]);
 
-  // User-paced reveal by SOURCE: each step shows everything up to where the next
-  // source is first introduced, so a source's full discussion appears at once
-  // (never split). Step 0 = intro + the whole first source; "Next source" adds the
-  // next; the final step adds the last source + closing.
+  // User-paced reveal by SOURCE: each step stops at the START of the next source's
+  // paragraph, so the next source's lead-in sentence never lingers alone below the
+  // current card — it appears with that source's card on the next click.
   const stops = useMemo(() => {
-    const cardLines = Object.keys(cardsAfter).map(Number).sort((a, b) => a - b);
-    const s = cardLines.slice(1); // reveal up to each subsequent source's first mention
+    const paraStartOf = (lineIdx: number) => {
+      let start = 0;
+      for (const l of lines) {
+        if (l.idx > lineIdx) break;
+        if (l.para) start = l.idx;
+      }
+      return start;
+    };
+    const cardParaStarts = [...new Set(Object.keys(cardsAfter).map(Number).map(paraStartOf))].sort((a, b) => a - b);
+    const s = cardParaStarts.slice(1); // stop before each subsequent source's paragraph
     s.push(lines.length);
     return s.length ? s : [lines.length];
-  }, [cardsAfter, lines.length]);
+  }, [cardsAfter, lines]);
 
   const [step, setStep] = useState(0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
@@ -363,27 +343,37 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   const renderSeg = (s: Seg, i: number, lineStart: boolean) => {
     if (s.t === "w") return <span key={i}>{s.text}</span>;
     if (s.t === "b") return <strong key={i} style={{ fontWeight: 700 }}>{s.text}</strong>;
+    if (s.t === "i") return <em key={i}>{s.text}</em>;
     if (s.t === "term") return <TermChip key={i} text={s.text} def={s.def} />;
     const paper = papers[s.paperIdx];
     return paper ? <PaperChip key={i} paper={paper} paperIdx={s.paperIdx} label={s.label} cap={lineStart && i === 0} onOpen={openDetail} /> : <strong key={i}>{s.label}</strong>;
   };
 
-  // Assemble revealed lines into paragraphs. A paper's card is deferred to the end
-  // of its paragraph (not dropped mid-sentence), so a source reads as one block.
+  // Assemble revealed lines into paragraphs. Each paragraph is one study's block:
+  // its card wraps the paragraph's prose, so all of that study's info lives in one
+  // box. A paragraph with no card (e.g. a closing line) renders as plain prose.
   const revealed = lines.slice(0, n);
   const els: React.ReactNode[] = [];
   let buf: React.ReactNode[] = [];
   let firstEl = true;
   let pendingCards: number[] = [];
   const flush = () => {
-    if (buf.length) {
-      els.push(<p key={`p${els.length}`} style={{ fontSize: "1.06rem", lineHeight: 1.85, color: "#1a1a1a", margin: firstEl ? 0 : "34px 0 0" }}>{buf}</p>);
-      buf = []; firstEl = false;
+    const prose = buf.length ? <>{buf}</> : null;
+    if (pendingCards.length) {
+      pendingCards.forEach((pi, k) => {
+        if (!papers[pi]) return;
+        els.push(
+          <div key={`c${pi}`} className="brief-line" style={{ margin: firstEl ? "0" : "34px 0 0" }}>
+            <PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} prose={k === 0 ? prose : undefined} />
+          </div>
+        );
+        firstEl = false;
+      });
+    } else if (prose) {
+      els.push(<p key={`p${els.length}`} style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333", margin: firstEl ? 0 : "24px 0 0" }}>{prose}</p>);
+      firstEl = false;
     }
-    for (const pi of pendingCards) {
-      if (papers[pi]) els.push(<div key={`c${pi}`} className="brief-line" style={{ margin: "22px 0 6px" }}><PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} /></div>);
-    }
-    if (pendingCards.length) firstEl = false;
+    buf = [];
     pendingCards = [];
   };
   for (const ln of revealed) {
@@ -419,7 +409,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
 
-      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} interestSet={interestSet} tagColorFor={tagColorFor} isLoggedIn={isLoggedIn} />}
+      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} />}
     </div>
   );
 }

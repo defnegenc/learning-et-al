@@ -58,7 +58,7 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
+    { "index": 1, "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
   ],
   "synthesis": "see format below",
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
@@ -88,7 +88,7 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "1-2 sentence plain-English summary, MAX 40 words", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" } }
+    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" } }
   ],
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
   "suggestedQuestions": ["question 1", "question 2", "question 3"]
@@ -291,7 +291,7 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
 ${skeleton.paperRoles.map((r, i, arr) => {
-  const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences, HARD MAX 3, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
+  const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–2 sentences, HARD MAX 2, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
   const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
   return bullet + bridge;
 }).join("\n\n")}
@@ -300,7 +300,7 @@ ${skeleton.paperRoles.map((r, i, arr) => {
 
 CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
-- Each bullet is 1–3 sentences, HARD MAX 3. No line breaks within a bullet.
+- Each bullet is 1–2 sentences, HARD MAX 2. No line breaks within a bullet.
 - Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
 - Structure is: alternating bullet/bridge, then closing. No intro paragraph — the gist already hooks the reader.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
@@ -309,6 +309,7 @@ STYLE RULES:
 - ALWAYS prefix bold paper names with [Source N]. MAX 4 WORDS for the name after the prefix.
 - STRATEGIC BOLD: in EACH bullet, also wrap the single sharpest number or claim in **bold** (in addition to the paper name), so someone scanning catches the point without reading every word. e.g. "...stole **$2.87 billion** across 150 hacks" or "felt **less responsible** and were more willing to cheat". Exactly ONE such bold phrase per bullet — don't bold whole sentences.
 - Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
+- RELATABLE HOOK: this prose is the DIGEST — the conversational read. Where it genuinely helps, open a source with a short everyday hook the reader actually recognizes, then the finding. e.g. "You know how you think more clearly after a good night's sleep? That's basically what they found...". Rules: (1) only an experience real people ACTUALLY have and would phrase that way — "you know how a night's sleep makes a problem obvious?" is BAD (nobody says that); test it against how a person really describes the feeling. (2) Don't force one onto every bullet — one or two across the whole synthesis, never a template. (3) The factual "what they did" belongs on the card summary; the hook here is the human on-ramp, not a second summary.
 - Write for smart non-experts. Translate ALL jargon.
 - NEVER state a raw metric or its name (F1, AUC, BLEU, R², p-value, accuracy=0.4, RMSE) — translate it into what it MEANS in plain terms. BAD: "scores below 0.4 F1 across every configuration". GOOD: "matched a real teacher's feedback less than half the time, no matter how it was set up." A number is only worth keeping if a normal person instantly gets what it means (like "$2.87 billion" or "83% of servers").
 - NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
@@ -368,6 +369,7 @@ Return JSON (no markdown fences):
     "argument": 0,
     "connection": 0,
     "accessibility": 0,
+    "relatability": 0,
     "specificity": 0,
     "coverage": 0,
     "freshness": 0
@@ -382,6 +384,7 @@ Scoring guide:
 - argument: Does it make an ARGUMENT (not just summarize)? Is there genuine tension? 1=book report, 5=op-ed
 - connection: Are ALL mentioned papers necessary? Or is one just... there? 1=forced, 5=essential
 - accessibility: Would a smart non-expert find this clear and interesting? 1=jargon soup, 5=coffee conversation
+- relatability: Read each sentence COLD, as a non-expert seeing it once. Two failures cap this at 2: (a) any sentence you'd have to read twice to parse, (b) any "you know how..." style setup describing an experience people don't actually have or wouldn't phrase that way. BAD: "you know how a night's sleep makes a problem obvious?" (nobody has that experience in those words). GOOD: "you know how you think more clearly after a good night's sleep?" (people actually say this). If capped, "revision" must QUOTE the offending sentence and give the plain rewrite.
 - specificity: Specific findings/numbers vs vague claims? 1=all vague, 5=concrete throughout. CRITICAL: if the text says "barriers", "limitations", "challenges", "structural [X]", "systemic [X]", "performative [X]" WITHOUT naming a concrete instance from the paper, specificity is AT MOST 2.
 - coverage: How many of the ${paperTitles.length} papers are mentioned in bold? ${paperTitles.length}/${paperTitles.length} = 5, missing 1 = 1, missing 2+ = 1. List missing papers in "missingPapers" array by index.
 - freshness: Does it sound AI-written or human-written? Check for these banned phrases and add each one found to "bannedPhrasesFound":
@@ -430,7 +433,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: one bullet per paper (- **[Source N] name** [1–3 sentences, HARD MAX 3]), bridges between bullets, closing sentence. NO intro paragraph before the first bullet. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: one bullet per paper (- **[Source N] name** [1–2 sentences, HARD MAX 2]), bridges between bullets, closing sentence. NO intro paragraph before the first bullet. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
@@ -446,19 +449,18 @@ function METADATA_RULES(ctx?: DigestContext) {
 - Just the reason: "shows what happens when you remove human teachers" or "the tech behind the trust problem"
 - Think of it like a subtitle on a card — brief and scannable
 
-SUMMARY RULES:
-- MAX 40 WORDS. 1-2 sentences. The reader scans this on a card — it must fit without truncation.
-- Write for a smart person who is NOT a domain expert.
-- Include the SETUP and the SURPRISE. Not just what they found, but enough about what they did that the reader thinks "oh, interesting approach."
+SUMMARY RULES (the card text under each paper title — a plain, factual TL;DR of the study):
+- MAX 45 WORDS. 1-2 complete sentences. The reader scans this on a card — it must fit without truncation.
+- This is NOT the conversational hook (that lives in the synthesis prose). This is the straight "what is this paper": what they did (the setup/method in plain terms) and what they found. Uncomplicated, no jargon, no rhetorical questions, no "you know how".
+- Shape: "[What they did], and [what they found]." or "This paper/news article [does X and shows Y]." Concrete numbers welcome when they clarify (how many people, how big the effect) — translated into plain meaning, never a raw metric name.
+- GOOD: "Researchers tracked people across two nights of sleep and found that those whose brains pruned the most weak connections overnight did best on a next-morning reasoning test."
+- GOOD: "They deleted random parts of a neural network during training and found the smaller, 'crippled' networks did better on problems they hadn't seen than the full ones."
+- BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..." (academic, tells nothing)
+- BAD: "You know how you think more clearly after sleeping? Turns out..." (that's the conversational hook — it belongs in the synthesis, not the card)
+- BAD: "Sleep-dependent downscaling correlated with next-day abstraction performance." (jargon restated)
 - CRITICAL ANTI-HALLUCINATION: Each item's summary MUST describe ONLY the paper at that index number. Do NOT mix content across papers. If paper [1] is about reading behavior and paper [2] is about link visibility, item 1's summary must be about reading behavior — not about links. Before writing each summary, re-read the abstract for that exact index number. The summary must contain at least one concrete noun or finding that appears in that paper's abstract.
 - If the abstract is thin or unclear, write a shorter, more cautious summary. Never fabricate findings to fill the word count.
-- BAD: "This paper investigates the efficacy of parameter-efficient fine-tuning approaches..." (boring, tells nothing)
-- BAD: "AI tracked 350 students' behaviors and predicted grades." (too vague — WHAT behaviors? HOW accurately?)
-- GOOD: "Every click, login time, and assignment submission from 350 online students fed a model that predicted who'd fail with 87% accuracy."
-- GOOD: "They gave GPT-4 real Linux servers with known vulnerabilities. It exploited 33-83% of them autonomously, matching human hackers."
-- GOOD: "FintechNews reports multi-agent collaboration, agentic RAG, and vertical AI agents are the three biggest trends heading into 2026."
-- The reader should think "wait, they actually did that?" or "huh, I didn't know that was possible."
-- OPENERS: NEVER start a summary (or a takeaway hook/line) with "Researchers...", "A researcher...", "Scientists...", "A team...", "This study/paper...", "The authors...", or "A tech outlet...". Three cards starting the same way reads as a template. Start with the finding, the setup, or the surprise itself — vary across papers.
+- Starting with "Researchers..." / "This paper..." / "This news article..." is FINE here — it's a factual TL;DR, clarity beats variety. Just don't make all three identical.
 
 FINDINGS RULES:
 - 3 findings per paper. Each one answers: "what did they FIND OUT?" not "what did they DO?"
