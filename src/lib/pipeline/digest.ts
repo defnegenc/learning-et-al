@@ -1169,9 +1169,9 @@ Return ONLY the corrected synthesis.`
     const critique = extractJson<{ scores?: Record<string, number>; weakestPoint?: string; revision?: string; bannedPhrasesFound?: string[] }>(critiqueResp);
     if (critique) {
       const scores = critique.scores || {};
-      const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.specificity || 5, scores.coverage || 5, scores.freshness || 5);
+      const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.relatability || 5, scores.specificity || 5, scores.coverage || 5, scores.freshness || 5);
       const banned = critique.bannedPhrasesFound || [];
-      console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} spec=${scores.specificity} cov=${scores.coverage} fresh=${scores.freshness}${banned.length ? ` bannedPhrases=[${banned.slice(0, 3).join(", ")}]` : ""}`);
+      console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} rel=${scores.relatability} spec=${scores.specificity} cov=${scores.coverage} fresh=${scores.freshness}${banned.length ? ` bannedPhrases=[${banned.slice(0, 3).join(", ")}]` : ""}`);
 
       if (minScore < 4 && critique.weakestPoint && critique.revision) {
         console.log(`[Digest] Revising (weakest: ${critique.weakestPoint})...`);

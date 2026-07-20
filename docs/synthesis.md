@@ -99,3 +99,10 @@ Papers with `tensionHint` (from counter-query search) get `[HINT: ...]` annotati
 2. **Hallucination detection** — check if bridge sentence keywords actually appear in the papers.
 3. **Day-over-day variety** — pass previous syntheses so the AI doesn't repeat patterns/structures.
 4. **"One thing to remember" line** — a single-sentence takeaway at the end, bold, that's the cocktail party line.
+
+## Card vs Digest voice split (2026-07-19)
+
+Two surfaces, two jobs (card renders FIRST in the brief view, synthesis prose underneath):
+- **Card `summary`** = a plain, factual TL;DR of the study: what they did + what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions. Starting "Researchers…/This paper…" is fine here — clarity over variety. Spec: SUMMARY RULES in prompts.ts.
+- **Synthesis prose** = the conversational digest. The relatable "you know how…" hook lives HERE, not on the card. Spec: RELATABLE HOOK in SYNTHESIS_RULES.
+- RELATABILITY guard (both the hook rule and the `relatability` critique dimension): a "you know how…" setup must name an experience people ACTUALLY have and would phrase that way. "you know how a night's sleep makes a problem obvious?" is BAD; "you know how you think more clearly after a good night's sleep?" is GOOD.
