@@ -290,8 +290,6 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
-[Intro: 1 sentence. A one-line answer already sits ABOVE this on the page. So this must NOT be a thesis, a bottom-line, or a yes/no — that would be a restatement. Open on a CONCRETE specific: a number, a named case, or a scene from ONE of the papers, that pulls the reader in. "The Bybit hack cleared 40 wallets in an hour while the person who authorized it still blamed the AI." Don't describe the papers. Don't meta-frame ("Three studies ask..."). Use **bold** on the sharpest number or claim. No em dashes. Not italics.]
-
 ${skeleton.paperRoles.map((r, i, arr) => {
   const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–2 sentences, HARD MAX 2, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
   const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
@@ -304,13 +302,12 @@ CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
 - Each bullet is 1–2 sentences, HARD MAX 2. No line breaks within a bullet.
 - Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
-- Structure is: intro, then alternating bullet/bridge, then closing. No other paragraphs.
+- Structure is: alternating bullet/bridge, then closing. No intro paragraph — the gist already hooks the reader.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
 
 STYLE RULES:
 - ALWAYS prefix bold paper names with [Source N]. MAX 4 WORDS for the name after the prefix.
 - STRATEGIC BOLD: in EACH bullet, also wrap the single sharpest number or claim in **bold** (in addition to the paper name), so someone scanning catches the point without reading every word. e.g. "...stole **$2.87 billion** across 150 hacks" or "felt **less responsible** and were more willing to cheat". Exactly ONE such bold phrase per bullet — don't bold whole sentences.
-- Intro: start with a concrete detail, not a build-up or a thesis. Contractions. Casual.
 - Bullets: include one "wait, what?" detail per paper — HOW they tested it ("they gave GPT-4 real Linux servers and it exploited 83% without human help"), not just the conclusion ("AI can hack").
 - RELATABLE HOOK: this prose is the DIGEST — the conversational read. Where it genuinely helps, open a source with a short everyday hook the reader actually recognizes, then the finding. e.g. "You know how you think more clearly after a good night's sleep? That's basically what they found...". Rules: (1) only an experience real people ACTUALLY have and would phrase that way — "you know how a night's sleep makes a problem obvious?" is BAD (nobody says that); test it against how a person really describes the feeling. (2) Don't force one onto every bullet — one or two across the whole synthesis, never a template. (3) The factual "what they did" belongs on the card summary; the hook here is the human on-ramp, not a second summary.
 - Write for smart non-experts. Translate ALL jargon.
@@ -436,7 +433,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences, with bold key words), one bullet per paper (- **[Source N] name** [1–2 sentences, HARD MAX 2]), bridges between bullets, closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: one bullet per paper (- **[Source N] name** [1–2 sentences, HARD MAX 2]), bridges between bullets, closing sentence. NO intro paragraph before the first bullet. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 

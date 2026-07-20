@@ -88,7 +88,7 @@ export function KeywordTag({ keyword, color, textColor, definition, onClick }: K
         fontFamily: "var(--font-mono), monospace",
         cursor: onClick ? "pointer" : "default",
       }}
-      onClick={onClick}
+      onClick={definition ? () => setHovered(v => !v) : onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -110,8 +110,8 @@ export function KeywordTag({ keyword, color, textColor, definition, onClick }: K
             padding: "6px 10px",
             whiteSpace: "normal",
             width: "220px",
+            maxWidth: "80vw",
             zIndex: 50,
-            pointerEvents: "none",
             boxShadow: "2px 2px 0px 0px rgba(0,0,0,0.4)",
           }}
         >
