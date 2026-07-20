@@ -293,7 +293,7 @@ STRUCTURE (return ONLY this — no JSON, no markdown fences):
 [Intro: 1 sentence. A one-line answer already sits ABOVE this on the page. So this must NOT be a thesis, a bottom-line, or a yes/no — that would be a restatement. Open on a CONCRETE specific: a number, a named case, or a scene from ONE of the papers, that pulls the reader in. "The Bybit hack cleared 40 wallets in an hour while the person who authorized it still blamed the AI." Don't describe the papers. Don't meta-frame ("Three studies ask..."). Use **bold** on the sharpest number or claim. No em dashes. Not italics.]
 
 ${skeleton.paperRoles.map((r, i, arr) => {
-  const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences, HARD MAX 3, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
+  const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–2 sentences, HARD MAX 2, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
   const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
   return bullet + bridge;
 }).join("\n\n")}
@@ -302,7 +302,7 @@ ${skeleton.paperRoles.map((r, i, arr) => {
 
 CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
-- Each bullet is 1–3 sentences, HARD MAX 3. No line breaks within a bullet.
+- Each bullet is 1–2 sentences, HARD MAX 2. No line breaks within a bullet.
 - Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
 - Structure is: intro, then alternating bullet/bridge, then closing. No other paragraphs.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
@@ -436,7 +436,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences, with bold key words), one bullet per paper (- **[Source N] name** [1–3 sentences, HARD MAX 3]), bridges between bullets, closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: intro (1–2 sentences, with bold key words), one bullet per paper (- **[Source N] name** [1–2 sentences, HARD MAX 2]), bridges between bullets, closing sentence. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
