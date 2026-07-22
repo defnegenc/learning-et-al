@@ -29,9 +29,8 @@ export async function GET(req: NextRequest) {
     return new NextResponse("No digests found", { status: 404 });
   }
 
-  // Use the first (most recent or starred) as the "best"
-  const starred = recentDigests.find(d => d.starred);
-  const best = starred || recentDigests[0];
+  // Use the most recent as the "best" (mirrors the cron's pick)
+  const best = recentDigests[0];
 
   const digestPapers = await db.select().from(papers).where(eq(papers.digestId, best.id));
 
@@ -54,7 +53,6 @@ export async function GET(req: NextRequest) {
     theme: d.theme || "Untitled",
     date: d.date,
     digestId: d.id,
-    starred: !!d.starred,
   }));
 
   const html = buildEmailHtml(cadence, bestData, allDigests);
