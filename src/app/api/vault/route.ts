@@ -1,106 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { digests, papers, feedback } from "@/lib/db/schema";
-import { eq, and, like, desc, inArray } from "drizzle-orm";
+import { papers, feedback } from "@/lib/db/schema";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 
+// The vault is the reading list: the papers this user has bookmarked
+// (feedback rows of type "star"). Returns them all, newest first.
 export async function GET(req: NextRequest) {
   const userId = await getAuthUser(req);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get("page") || "1", 10);
-    const limit = parseInt(url.searchParams.get("limit") || "20", 10);
-    const search = url.searchParams.get("search") || "";
-    const source = url.searchParams.get("source") || "";
-    const bookmarked = url.searchParams.get("bookmarked") === "true";
-    const offset = (page - 1) * limit;
-
-    // Get bookmarked paper IDs if filtering by bookmarks
-    if (bookmarked) {
-      const starredRows = await db.query.feedback.findMany({
-        where: and(eq(feedback.userId, userId), eq(feedback.type, "star")),
-        columns: { paperId: true },
-      });
-      const starredIds = [...new Set(starredRows.map((r) => r.paperId))];
-      if (starredIds.length === 0) {
-        return NextResponse.json({ papers: [], total: 0, page, limit });
-      }
-      const starredPapers = await db.query.papers.findMany({
-        where: inArray(papers.id, starredIds),
-        orderBy: desc(papers.createdAt),
-      });
-      const total = starredPapers.length;
-      const paginated = starredPapers.slice(offset, offset + limit);
-      return NextResponse.json({
-        papers: paginated.map((p) => ({
-          ...p,
-          authors: p.authors ? JSON.parse(p.authors) : [],
-          keywords: p.keywords ? JSON.parse(p.keywords) : [],
-          keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
-          connectionReason: p.connectionReason || null,
-          bookmarked: true,
-        })),
-        total, page, limit,
-      });
-    }
-
-    // Get all digest IDs for this user
-    const userDigests = await db.query.digests.findMany({
-      where: eq(digests.userId, userId),
-      columns: { id: true },
+    const starredRows = await db.query.feedback.findMany({
+      where: and(eq(feedback.userId, userId), eq(feedback.type, "star")),
+      columns: { paperId: true },
     });
+    const starredIds = [...new Set(starredRows.map((r) => r.paperId))];
+    if (starredIds.length === 0) return NextResponse.json({ papers: [] });
 
-    const digestIds = userDigests.map((d) => d.id);
-    if (digestIds.length === 0) {
-      return NextResponse.json({ papers: [], total: 0, page, limit });
-    }
-
-    // Query papers belonging to user's digests
-    let allPapers;
-    if (search) {
-      allPapers = await db.query.papers.findMany({
-        where: and(
-          inArray(papers.digestId, digestIds),
-          like(papers.title, `%${search}%`)
-        ),
-        orderBy: desc(papers.createdAt),
-      });
-    } else {
-      allPapers = await db.query.papers.findMany({
-        where: inArray(papers.digestId, digestIds),
-        orderBy: desc(papers.createdAt),
-      });
-    }
-
-    // Filter by source type
-    let filtered = allPapers;
-    if (source === "papers") {
-      filtered = allPapers.filter(p => p.source !== "rss");
-    } else if (source === "news") {
-      filtered = allPapers.filter(p => p.source === "rss");
-    }
-
-    const total = filtered.length;
-    const paginated = filtered.slice(offset, offset + limit);
-
+    const rows = await db.query.papers.findMany({
+      where: inArray(papers.id, starredIds),
+      orderBy: desc(papers.createdAt),
+    });
     return NextResponse.json({
-      papers: paginated.map((p) => ({
+      papers: rows.map((p) => ({
         ...p,
         authors: p.authors ? JSON.parse(p.authors) : [],
         keywords: p.keywords ? JSON.parse(p.keywords) : [],
         keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
         connectionReason: p.connectionReason || null,
+        bookmarked: true,
       })),
-      total,
-      page,
-      limit,
     });
   } catch (error) {
     console.error("Vault fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch vault" }, { status: 500 });
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
