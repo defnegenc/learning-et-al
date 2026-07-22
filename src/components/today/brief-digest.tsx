@@ -243,7 +243,7 @@ function relatesFallback(reason: string): string {
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, revealAll }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
@@ -253,6 +253,8 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   guestAnswers?: string[];
   isLoggedIn: boolean;
   onSignIn?: () => void;
+  /** Start fully revealed (no "Next source" pacing) — used by the digest history view. */
+  revealAll?: boolean;
   // Accepted for API compatibility with today-page; keyword tags were removed from
   // the dead-simple card, so these are no longer read here.
   interests?: { keyword: string; field: string }[];
@@ -303,7 +305,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return s.length ? s : [lines.length];
   }, [cardsAfter, lines]);
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(revealAll ? Number.MAX_SAFE_INTEGER : 0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
   const allRevealed = n >= lines.length;
   const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
