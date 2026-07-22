@@ -243,7 +243,7 @@ function relatesFallback(reason: string): string {
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, revealAll }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, revealAll, endSlot }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
@@ -255,6 +255,8 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   onSignIn?: () => void;
   /** Start fully revealed (no "Next source" pacing) — used by the digest history view. */
   revealAll?: boolean;
+  /** Rendered after the prose once every source is revealed (e.g. the regenerate CTA). */
+  endSlot?: React.ReactNode;
   // Accepted for API compatibility with today-page; keyword tags were removed from
   // the dead-simple card, so these are no longer read here.
   interests?: { keyword: string; field: string }[];
@@ -382,6 +384,8 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
           Next source →
         </button>
       )}
+
+      {allRevealed && endSlot}
 
       {/* Threads mount immediately so seed preloads start, but stay hidden until the walk ends */}
       <div style={{ marginTop: 36, display: allRevealed ? undefined : "none" }}>

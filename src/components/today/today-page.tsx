@@ -7,6 +7,7 @@ import { SourceCard, SOURCE_PALETTES } from "./source-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
 import { BriefDigest } from "./brief-digest";
+import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
 import { PapersMode } from "./papers-mode";
 import { PapersModeOg } from "./papers-mode-og";
@@ -703,6 +704,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               interests={interestKeywords}
               seedField={digest.seedInterests?.[0]?.field}
               onSignIn={onSignIn}
+              endSlot={session ? (
+                <RegenerateCta digestId={digest.id} generating={generating} onRegenerate={() => handleGenerate(true)} />
+              ) : undefined}
             />
           ) : digest.synthesisContent ? (
             <SynthesisBanner
