@@ -376,7 +376,6 @@ interface SynthesisBannerProps {
   activeConcept: string | null;
   onConceptClick: (concept: string) => void;
   digestId?: string;
-  digestStarred?: boolean;
   papers?: PaperItem[];
   onSelectPaper?: (paper: PaperItem) => void;
   onAddInterest?: (keyword: string) => void;
@@ -606,7 +605,6 @@ export function SynthesisBanner({
   activeConcept,
   onConceptClick,
   digestId,
-  digestStarred = false,
   papers = [],
   onSelectPaper,
   onAddInterest,
