@@ -153,7 +153,7 @@ function PaperChip({ paper, paperIdx, label, cap, onOpen }: { paper: PaperItem; 
   );
 }
 
-function TermChip({ text, def }: { text: string; def: string }) {
+export function TermChip({ text, def }: { text: string; def: string }) {
   const [hover, setHover] = useState(false);
   return (
     <span style={{ position: "relative", display: "inline" }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
