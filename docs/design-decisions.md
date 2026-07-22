@@ -110,3 +110,25 @@ Keys stored in localStorage (client-side), never sent to our DB. This means:
 Vercel + Turso (libsql). Local dev uses SQLite file. Production uses remote Turso DB. Embeddings run in-process via `@xenova/transformers` with `all-MiniLM-L6-v2` (no external API needed). This keeps embedding costs at zero and avoids external dependencies for the scoring pipeline.
 
 Environment variables: TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, SERPER_API_KEY, AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ADMIN_USER_ID, NEXTAUTH_URL
+
+---
+
+## 11. Reading List + Digest History (2026-07-22)
+
+**Bookmarking papers is the single save action.** Digest starring was removed as
+confusing — two similar save affordances (star a digest, bookmark a paper) competed.
+Digests aren't saved; they live permanently in Digest History (a chat-style two-pane
+browser inside the vault). Best-of emails now just send the period's most recent digest.
+
+**Hide/regenerate trigger moved to the end of the digest** and named after its reward:
+"Don't like this digest? Regenerate." End-of-digest is the moment the reader actually
+knows they didn't like it, and a button that yields a fresh digest gets clicked; a
+complaint-shaped X in the header didn't.
+
+**Paper insights are lazy and cached.** Jargon definitions generate on first detail
+open; the ELI5 gist on button click — both cached on the papers row so tokens are
+never spent on bookmarks nobody revisits.
+
+**Study names in synthesis are plain language** ("the chatbot privacy study"), never
+author surnames ("the Kwesi S&P controls study") — a reader who hasn't read the paper
+must understand what a study is about from its name alone.

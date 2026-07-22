@@ -41,7 +41,8 @@ export function DigestHistory({ loggedIn }: { loggedIn: boolean }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [digest, setDigest] = useState<LoadedDigest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
-  const [loadingDigest, setLoadingDigest] = useState(false);
+  // Derived, not state: the selected digest is loading until its data arrives.
+  const loadingDigest = activeId !== null && digest?.id !== activeId;
 
   useEffect(() => {
     fetch("/api/digest?all=true")
@@ -59,7 +60,6 @@ export function DigestHistory({ loggedIn }: { loggedIn: boolean }) {
   useEffect(() => {
     if (!activeId) return;
     let cancelled = false;
-    setLoadingDigest(true);
     fetch(`/api/digest?id=${activeId}`)
       .then(r => r.json())
       .then(d => {
@@ -72,8 +72,7 @@ export function DigestHistory({ loggedIn }: { loggedIn: boolean }) {
         });
         setPapers(d.papers ?? []);
       })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoadingDigest(false); });
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [activeId]);
 

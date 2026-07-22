@@ -84,15 +84,15 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **Relevance scoring: embedding + LLM hybrid** (`@xenova/transformers` all-MiniLM-L6-v2 for recall, LLM re-ranking for precision). Embeddings find candidates, LLM scores "tool to think with" quality. Do NOT revert to keyword counting.
 - **Typography**: Apercu Pro for body text, Space Grotesk for display, IBM Plex Mono for labels
 - Daily digest: Vercel Cron at 4am UTC (`vercel.json`), generates for all users + emails based on cadence (daily/biweekly/weekly). Manual "Generate" button for admin.
-- Email: Resend integration, cadence-aware (daily = every digest, biweekly = best-of Tue+Fri, weekly = best-of Sunday). "Best" = starred digest if any, else most recent.
-- Feedback: Users can dislike a paper with optional reason, no control over recommendations
+- Email: Resend integration, cadence-aware (daily = every digest, biweekly = best-of Tue+Fri, weekly = best-of Sunday). "Best" = most recent digest of the period (digest starring was removed).
+- Feedback: Users can dislike a paper with optional reason, no control over recommendations. Digest-level feedback via the end-of-digest "Don't like this digest? Regenerate." CTA (reason → hide → force-regenerate).
 - Auth: Google OAuth via Auth.js (next-auth v5) with DrizzleAdapter. Public logged-out experience showing admin's digest with pre-generated Q&A.
 - AI: Signed-in users generate without entering an API key (server-side `CRON_AI_*` used). BYOK still supported in settings for power users.
 - Deployment: Vercel, learningetal.com domain
 
 ## Gotchas
 - **NEVER create routes inside `/api/auth/`** — the `[...nextauth]` catch-all owns that entire path. Put custom auth-adjacent routes elsewhere (e.g. `/api/logout`).
-- **`shortName` rules live in TWO places** — `selectionSkeletonPrompt` AND `skeletonPrompt` in `src/lib/ai/prompts.ts`. If you change one, change the other. They must require the author's last name (or most specific title noun) as anchor.
+- **`shortName` rules live in TWO places** — `selectionSkeletonPrompt` AND `skeletonPrompt` in `src/lib/ai/prompts.ts`. If you change one, change the other. They must require plain-language topic names a non-reader instantly understands (no author surnames, acronyms, or title jargon), distinct per paper.
 - **`focusLevel` belongs in synthesis, not retrieval.** It's passed via `synthesisCtx` to affect tone and keyword jargon. Do NOT use it to modify search queries — that biases paper type rather than letting the LLM selection decide.
 - **Upstream scoring is a filter, not a ranker.** The LLM in `selectionSkeletonPrompt` makes the real quality call. Embedding threshold + MMR just need to deliver a diverse on-topic pool of 6. Don't add heavy signals (institution prestige, topic-trending context) to the scoring chain — they don't move outcomes.
 - **HttpOnly cookies CANNOT be cleared from JavaScript.** Always use a server-side route.

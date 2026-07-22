@@ -55,6 +55,10 @@ to seed the central question/theme, instead of (or alongside) the user's standin
   `/api/cron` (processes most-stale-first, surfaces processed counts). *(was #2)*
 - **Delivery cadence** — daily / bi-weekly (Tue & Fri) / weekly (Sunday recap), with
   cadence-aware "best-of" email selection via Resend. *(was #4)*
+- **Reading List + Digest History** — vault rebuilt around bookmarked papers (single
+  save action, digest starring removed) with jargon-annotated abstracts + ELI5 gists,
+  a two-pane digest history, and an end-of-digest "Don't like this digest? Regenerate."
+  CTA. Spec: `docs/superpowers/specs/2026-07-19-vault-reading-list-design.md`. *(2026-07-22)*
 - **Digest Readability & Curiosity Pass (A–E)** — zero-click header (domain chips + gist +
   curatorial framing), concrete-noun title rule, aggressive jargon capture for hover defs,
   and plain-language paper names on cards. Spec:
