@@ -290,6 +290,8 @@ Write the synthesis in EXACTLY this structure. No other format accepted.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
+[Opening paragraph: 2-3 sentences that ANSWER the question "${theme}" directly, up front — the reader gets the bottom line before any source is revealed. Open on a concrete specific (a number, a named case, a scene from one of the papers), state the answer plainly, and end by hinting at what the sources complicate or sharpen. Do NOT name or bold any paper here — no [Source N] references in this paragraph. No em dashes.]
+
 ${skeleton.paperRoles.map((r, i, arr) => {
   const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–2 sentences, HARD MAX 2, starting with a conversational verb: "found...", "shows...", "asked...", "says...", "tested..." etc. — like explaining to a curious friend. Pick the ONE best detail or number; don't empty the whole paper into the bullet]`;
   const bridge = i < arr.length - 1 ? `\n\n> [One short bridge to the next paper: how does this connect, contrast, or escalate? "while X, others...", "but that changes when...", "which makes the next finding stranger..." — max 12 words, no em dashes]` : "";
@@ -433,7 +435,7 @@ Editor's feedback:
 - Weakest point: ${critique.weakestPoint}
 - Revision instruction: ${critique.revision}${bannedBlock}
 
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: one bullet per paper (- **[Source N] name** [1–2 sentences, HARD MAX 2]), bridges between bullets, closing sentence. NO intro paragraph before the first bullet. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: the opening answer paragraph (2-3 sentences, no paper names, no [Source N]), then one bullet per paper (- **[Source N] name** [1–2 sentences, HARD MAX 2]), bridges between bullets, closing sentence. Never add paper references to the opening paragraph. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
