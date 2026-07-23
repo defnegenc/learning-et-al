@@ -192,11 +192,29 @@ export function TermChip({ text, def }: { text: string; def: string }) {
 
 /* ---- inline paper card (revealed on first mention) ---- */
 
+// Bold every number ("7%", "354", "2.5x") inside tile text so the data pops.
+function boldNums(text: string): React.ReactNode[] {
+  const re = /\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/gi;
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(<span key={key++}>{text.slice(last, m.index)}</span>);
+    out.push(<strong key={key++} style={{ fontWeight: 800 }}>{m[0]}</strong>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(<span key={key++}>{text.slice(last)}</span>);
+  return out;
+}
+
 function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; prose?: React.ReactNode }) {
-  // Card anatomy: paper name (small, underlined, clickable) with faint authors
-  // top-left; the summary's FIRST sentence as the big bold TLDR; then the
-  // digest's explanation prose. The rest of the summary + the metrics breakdown
-  // live in the detail overlay — the whole card opens it.
+  // Card anatomy: paper name (small, underlined, clickable) + faint authors · year
+  // top-left; the summary's FIRST sentence as the big bold TLDR; the digest's
+  // explanation prose; then "See more" reveals up to 4 palette-tinted metric
+  // tiles (big number + short text) and a "Read paper ↗" button.
+  const [expanded, setExpanded] = useState(false);
+  const [c1, c2] = PALETTES[paperIdx % PALETTES.length];
   const body = (paper.summary || paper.abstract || "").trim();
   const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? (body ? [body] : []);
   const hero = sentences[0] || "";
@@ -204,10 +222,20 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
   const authors = paper.authors.length > 0
     ? paper.authors.length <= 3 ? paper.authors.join(", ") : `${paper.authors.slice(0, 3).join(", ")} et al.`
     : "";
+  const byline = [authors, paper.year ? String(paper.year) : ""].filter(Boolean).join(" · ");
+
+  // Metric tiles: takeaway stat first, then key findings, max 4. Pull the number
+  // out big when a chunk has one; keep the short text so the number has context.
+  const tiles = [...(paper.takeawayStat ? [paper.takeawayStat] : []), ...(paper.keyFindings ?? [])]
+    .slice(0, 4)
+    .map(text => {
+      const m = text.match(/\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/i);
+      return { num: m?.[0]?.trim() ?? null, text };
+    });
 
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16, cursor: "pointer" }}>
-      {/* Paper identity, top-left: underlined clickable name, faint (not underlined) authors */}
+      {/* Paper identity, top-left: underlined clickable name; faint authors · year (not underlined) */}
       <div>
         <button
           onClick={(e) => { e.stopPropagation(); onOpen(paper); }}
@@ -215,8 +243,8 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
         >
           {paper.plainName || paper.title}
         </button>
-        {authors && (
-          <div style={{ fontSize: "0.62rem", fontStyle: "italic", color: "#999", marginTop: 3 }}>{authors}</div>
+        {byline && (
+          <div style={{ fontSize: "0.62rem", fontStyle: "italic", color: "#999", marginTop: 3 }}>{byline}</div>
         )}
       </div>
 
@@ -230,6 +258,45 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
       {/* The digest's explanation of this study */}
       {prose && (
         <div style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333" }}>{prose}</div>
+      )}
+
+      {/* See more → metric tiles in the card's palette + Read paper */}
+      {(tiles.length > 0 || paper.sourceUrl) && (
+        <div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#555", textDecoration: "underline", textUnderlineOffset: "3px" }}
+          >
+            {expanded ? "See less ↑" : "See more ↓"}
+          </button>
+          {expanded && (
+            <div style={{ marginTop: 12 }}>
+              {tiles.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 14 }}>
+                  {tiles.map((t, i) => (
+                    <div key={i} style={{ background: i % 2 === 0 ? c1 : c2, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
+                      {t.num && (
+                        <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.6rem", lineHeight: 1.1, color: "#1a1a1a", marginBottom: 5, letterSpacing: "-0.01em" }}>{t.num}</div>
+                      )}
+                      <div style={{ fontSize: "0.76rem", lineHeight: 1.5, color: "#1a1a1a" }}>{boldNums(t.text)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {paper.sourceUrl && (
+                <a
+                  href={paper.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "9px 15px", textDecoration: "none" }}
+                >
+                  Read paper ↗
+                </a>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
