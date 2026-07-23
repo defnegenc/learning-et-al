@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, RefreshCw, Star, Ban } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 import { SourceCard, SOURCE_PALETTES } from "./source-card";
 import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
 import { BriefDigest } from "./brief-digest";
+import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
 import { PapersMode } from "./papers-mode";
 import { PapersModeOg } from "./papers-mode-og";
@@ -295,79 +296,6 @@ function NotepadFloat({ notes, onChange, onSave }: { notes: string; onChange: (v
   );
 }
 
-/* ── Hidden digest state with regenerate option ── */
-function HiddenDigestState({
-  hiddenStash, isLoggedIn, generating, generateError, onUndo, onRegenerate,
-}: {
-  hiddenStash: { digest: { id: string }; papers: unknown[] };
-  isLoggedIn?: boolean;
-  generating: boolean;
-  generateError: string | null;
-  onUndo: () => void;
-  onRegenerate: (force?: boolean) => void;
-}) {
-  const [reason, setReason] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleRegenerate = async () => {
-    if (!reason.trim()) return;
-    setSubmitted(true);
-    try {
-      await fetch("/api/digest/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ digestId: hiddenStash.digest.id, reason: reason.trim() }),
-      });
-    } catch { /* non-critical */ }
-    onRegenerate(true);
-  };
-
-  return (
-    <>
-      <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
-        Digest hidden
-      </h1>
-      <button
-        onClick={onUndo}
-        style={{ fontSize: "0.65rem", color: "#999", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px", fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}
-      >
-        Undo
-      </button>
-      {isLoggedIn && !submitted && (
-        <div style={{ width: "100%", maxWidth: "420px", display: "flex", flexDirection: "column", gap: "10px", borderTop: "1px solid #e5e7eb", paddingTop: "24px" }}>
-          <p style={{ fontSize: "0.8rem", color: "#555", fontFamily: "var(--font-mono), monospace" }}>
-            Want a different one? Tell us why and we&apos;ll regenerate.
-          </p>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <input
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && reason.trim()) handleRegenerate(); }}
-              placeholder="e.g. too technical, already know this topic…"
-              autoFocus
-              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #1a1a1a", fontSize: "0.8rem", outline: "none", fontFamily: "var(--font-inter), sans-serif" }}
-            />
-            <button
-              onClick={handleRegenerate}
-              disabled={!reason.trim() || generating}
-              className="hover:bg-[#333] disabled:opacity-40"
-              style={{ padding: "8px 14px", background: "#1a1a1a", color: "white", border: "none", cursor: "pointer", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace" }}
-            >
-              {generating ? <Loader2 size={12} className="animate-spin" /> : "Go"}
-            </button>
-          </div>
-          {generateError && <p style={{ fontSize: "0.7rem", color: "#ff007f" }}>{generateError}</p>}
-        </div>
-      )}
-      {submitted && generating && (
-        <div className="flex items-center gap-2 text-[#888]" style={{ fontSize: "0.8rem", fontFamily: "var(--font-mono), monospace" }}>
-          <Loader2 size={14} className="animate-spin" /> Generating a new digest…
-        </div>
-      )}
-    </>
-  );
-}
-
 /* ── Interfaces ── */
 interface Digest {
   id: string;
@@ -400,7 +328,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [interestKeywords, setInterestKeywords] = useState<{ keyword: string; field: string }[]>([]);
-  const [hiddenStash, setHiddenStash] = useState<{ digest: Digest; papers: PaperItem[] } | null>(null);
 
   // Load the reader's interests (keyword + field) so card tags can mark which are already
   // theirs vs. new topics they can add, and color them by field like the preferences picker.
@@ -417,8 +344,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
-  const [starred, setStarred] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
@@ -521,7 +446,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
       const data = await res.json();
       setDigest(data.digest);
       setPapers(data.papers ?? []);
-      if (data.digest) { setStarred(!!data.digest.starred); setHidden(!!data.digest.hidden); }
     } catch (err) {
       console.error("Failed to fetch digest:", err);
     }
@@ -624,33 +548,16 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   if (!digest) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
-        {hiddenStash ? (
-          <HiddenDigestState
-            hiddenStash={hiddenStash}
-            isLoggedIn={!!session}
-            generating={generating}
-            generateError={generateError}
-            onUndo={async () => {
-              const { digest: d, papers: p } = hiddenStash;
-              setDigest(d); setPapers(p); setHidden(false); setHiddenStash(null);
-              try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: d.id }) }); } catch { /* non-critical */ }
-            }}
-            onRegenerate={handleGenerate}
-          />
-        ) : (
-          <>
-            <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
-              Today&apos;s digest is brewing
-            </h1>
-            <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
-              Check back soon — a fresh research digest is generated every day.
-            </p>
-          </>
-        )}
-        {!hiddenStash && session && generateError && (
+        <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
+          Today&apos;s digest is brewing
+        </h1>
+        <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
+          Check back soon — a fresh research digest is generated every day.
+        </p>
+        {session && generateError && (
           <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">{generateError}</p>
         )}
-        {!hiddenStash && session && (
+        {session && (
           <button
             onClick={() => handleGenerate(true)}
             disabled={generating}
@@ -730,34 +637,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                     {generateError}
                   </span>
                 )}
-                {digest.id && session && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <button
-                      onClick={async () => {
-                        setStarred(!starred);
-                        try { await fetch("/api/digest/star", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setStarred(starred); }
-                      }}
-                      style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", color: starred ? "#f59e0b" : "#999", transition: "all 0.15s" }}
-                    >
-                      <Star size={14} className={starred ? "fill-current" : ""} />
-                      <span style={{ fontSize: "0.65rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", letterSpacing: "1px" }}>{starred ? "Saved" : "Save"}</span>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        setHiddenStash({ digest, papers });
-                        setDigest(null);
-                        setPapers([]);
-                        setHidden(true);
-                        try { await fetch("/api/digest/hide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digestId: digest.id }) }); } catch { setDigest(digest); setPapers(papers); setHidden(false); setHiddenStash(null); }
-                      }}
-                      title="Hide digest"
-                      style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "#bbb", transition: "color 0.15s", padding: "2px" }}
-                      className="hover:text-[#ff007f]"
-                    >
-                      <Ban size={14} />
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -825,6 +704,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               interests={interestKeywords}
               seedField={digest.seedInterests?.[0]?.field}
               onSignIn={onSignIn}
+              endSlot={session ? (
+                <RegenerateCta digestId={digest.id} generating={generating} onRegenerate={() => handleGenerate(true)} />
+              ) : undefined}
             />
           ) : digest.synthesisContent ? (
             <SynthesisBanner
@@ -834,7 +716,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               suggestedQuestions={digest.suggestedQuestions}
               suggestedAnswers={digest.suggestedAnswers}
               digestId={digest.id}
-              digestStarred={!!digest.starred}
               activeConcept={activeConcept}
               onConceptClick={(concept) => setActiveConcept(prev => prev === concept ? null : concept)}
               papers={papers}

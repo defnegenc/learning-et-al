@@ -23,7 +23,6 @@ interface DigestSummary {
   theme: string;
   date: string;
   digestId: string;
-  starred?: boolean;
 }
 
 type Cadence = "daily" | "biweekly" | "weekly";
@@ -122,7 +121,6 @@ function bestOfEmail(digests: DigestSummary[], bestDigest: DigestEmailData, cade
           ${d.theme}
         </a>
         <span style="font-size:10px;color:#aaa;font-family:monospace;margin-left:6px;">${d.date}</span>
-        ${d.starred ? ' <span style="color:#f59e0b;">★</span>' : ""}
       </td>
     </tr>
   `).join("");
