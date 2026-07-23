@@ -194,34 +194,24 @@ export function TermChip({ text, def }: { text: string; def: string }) {
 
 function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; prose?: React.ReactNode }) {
   // Card anatomy: paper name (small, underlined, clickable) with faint authors
-  // top-left; the summary's FIRST sentence as the big bold hero; the second
-  // sentence in normal weight; then the numbers/findings as stat chunks behind
-  // "See more". The digest's explanation prose follows. Whole card opens detail.
-  const [expanded, setExpanded] = useState(false);
+  // top-left; the summary's FIRST sentence as the big bold TLDR; then the
+  // digest's explanation prose. The rest of the summary + the metrics breakdown
+  // live in the detail overlay — the whole card opens it.
   const body = (paper.summary || paper.abstract || "").trim();
   const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? (body ? [body] : []);
   const hero = sentences[0] || "";
-  const rest = sentences.slice(1).join(" ");
 
   const authors = paper.authors.length > 0
     ? paper.authors.length <= 3 ? paper.authors.join(", ") : `${paper.authors.slice(0, 3).join(", ")} et al.`
     : "";
 
-  // Stat chunks: takeaway stat first, then key findings. Pull a leading number
-  // out big when a chunk has one ("7%", "354", "2.5x"); otherwise text only.
-  const chunks = [...(paper.takeawayStat ? [paper.takeawayStat] : []), ...(paper.keyFindings ?? [])]
-    .map(text => {
-      const m = text.match(/\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/i);
-      return { num: m?.[0]?.trim() ?? null, text };
-    });
-
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16, cursor: "pointer" }}>
-      {/* Paper identity, top-left: underlined clickable name, faint authors under it */}
+      {/* Paper identity, top-left: underlined clickable name, faint (not underlined) authors */}
       <div>
         <button
           onClick={(e) => { e.stopPropagation(); onOpen(paper); }}
-          style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.5 }}
+          style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.5 }}
         >
           {paper.plainName || paper.title}
         </button>
@@ -230,40 +220,11 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
         )}
       </div>
 
-      {/* Hero — the first sentence, big and bold */}
+      {/* TLDR — the first sentence, big and bold. Tap the card for the breakdown. */}
       {hero && (
         <p style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.5rem", lineHeight: 1.32, color: "#1a1a1a", margin: 0, letterSpacing: "-0.01em" }}>
           {hero}
         </p>
-      )}
-
-      {/* Second sentence — normal weight, no shouting */}
-      {rest && (
-        <p style={{ fontSize: "0.95rem", lineHeight: 1.6, color: "#333", margin: 0 }}>{rest}</p>
-      )}
-
-      {/* The numbers, hidden behind "See more" */}
-      {chunks.length > 0 && (
-        <div>
-          <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#666", textDecoration: "underline", textUnderlineOffset: "3px" }}
-          >
-            {expanded ? "See less ↑" : "See more ↓"}
-          </button>
-          {expanded && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
-              {chunks.map((c, i) => (
-                <div key={i} style={{ flex: "1 1 45%", minWidth: 180, background: "rgba(255,255,255,0.6)", border: "1px solid rgba(26,26,26,0.35)", padding: "12px 14px" }}>
-                  {c.num && (
-                    <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.5rem", lineHeight: 1.1, color: "#1a1a1a", marginBottom: 5, letterSpacing: "-0.01em" }}>{c.num}</div>
-                  )}
-                  <div style={{ fontSize: "0.78rem", lineHeight: 1.5, color: "#444" }}>{c.text}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       )}
 
       {/* The digest's explanation of this study */}
@@ -280,6 +241,18 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
 function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
   const abstract = paper.abstract || paper.fullText || "";
   const preview = abstract.length > 420 ? abstract.slice(0, 417).trimEnd() + "…" : abstract;
+  // Metrics breakdown: takeaway stat first, then key findings. Pull a leading
+  // number out big when a chunk has one ("7%", "354", "2.5x"); otherwise text only.
+  const chunks = [...(paper.takeawayStat ? [paper.takeawayStat] : []), ...(paper.keyFindings ?? [])]
+    .map(text => {
+      const m = text.match(/\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/i);
+      return { num: m?.[0]?.trim() ?? null, text };
+    });
+  const summaryRest = (() => {
+    const body = (paper.summary || "").trim();
+    const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? [];
+    return sentences.slice(1).join(" ");
+  })();
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
@@ -290,6 +263,28 @@ function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; pa
 
         <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.25, margin: "0 0 8px", textTransform: "capitalize" }}>{paper.title}</h3>
         {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 20px" }}>{paper.authors.slice(0, 6).join(", ")}</p>}
+
+        {/* Rest of the plain-English summary (the card only shows the first sentence) */}
+        {summaryRest && (
+          <p style={{ fontSize: "0.92rem", lineHeight: 1.65, color: "#333", margin: "0 0 20px" }}>{summaryRest}</p>
+        )}
+
+        {/* The numbers — takeaway stat + key findings as stat chunks */}
+        {chunks.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.56rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#999", marginBottom: 7 }}>The numbers</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {chunks.map((c, i) => (
+                <div key={i} style={{ flex: "1 1 45%", minWidth: 170, background: "rgba(255,255,255,0.6)", border: "1px solid rgba(26,26,26,0.35)", padding: "12px 14px" }}>
+                  {c.num && (
+                    <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.5rem", lineHeight: 1.1, color: "#1a1a1a", marginBottom: 5, letterSpacing: "-0.01em" }}>{c.num}</div>
+                  )}
+                  <div style={{ fontSize: "0.78rem", lineHeight: 1.5, color: "#444" }}>{c.text}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {preview ? (
           <div style={{ marginBottom: 22 }}>
