@@ -59,7 +59,7 @@ export function dispersedWash(palette: [string, string], hover = false, idx = 0)
   return { background: BLOB_LAYOUTS[idx % BLOB_LAYOUTS.length](c1, c2) } as React.CSSProperties;
 }
 
-export function SourceCard({ paper, index, loggedIn, initialBookmarked, compareMode, isSelected, onSelect }: {
+export function SourceCard({ paper, index, loggedIn, initialBookmarked, compareMode, isSelected, onSelect, onOpen }: {
   paper: PaperItem;
   index: number;
   loggedIn?: boolean;
@@ -67,6 +67,7 @@ export function SourceCard({ paper, index, loggedIn, initialBookmarked, compareM
   compareMode?: boolean;
   isSelected?: boolean;
   onSelect?: (p: PaperItem) => void;
+  onOpen?: (p: PaperItem) => void;
 }) {
   const palette = SOURCE_PALETTES[index % SOURCE_PALETTES.length];
   const url = (paper.sourceUrl || "").toLowerCase();
@@ -97,9 +98,10 @@ export function SourceCard({ paper, index, loggedIn, initialBookmarked, compareM
       href={paper.sourceUrl || "#"}
       onClick={e => {
         if (compareMode) { e.preventDefault(); onSelect?.(paper); return; }
+        if (onOpen) { e.preventDefault(); onOpen(paper); return; }
         if (!paper.sourceUrl) e.preventDefault();
       }}
-      target={!compareMode && paper.sourceUrl ? "_blank" : undefined}
+      target={!compareMode && !onOpen && paper.sourceUrl ? "_blank" : undefined}
       rel="noopener noreferrer"
       style={{
         ...baseWash,

@@ -20,7 +20,7 @@ export const maxDuration = 300;
  * - Biweekly users: generate daily, email best-of on Tuesday + Friday
  * - Weekly users: generate daily, email best-of on Sunday
  *
- * "Best" = starred digest if any, otherwise most recent.
+ * "Best" = the period's most recent digest.
  *
  * Users are processed most-stale-first (see orderByStaleness): if a run still
  * can't cover everyone within maxDuration, the cutoff rotates fairly instead of
@@ -145,9 +145,8 @@ export async function GET(req: NextRequest) {
 
       if (periodDigests.length === 0) continue;
 
-      // Pick the "best" digest: starred first, then most recent
-      const starred = periodDigests.find(d => d.starred);
-      const best = starred || periodDigests[0];
+      // Pick the "best" digest for the period email: most recent.
+      const best = periodDigests[0];
 
       const digestPapers = await db.select().from(papers).where(eq(papers.digestId, best.id));
 
@@ -170,7 +169,6 @@ export async function GET(req: NextRequest) {
         theme: d.theme || "Untitled",
         date: d.date,
         digestId: d.id,
-        starred: !!d.starred,
       }));
 
       const emailResult = await sendDigestEmail(user.email, cadence, bestData, allDigestSummaries);

@@ -94,6 +94,8 @@ export const papers = sqliteTable("papers", {
   takeawayLine: text("takeaway_line"), // "say it like this" — ready-to-repeat casual sentence
   dinnerLine: text("dinner_line"), // casual "mention it at a dinner party" one-liner, generated on demand
   relatesLine: text("relates_line"), // clean one-sentence "how this relates to today's question", generated on demand
+  abstractJargon: text("abstract_jargon"), // JSON [{term, def}] — hover defs for the abstract, generated on first detail open
+  eli5: text("eli5"), // plain-language "explain like I'm five" gist of the abstract, generated on button click
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
