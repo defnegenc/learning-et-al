@@ -312,9 +312,10 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return map;
   }, [lines]);
 
-  // User-paced reveal by SOURCE: each step stops at the START of the next source's
-  // paragraph, so the next source's lead-in sentence never lingers alone below the
-  // current card — it appears with that source's card on the next click.
+  // User-paced reveal by SOURCE: step 0 shows only the intro (the answer paragraph
+  // before any source); each step then stops at the START of the next source's
+  // paragraph, so a source's lead-in sentence always appears with its card.
+  // Old digests with no intro (first source at line 0) start on the first source.
   const stops = useMemo(() => {
     const paraStartOf = (lineIdx: number) => {
       let start = 0;
@@ -325,7 +326,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       return start;
     };
     const cardParaStarts = [...new Set(Object.keys(cardsAfter).map(Number).map(paraStartOf))].sort((a, b) => a - b);
-    const s = cardParaStarts.slice(1); // stop before each subsequent source's paragraph
+    const s = cardParaStarts.filter(x => x > 0); // stop before each source's paragraph (intro shows first)
     s.push(lines.length);
     return s.length ? s : [lines.length];
   }, [cardsAfter, lines]);
@@ -333,6 +334,8 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   const [step, setStep] = useState(revealAll ? Number.MAX_SAFE_INTEGER : 0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
   const allRevealed = n >= lines.length;
+  // First click reveals the first source; later clicks advance through the rest.
+  const anySourceRevealed = Object.keys(cardsAfter).some(k => Number(k) < n);
   const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
 
   // Match the card's color: index by paper id (reference equality broke for agent-found
@@ -404,7 +407,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       {/* User-paced: reveal one source at a time, then straight into dig deeper */}
       {!allRevealed && (
         <button onClick={() => setStep((s) => s + 1)} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#fff", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#1a1a1a" }}>
-          Next source →
+          {anySourceRevealed ? "Next source →" : "Reveal first source →"}
         </button>
       )}
 
