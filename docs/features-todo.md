@@ -38,6 +38,41 @@ the homework queue lands. Still worth a research pass in `docs/summarize-papers.
 
 Later builds: conversational rehearsal ("how would I bring this up?"), narrated/audio brief.
 
+### Reading List — Agentic Paper Walkthrough
+**Core idea:** "Add to reading list" button (top-right of each paper card, bookmark
+icon) saves the paper to a persistent reading list. The reading list is a top-level
+nav item (alongside Today / Vault, or replaces Vault). Each saved paper opens as its
+own chat — the agent fetches the full PDF, walks through it, highlights jargon with
+ELI5 definitions, and gives section-by-section plain-language summaries. The user can
+ask follow-up questions mid-read ("wait, what does this mean?").
+
+**UX flow:**
+1. User sees a paper in the digest → taps "Add to reading list" (bookmark icon, top-right)
+2. Button animates briefly ("Adding…" → "Done ✓"), paper is saved
+3. User navigates to Reading List tab — sees their saved papers as a list/grid
+4. Tapping a paper opens a chat view: the agent has already (or begins to) analyze it
+5. Chat is persistent — user can return to it, ask more questions, pick up where they left
+
+**What the agent does per paper:**
+- Fetches the full PDF (via `unpdf`)
+- Walks section by section: for each, produces a 2-3 sentence plain summary + annotates
+  jargon with ELI5 hover definitions (same dotted-underline pattern as the synthesis)
+- Streams results section-by-section so the user can start reading immediately
+- Keeps full-paper context so follow-up questions ("how does section 3 relate to the
+  intro?") work
+
+**Open questions:**
+- Replace the Vault with Reading List, or add as a third tab? Vault has compare mode +
+  domain filters that reading list doesn't need — maybe reading list IS the vault, with
+  an "Analyze" action per paper that opens the chat.
+- Cost control: full-paper LLM analysis is expensive (long context). Cache per paper?
+  Limit to N papers/day? Use a cheaper model for section summaries, expensive model only
+  for follow-ups?
+- Storage: chat history per paper needs a new table (reading_list_messages or similar).
+  The paper row already has the PDF URL; store the analysis output so re-opening is instant.
+- Should the analysis happen eagerly (on add) or lazily (on first open)?
+- Mobile: chat view needs to work well on small screens — probably a full-page takeover.
+
 ### Homework Queue
 Let the user assign the agent "homework" — a personal queue of topics/areas they want
 explored (e.g. "generative UI", "ubiquitous computing in the 21st century", "surveillance
