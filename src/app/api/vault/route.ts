@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { papers, feedback } from "@/lib/db/schema";
+import { papers, feedback, digests } from "@/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 
@@ -22,6 +22,17 @@ export async function GET(req: NextRequest) {
       where: inArray(papers.id, starredIds),
       orderBy: desc(papers.createdAt),
     });
+
+    // Attach the digest each paper came from so the reading list can attribute it.
+    const digestIds = [...new Set(rows.map((p) => p.digestId))];
+    const digestRows = digestIds.length
+      ? await db.query.digests.findMany({
+          where: inArray(digests.id, digestIds),
+          columns: { id: true, theme: true, date: true },
+        })
+      : [];
+    const digestById = new Map(digestRows.map((d) => [d.id, d]));
+
     return NextResponse.json({
       papers: rows.map((p) => ({
         ...p,
@@ -31,6 +42,8 @@ export async function GET(req: NextRequest) {
         methodFacts: p.methodFacts ? JSON.parse(p.methodFacts) : [],
         connectionReason: p.connectionReason || null,
         bookmarked: true,
+        digestTheme: digestById.get(p.digestId)?.theme ?? null,
+        digestDate: digestById.get(p.digestId)?.date ?? null,
       })),
     });
   } catch (error) {

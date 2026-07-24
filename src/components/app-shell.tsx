@@ -167,7 +167,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           />
         </div>
         <div style={{ display: activeTab === "vault" ? "contents" : "none" }}>
-          <VaultPage session={session} />
+          <VaultPage />
         </div>
         {adminVerified && (
           <div style={{ display: activeTab === "admin" ? "contents" : "none" }}>
