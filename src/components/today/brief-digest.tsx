@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
 import { BriefThreads } from "./brief-threads";
@@ -192,8 +192,9 @@ export function TermChip({ text, def }: { text: string; def: string }) {
 
 /* ---- inline paper card (revealed on first mention) ---- */
 
-// Bold every number ("7%", "354", "2.5x") inside tile text so the data pops.
-function boldNums(text: string): React.ReactNode[] {
+// Set every number ("7%", "354", "2.5x") big in display type so the data pops
+// out of tile text like little headlines.
+function bigNums(text: string): React.ReactNode[] {
   const re = /\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/gi;
   const out: React.ReactNode[] = [];
   let last = 0;
@@ -201,19 +202,34 @@ function boldNums(text: string): React.ReactNode[] {
   let key = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) out.push(<span key={key++}>{text.slice(last, m.index)}</span>);
-    out.push(<strong key={key++} style={{ fontWeight: 800 }}>{m[0]}</strong>);
+    out.push(<strong key={key++} style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.35em", lineHeight: 1, letterSpacing: "-0.01em" }}>{m[0]}</strong>);
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push(<span key={key++}>{text.slice(last)}</span>);
   return out;
 }
 
-function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; paperIdx: number; onOpen: (p: PaperItem) => void; prose?: React.ReactNode }) {
-  // Card anatomy: paper name (small, underlined, clickable) + faint authors · year
-  // top-left; the summary's FIRST sentence as the big bold TLDR; the digest's
-  // explanation prose; then "See more" reveals up to 4 palette-tinted metric
-  // tiles (big number + short text) and a "Read paper ↗" button.
+const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 7 };
+
+function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperItem; paperIdx: number; prose?: React.ReactNode; expandTick?: number }) {
+  // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
+  // sentence as the big bold TLDR; the digest's explanation prose; then "See more"
+  // reveals four themed tiles — WHAT THIS IS (method), THE CLAIM, FINDINGS, and a
+  // solid-palette TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
+  // everything about a source lives on its card.
   const [expanded, setExpanded] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  // A paper-chip click in the prose bumps expandTick → open the tiles and scroll
+  // here. Expansion is adjusted during render (not in the effect) so the scroll
+  // effect fires after the tiles have laid out.
+  const [seenTick, setSeenTick] = useState(0);
+  if (expandTick && expandTick !== seenTick) {
+    setSeenTick(expandTick);
+    setExpanded(true);
+  }
+  useEffect(() => {
+    if (expandTick) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [expandTick]);
   const [c1, c2] = PALETTES[paperIdx % PALETTES.length];
   const body = (paper.summary || paper.abstract || "").trim();
   const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? (body ? [body] : []);
@@ -224,31 +240,24 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
     : "";
   const byline = [authors, paper.year ? String(paper.year) : ""].filter(Boolean).join(" · ");
 
-  // Metric tiles: takeaway stat first, then key findings, max 4. Pull the number
-  // out big when a chunk has one; keep the short text so the number has context.
-  // The takeaway stat and the first key finding often cite the SAME number (both
-  // LLM-generated from one abstract) — dedupe on the headline number before the
-  // 4-tile cap so a repeat doesn't waste a slot.
-  const seenNums = new Set<string>();
-  const tiles = [...(paper.takeawayStat ? [paper.takeawayStat] : []), ...(paper.keyFindings ?? [])]
-    .map(text => {
-      const m = text.match(/\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/i);
-      return { num: m?.[0]?.trim() ?? null, text };
-    })
-    .filter(c => {
-      if (!c.num) return true;
-      if (seenNums.has(c.num)) return false;
-      seenNums.add(c.num);
-      return true;
-    })
-    .slice(0, 4);
+  // Themed tiles. Older digests miss methodType/claim — the grid just renders
+  // the tiles it has. Takeaway is capped at its first sentence and goes full-width
+  // when the tile count is odd so the loudest tile is always the bottom edge.
+  const isNews = paper.source === "rss";
+  const methodFacts = (paper.methodFacts ?? []).slice(0, 3);
+  const claim = (paper.claim || paper.takeawayHook || "").trim();
+  const findings = (paper.keyFindings ?? []).slice(0, 3);
+  const takeawayFull = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
+  const takeaway = takeawayFull.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || takeawayFull;
+  const hasMethod = !!(paper.methodType || methodFacts.length);
+  const tileCount = [hasMethod, !!claim, findings.length > 0, !!takeaway].filter(Boolean).length;
 
   return (
-    <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16, cursor: "pointer" }}>
-      {/* Paper identity, top-left: underlined clickable name; faint authors · year (not underlined) */}
+    <div ref={ref} style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Paper identity, top-left: name toggles the tiles; faint authors · year */}
       <div>
         <button
-          onClick={(e) => { e.stopPropagation(); onOpen(paper); }}
+          onClick={() => setExpanded(v => !v)}
           style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.5 }}
         >
           {paper.plainName || paper.title}
@@ -258,7 +267,7 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
         )}
       </div>
 
-      {/* TLDR — the first sentence, big and bold. Tap the card for the breakdown. */}
+      {/* TLDR — the first sentence, big and bold */}
       {hero && (
         <p style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.5rem", lineHeight: 1.32, color: "#1a1a1a", margin: 0, letterSpacing: "-0.01em" }}>
           {hero}
@@ -270,27 +279,56 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
         <div style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333" }}>{prose}</div>
       )}
 
-      {/* See more → metric tiles in the card's palette + Read paper */}
-      {(tiles.length > 0 || paper.sourceUrl) && (
+      {/* See more → themed tiles (method / claim / findings / takeaway) + Read paper */}
+      {(tileCount > 0 || paper.sourceUrl) && (
         <div>
           <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+            onClick={() => setExpanded(v => !v)}
             style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#555", textDecoration: "underline", textUnderlineOffset: "3px" }}
           >
             {expanded ? "See less ↑" : "See more ↓"}
           </button>
           {expanded && (
             <div style={{ marginTop: 12 }}>
-              {tiles.length > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 14 }}>
-                  {tiles.map((t, i) => (
-                    <div key={i} style={{ background: i % 2 === 0 ? c1 : c2, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
-                      {t.num && (
-                        <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.6rem", lineHeight: 1.1, color: "#1a1a1a", marginBottom: 5, letterSpacing: "-0.01em" }}>{t.num}</div>
+              {tileCount > 0 && (
+                <div className="brief-tiles" style={{ marginBottom: 14 }}>
+                  {/* WHAT THIS IS — the category is the header; inside, how they did it */}
+                  {hasMethod && (
+                    <div style={{ background: `${c2}99`, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
+                      <div style={TILE_LABEL}>{paper.methodType || "Method"}</div>
+                      {methodFacts.length > 0 ? methodFacts.map((f, i) => (
+                        <div key={i} style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#1a1a1a", marginTop: i === 0 ? 0 : 5 }}>{bigNums(f)}</div>
+                      )) : (
+                        <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>{paper.methodType}</div>
                       )}
-                      <div style={{ fontSize: "0.76rem", lineHeight: 1.5, color: "#1a1a1a" }}>{boldNums(t.text)}</div>
                     </div>
-                  ))}
+                  )}
+                  {/* THE CLAIM — what they're arguing, plainly */}
+                  {claim && (
+                    <div style={{ background: `${c1}99`, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
+                      <div style={TILE_LABEL}>The claim</div>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 600, lineHeight: 1.5, color: "#1a1a1a" }}>{claim}</div>
+                    </div>
+                  )}
+                  {/* FINDINGS — bullets, numbers set big */}
+                  {findings.length > 0 && (
+                    <div style={{ background: "#fff", border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
+                      <div style={TILE_LABEL}>{isNews ? "Key points" : "Findings"}</div>
+                      {findings.map((f, i) => (
+                        <div key={i} style={{ display: "flex", gap: 6, fontSize: "0.74rem", lineHeight: 1.5, color: "#1a1a1a", marginTop: i === 0 ? 0 : 6 }}>
+                          <span style={{ flexShrink: 0 }}>▸</span>
+                          <span>{bigNums(f)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* TAKEAWAY — the loudest tile: solid palette, one sentence max */}
+                  {takeaway && (
+                    <div style={{ background: c1, border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "12px 14px", gridColumn: tileCount % 2 === 1 ? "1 / -1" : undefined }}>
+                      <div style={TILE_LABEL}>Takeaway</div>
+                      <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.98rem", lineHeight: 1.4, color: "#1a1a1a", letterSpacing: "-0.01em" }}>{bigNums(takeaway)}</div>
+                    </div>
+                  )}
                 </div>
               )}
               {paper.sourceUrl && (
@@ -298,7 +336,6 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
                   href={paper.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
                   style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "9px 15px", textDecoration: "none" }}
                 >
                   Read paper ↗
@@ -308,76 +345,6 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// Study-details view — opened from a card's "View study". Shows the paper's formal
-// identity (name, venue, year, authors), the start of the abstract, and a link out
-// to the full paper.
-function PaperDetailOverlay({ paper, paperIdx, onClose }: { paper: PaperItem; paperIdx: number; onClose: () => void }) {
-  const abstract = paper.abstract || paper.fullText || "";
-  const preview = abstract.length > 420 ? abstract.slice(0, 417).trimEnd() + "…" : abstract;
-  // Metrics breakdown: takeaway stat first, then key findings. Pull a leading
-  // number out big when a chunk has one ("7%", "354", "2.5x"); otherwise text only.
-  const chunks = [...(paper.takeawayStat ? [paper.takeawayStat] : []), ...(paper.keyFindings ?? [])]
-    .map(text => {
-      const m = text.match(/\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/i);
-      return { num: m?.[0]?.trim() ?? null, text };
-    });
-  const summaryRest = (() => {
-    const body = (paper.summary || "").trim();
-    const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? [];
-    return sentences.slice(1).join(" ");
-  })();
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ ...washStyle(paperIdx), maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 28px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", color: "#666" }}>{venueLabel(paper)}</span>
-          <button onClick={onClose} style={{ fontFamily: BODY, fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888" }}>✕ Close</button>
-        </div>
-
-        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.3rem", lineHeight: 1.25, margin: "0 0 8px", textTransform: "capitalize" }}>{paper.title}</h3>
-        {paper.authors.length > 0 && <p style={{ fontFamily: MONO, fontSize: "0.66rem", fontStyle: "italic", color: "#777", margin: "0 0 20px" }}>{paper.authors.slice(0, 6).join(", ")}</p>}
-
-        {/* Rest of the plain-English summary (the card only shows the first sentence) */}
-        {summaryRest && (
-          <p style={{ fontSize: "0.92rem", lineHeight: 1.65, color: "#333", margin: "0 0 20px" }}>{summaryRest}</p>
-        )}
-
-        {/* The numbers — takeaway stat + key findings as stat chunks */}
-        {chunks.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ fontFamily: MONO, fontSize: "0.56rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#999", marginBottom: 7 }}>The numbers</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              {chunks.map((c, i) => (
-                <div key={i} style={{ flex: "1 1 45%", minWidth: 170, background: "rgba(255,255,255,0.6)", border: "1px solid rgba(26,26,26,0.35)", padding: "12px 14px" }}>
-                  {c.num && (
-                    <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.5rem", lineHeight: 1.1, color: "#1a1a1a", marginBottom: 5, letterSpacing: "-0.01em" }}>{c.num}</div>
-                  )}
-                  <div style={{ fontSize: "0.78rem", lineHeight: 1.5, color: "#444" }}>{c.text}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {preview ? (
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ fontFamily: MONO, fontSize: "0.56rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#999", marginBottom: 7 }}>Abstract</div>
-            <p style={{ fontSize: "0.92rem", lineHeight: 1.65, color: "#333", margin: 0 }}>{preview}</p>
-          </div>
-        ) : (
-          <p style={{ fontSize: "0.88rem", color: "#999", fontStyle: "italic", marginBottom: 22 }}>No abstract available.</p>
-        )}
-
-        {paper.sourceUrl && (
-          <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "10px 16px", whiteSpace: "nowrap" }}>
-            Read the full paper ↗
-          </a>
-        )}
-      </div>
     </div>
   );
 }
@@ -462,15 +429,13 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   const allRevealed = n >= lines.length;
   // First click reveals the first source; later clicks advance through the rest.
   const anySourceRevealed = Object.keys(cardsAfter).some(k => Number(k) < n);
-  const [detail, setDetail] = useState<{ paper: PaperItem; idx: number } | null>(null);
 
-  // Match the card's color: index by paper id (reference equality broke for agent-found
-  // papers rebuilt from a different source). If it's not one of the main papers, derive a
-  // stable index from the id so the color is at least consistent per paper, never always 0.
-  const openDetail = (paper: PaperItem) => {
+  // Clicking a paper chip in the prose no longer opens an overlay — it expands
+  // that paper's card tiles and scrolls to it (each bump re-triggers the effect).
+  const [expandTicks, setExpandTicks] = useState<Record<number, number>>({});
+  const openCard = (paper: PaperItem) => {
     const i = papers.findIndex(p => p.id === paper.id);
-    const idx = i >= 0 ? i : Math.abs([...paper.id].reduce((a, c) => a + c.charCodeAt(0), 0)) % PALETTES.length;
-    setDetail({ paper, idx });
+    if (i >= 0) setExpandTicks(t => ({ ...t, [i]: (t[i] || 0) + 1 }));
   };
 
   const renderSeg = (s: Seg, i: number, lineStart: boolean) => {
@@ -479,7 +444,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     if (s.t === "i") return <em key={i}>{s.text}</em>;
     if (s.t === "term") return <TermChip key={i} text={s.text} def={s.def} />;
     const paper = papers[s.paperIdx];
-    return paper ? <PaperChip key={i} paper={paper} paperIdx={s.paperIdx} label={s.label} cap={lineStart && i === 0} onOpen={openDetail} /> : <strong key={i}>{s.label}</strong>;
+    return paper ? <PaperChip key={i} paper={paper} paperIdx={s.paperIdx} label={s.label} cap={lineStart && i === 0} onOpen={openCard} /> : <strong key={i}>{s.label}</strong>;
   };
 
   // Assemble revealed lines into paragraphs. Each paragraph is one study's block:
@@ -497,7 +462,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
         if (!papers[pi]) return;
         els.push(
           <div key={`c${pi}`} className="brief-line" style={{ margin: firstEl ? "0" : "34px 0 0" }}>
-            <PaperBlobCard paper={papers[pi]} paperIdx={pi} onOpen={openDetail} prose={k === 0 ? prose : undefined} />
+            <PaperBlobCard paper={papers[pi]} paperIdx={pi} prose={k === 0 ? prose : undefined} expandTick={expandTicks[pi]} />
           </div>
         );
         firstEl = false;
@@ -522,8 +487,8 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       <style>{`
         @keyframes briefRise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
         .brief-line { animation: briefRise 0.4s ease both; }
-        .brief-card { transition: transform .12s ease, box-shadow .12s ease; }
-        .brief-card:hover { transform: translate(-2px,-2px); box-shadow: 7px 7px 0 0 rgba(0,0,0,1) !important; }
+        .brief-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        @media (max-width: 520px) { .brief-tiles { grid-template-columns: minmax(0, 1fr); } }
         .brief-advance { transition: transform .12s ease, box-shadow .12s ease; }
         .brief-advance:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(255,0,127,1) !important; }
       `}</style>
@@ -543,8 +508,6 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       <div style={{ marginTop: 36, display: allRevealed ? undefined : "none" }}>
         <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
       </div>
-
-      {detail && <PaperDetailOverlay paper={detail.paper} paperIdx={detail.idx} onClose={() => setDetail(null)} />}
     </div>
   );
 }
