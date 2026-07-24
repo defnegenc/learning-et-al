@@ -141,3 +141,12 @@ I remember (the takeaway, in the card's loudest solid color, one sentence max).
 The PaperDetailOverlay modal was removed; a modal on top of a card duplicated
 the card's content and broke reading flow. Tile headers adapt to news sources
 ("News feature", "Key points") so news never wears a fake lab coat.
+
+**Cards state facts, the intro makes the argument (2026-07-24).** The synthesis
+bullet prose read badly inside cards — a bridge fragment ran headless into the
+bullet ("...side of the table the valuation methods study found..."). Cards now
+pair the big TLDR with a factual context line composed from methodType +
+methodFacts + year: "This was a 2026 interview study: they interviewed ten
+founders..." Composed client-side, so every past digest gets it too; the
+digest's connective argument now lives only in the intro answer paragraph and
+the closing line.
