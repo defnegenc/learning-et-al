@@ -200,3 +200,33 @@ export async function getOpenAlexRelatedWorks(
     return [];
   }
 }
+
+// "What's happened since": the most notable recent works that CITE this one.
+// Sorted by publication date so the newest follow-up work surfaces first.
+export async function getOpenAlexCitingWorks(
+  openAlexId: string,
+  limit = 8,
+): Promise<OpenAlexPaper[]> {
+  if (!openAlexId) return [];
+  try {
+    const params = new URLSearchParams({
+      filter: [`cites:${openAlexId}`, "has_abstract:true", "type:article|preprint"].join(","),
+      sort: "publication_date:desc",
+      "per-page": String(limit),
+      select: OA_SELECT,
+      mailto: OA_MAILTO,
+    });
+    const res = await oaFetch(`${OA_BASE}/works?${params}`);
+    if (!res.ok) {
+      console.log(`[OpenAlex] Citing works ${res.status} for ${openAlexId}`);
+      return [];
+    }
+    const data = await res.json();
+    return (data.results as OARawWork[] || [])
+      .filter(w => w.title && w.abstract_inverted_index)
+      .map(mapWork);
+  } catch (err) {
+    console.log(`[OpenAlex] Citing works error: ${err}`);
+    return [];
+  }
+}

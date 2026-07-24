@@ -13,6 +13,8 @@ const client = createClient({
 // they're known to have run in prod.
 const MICRO_MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN digest_paused INTEGER DEFAULT 0",
+  "ALTER TABLE papers ADD COLUMN companion TEXT",
+  "ALTER TABLE papers ADD COLUMN homework TEXT",
 ];
 let migrated: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {

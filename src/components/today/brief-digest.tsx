@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { PaperItem } from "./paper-card";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
-import { BriefThreads } from "./brief-threads";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
@@ -399,16 +398,13 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, seeds, guestAnswers, isLoggedIn, onSignIn, revealAll, endSlot }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, endSlot }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
   papers: PaperItem[];
-  digestId: string;
-  seeds: string[];
-  guestAnswers?: string[];
-  isLoggedIn: boolean;
-  onSignIn?: () => void;
+  /** Accepted for call-site compatibility; no longer read since digest-level Q&A was removed. */
+  digestId?: string;
   /** Start fully revealed (no "Next source" pacing) — used by the digest history view. */
   revealAll?: boolean;
   /** Rendered after the prose once every source is revealed (e.g. the regenerate CTA). */
@@ -547,11 +543,6 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       )}
 
       {allRevealed && endSlot}
-
-      {/* Threads mount immediately so seed preloads start, but stay hidden until the walk ends */}
-      <div style={{ marginTop: 36, display: allRevealed ? undefined : "none" }}>
-        <BriefThreads digestId={digestId} seeds={seeds} guestAnswers={guestAnswers} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
-      </div>
     </div>
   );
 }
