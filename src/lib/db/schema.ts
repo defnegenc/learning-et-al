@@ -66,6 +66,7 @@ export const digests = sqliteTable("digests", {
   framing: text("framing"),               // legacy "I pulled N sources" line — no longer generated or shown (kept for old rows)
   homeworkTopic: text("homework_topic"),  // null = standing digest; set when a homework item seeds it (homework UI ships later)
   notes: text("notes"),
+  searchQueries: text("search_queries"), // JSON string[] — queries used to find this digest's papers (query-memory for future runs)
   starred: integer("starred", { mode: "boolean" }).$default(() => false),
   hidden: integer("hidden", { mode: "boolean" }).$default(() => false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
@@ -88,6 +89,7 @@ export const papers = sqliteTable("papers", {
   category: text("category", { enum: ["foundational", "recent", "news"] }),
   year: integer("year"),
   sourceIndex: integer("source_index"),
+  openAlexId: text("open_alex_id"), // stable work ID for cross-digest dedup (title matching misses preprint/published variants)
   plainName: text("plain_name"), // plain-language name for the paper, shown on cards alongside the academic title (E)
   takeawayHook: text("takeaway_hook"), // the one surprising, repeatable sentence — the card's draw (Conversational Papers)
   takeawayStat: text("takeaway_stat"), // concrete anchor: a number or vivid fact; nullable

@@ -133,10 +133,14 @@ export async function searchOpenAlex(
       filters.push(`publication_year:${year - 2}-${year}`);
     }
 
+    // "Recent" mode sorts by relevance_score within a 2-year window, NOT by
+    // publication_year — year sorting discards OA's relevance ranking entirely
+    // and returns the newest works mentioning the query words anywhere (fulltext
+    // included), which floods the pool with loosely-related papers (audit 6.2).
     const params = new URLSearchParams({
       search: query,
       filter: filters.join(","),
-      sort: sort === "cited_by_count" ? "cited_by_count:desc" : "publication_year:desc",
+      sort: sort === "cited_by_count" ? "cited_by_count:desc" : "relevance_score:desc",
       "per-page": String(limit),
       select: OA_SELECT,
       mailto: OA_MAILTO,

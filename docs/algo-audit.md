@@ -271,3 +271,78 @@ The recent-themes constraint runs in Step 1 only. The Step-5 revise-to-fit-paper
 1. **Structure-aware novelty, enforced at the end.** Derive each recent theme's shape (leading-word class + question/statement), feed the last 7 themes + shapes into BOTH the hypothesis and Step-5 prompts ("don't reuse a shape used in the last 3 days"), and add a deterministic post-Step-5 guard: if the leading word matches ≥2 of the last 5 themes, one re-roll demanding a different shape.
 2. **Rotate an exemplar bank.** Replace the fixed examples with ~15 spanning mechanism ("Why sarcasm breaks emotion-reading AI"), scale/statement ("Concrete from mine waste, minus 90% emissions"), paradox, and how-it-works forms; sample 3-4 per run so no single register anchors generation. Fix the gist example too.
 3. **Collapse the rewrite chain.** One call generates 3 candidate themes (required different shapes); code picks the winner (novelty + length), keeping only the fit-to-papers revision. Fewer rewrites = less regression to the mode, and it saves 2-3 AI calls.
+
+---
+
+## Part 6: Sourcing Quality — 3-slot decay, relevance drift, repetition (audited 2026-07-23)
+
+User-reported symptoms: (a) digests aimed at 3 sources usually deliver 2 good ones plus filler, (b) papers are sometimes only loosely related to the theme, (c) suspicion that search structure re-surfaces the same papers.
+
+### 6.1 The "three source" fallback chain is really one source
+
+`searchPapers()` (digest.ts:59-95) returns as soon as OpenAlex yields ≥1 result. OpenAlex almost never returns zero for a 3-5 word query, so Semantic Scholar and arXiv are effectively dead code paths — every candidate pool is OpenAlex-only, with OpenAlex's specific biases (abstract coverage gaps, inverted-index reconstruction). There is no blending or union; "priority chain" in practice means "OpenAlex".
+
+### 6.2 OpenAlex relevance ranking is thrown away — candidates are "newest match", not "best match"
+
+Main-path queries use `sort: "publicationDate"` (digest.ts:448), which becomes `sort=publication_year:desc` in `open-alex.ts:139` with a 2-year window. Two consequences:
+
+1. **Relevance is discarded.** OpenAlex computes a relevance score for `search=` queries, but sorting by year overrides it. The top 10 are the *most recently indexed* works that mention the query words anywhere (OA `search` matches title+abstract+fulltext) — this is the single biggest driver of loosely-related candidates. The embedding gate downstream then has to salvage a pool that was never relevance-ranked.
+2. **Year granularity means near-deterministic windows.** `publication_year` sorts at year resolution; within 2026 the tie-break is stable, so a similar query on consecutive days returns nearly the same top-10 until new works are indexed. Combined with 6.5 this drives repetition.
+
+**Fix direction:** fetch with `sort=relevance_score:desc` and keep the 2-year `publication_year` *filter* for freshness, or fetch 25 by relevance and re-rank by recency locally.
+
+### 6.3 Relevance is measured against the wrong text: the punchy headline
+
+Qualification (digest.ts:493-497) embeds the **theme** — which by design is ≤8 words, jargon-free, metaphorical ("The death of the expert") — and compares it to jargon-dense abstracts using all-MiniLM-L6-v2 (already flagged in 2.1 as weak at cross-vocabulary matching). BM25 is scored against the same 8-word headline. So the gate systematically:
+- **Under-scores good papers** (vocabulary mismatch → strong papers land at 0.15-0.25 → cascade falls to weak thresholds → theme retries fire → "too strict" symptom), and
+- **Over-scores bad papers** that share surface words with the headline.
+
+The search queries (LLM-written, domain-vocabulary) are a much better relevance anchor than the theme, but they're never used for scoring — only for retrieval. **Fix direction:** score each candidate against its *originating search query* embedding (or max over the 3 queries), and use the theme only for the LLM re-rank, which is the step actually equipped to judge "tool to think with" quality.
+
+### 6.4 The third slot is structurally the pollution slot
+
+The default mix is 2 papers + 1 news, and every path that fills slot 3 uses degraded standards:
+- **News gate:** cosine > 0.15 on a 1-2 sentence snippet (digest.ts:696) — near the model's noise floor; `isNewsRelevant` word-guard applies only to the RSS fallback, not the primary web path (Known Issue #6).
+- **Fill passes 1-3** (digest.ts:731-800): thresholds relax to 0.18 → 0.15 → 0.15, explicitly "accept anything somewhat related".
+- **Broad news fill** (digest.ts:813): 0.10 — indistinguishable from noise.
+- **Re-rank drop** (digest.ts:910-915): when the third item scores relevance=1 with no replacement, it's dropped → 2 sources.
+
+Meanwhile the upgrade to 3 papers requires **3 papers above 0.25 vs the headline** (digest.ts:573) — rare precisely because of 6.3. Net effect: the system is simultaneously too strict where it counts (qualifying a third *paper*) and too lenient where it shouldn't be (backfilling slot 3 with weak news/fill). Fixing 6.2+6.3 raises measured sims for genuinely good papers, which flips more digests into the 3-paper path and starves the lenient fill paths.
+
+### 6.5 Dedup is exact-title-only; no ID-based identity
+
+Every dedup set (`seenSearchTitles`, `seenPaperTitles`, `seenTitles`) keys on `title.toLowerCase()`. Misses:
+- Same work with title variants (arXiv preprint vs published version, subtitle/punctuation/casing-in-unicode differences, trailing periods).
+- `openAlexId` is fetched and mapped (open-alex.ts:88) but never stored on digest papers or used for dedup.
+- The 30-day window means a paper legitimately reappears on day 31 even if the user just read it.
+
+**Fix direction:** persist `openAlexId`/DOI with each saved paper and dedup on ID first, normalized title second; consider "seen ever" for papers actually shown to the user (they're in the vault — repetition of *shown* papers has no statute of limitations).
+
+### 6.6 Query generation has no memory, so retrieval re-treads the same ground
+
+Interest rotation penalizes *interests* and theme novelty compares *theme words*, but nothing tracks the **search queries** themselves. Similar interests → the LLM writes near-identical 3-5 word queries day after day → same OpenAlex window (6.2.2) → same candidates, filtered only by title dedup. Fill pass 2 is worse: it searches the bare `focusInterest` string sorted by date (digest.ts:759) — a fixed query per interest returning a nearly fixed result set each run.
+
+**Fix direction:** store the 3 queries per digest; pass the last ~10 queries into the hypothesis prompt ("don't re-search these"); add a random OpenAlex page offset or `sample` parameter as cheap diversification.
+
+### 6.7 Doc drift: theme novelty is word-overlap, not embedding
+
+`algorithm.md` (Step 1) says themes are "embedded and compared to last 5 themes, similarity >0.5". The code (digest.ts:361-387) actually does a ≥2 non-stop-word overlap check. The doc describes a better system than what exists (and Part 5.2 already flagged the word check as too weak).
+
+### Recommended fixes (priority order)
+
+1. **Sort OpenAlex by relevance, filter by year** (6.2) — one-line change with the largest expected relevance gain; likely also reduces repetition (relevance ordering varies with query wording; year ordering doesn't).
+2. **Score candidates against their search query, not the headline** (6.3) — realigns the whole threshold cascade; expect fewer theme retries and more 3-paper digests.
+3. **ID-based + normalized-title dedup, "seen ever" for shown papers** (6.5).
+4. **Query memory in the hypothesis prompt + kill the bare-interest fill query** (6.6).
+5. **Tighten slot 3:** apply `isNewsRelevant` to the primary news path; drop the 0.10 broad-news fill to a floor consistent with the rest (≥0.15 + word guard) and prefer honest 2-source digests (6.4).
+6. **Consider a true multi-source union** (OpenAlex ∪ S2 top-5 each, ID-dedup) only after 1-2 land — it's the smallest win of the set (6.1).
+
+### Part 6 implementation status (2026-07-23)
+
+Fixes 1-5 shipped the same day as the audit: OpenAlex `relevance_score:desc` sort (6.2), `relSim = max(theme, originating query)` scoring + BM25 over theme+queries (6.3), `open_alex_id` + normalized-title dedup across ALL past digests (6.5), query memory via `digests.search_queries` + varied broad-fill query (6.6), word guard on primary news + broad-news floor 0.10 → 0.15 (6.4). Also fixed the brief-card duplicate stat chunk. NOT done: multi-source union (6.1, deliberately deferred) and the 6.7 doc drift is now documented honestly in algorithm.md rather than changed to embeddings.
+
+DB migration (run on local sqlite AND Turso prod):
+```sql
+ALTER TABLE digests ADD COLUMN search_queries TEXT;
+ALTER TABLE papers ADD COLUMN open_alex_id TEXT;
+```
