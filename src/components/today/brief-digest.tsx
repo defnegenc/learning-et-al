@@ -201,15 +201,16 @@ function emphasize(text: string): React.ReactNode[] {
   );
 }
 
-// Collapsed headline for a finding row: the **bolded** phrase when the pipeline
-// marked one, otherwise the first few words. Rows whose headline IS the whole
-// finding don't expand.
-function findingHeadline(f: string): { head: string; expandable: boolean } {
-  const plain = f.replace(/\*\*/g, "").trim();
-  const bold = f.match(/\*\*(.+?)\*\*/)?.[1]?.trim();
-  if (bold && bold.length < plain.length - 8) return { head: bold, expandable: true };
-  if (plain.length > 64) return { head: plain.slice(0, 56).replace(/\s+\S*$/, "") + "…", expandable: true };
-  return { head: plain, expandable: false };
+// Older digests stored method details as lower-case fragments. Present them as
+// proper sentences so the expanded card reads like editorial copy.
+function readableMethodFact(fact: string): string {
+  const clean = fact
+    .replace(/^[-–—•]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  const sentence = clean.charAt(0).toUpperCase() + clean.slice(1);
+  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
 }
 
 const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 7 };
@@ -258,8 +259,6 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
   // full-width TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
   // everything about a source lives on its card.
   const [expanded, setExpanded] = useState(false);
-  // Which finding rows are unfolded (collapsed rows show just the headline phrase)
-  const [openFindings, setOpenFindings] = useState<number[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   // A paper-chip click in the prose bumps expandTick → open the tiles and scroll
   // here. Expansion is adjusted during render (not in the effect) so the scroll
@@ -334,15 +333,22 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
             <div style={{ marginTop: 12 }}>
               {(tileCount > 0 || hasMethod) && (
                 <div className="brief-tiles" style={{ marginBottom: 14 }}>
-                  {/* METHOD — same heading/body hierarchy as every other tile */}
+                  {/* METHOD — type plus readable, sentence-cased details */}
                   {hasMethod && (
-                    <BriefTile heading={paper.methodType || "Method"} background={`${c2}99`}>
+                    <BriefTile heading="How they studied it" background={`${c2}99`}>
+                      {paper.methodType && (
+                        <div style={{ fontWeight: 700, marginBottom: methodFacts.length > 0 ? 9 : 0 }}>
+                          {readableMethodFact(paper.methodType)}
+                        </div>
+                      )}
                       {methodFacts.length > 0
-                        ? methodFacts.map((fact, i) => (
-                            <div key={i} style={{ marginTop: i === 0 ? 0 : 7 }}>
-                              {emphasize(fact)}
-                            </div>
-                          ))
+                        ? (
+                          <ul style={{ margin: 0, paddingLeft: "1.15em", display: "grid", gap: 5 }}>
+                            {methodFacts.map((fact, i) => (
+                              <li key={i}>{emphasize(readableMethodFact(fact))}</li>
+                            ))}
+                          </ul>
+                        )
                         : "Method details not provided."}
                     </BriefTile>
                   )}
@@ -352,26 +358,14 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
                       {emphasize(claim)}
                     </BriefTile>
                   )}
-                  {/* FINDINGS — expandable rows inside the shared tile shell */}
+                  {/* FINDINGS — full-width and immediately readable */}
                   {findings.length > 0 && (
-                    <BriefTile heading={isNews ? "Key points" : "Findings"}>
-                      {findings.map((f, i) => {
-                        const { head, expandable } = findingHeadline(f);
-                        const open = !expandable || openFindings.includes(i);
-                        return (
-                          <div
-                            key={i}
-                            role={expandable ? "button" : undefined}
-                            onClick={expandable ? () => setOpenFindings(v => v.includes(i) ? v.filter(x => x !== i) : [...v, i]) : undefined}
-                            style={{ display: "flex", gap: 6, ...TILE_BODY, marginTop: i === 0 ? 0 : 7, cursor: expandable ? "pointer" : undefined }}
-                          >
-                            <span style={{ flexShrink: 0, transform: open && expandable ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▸</span>
-                            {open
-                              ? <span>{emphasize(f)}</span>
-                              : <span style={{ fontWeight: 700 }}>{head}</span>}
-                          </div>
-                        );
-                      })}
+                    <BriefTile heading={isNews ? "Key points" : "Findings"} fullWidth>
+                      <ul style={{ margin: 0, paddingLeft: "1.15em", display: "grid", gap: 9 }}>
+                        {findings.map((finding, i) => (
+                          <li key={i}>{emphasize(finding)}</li>
+                        ))}
+                      </ul>
                     </BriefTile>
                   )}
                   {/* TAKEAWAY — same type hierarchy, with color carrying emphasis */}
