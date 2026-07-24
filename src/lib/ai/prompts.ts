@@ -104,7 +104,7 @@ TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just r
 
 METHOD RULES (per paper) — what this IS and how they did it:
 - methodType: the KIND of thing this is, 1-3 plain words a non-reader instantly gets. Papers: "Randomized trial", "Field study", "Survey", "Lab experiment", "Math proof", "Meta-analysis", "Simulation", "Case study", "Opinion piece", "Review". News: "News feature", "Interview", "Investigation", "Opinion piece". Pick what fits — don't force a paper label onto news.
-- methodFacts: 2-3 SHORT fragments describing HOW they did it, each MAX 6 words, numbers first when there is one: "62 participants", "two-week experiment", "1,204 survey responses", "self-reported data", "mouse model". No number needed — "formal mathematical proof" is a fine fact. NEVER invent numbers; if the abstract gives no method detail, return fewer facts or [].
+- methodFacts: 2-3 short, complete sentences describing HOW they did it, each MAX 12 words. Use natural, plain English and sentence case: "They interviewed 62 participants." "The experiment lasted two weeks." "Participants reported their own symptoms." NEVER invent numbers; if the abstract gives no method detail, return fewer facts or [].
 - claim: the ONE thing this source is arguing or showing, one plain declarative sentence (MAX 20 words). Not a finding with numbers — the position. e.g. "Spaced practice beats cramming even when total study time is identical."
 
 PLAIN NAME RULES (per paper):
