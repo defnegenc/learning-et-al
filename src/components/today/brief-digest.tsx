@@ -201,19 +201,13 @@ function emphasize(text: string): React.ReactNode[] {
   );
 }
 
-// Older digests stored method details as lower-case fragments. Present them as
-// proper sentences so the expanded card reads like editorial copy.
-function readableMethodFact(fact: string): string {
-  const clean = fact
-    .replace(/^[-–—•]\s*/, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!clean) return "";
-  const sentence = clean.charAt(0).toUpperCase() + clean.slice(1);
-  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+// Some older digests stored detail copy with a lower-case first word. Capitalize
+// the first visible character without otherwise rewriting the generated text.
+function startCap(text: string): string {
+  return text.replace(/[A-Za-z]/, (letter) => letter.toUpperCase());
 }
 
-const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 7 };
+const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 10 };
 // One explicit body style for every tile. Claim, findings, and takeaway now use
 // the same Apercu face, size, weight, and rhythm regardless of their content.
 const TILE_BODY: React.CSSProperties = {
@@ -242,7 +236,7 @@ function BriefTile({
       style={{
         background,
         border: "1.5px solid #1a1a1a",
-        padding: "12px 14px",
+        padding: "15px 16px 16px",
         gridColumn: fullWidth ? "1 / -1" : undefined,
       }}
     >
@@ -255,8 +249,8 @@ function BriefTile({
 function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperItem; paperIdx: number; prose?: React.ReactNode; expandTick?: number }) {
   // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
   // sentence as the big bold TLDR; the digest's explanation prose; then "See more"
-  // reveals a method chip row, THE CLAIM + FINDINGS tiles, and a solid-palette
-  // full-width TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
+  // reveals THE CLAIM + FINDINGS side by side and a solid-palette full-width
+  // TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
   // everything about a source lives on its card.
   const [expanded, setExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -271,7 +265,7 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
   useEffect(() => {
     if (expandTick) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [expandTick]);
-  const [c1, c2] = PALETTES[paperIdx % PALETTES.length];
+  const [c1] = PALETTES[paperIdx % PALETTES.length];
   const body = (paper.summary || paper.abstract || "").trim();
   const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? (body ? [body] : []);
   const hero = sentences[0] || "";
@@ -282,15 +276,13 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
   const byline = [authors, paper.year ? String(paper.year) : ""].filter(Boolean).join(" · ");
 
   // Every expanded detail uses the same tile component and type hierarchy.
-  // Older digests miss methodType/claim — only what exists renders. Takeaway is
-  // capped at one sentence.
+  // Older digests can miss claim or findings, so only what exists renders.
+  // Takeaway is capped at one sentence.
   const isNews = paper.source === "rss";
-  const methodFacts = (paper.methodFacts ?? []).slice(0, 3);
   const claim = (paper.claim || paper.takeawayHook || "").trim();
   const findings = (paper.keyFindings ?? []).slice(0, 3);
   const takeawayFull = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
   const takeaway = takeawayFull.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || takeawayFull;
-  const hasMethod = !!(paper.methodType || methodFacts.length);
   const tileCount = [!!claim, findings.length > 0, !!takeaway].filter(Boolean).length;
 
   return (
@@ -320,8 +312,8 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
         <div style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333" }}>{prose}</div>
       )}
 
-      {/* See more → method chips, then themed tiles (claim + findings / takeaway) + Read paper */}
-      {(tileCount > 0 || hasMethod || paper.sourceUrl) && (
+      {/* See more → claim + findings, takeaway, and Read paper */}
+      {(tileCount > 0 || paper.sourceUrl) && (
         <div>
           <button
             onClick={() => setExpanded(v => !v)}
@@ -331,39 +323,22 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
           </button>
           {expanded && (
             <div style={{ marginTop: 12 }}>
-              {(tileCount > 0 || hasMethod) && (
+              {tileCount > 0 && (
                 <div className="brief-tiles" style={{ marginBottom: 14 }}>
-                  {/* METHOD — type plus readable, sentence-cased details */}
-                  {hasMethod && (
-                    <BriefTile heading="How they studied it" background={`${c2}99`}>
-                      {paper.methodType && (
-                        <div style={{ fontWeight: 700, marginBottom: methodFacts.length > 0 ? 9 : 0 }}>
-                          {readableMethodFact(paper.methodType)}
-                        </div>
-                      )}
-                      {methodFacts.length > 0
-                        ? (
-                          <ul style={{ margin: 0, paddingLeft: "1.15em", display: "grid", gap: 5 }}>
-                            {methodFacts.map((fact, i) => (
-                              <li key={i}>{emphasize(readableMethodFact(fact))}</li>
-                            ))}
-                          </ul>
-                        )
-                        : "Method details not provided."}
-                    </BriefTile>
-                  )}
-                  {/* THE CLAIM — what they're arguing, plainly */}
+                  {/* THE CLAIM — top-left, presented as one clean bullet */}
                   {claim && (
                     <BriefTile heading="The claim" background={`${c1}99`}>
-                      {emphasize(claim)}
+                      <ul className="brief-tile-list">
+                        <li>{emphasize(startCap(claim))}</li>
+                      </ul>
                     </BriefTile>
                   )}
-                  {/* FINDINGS — full-width and immediately readable */}
+                  {/* FINDINGS — top-right, aligned with the claim */}
                   {findings.length > 0 && (
-                    <BriefTile heading={isNews ? "Key points" : "Findings"} fullWidth>
-                      <ul style={{ margin: 0, paddingLeft: "1.15em", display: "grid", gap: 9 }}>
+                    <BriefTile heading={isNews ? "Key points" : "Findings"}>
+                      <ul className="brief-tile-list">
                         {findings.map((finding, i) => (
-                          <li key={i}>{emphasize(finding)}</li>
+                          <li key={i}>{emphasize(startCap(finding))}</li>
                         ))}
                       </ul>
                     </BriefTile>
@@ -371,7 +346,7 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
                   {/* TAKEAWAY — same type hierarchy, with color carrying emphasis */}
                   {takeaway && (
                     <BriefTile heading="Takeaway" background={c1} fullWidth>
-                      {emphasize(takeaway)}
+                      {emphasize(startCap(takeaway))}
                     </BriefTile>
                   )}
                 </div>
@@ -532,7 +507,10 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       <style>{`
         @keyframes briefRise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
         .brief-line { animation: briefRise 0.4s ease both; }
-        .brief-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .brief-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+        .brief-tile-list { margin: 0; padding-left: 1.15rem; display: grid; gap: 10px; }
+        .brief-tile-list li { padding-left: 0.2rem; }
+        .brief-tile-list li::marker { font-size: 0.75em; }
         @media (max-width: 520px) { .brief-tiles { grid-template-columns: minmax(0, 1fr); } }
         .brief-advance { transition: transform .12s ease, box-shadow .12s ease; }
         .brief-advance:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(255,0,127,1) !important; }
