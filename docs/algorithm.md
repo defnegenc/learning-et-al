@@ -118,6 +118,7 @@ LLM sees actual papers (600 chars of abstract each) and conditionally revises th
 - **Keep** the original theme if all papers genuinely fit it — prevents the theme from being warped to accommodate a loosely-related paper that should have been cut.
 - **Revise** if the papers collectively suggest a different, better-fitting angle.
 - Max 8 words, punchy magazine-cover energy.
+- Prefers a twist (reversal, tension, unexpected angle) over a plain question — but a **coherence guard** (hard rule in both the hypothesis and revise prompts) requires the twist to make literal sense to someone who hasn't read the papers. Comprehension beats cleverness; fall back to the plain accurate question rather than ship a riddle. (User feedback, July 2026.)
 - Returns `kept_original: true|false` for logging.
 
 ### Step 6: Multi-Stage Synthesis (AI calls 7-13)
