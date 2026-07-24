@@ -1,11 +1,10 @@
 import { db } from "@/lib/db";
-import { digests, papers, interests, users } from "@/lib/db/schema";
+import { digests, papers, interests } from "@/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { searchOpenAlex } from "@/lib/fetchers/open-alex";
-import { fetchRssArticles } from "@/lib/fetchers/rss";
-import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
+import { fetchArticleText } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
@@ -255,13 +254,12 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   if (candidateInterests.length === 0) throw new Error("No interests found. Add some first.");
   console.log(`[Digest] Candidate interests: [${candidateInterests.map(i => i.keyword).join(", ")}]`);
 
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  // Dynamic paper:news ratio — starts at 2+1, adjusted after scoring (audit 4.4)
-  // Will be recalculated after we know how many high-quality papers exist
-  let targetPapers = 2;
-  let targetNews = 1;
-  const TOTAL_ITEMS = 3;
-  console.log(`[Digest] Initial target: ${targetPapers} papers, ${targetNews} news`);
+  // Three is a ceiling, not a quota. Select up to three papers together under
+  // the same relevance gate; if only two genuinely fit, ship two. A news item
+  // may still rescue a one-source digest, but is never appended as filler.
+  const MIN_ITEMS = 2;
+  const MAX_ITEMS = 3;
+  console.log(`[Digest] Target: ${MIN_ITEMS}-${MAX_ITEMS} jointly selected sources`);
 
   // ─── Step 1: Generate today's central question ──────────────────────────────
   // The LLM picks 1-3 interests and frames a catchy "wow factor" question.
@@ -336,13 +334,11 @@ Return JSON only (no markdown):
     "academic search query 2 (different angle, 3-5 words)",
     "academic search query 3 (applied/real-world angle, 3-5 words)"
   ],
-  "newsQuery": "2-4 keywords for a real-world news story on this theme",
   "focusFields": ["primary academic field", "secondary field if cross-domain, omit if single-domain"]
 }`;
 
   let theme = candidateInterests[0].keyword;
   let searchQueries: string[] = [candidateInterests[0].keyword];
-  let newsQuery = candidateInterests[0].keyword;
   let focusFields: string[] = [candidateInterests[0].field || "Computer Science"];
   let selectedInterestKeywords: string[] = [candidateInterests[0].keyword];
 
@@ -353,12 +349,11 @@ Return JSON only (no markdown):
       "You generate surprising, curiosity-provoking central questions for a daily research digest. Return only JSON.",
       hypothesisPrompt
     );
-    type HypothesisResult = { theme?: string; searchQueries?: string[]; newsQuery?: string; focusFields?: string[]; focusField?: string; selectedInterests?: string[] };
+    type HypothesisResult = { theme?: string; searchQueries?: string[]; focusFields?: string[]; focusField?: string; selectedInterests?: string[] };
     const parsed = extractJson<HypothesisResult>(hypothesisResp);
     if (!parsed) throw new Error("No JSON in hypothesis response");
     if (parsed.theme) theme = parsed.theme;
     if (parsed.searchQueries && parsed.searchQueries.length > 0) searchQueries = parsed.searchQueries;
-    if (parsed.newsQuery) newsQuery = parsed.newsQuery;
     if (parsed.focusFields && parsed.focusFields.length > 0) {
       focusFields = parsed.focusFields;
     } else if (parsed.focusField) {
@@ -400,13 +395,12 @@ Return JSON only (no markdown):
         try {
           const noveltyResp = await aiComplete(aiConfig,
             "You generate surprising research questions. Return only JSON.",
-            `This theme is too similar to a recent one. Generate a COMPLETELY DIFFERENT angle — different TOPIC, not just different phrasing.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat any of these topics): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n\nReturn JSON: {"theme": "fresh angle MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+            `This theme is too similar to a recent one. Generate a COMPLETELY DIFFERENT angle — different TOPIC, not just different phrasing.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat any of these topics): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n\nReturn JSON: {"theme": "fresh angle MAX 8 WORDS", "searchQueries": ["q1","q2","q3"]}`
           );
-          const noveltyParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(noveltyResp);
+          const noveltyParsed = extractJson<{ theme?: string; searchQueries?: string[] }>(noveltyResp);
           if (noveltyParsed?.theme) {
             theme = noveltyParsed.theme;
             if (noveltyParsed.searchQueries && noveltyParsed.searchQueries.length > 0) searchQueries = noveltyParsed.searchQueries;
-            if (noveltyParsed.newsQuery) newsQuery = noveltyParsed.newsQuery;
             console.log(`[Digest] Fresh theme: "${theme}"`);
           }
         } catch { /* keep original if novelty retry fails */ }
@@ -440,13 +434,12 @@ Return JSON only (no markdown):
     try {
       const retryResp = await aiComplete(aiConfig,
         "You generate surprising research questions. Return only JSON.",
-        `The theme "${theme}" didn't find enough academic papers. Generate a COMPLETELY DIFFERENT theme that is more likely to have published research.\n\nInterests: ${interestList}\nFailed themes (avoid these topics entirely): ${[theme].join(", ")}\n\nPick a concrete, researchable angle — not abstract philosophy. "How does X affect Y?" finds papers. "Do machines dream?" does not.\n\nReturn JSON: {"theme": "MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords", "focusFields": ["field1"]}`
+        `The theme "${theme}" didn't find enough academic papers. Generate a COMPLETELY DIFFERENT theme that is more likely to have published research.\n\nInterests: ${interestList}\nFailed themes (avoid these topics entirely): ${[theme].join(", ")}\n\nPick a concrete, researchable angle — not abstract philosophy. "How does X affect Y?" finds papers. "Do machines dream?" does not.\n\nReturn JSON: {"theme": "MAX 8 WORDS", "searchQueries": ["q1","q2","q3"], "focusFields": ["field1"]}`
       );
-      const retryParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string; focusFields?: string[] }>(retryResp);
+      const retryParsed = extractJson<{ theme?: string; searchQueries?: string[]; focusFields?: string[] }>(retryResp);
       if (retryParsed?.theme) {
         theme = retryParsed.theme;
         if (retryParsed.searchQueries && retryParsed.searchQueries.length > 0) searchQueries = retryParsed.searchQueries;
-        if (retryParsed.newsQuery) newsQuery = retryParsed.newsQuery;
         if (retryParsed.focusFields && retryParsed.focusFields.length > 0) focusFields = retryParsed.focusFields;
         console.log(`[Digest] New theme: "${theme}"`);
       }
@@ -609,17 +602,6 @@ Return JSON only (no markdown):
     throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
   }
 
-  // Dynamic item count: only upgrade to all-papers when we have abundant strong matches.
-  // Never downgrade paper slots to news — the fill passes find additional papers via
-  // progressive threshold relaxation, and news rarely improves digest quality.
-  const strongPapers = scored.filter(({ relSim }) => relSim > SIM_ONTOPIC).length;
-  if (strongPapers >= 3) {
-    targetPapers = TOTAL_ITEMS;
-    targetNews = 0;
-    console.log(`[Digest] Dynamic: ${strongPapers} strong papers → all-papers (${targetPapers}p+${targetNews}n)`);
-  }
-  // Otherwise keep default 2+1 — fill passes will find papers at lower thresholds
-
   // ─── Wide pool + LLM selection for complementarity ──────────────────────────
   // Select a WIDER pool (~6) via MMR for diversity, then let the LLM pick the
   // best subset for complementarity. Embeddings find relevance, but only the
@@ -670,11 +652,12 @@ Return JSON only (no markdown):
   if (widePool.length === 0) {
     console.log(`[Digest] Wide pool empty — no papers passed threshold. Fill passes will try broader search.`);
     items = [];
-  } else if (widePool.length <= targetPapers) {
+  } else if (widePool.length < MIN_ITEMS) {
     items = widePool;
-    console.log(`[Digest] Wide pool has only ${widePool.length} papers, using all`);
+    console.log(`[Digest] Wide pool has only ${widePool.length} paper, using it while seeking a second source`);
   } else {
-    console.log(`[Digest] LLM selecting best ${targetPapers} from ${widePool.length} candidates for complementarity...`);
+    const desiredCount = Math.min(MAX_ITEMS, widePool.length);
+    console.log(`[Digest] LLM selecting up to ${desiredCount} from ${widePool.length} candidates for relevance and complementarity...`);
     try {
       const selectionResp = await aiComplete(
         aiConfig,
@@ -682,29 +665,30 @@ Return JSON only (no markdown):
         selectionSkeletonPrompt(
           widePool.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year })),
           theme,
-          targetPapers
+          desiredCount
         )
       );
       const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreInsight?: string }>(selectionResp);
       if (selection) {
         const indices: number[] = selection.selectedIndices || [];
-        if (indices.length >= 2) {
-          items = indices
-            .filter((i: number) => i >= 1 && i <= widePool.length)
-            .map((i: number) => widePool[i - 1]);
+        const validIndices = [...new Set(indices)]
+          .filter((i: number) => i >= 1 && i <= widePool.length)
+          .slice(0, MAX_ITEMS);
+        if (validIndices.length >= MIN_ITEMS) {
+          items = validIndices.map((i: number) => widePool[i - 1]);
           console.log(`[Digest] LLM selected ${items.length} papers: ${selection.selectionReasoning || ""}`);
           console.log(`[Digest] Tension: ${selection.coreInsight || "none identified"}`);
         } else {
-          items = widePool.slice(0, targetPapers);
-          console.log(`[Digest] LLM returned too few indices, using top ${targetPapers}`);
+          items = widePool.slice(0, desiredCount);
+          console.log(`[Digest] LLM returned fewer than ${MIN_ITEMS} valid indices, using top ${desiredCount}`);
         }
       } else {
-        items = widePool.slice(0, targetPapers);
-        console.log(`[Digest] Selection parse failed, using top ${targetPapers}`);
+        items = widePool.slice(0, desiredCount);
+        console.log(`[Digest] Selection parse failed, using top ${desiredCount}`);
       }
     } catch (err) {
-      items = widePool.slice(0, targetPapers);
-      console.log(`[Digest] Selection LLM failed (${err}), using top ${targetPapers}`);
+      items = widePool.slice(0, desiredCount);
+      console.log(`[Digest] Selection LLM failed (${err}), using top ${desiredCount}`);
     }
   }
 
@@ -714,79 +698,19 @@ Return JSON only (no markdown):
     .split(/\s+/)
     .filter(w => w.length > 3 && !STOP_WORDS.has(w));
 
-  // ─── Step 4: Fill remaining slots (news and/or papers) ───────────────────────
-  const newsNeeded = targetNews;
-
-  // Find news items if needed
-  if (newsNeeded > 0) {
-    const currentSearchYear = new Date().getFullYear();
-    const newsSearchTerms = `${newsQuery} ${focusInterest} ${currentSearchYear - 1} ${currentSearchYear}`;
-    console.log(`[Digest] Step 4: finding ${newsNeeded} news via web search: "${newsSearchTerms}"`);
-    const webResults = await webSearch(newsSearchTerms, newsNeeded * 3);
-
-    const newsTexts = webResults.map(r => `${r.title}. ${r.snippet}`);
-    const newsEmbs = newsTexts.length > 0 ? await embedBatch(newsTexts) : [];
-    const scoredNews = webResults
-      .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, newsEmbs[i]) }))
-      .filter(({ result }) => !isListicle(result.title, result.source))
-      .filter(({ result }) => !isAcademicDomain(result.link))
-      .filter(({ result }) => !seenTitles.has(normTitle(result.title)))
-      .sort((a, b) => b.sim - a.sim);
-
-    let newsFound = 0;
-    for (const { result, sim } of scoredNews) {
-      if (newsFound >= newsNeeded) break;
-      if (sim < 0.15) continue;
-      // Word-guard on top of embedding sim — snippets are 1-2 sentences, where
-      // cosine 0.15 is near the noise floor (audit 6.4). Better a 2-source digest
-      // than a third slot with garbage news.
-      if (!isNewsRelevant({ title: result.title, abstract: result.snippet }, themeWords, focusInterest)) {
-        console.log(`[Digest] News rejected by word guard: "${result.title.slice(0, 60)}"`);
-        continue;
-      }
-      const articleText = await fetchArticleText(result.link);
-      const abstract = articleText.length > 200 ? articleText : result.snippet;
-      items.push({
-        title: result.title, authors: [result.source],
-        abstract, sourceUrl: result.link,
-        source: "rss", category: "news", year: new Date().getFullYear(),
-      });
-      seenTitles.add(normTitle(result.title));
-      console.log(`[Digest] News ${newsFound + 1}/${newsNeeded}: "${result.title}" (sim ${sim.toFixed(2)})`);
-      newsFound++;
-    }
-
-    // RSS fallback for remaining news slots
-    if (newsFound < newsNeeded) {
-      const newsTerms = newsQuery.split(/\s+/).slice(0, 3);
-      const rss = await fetchRssArticles(newsTerms, 10, focusFields[0]);
-      for (const article of rss) {
-        if (newsFound >= newsNeeded) break;
-        if (seenTitles.has(normTitle(article.title))) continue;
-        if (isNewsRelevant(article, themeWords, focusInterest)) {
-          const articleText = await fetchArticleText(article.sourceUrl);
-          const abstract = articleText.length > 200 ? articleText : article.abstract;
-          items.push({ ...article, abstract, source: "rss", category: "news", year: new Date().getFullYear() });
-          seenTitles.add(normTitle(article.title));
-          newsFound++;
-        }
-      }
-    }
-
-    console.log(`[Digest] Found ${newsFound}/${newsNeeded} news items`);
-  }
-
-  // Fill remaining slots — progressively relax constraints to guarantee TOTAL_ITEMS
-  // Pass 1: use third search query with moderate threshold
-  if (items.length < TOTAL_ITEMS) {
-    console.log(`[Digest] Filling ${TOTAL_ITEMS - items.length} remaining slot(s)...`);
+  // ─── Step 4: Rescue a digest with fewer than two sources ─────────────────────
+  // These searches exist only to reach the viable minimum. They must never append
+  // a cosmetic third source after the joint selector has chosen two.
+  // Pass 1: use third search query with moderate threshold.
+  if (items.length < MIN_ITEMS) {
+    console.log(`[Digest] Seeking ${MIN_ITEMS - items.length} source(s) to reach the minimum...`);
     await delay(500);
     const fillQuery = searchQueries[2] || `${focusInterest} applications`;
     const fillResults = await searchPapers(fillQuery, 10, "citationCount", focusFields[0]);
     const fillEmbs = await embedBatch(fillResults.map(paperText));
     const fillQueryEmb = await embedText(fillQuery);
     for (let fi = 0; fi < fillResults.length; fi++) {
-      if (items.length >= TOTAL_ITEMS) break;
+      if (items.length >= MIN_ITEMS) break;
       const paper = fillResults[fi];
       if (seenTitles.has(normTitle(paper.title))) continue;
       if (paper.openAlexId && seenOpenAlexIds.has(paper.openAlexId)) continue;
@@ -804,9 +728,9 @@ Return JSON only (no markdown):
     }
   }
 
-  // Pass 2: broad search on focus interest, no field filter, lowest threshold
-  if (items.length < TOTAL_ITEMS) {
-    console.log(`[Digest] Still ${items.length}/${TOTAL_ITEMS}, broad fill without field filter...`);
+  // Pass 2: broad search on focus interest, no field filter.
+  if (items.length < MIN_ITEMS) {
+    console.log(`[Digest] Still ${items.length}/${MIN_ITEMS}, broad search without field filter...`);
     await delay(500);
     // Vary the broad query with theme words — the bare interest string returned a
     // nearly fixed result set every run (audit 6.6)
@@ -815,7 +739,7 @@ Return JSON only (no markdown):
     const broadEmbs = await embedBatch(broadResults.map(paperText));
     const broadQueryEmb = await embedText(broadQuery);
     for (let bi = 0; bi < broadResults.length; bi++) {
-      if (items.length >= TOTAL_ITEMS) break;
+      if (items.length >= MIN_ITEMS) break;
       const paper = broadResults[bi];
       if (seenTitles.has(normTitle(paper.title))) continue;
       if (paper.openAlexId && seenOpenAlexIds.has(paper.openAlexId)) continue;
@@ -835,13 +759,13 @@ Return JSON only (no markdown):
   }
 
   // Pass 3: search using the theme itself as query (last resort)
-  if (items.length < TOTAL_ITEMS) {
-    console.log(`[Digest] Still ${items.length}/${TOTAL_ITEMS}, searching with theme text...`);
+  if (items.length < MIN_ITEMS) {
+    console.log(`[Digest] Still ${items.length}/${MIN_ITEMS}, searching with theme text...`);
     await delay(300);
     const themeResults = await searchPapers(theme, 10, "publicationDate", undefined);
     const themeResultEmbs = await embedBatch(themeResults.map(paperText));
     for (let ti = 0; ti < themeResults.length; ti++) {
-      if (items.length >= TOTAL_ITEMS) break;
+      if (items.length >= MIN_ITEMS) break;
       const paper = themeResults[ti];
       if (seenTitles.has(normTitle(paper.title))) continue;
       if (paper.openAlexId && seenOpenAlexIds.has(paper.openAlexId)) continue;
@@ -892,7 +816,7 @@ Return JSON only (no markdown):
   if (items.length === 0) {
     throw new Error(`Couldn't find any relevant content for "${theme}". Try regenerating or add more interests.`);
   }
-  console.log(`[Digest] ${items.length} items ready (target was ${TOTAL_ITEMS}).`);
+  console.log(`[Digest] ${items.length} items ready (allowed range ${MIN_ITEMS}-${MAX_ITEMS}).`);
 
   // ─── Step 4b: LLM re-ranking — score papers as "tools to think with" ─────────
   // Embedding similarity finds topically related papers, but the product goal is
@@ -940,8 +864,20 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
         const { scores } = rerankParsed;
         if (scores && scores.length > 0) {
           // Process worst papers first (by combined score) so best replacements go to worst slots
-          const scoredItems = scores
-            .map(s => ({ ...s, combined: (s.relevance ?? s.score ?? 3) + (s.insight ?? 3) }))
+          // Materialize a row for every paper. An omitted score must not let an
+          // unassessed third source slip through the display gate.
+          const scoredItems = paperItems
+            .map((_, i) => {
+              const score = scores.find(s => s.index === i + 1);
+              return {
+                index: i + 1,
+                relevance: score?.relevance,
+                insight: score?.insight,
+                score: score?.score,
+                reason: score?.reason,
+                combined: (score?.relevance ?? score?.score ?? 0) + (score?.insight ?? 0),
+              };
+            })
             .sort((a, b) => a.combined - b.combined);
 
           for (const { index, relevance, insight, score: legacyScore, reason, combined } of scoredItems) {
@@ -950,39 +886,13 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
             if (itemIdx < 0) continue;
             console.log(`[Digest] Re-rank: paper ${index} relevance=${effectiveRelevance} insight=${insight ?? "?"} combined=${combined} ("${reason?.slice(0, 60)}")`);
 
-            const isOffTopic = effectiveRelevance <= 1;
-            const isWeak = combined <= 3; // relevance=2 + insight=1 or similar
-
-            if (isOffTopic || isWeak) {
-              const replacement = qualified.find(({ p, relSim }) =>
-                !seenTitles.has(normTitle(p.title)) &&
-                !items.some(it => it.title === p.title) &&
-                relSim > SIM_MIN_THEME
-              );
-              if (replacement) {
-                const originalCategory = items[itemIdx].category;
-                console.log(`[Digest] Swapping ${isOffTopic ? "off-topic" : "weak"} paper for "${replacement.p.title.slice(0, 40)}"`);
-                items[itemIdx] = {
-                  title: replacement.p.title, authors: replacement.p.authors,
-                  abstract: replacement.p.abstract, sourceUrl: replacement.p.sourceUrl,
-                  pdfUrl: replacement.p.pdfUrl || undefined,
-                  source: replacement.p.source, year: replacement.p.year,
-                  openAlexId: replacement.p.openAlexId || undefined,
-                  category: originalCategory,
-                };
-                seenTitles.add(normTitle(replacement.p.title));
-              } else if (isOffTopic && items.length >= 3) {
-                // No replacement, and the paper is genuinely off-topic (relevance=1).
-                // Drop it: 2 good sources beat 3 with one the synthesis would have to
-                // narrate as irrelevant ("doesn't weigh in on the question at all").
-                console.log(`[Digest] Dropping off-topic paper "${items[itemIdx].title.slice(0, 40)}" — no replacement, ${items.length - 1} sources remain`);
-                items.splice(itemIdx, 1);
-              } else {
-                // Weak-but-relevant, or dropping would leave <2 sources. Keep the paper —
-                // the synthesis prompt decides how much airtime to give it (one honest
-                // sentence, never narrated irrelevance).
-                console.log(`[Digest] Keeping ${isOffTopic ? "off-topic" : "weak"} paper "${items[itemIdx].title.slice(0, 40)}" — no replacement in qualified pool`);
-              }
+            // A third source must be directly relevant AND add a useful lens. Do
+            // not swap in an unscored replacement: that recreates the same filler
+            // bug under a different title. Two selected sources are the floor.
+            const passesDisplayGate = effectiveRelevance >= 3 && (insight ?? 1) >= 2;
+            if (!passesDisplayGate && items.length > MIN_ITEMS) {
+              console.log(`[Digest] Dropping substandard extra paper "${items[itemIdx].title.slice(0, 40)}" — relevance=${effectiveRelevance}, insight=${insight ?? "?"}; ${items.length - 1} sources remain`);
+              items.splice(itemIdx, 1);
             }
           }
         }

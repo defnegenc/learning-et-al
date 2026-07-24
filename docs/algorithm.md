@@ -66,43 +66,33 @@ Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 
 **Theme retry on weak match**: only breaks the theme retry loop early when papers pass `SIM_MIDPOINT` or higher. If papers only pass below `SIM_MIDPOINT`, the pipeline retries with a new theme before accepting weak-match papers.
 
-**Dynamic item count** (lines ~568-581): counts papers above `SIM_ONTOPIC`.
-- ≥3 strong papers → 3 papers + 0 news
-- ≤1 strong paper → 1 paper + 2 news
-- Otherwise → 2 papers + 1 news (default)
+**Item count:** 2–3 sources. Three is a ceiling, not a quota. The same joint
+selection gate chooses up to 3 papers; if only 2 genuinely fit, the digest ships
+with 2. News is used only as a last-resort second source, never as third-slot filler.
 
 **Wide pool via MMR** (λ=0.6): selects ~6 diverse papers from qualified candidates. MMR penalizes candidates similar to already-picked papers.
 
 ### Step 3b: LLM Complementarity Selection (AI call 4, lines ~548-587)
 
-If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the LLM to pick the best N for complementarity:
+When the wide pool has at least 2 papers, `selectionSkeletonPrompt` asks the LLM to pick up to 3 together:
 - Selects papers that each contribute something DIFFERENT
 - Creates genuine TENSION (supports + complicates + alternative mechanism)
 - Returns `selectedIndices`, `selectionReasoning`, `coreTension`, `argumentArc`, `paperRoles`
+- May return 2 when a third paper would be a stretch.
 - Falls back to top-N by score if LLM fails.
 - Note: `argumentArc` and `paperRoles` from this step are currently discarded — Stage B re-derives them. Could be consolidated.
 
-### Step 4: News Search (lines ~680-730)
+### Step 4: Minimum-source rescue
 
-When news slots are needed:
-- Web search via Serper / DuckDuckGo using `newsQuery + focusInterest + currentYear-1 + currentYear`.
-- Scored by embedding similarity to theme (raw cosine, threshold 0.15) **AND** the `isNewsRelevant` word guard (≥2 interest words + ≥2 theme words in title+snippet) — snippets are too short for embeddings alone (audit 6.4).
-- **Listicle filter**, **academic domain filter** (20+ publisher domains), dedup.
-- **Paywall detection**: article fetcher rejects pages with 2+ paywall signals.
-- Article text via **paragraph density scoring** (`<p>` tag extraction), longest-run heuristic as fallback.
-- RSS fallback: **field-specific feeds** + Google News RSS by topic.
-- **`isNewsRelevant`** validation (word-count guard) applied to BOTH the primary web search path and the RSS fallback (fixed 2026-07-23).
-
-### Step 4 Fill Passes (lines ~732-825)
-
-If items < 3 after news search:
+Only when joint selection returns fewer than 2 sources:
 - Pass 1: third search query with moderate threshold
 - Pass 2: broad fill without field filter — query is `focusInterest + 2 theme words` (varies per digest; the bare interest string returned a fixed result set every run)
 - Pass 3: search using theme text as query (last resort)
 - Pass 4: if still only 1 item, broad news search (threshold 0.15 + `isNewsRelevant` word guard; was 0.10 with no guard) for a second source
 - Passes 1-2 score against max(theme, fill-query) embedding, mirroring Step 3.
 
-Minimum target: 2 sources. 1 is acceptable if nothing else fits.
+These passes stop at 2 and never append a third source. One is acceptable if
+nothing else fits.
 
 ### Step 4b: LLM Re-Ranking (AI call 5, lines ~830-900)
 
@@ -110,7 +100,10 @@ After all items are assembled, papers are scored on two dimensions:
 - **Relevance** (1-3): does the paper directly address the theme question?
 - **Insight** (1-3): does it offer a surprising or useful lens?
 
-Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** a genuinely off-topic paper (relevance=1) is now DROPPED when ≥2 sources remain — 2 good sources beat 3 where the synthesis has to narrate one as irrelevant ("doesn't weigh in on the question at all"). A weak-but-relevant paper (or when dropping would leave <2 sources) is still kept and the synthesis gives it one honest sentence. Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
+Any extra source beyond the 2-source floor must score **relevance=3** and
+**insight≥2**. A failing third source is dropped rather than replaced with an
+unscored candidate. Graceful degradation: if the LLM call fails,
+embedding-ranked papers are kept.
 
 ### Step 5: Theme Revision (AI call 6, lines ~900-925)
 
