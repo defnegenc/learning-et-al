@@ -318,6 +318,7 @@ Rules:
 - For a single interest: find the unexpected angle within it
 - Only combine 2 interests if they NATURALLY connect (AI + design, robotics + cooking, biology + fashion-tech). If interests are truly unrelated (like microbiome + cryptocurrency), just pick ONE and find a great angle within it.
 - The theme must sound like something a real person would actually wonder about. "Can we see our gut health?" is great. "Can bacteria become your personal health stylist?" is too goofy.
+- PREFER A TWIST over a plain question when you can get one honestly: a reversal, a tension, or an angle the reader didn't expect ("The expert is often the last to know" beats "Do experts keep up?"). BUT the twist must make literal sense on its own — if a reader needs the papers to decode what the title even means, it fails. Never sacrifice comprehension for cleverness: a plain question that makes sense always beats a clever line that doesn't.
 
 SEARCH QUERY RULES:
 - All 3 queries must find papers a PERSON WITH THESE INTERESTS would actually want to read
@@ -1041,6 +1042,11 @@ SURPRISING (accurate AND makes you think):
 - "Your brain lies to you. So does the model." — parallel structure with a sting
 
 Ask yourself: if someone saw ONLY the theme, would they immediately think "I know what this is about" (bad) or "wait, tell me more" (good)? Aim for the second.
+
+COHERENCE GUARD (HARD RULE): the twist must still make literal sense to someone who has NOT read the papers. Read your candidate theme cold — if a smart stranger couldn't say in one sentence what it's asking, it's too clever. A twist earns its place only when it's BOTH unexpected AND instantly parseable:
+- "Does AI make human designers more human?" — twisty AND parseable, good
+- "The designer inside the machine inside the designer" — clever-sounding but meaningless cold, FAIL
+When forced to choose, comprehension beats cleverness. Fall back to the plain accurate question rather than ship a riddle.
 
 Rules:
 - MAX 8 WORDS
