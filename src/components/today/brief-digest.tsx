@@ -230,15 +230,17 @@ function findingHeadline(f: string): { head: string; expandable: boolean } {
 }
 
 const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 7 };
-// One body style for every tile so the grid reads as one system (sizes were
-// drifting: 0.74 / 0.8 / 0.95 / 0.98rem). Loudness comes from weight + background.
-const TILE_BODY: React.CSSProperties = { fontSize: "0.8rem", lineHeight: 1.55, color: "#1a1a1a" };
+// One body style for every tile so the grid reads as one system: Apercu at one
+// size, regular weight. Emphasis comes only from the pipeline's **bold** phrases
+// and big display numbers (emphasize/bigNums); loudness from background.
+const TILE_BODY: React.CSSProperties = { fontFamily: BODY, fontSize: "0.8rem", fontWeight: 400, lineHeight: 1.55, color: "#1a1a1a" };
+const METHOD_CHIP: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#1a1a1a", border: "1.5px solid #1a1a1a", padding: "4px 8px", lineHeight: 1.4 };
 
 function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperItem; paperIdx: number; prose?: React.ReactNode; expandTick?: number }) {
   // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
   // sentence as the big bold TLDR; the digest's explanation prose; then "See more"
-  // reveals four themed tiles — WHAT THIS IS (method), THE CLAIM, FINDINGS, and a
-  // solid-palette TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
+  // reveals a method chip row, THE CLAIM + FINDINGS tiles, and a solid-palette
+  // full-width TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
   // everything about a source lives on its card.
   const [expanded, setExpanded] = useState(false);
   // Which finding rows are unfolded (collapsed rows show just the headline phrase)
@@ -265,9 +267,9 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
     : "";
   const byline = [authors, paper.year ? String(paper.year) : ""].filter(Boolean).join(" · ");
 
-  // Themed tiles. Older digests miss methodType/claim — the grid just renders
-  // the tiles it has. Takeaway is capped at its first sentence and goes full-width
-  // when the tile count is odd so the loudest tile is always the bottom edge.
+  // Method renders as a chip row above the grid; claim + findings share the first
+  // tile row and takeaway always gets its own full-width row. Older digests miss
+  // methodType/claim — only what exists renders. Takeaway is capped at one sentence.
   const isNews = paper.source === "rss";
   const methodFacts = (paper.methodFacts ?? []).slice(0, 3);
   const claim = (paper.claim || paper.takeawayHook || "").trim();
@@ -275,7 +277,7 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
   const takeawayFull = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
   const takeaway = takeawayFull.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || takeawayFull;
   const hasMethod = !!(paper.methodType || methodFacts.length);
-  const tileCount = [hasMethod, !!claim, findings.length > 0, !!takeaway].filter(Boolean).length;
+  const tileCount = [!!claim, findings.length > 0, !!takeaway].filter(Boolean).length;
 
   return (
     <div ref={ref} style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -304,8 +306,8 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
         <div style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333" }}>{prose}</div>
       )}
 
-      {/* See more → themed tiles (method / claim / findings / takeaway) + Read paper */}
-      {(tileCount > 0 || paper.sourceUrl) && (
+      {/* See more → method chips, then themed tiles (claim + findings / takeaway) + Read paper */}
+      {(tileCount > 0 || hasMethod || paper.sourceUrl) && (
         <div>
           <button
             onClick={() => setExpanded(v => !v)}
@@ -315,24 +317,25 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
           </button>
           {expanded && (
             <div style={{ marginTop: 12 }}>
+              {/* METHOD CHIPS — how they did it, as a scannable row above the tiles:
+                  the category solid, each fact outlined */}
+              {hasMethod && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  {paper.methodType && (
+                    <span style={{ ...METHOD_CHIP, background: "#1a1a1a", color: "#fff" }}>{paper.methodType}</span>
+                  )}
+                  {methodFacts.map((f, i) => (
+                    <span key={i} style={{ ...METHOD_CHIP, background: `${c2}99` }}>{f.replace(/\*\*/g, "")}</span>
+                  ))}
+                </div>
+              )}
               {tileCount > 0 && (
                 <div className="brief-tiles" style={{ marginBottom: 14 }}>
-                  {/* WHAT THIS IS — the category is the header; inside, how they did it */}
-                  {hasMethod && (
-                    <div style={{ background: `${c2}99`, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
-                      <div style={TILE_LABEL}>{paper.methodType || "Method"}</div>
-                      {methodFacts.length > 0 ? methodFacts.map((f, i) => (
-                        <div key={i} style={{ ...TILE_BODY, marginTop: i === 0 ? 0 : 5 }}>{emphasize(f)}</div>
-                      )) : (
-                        <div style={{ ...TILE_BODY, fontFamily: DISPLAY, fontWeight: 700 }}>{paper.methodType}</div>
-                      )}
-                    </div>
-                  )}
                   {/* THE CLAIM — what they're arguing, plainly */}
                   {claim && (
                     <div style={{ background: `${c1}99`, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
                       <div style={TILE_LABEL}>The claim</div>
-                      <div style={{ ...TILE_BODY, fontWeight: 600 }}>{emphasize(claim)}</div>
+                      <div style={TILE_BODY}>{emphasize(claim)}</div>
                     </div>
                   )}
                   {/* FINDINGS — bullets, numbers set big */}
@@ -358,11 +361,12 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
                       })}
                     </div>
                   )}
-                  {/* TAKEAWAY — the loudest tile: solid palette, one sentence max */}
+                  {/* TAKEAWAY — the loudest tile: solid palette, always its own
+                      full-width row under claim + findings */}
                   {takeaway && (
-                    <div style={{ background: c1, border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "12px 14px", gridColumn: tileCount % 2 === 1 ? "1 / -1" : undefined }}>
+                    <div style={{ background: c1, border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "12px 14px", gridColumn: "1 / -1" }}>
                       <div style={TILE_LABEL}>Takeaway</div>
-                      <div style={{ ...TILE_BODY, fontFamily: DISPLAY, fontWeight: 800, letterSpacing: "-0.01em" }}>{emphasize(takeaway)}</div>
+                      <div style={TILE_BODY}>{emphasize(takeaway)}</div>
                     </div>
                   )}
                 </div>
