@@ -226,12 +226,22 @@ function PaperBlobCard({ paper, paperIdx, onOpen, prose }: { paper: PaperItem; p
 
   // Metric tiles: takeaway stat first, then key findings, max 4. Pull the number
   // out big when a chunk has one; keep the short text so the number has context.
+  // The takeaway stat and the first key finding often cite the SAME number (both
+  // LLM-generated from one abstract) — dedupe on the headline number before the
+  // 4-tile cap so a repeat doesn't waste a slot.
+  const seenNums = new Set<string>();
   const tiles = [...(paper.takeawayStat ? [paper.takeawayStat] : []), ...(paper.keyFindings ?? [])]
-    .slice(0, 4)
     .map(text => {
       const m = text.match(/\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/i);
       return { num: m?.[0]?.trim() ?? null, text };
-    });
+    })
+    .filter(c => {
+      if (!c.num) return true;
+      if (seenNums.has(c.num)) return false;
+      seenNums.add(c.num);
+      return true;
+    })
+    .slice(0, 4);
 
   return (
     <div onClick={() => onOpen(paper)} className="brief-card" style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16, cursor: "pointer" }}>
