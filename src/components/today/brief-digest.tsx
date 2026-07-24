@@ -507,10 +507,10 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
       <style>{`
         @keyframes briefRise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
         .brief-line { animation: briefRise 0.4s ease both; }
-        .brief-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
-        .brief-tile-list { margin: 0; padding-left: 1.15rem; display: grid; gap: 10px; }
-        .brief-tile-list li { padding-left: 0.2rem; }
-        .brief-tile-list li::marker { font-size: 0.75em; }
+        .brief-tiles { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 12px; align-items: stretch; }
+        .brief-tile-list { margin: 0; padding-left: 1rem; display: grid; gap: 10px; list-style: disc outside; text-align: left; }
+        .brief-tile-list li { display: list-item; padding-left: 0; }
+        .brief-tile-list li::marker { font-size: 0.8em; color: #1a1a1a; }
         @media (max-width: 520px) { .brief-tiles { grid-template-columns: minmax(0, 1fr); } }
         .brief-advance { transition: transform .12s ease, box-shadow .12s ease; }
         .brief-advance:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(255,0,127,1) !important; }
