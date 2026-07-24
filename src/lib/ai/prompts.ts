@@ -88,7 +88,7 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" } }
+    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" }, "methodType": "what this IS, 1-3 plain words", "methodFacts": ["method fact 1", "method fact 2"], "claim": "the paper's central claim, one plain sentence" }
   ],
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
   "suggestedQuestions": ["question 1", "question 2", "question 3"]
@@ -101,6 +101,11 @@ TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just r
 - stat: one concrete number or vivid fact from the paper that anchors the hook (e.g. "hacked 83% of Linux servers with no human help"). Use null if the paper genuinely has no such number — NEVER invent one. Translate raw metrics (F1, AUC, 0.4 out of 1.0) into plain meaning ("matched a real teacher less than half the time"); a number only earns its place if a normal person instantly gets it.
 - line: how you'd bring it up in conversation — casual, contractions, spoken. e.g. "you know sentiment analysis? turns out sarcasm is the hard part." Sound like a person, not a summary.
 - All three obey the voice rules: no "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm"; no em dashes; plain words.
+
+METHOD RULES (per paper) — what this IS and how they did it:
+- methodType: the KIND of thing this is, 1-3 plain words a non-reader instantly gets. Papers: "Randomized trial", "Field study", "Survey", "Lab experiment", "Math proof", "Meta-analysis", "Simulation", "Case study", "Opinion piece", "Review". News: "News feature", "Interview", "Investigation", "Opinion piece". Pick what fits — don't force a paper label onto news.
+- methodFacts: 2-3 SHORT fragments describing HOW they did it, each MAX 6 words, numbers first when there is one: "62 participants", "two-week experiment", "1,204 survey responses", "self-reported data", "mouse model". No number needed — "formal mathematical proof" is a fine fact. NEVER invent numbers; if the abstract gives no method detail, return fewer facts or [].
+- claim: the ONE thing this source is arguing or showing, one plain declarative sentence (MAX 20 words). Not a finding with numbers — the position. e.g. "Spaced practice beats cramming even when total study time is identical."
 
 PLAIN NAME RULES (per paper):
 - A human-friendly name for what the paper is ABOUT — what you'd call it explaining it to a friend, NOT the academic title.

@@ -22,6 +22,9 @@ export interface PaperItem {
   takeawayHook?: string | null;
   takeawayStat?: string | null;
   takeawayLine?: string | null;
+  methodType?: string | null;
+  methodFacts?: string[];
+  claim?: string | null;
   dinnerLine?: string | null;
   relatesLine?: string | null;
 }
