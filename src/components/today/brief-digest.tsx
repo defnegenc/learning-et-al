@@ -192,29 +192,12 @@ export function TermChip({ text, def }: { text: string; def: string }) {
 
 /* ---- inline paper card (revealed on first mention) ---- */
 
-// Set every number ("7%", "354", "2.5x") big in display type so the data pops
-// out of tile text like little headlines.
-function bigNums(text: string): React.ReactNode[] {
-  const re = /\d[\d,.]*\s?(?:%|×|x\b|percent|million|billion|k\b)?/gi;
-  const out: React.ReactNode[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let key = 0;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(<span key={key++}>{text.slice(last, m.index)}</span>);
-    out.push(<strong key={key++} style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.5em", lineHeight: 1, letterSpacing: "-0.01em" }}>{m[0]}</strong>);
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) out.push(<span key={key++}>{text.slice(last)}</span>);
-  return out;
-}
-
-// bigNums + **bold** markers (the pipeline flags each finding's key phrase).
+// Render the pipeline's **bold** emphasis without changing the tile's font or size.
 function emphasize(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     !part ? null : i % 2 === 1
-      ? <strong key={i} style={{ fontWeight: 750 }}>{bigNums(part)}</strong>
-      : <span key={i}>{bigNums(part)}</span>
+      ? <strong key={i} style={{ fontWeight: 700 }}>{part}</strong>
+      : <span key={i}>{part}</span>
   );
 }
 
@@ -230,11 +213,43 @@ function findingHeadline(f: string): { head: string; expandable: boolean } {
 }
 
 const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 7 };
-// One body style for every tile so the grid reads as one system: Apercu at one
-// size, regular weight. Emphasis comes only from the pipeline's **bold** phrases
-// and big display numbers (emphasize/bigNums); loudness from background.
-const TILE_BODY: React.CSSProperties = { fontFamily: BODY, fontSize: "0.8rem", fontWeight: 400, lineHeight: 1.55, color: "#1a1a1a" };
-const METHOD_CHIP: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#1a1a1a", border: "1.5px solid #1a1a1a", padding: "4px 8px", lineHeight: 1.4 };
+// One explicit body style for every tile. Claim, findings, and takeaway now use
+// the same Apercu face, size, weight, and rhythm regardless of their content.
+const TILE_BODY: React.CSSProperties = {
+  fontFamily: '"Apercu Pro", var(--font-inter), sans-serif',
+  fontSize: "0.8rem",
+  fontStyle: "normal",
+  fontWeight: 400,
+  letterSpacing: "normal",
+  lineHeight: 1.55,
+  color: "#1a1a1a",
+};
+
+function BriefTile({
+  heading,
+  background = "#fff",
+  fullWidth = false,
+  children,
+}: {
+  heading: string;
+  background?: string;
+  fullWidth?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      style={{
+        background,
+        border: "1.5px solid #1a1a1a",
+        padding: "12px 14px",
+        gridColumn: fullWidth ? "1 / -1" : undefined,
+      }}
+    >
+      <h3 style={{ ...TILE_LABEL, marginTop: 0 }}>{heading}</h3>
+      <div style={TILE_BODY}>{children}</div>
+    </section>
+  );
+}
 
 function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperItem; paperIdx: number; prose?: React.ReactNode; expandTick?: number }) {
   // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
@@ -267,9 +282,9 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
     : "";
   const byline = [authors, paper.year ? String(paper.year) : ""].filter(Boolean).join(" · ");
 
-  // Method renders as a chip row above the grid; claim + findings share the first
-  // tile row and takeaway always gets its own full-width row. Older digests miss
-  // methodType/claim — only what exists renders. Takeaway is capped at one sentence.
+  // Every expanded detail uses the same tile component and type hierarchy.
+  // Older digests miss methodType/claim — only what exists renders. Takeaway is
+  // capped at one sentence.
   const isNews = paper.source === "rss";
   const methodFacts = (paper.methodFacts ?? []).slice(0, 3);
   const claim = (paper.claim || paper.takeawayHook || "").trim();
@@ -317,31 +332,29 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
           </button>
           {expanded && (
             <div style={{ marginTop: 12 }}>
-              {/* METHOD CHIPS — how they did it, as a scannable row above the tiles:
-                  the category solid, each fact outlined */}
-              {hasMethod && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                  {paper.methodType && (
-                    <span style={{ ...METHOD_CHIP, background: "#1a1a1a", color: "#fff" }}>{paper.methodType}</span>
-                  )}
-                  {methodFacts.map((f, i) => (
-                    <span key={i} style={{ ...METHOD_CHIP, background: `${c2}99` }}>{f.replace(/\*\*/g, "")}</span>
-                  ))}
-                </div>
-              )}
-              {tileCount > 0 && (
+              {(tileCount > 0 || hasMethod) && (
                 <div className="brief-tiles" style={{ marginBottom: 14 }}>
+                  {/* METHOD — same heading/body hierarchy as every other tile */}
+                  {hasMethod && (
+                    <BriefTile heading={paper.methodType || "Method"} background={`${c2}99`}>
+                      {methodFacts.length > 0
+                        ? methodFacts.map((fact, i) => (
+                            <div key={i} style={{ marginTop: i === 0 ? 0 : 7 }}>
+                              {emphasize(fact)}
+                            </div>
+                          ))
+                        : "Method details not provided."}
+                    </BriefTile>
+                  )}
                   {/* THE CLAIM — what they're arguing, plainly */}
                   {claim && (
-                    <div style={{ background: `${c1}99`, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
-                      <div style={TILE_LABEL}>The claim</div>
-                      <div style={TILE_BODY}>{emphasize(claim)}</div>
-                    </div>
+                    <BriefTile heading="The claim" background={`${c1}99`}>
+                      {emphasize(claim)}
+                    </BriefTile>
                   )}
-                  {/* FINDINGS — bullets, numbers set big */}
+                  {/* FINDINGS — expandable rows inside the shared tile shell */}
                   {findings.length > 0 && (
-                    <div style={{ background: "#fff", border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
-                      <div style={TILE_LABEL}>{isNews ? "Key points" : "Findings"}</div>
+                    <BriefTile heading={isNews ? "Key points" : "Findings"}>
                       {findings.map((f, i) => {
                         const { head, expandable } = findingHeadline(f);
                         const open = !expandable || openFindings.includes(i);
@@ -355,19 +368,17 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
                             <span style={{ flexShrink: 0, transform: open && expandable ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▸</span>
                             {open
                               ? <span>{emphasize(f)}</span>
-                              : <span style={{ fontWeight: 750 }}>{bigNums(head)}</span>}
+                              : <span style={{ fontWeight: 700 }}>{head}</span>}
                           </div>
                         );
                       })}
-                    </div>
+                    </BriefTile>
                   )}
-                  {/* TAKEAWAY — the loudest tile: solid palette, always its own
-                      full-width row under claim + findings */}
+                  {/* TAKEAWAY — same type hierarchy, with color carrying emphasis */}
                   {takeaway && (
-                    <div style={{ background: c1, border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "12px 14px", gridColumn: "1 / -1" }}>
-                      <div style={TILE_LABEL}>Takeaway</div>
-                      <div style={TILE_BODY}>{emphasize(takeaway)}</div>
-                    </div>
+                    <BriefTile heading="Takeaway" background={c1} fullWidth>
+                      {emphasize(takeaway)}
+                    </BriefTile>
                   )}
                 </div>
               )}
