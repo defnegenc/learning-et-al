@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import type { PaperItem } from "./paper-card";
 import { SourceCard, SOURCE_PALETTES } from "./source-card";
-import { SynthesisBanner, GuestDigDeeper, AnswerBlock } from "./synthesis-banner";
-import { BriefThreads } from "./brief-threads";
+import { SynthesisBanner } from "./synthesis-banner";
 import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
@@ -14,7 +13,6 @@ import { PapersModeOg } from "./papers-mode-og";
 import React from "react";
 
 /* ── Types ── */
-type ConvEntry = { q: string; a: string; paletteIdx?: number; paperLinks?: { title: string; sourceUrl: string | null }[] };
 
 /* ── Animated sweep title ── */
 // Phase "exit-prep" instantly switches background anchor to right (no visual change at 100% size),
@@ -85,157 +83,6 @@ function SweepTitle({ text, palettes }: { text: string; palettes: [string, strin
       {" "}
       <span style={phraseStyle(p2, a2, b2)}>{phrase2}</span>
     </h1>
-  );
-}
-
-/* ── Dig Deeper Rail (right column or mobile inline) ── */
-
-function DigDeeperRail({
-  questions,
-  answers,
-  history,
-  loading,
-  onAsk,
-  isLoggedIn,
-  onSignIn,
-}: {
-  questions: string[];
-  answers?: string[];
-  history: ConvEntry[];
-  loading: boolean;
-  onAsk: (q: string, paletteIdx?: number) => void;
-  isLoggedIn?: boolean;
-  onSignIn?: () => void;
-}) {
-  const [customQ, setCustomQ] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-
-  if (!isLoggedIn) {
-    return (
-      <>
-        <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
-          Dig deeper
-        </div>
-        <GuestDigDeeper questions={questions} answers={answers || []} onSignIn={onSignIn} />
-      </>
-    );
-  }
-
-  return (
-    <div>
-      <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
-        Dig deeper
-      </div>
-
-      {/* Suggested question rows */}
-      {!loading && questions.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", marginBottom: "4px" }}>
-          {questions.slice(0, 3).map((q, i) => (
-            <button
-              key={i}
-              onClick={() => onAsk(q, i)}
-              style={{
-                textAlign: "left", cursor: "pointer", background: "transparent", border: "none",
-                padding: "14px 4px", width: "100%", display: "flex", gap: "12px", alignItems: "flex-start",
-                borderBottom: "1px solid #1a1a1a", transition: "padding-left 120ms",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.paddingLeft = "8px"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.paddingLeft = "4px"; }}
-            >
-              <div style={{ width: 4, alignSelf: "stretch", flexShrink: 0, borderRadius: 2, background: `linear-gradient(to bottom, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][0]} 0%, ${SOURCE_PALETTES[i % SOURCE_PALETTES.length][1]} 100%)`, border: "1px solid rgba(26,26,26,0.12)" }} />
-              <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 400, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
-                {q.replace(/\*\*/g, "")}
-              </div>
-              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888", marginTop: 3, flexShrink: 0 }}>Ask →</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Conversation history */}
-      {history.length > 0 && (
-        <div style={{ marginBottom: "12px" }}>
-          {history.map((entry, i) => {
-            const isCollapsed = collapsed.has(i);
-            const pal = entry.paletteIdx !== undefined ? SOURCE_PALETTES[entry.paletteIdx % SOURCE_PALETTES.length] : null;
-            return (
-              <div key={i} style={{ marginBottom: "12px" }}>
-                <button
-                  onClick={() => setCollapsed(prev => { const s = new Set(prev); s.has(i) ? s.delete(i) : s.add(i); return s; })}
-                  style={{
-                    display: "flex", alignItems: "center", gap: "10px", width: "100%", textAlign: "left",
-                    background: pal ? `linear-gradient(135deg, ${pal[0]}66 0%, ${pal[1]}66 100%)` : "transparent",
-                    border: "none", cursor: "pointer",
-                    padding: pal ? "10px 12px" : "0",
-                    marginBottom: isCollapsed ? 0 : "8px",
-                  }}
-                >
-                  <span style={{ fontSize: "0.95rem", fontWeight: 400, color: "#1a1a1a", fontFamily: "var(--font-display), sans-serif", flex: 1, letterSpacing: -0.2, lineHeight: 1.35 }}>
-                    {entry.q}
-                  </span>
-                  <span style={{ fontSize: "0.55rem", color: "#888", fontFamily: "var(--font-mono), monospace", flexShrink: 0 }}>
-                    {isCollapsed ? "▼" : "▲"}
-                  </span>
-                </button>
-                {!isCollapsed && (
-                  <div style={{ fontSize: "0.85rem", lineHeight: 1.65, color: "#444" }}>
-                    <AnswerBlock text={entry.a} paperLinks={entry.paperLinks} />
-                  </div>
-                )}
-                {i < history.length - 1 && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "12px" }} />}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex items-center gap-2" style={{ marginBottom: "12px" }}>
-          <Loader2 className="size-3 animate-spin text-[#888]" />
-          <span style={{ fontSize: "0.65rem", color: "#888", fontFamily: "var(--font-mono), monospace" }}>Thinking...</span>
-        </div>
-      )}
-
-      {/* Freeform ask — minimal textarea variant */}
-      <div style={{ marginTop: "16px" }}>
-        <div style={{ position: "relative", border: "2px solid #1a1a1a", background: "#fff", display: "flex", alignItems: "flex-end" }}>
-          <textarea
-            value={customQ}
-            onChange={e => setCustomQ(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (customQ.trim() && !loading) { onAsk(customQ); setCustomQ(""); }
-              }
-            }}
-            placeholder="Ask your own question…"
-            rows={1}
-            style={{
-              flex: 1, minHeight: 38, maxHeight: 120, border: "none", background: "transparent",
-              padding: "10px 44px 10px 12px", resize: "none", outline: "none",
-              fontFamily: "var(--font-inter), sans-serif", fontSize: "0.875rem", lineHeight: 1.45,
-              color: "#1a1a1a", boxSizing: "border-box",
-            }}
-          />
-          <button
-            onClick={() => { if (customQ.trim() && !loading) { onAsk(customQ); setCustomQ(""); } }}
-            disabled={!customQ.trim() || loading}
-            style={{
-              position: "absolute", right: 6, bottom: 6, width: 28, height: 28, borderRadius: "50%",
-              background: customQ.trim() && !loading ? "#1a1a1a" : "#e5e3dc",
-              color: customQ.trim() && !loading ? "#fff" : "#999", border: "none",
-              cursor: customQ.trim() && !loading ? "pointer" : "not-allowed",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 120ms",
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 19V5M5 12l7-7 7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -362,21 +209,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   // Brief is the default reading experience; everything but classic is single-column.
   const briefMode = !papersMode && !papersOgMode && !classicMode;
   const focusMode = !classicMode;
-
-  /* ── Dig-deeper state (lifted from SynthesisBanner) ── */
-  const [digDeeperHistory, setDigDeeperHistory] = useState<ConvEntry[]>([]);
-  const [digDeeperLoading, setDigDeeperLoading] = useState(false);
-
-  const historyKey = digest ? `digest_chat_${digest.id}` : "";
-  useEffect(() => {
-    if (!historyKey) return;
-    const saved = localStorage.getItem(historyKey);
-    if (saved) {
-      try { setDigDeeperHistory(JSON.parse(saved)); } catch { /* ignore */ }
-    } else {
-      setDigDeeperHistory([]);
-    }
-  }, [historyKey]);
 
   /* ── Digest notes — DB-backed, tied to this digest's permanent history ──
      Single source of truth lives here; the floating notepad and the dig-deeper
@@ -507,30 +339,6 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     } finally {
       setGenerating(false);
     }
-  };
-
-  const handleDigDeeper = async (question: string, paletteIdx?: number) => {
-    if (!session || digDeeperLoading) return;
-    setDigDeeperLoading(true);
-    try {
-      const res = await fetch("/api/digest/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: `Keep your answer to 3-4 sentences max. Be specific and concrete.\n\n${question}`,
-          digestId: digest?.id || papers[0]?.id,
-        }),
-      });
-      const data = await res.json();
-      const answer = data.answer || data.error || "Couldn't get an answer.";
-      const newHistory = [...digDeeperHistory, { q: question, a: answer, paletteIdx, paperLinks: data.paperLinks }];
-      setDigDeeperHistory(newHistory);
-      if (historyKey) localStorage.setItem(historyKey, JSON.stringify(newHistory));
-    } catch {
-      const newHistory = [...digDeeperHistory, { q: question, a: "Something went wrong. Try again.", paletteIdx }];
-      setDigDeeperHistory(newHistory);
-    }
-    setDigDeeperLoading(false);
   };
 
   const openSource = (p: PaperItem) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer");
@@ -698,12 +506,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               keyConcepts={digest.keyConcepts}
               papers={papers}
               digestId={digest.id}
-              seeds={digest.suggestedQuestions || []}
-              guestAnswers={digest.suggestedAnswers}
-              isLoggedIn={!!session}
               interests={interestKeywords}
               seedField={digest.seedInterests?.[0]?.field}
-              onSignIn={onSignIn}
               endSlot={session ? (
                 <RegenerateCta digestId={digest.id} generating={generating} onRegenerate={() => handleGenerate(true)} />
               ) : undefined}
@@ -742,34 +546,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             </div>
           )}
 
-          {/* Dig deeper — below synthesis. Focus modes carry their own follow-up UI
-              (brief threads / papers chat); keep brief's standalone threads only as a
-              no-synthesis fallback, and show nothing extra for papers mode. */}
-          {focusMode && digest.id ? (
-            briefMode && !digest.synthesisContent && (
-              <div style={{ marginTop: "40px" }}>
-                <BriefThreads
-                  digestId={digest.id}
-                  seeds={digest.suggestedQuestions || []}
-                  guestAnswers={digest.suggestedAnswers}
-                  isLoggedIn={!!session}
-                  onSignIn={onSignIn}
-                />
-              </div>
-            )
-          ) : (
-            <div style={{ marginTop: "40px" }}>
-              <DigDeeperRail
-                questions={digest.suggestedQuestions || []}
-                answers={digest.suggestedAnswers}
-                history={digDeeperHistory}
-                loading={digDeeperLoading}
-                onAsk={handleDigDeeper}
-                isLoggedIn={!!session}
-                onSignIn={onSignIn}
-              />
-            </div>
-          )}
+          {/* Digest-level Q&A removed — questions now live on reading-list papers
+              (the reading companion's "Ask this paper" thread). */}
         </main>
 
         {/* ── Right: paper rail (focus modes reveal cards inline instead) ── */}

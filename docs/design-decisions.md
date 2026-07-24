@@ -150,3 +150,19 @@ methodFacts + year: "This was a 2026 interview study: they interviewed ten
 founders..." Composed client-side, so every past digest gets it too; the
 digest's connective argument now lives only in the intro answer paragraph and
 the closing line.
+
+## 2026-07-24: Vault = history-first; reading list is the workbench
+
+The vault opens on **digest history** (the archive is the main draw); the
+reading list sits behind a top-right button rather than a symmetric toggle.
+Reading-list cards reuse the digest paper-card anatomy (wash background, hard
+border + shadow, mono underlined plain name) but lead with the paper's actual
+title — the list is a library, not a feed — and carry a "From: {digest}" line.
+
+**Bookmarking = intent to read.** Starring a paper triggers background prep:
+a reading companion generated from the FULL TEXT (gist / what they did / what
+they found / where it's shaky / remember this, glossary hover-chips, starter
+questions) plus a homework rail of recent works citing the paper (OpenAlex).
+The reading view is where questions live now — "Ask this paper" answers from
+the full text and persists the thread. Digest-level Q&A (BriefThreads, Dig
+Deeper) was removed entirely: asking happens where reading happens.

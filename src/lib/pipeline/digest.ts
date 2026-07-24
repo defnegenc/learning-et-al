@@ -1341,28 +1341,11 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
     keyConcepts: metadata.keyConcepts || [],
   };
 
-  // Pre-generate answers for suggested questions (used in logged-out experience)
+  // Digest-level Q&A was removed (questions now live on reading-list papers),
+  // so suggested questions are stored for legacy rows but answers are no
+  // longer pre-generated.
   const suggestedQuestions = metadata.suggestedQuestions || [];
-  let suggestedAnswers: string[] = [];
-  if (suggestedQuestions.length > 0) {
-    console.log(`[Digest] Generating answers for ${suggestedQuestions.length} suggested questions...`);
-    const papersContext = items.map((p, i) => {
-      const aiItem = parsedAI.items.find(x => x.index === i + 1);
-      return `PAPER ${i + 1}: ${p.title} (${p.year ?? "n/a"})\nAuthors: ${p.authors.slice(0, 3).join(", ")}\nSummary: ${aiItem?.summary ?? ""}\nKey findings: ${(aiItem?.findings || []).join("; ")}\nAbstract: ${(p.abstract ?? "").slice(0, 600)}`;
-    }).join("\n\n");
-    const answerSystem = `Answer the question directly — lead with the answer, not with context or paper summaries. No "based on the research" or "the study found" preambles. The reader already knows the digest. Just answer like you're in a group chat and already know they've seen it. 2-4 sentences max. Specific details beat vague claims.\n\nToday's synthesis:\n${synthesis}\n\n${papersContext}`;
-    try {
-      suggestedAnswers = await Promise.all(
-        suggestedQuestions.map(q =>
-          aiComplete(aiConfig, answerSystem, `Keep your answer to 3-4 sentences max. Be specific and concrete.\n\n${q}`)
-            .catch(() => "")
-        )
-      );
-      console.log(`[Digest] Generated ${suggestedAnswers.filter(a => a).length} answers`);
-    } catch (err) {
-      console.log(`[Digest] Answer generation failed (${err}), continuing without`);
-    }
-  }
+  const suggestedAnswers: string[] = [];
 
   // Seed interests (drives header chips) — map the LLM's chosen keywords back to their field.
   const seedInterests = selectedInterestKeywords.map((kw) => {

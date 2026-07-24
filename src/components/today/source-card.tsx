@@ -88,6 +88,12 @@ export function SourceCard({ paper, index, loggedIn, initialBookmarked, compareM
         headers: next ? { "Content-Type": "application/json" } : undefined,
         body: next ? JSON.stringify({ type: "star" }) : undefined,
       });
+      if (next) {
+        // Kick off reading prep in the background so the companion, glossary
+        // and homework are ready by the time the reading list is opened.
+        fetch(`/api/papers/${paper.id}/companion`, { method: "POST" }).catch(() => {});
+        fetch(`/api/papers/${paper.id}/homework`, { method: "POST" }).catch(() => {});
+      }
     } catch {
       setBookmarked(!next);
     }

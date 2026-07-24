@@ -100,7 +100,9 @@ export const papers = sqliteTable("papers", {
   dinnerLine: text("dinner_line"), // casual "mention it at a dinner party" one-liner, generated on demand
   relatesLine: text("relates_line"), // clean one-sentence "how this relates to today's question", generated on demand
   abstractJargon: text("abstract_jargon"), // JSON [{term, def}] — hover defs for the abstract, generated on first detail open
-  eli5: text("eli5"), // plain-language "explain like I'm five" gist of the abstract, generated on button click
+  eli5: text("eli5"), // legacy plain-language gist (superseded by companion.gist; kept for old rows)
+  companion: text("companion"), // JSON reading companion generated on bookmark: {gist, did, found, caveats, remember, glossary, questions}
+  homework: text("homework"), // JSON [{openAlexId, title, ...}] — "what's happened since" citing works, generated on bookmark
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

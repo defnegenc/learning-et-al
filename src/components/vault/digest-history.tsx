@@ -36,7 +36,7 @@ function displayTheme(d: { theme?: string | null; synthesisContent?: string | nu
   return firstLine.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/^Today[^.!?]*[.!?]\s*/i, "").trim().slice(0, 80) || "Untitled digest";
 }
 
-export function DigestHistory({ loggedIn }: { loggedIn: boolean }) {
+export function DigestHistory() {
   const [list, setList] = useState<DigestListItem[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [digest, setDigest] = useState<LoadedDigest | null>(null);
@@ -138,9 +138,6 @@ export function DigestHistory({ loggedIn }: { loggedIn: boolean }) {
           keyConcepts={digest.keyConcepts}
           papers={papers}
           digestId={digest.id}
-          seeds={digest.suggestedQuestions}
-          guestAnswers={digest.suggestedAnswers}
-          isLoggedIn={loggedIn}
         />
       ) : (
         <p style={{ fontSize: "0.85rem", color: "#999", fontStyle: "italic" }}>This digest has no synthesis.</p>
