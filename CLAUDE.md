@@ -102,7 +102,8 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **`pdf-parse` is broken with Turbopack** — use `unpdf` instead.
 - **Synthesis must use `[Source N]` prefix in bold paper names** — e.g. `**[Source 1] the polyphenols study**`. The frontend relies on this prefix to map highlights to the correct paper. If a pipeline step (especially revision) drops the prefix, highlights break on the site. The coverage gate enforces this.
 - **`drizzle-kit push` fails on SQLite schema changes involving primary keys** — SQLite can't ALTER TABLE to drop/recreate PKs. For simple column additions, run `sqlite3 paper-processor.db "ALTER TABLE X ADD COLUMN Y TEXT;"` manually, then push schema to Turso prod separately.
-- **Pre-generated answers for logged-out experience** — `suggestedAnswers` are generated at the end of the digest pipeline. If you modify the chat system prompt, also update the answer-generation block in `digest.ts` to stay consistent.
+- **Digest-level Q&A was removed (July 2026)** — questions live on reading-list papers instead (reading companion + "Ask this paper" via `/api/papers/[id]/companion` and `/api/papers/[id]/qa`). `suggestedQuestions` are still stored for legacy rows; `suggestedAnswers` are no longer generated.
+- **Reading prep is bookmark-triggered** — starring a paper fires background POSTs to `/api/papers/[id]/companion` (full-text walkthrough, cached on `papers.companion`) and `/api/papers/[id]/homework` (OpenAlex citing works, cached on `papers.homework`). The vault detail view falls back to generating on open if the cache is empty.
 - **To manually trigger a digest locally**: POST `/api/digest/generate` with `{"force":true}` and a valid session cookie, or use the Generate button in the admin UI.
 
 ## Docs Reference

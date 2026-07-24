@@ -27,6 +27,8 @@ export interface PaperItem {
   claim?: string | null;
   dinnerLine?: string | null;
   relatesLine?: string | null;
+  digestTheme?: string | null; // reading list only: theme of the digest this paper came from
+  digestDate?: string | null;  // reading list only: date of that digest
 }
 
 interface PaperCardProps {

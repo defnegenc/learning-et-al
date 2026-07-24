@@ -148,8 +148,12 @@ remains for old rows; nothing renders it.)
 
 Also persisted: **seed_interests** (`[{keyword, field}]`, the interests the Step-1 LLM
 selected) — free, no AI call — which drives the header's domain chips (colored via
-`field-hierarchy.ts`). Generated in the same block as `suggestedAnswers` so both logged-in
-and public paths get them.
+`field-hierarchy.ts`).
+
+(Digest-level Q&A was removed in July 2026 — suggested questions are still stored for
+legacy rows but answers are no longer pre-generated. Questions now live on reading-list
+papers: bookmarking a paper generates a full-text reading companion + "Ask this paper"
+thread; see `/api/papers/[id]/companion`.)
 
 Note: the Step-1 theme prompt (`hypothesisPrompt`) now also requires at least one concrete,
 picturable noun, so titles are graspable, not just punchy.
