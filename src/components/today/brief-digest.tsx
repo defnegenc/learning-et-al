@@ -325,12 +325,10 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
             <div style={{ marginTop: 12 }}>
               {tileCount > 0 && (
                 <div className="brief-tiles" style={{ marginBottom: 14 }}>
-                  {/* THE CLAIM — top-left, presented as one clean bullet */}
+                  {/* THE CLAIM — top-left, presented as plain text */}
                   {claim && (
                     <BriefTile heading="The claim" background={`${c1}99`}>
-                      <ul className="brief-tile-list">
-                        <li>{emphasize(startCap(claim))}</li>
-                      </ul>
+                      {emphasize(startCap(claim))}
                     </BriefTile>
                   )}
                   {/* FINDINGS — top-right, aligned with the claim */}
