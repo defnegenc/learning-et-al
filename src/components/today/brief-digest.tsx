@@ -246,9 +246,38 @@ function BriefTile({
   );
 }
 
-function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperItem; paperIdx: number; prose?: React.ReactNode; expandTick?: number }) {
+// Compose the card's second line from pipeline facts: "This was a 2026
+// interview study: they interviewed ten founders about valuation." Older
+// digests can lack methodType/methodFacts, so fall back to the summary's
+// remaining sentences after the TLDR took the first one.
+function studyContext(paper: PaperItem, restOfSummary: string): string {
+  const kind = (paper.methodType || "").trim().replace(/[.!?]+$/, "");
+  const noun = kind
+    ? kind.charAt(0).toLowerCase() + kind.slice(1)
+    : paper.source === "rss" ? "news article" : "study";
+  const year = paper.year ? `${paper.year} ` : "";
+  const article = !year && /^[aeiou]/i.test(noun) ? "an" : "a";
+  const lead = `This was ${article} ${year}${noun}`;
+  const facts = (paper.methodFacts ?? [])
+    .map(f => f.trim())
+    .filter(Boolean)
+    .map(f => (/[.!?]$/.test(f) ? f : f + "."));
+  if (facts.length > 0) {
+    // Fold the first fact into the lead ("...study: they interviewed...") but
+    // keep an initial proper noun or acronym capitalized.
+    const first = /^[A-Z][a-z]/.test(facts[0]) && !facts[0].startsWith("I ")
+      ? facts[0].charAt(0).toLowerCase() + facts[0].slice(1)
+      : facts[0];
+    return [`${lead}: ${first}`, ...facts.slice(1)].join(" ");
+  }
+  if (!kind && !paper.year) return restOfSummary;
+  return restOfSummary ? `${lead}. ${restOfSummary}` : `${lead}.`;
+}
+
+function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; paperIdx: number; expandTick?: number }) {
   // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
-  // sentence as the big bold TLDR; the digest's explanation prose; then "See more"
+  // sentence as the big bold TLDR; a factual study-context line composed from
+  // methodType/methodFacts/year (not the synthesis prose); then "See more"
   // reveals THE CLAIM + FINDINGS side by side and a solid-palette full-width
   // TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
   // everything about a source lives on its card.
@@ -269,6 +298,7 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
   const body = (paper.summary || paper.abstract || "").trim();
   const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? (body ? [body] : []);
   const hero = sentences[0] || "";
+  const context = studyContext(paper, sentences.slice(1).join(" "));
 
   const authors = paper.authors.length > 0
     ? paper.authors.length <= 3 ? paper.authors.join(", ") : `${paper.authors.slice(0, 3).join(", ")} et al.`
@@ -307,9 +337,9 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
         </p>
       )}
 
-      {/* The digest's explanation of this study */}
-      {prose && (
-        <div style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333" }}>{prose}</div>
+      {/* What this study IS and how it was done — composed from pipeline facts */}
+      {context && (
+        <p style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333", margin: 0 }}>{context}</p>
       )}
 
       {/* See more → claim + findings, takeaway, and Read paper */}
@@ -365,14 +395,6 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
       )}
     </div>
   );
-}
-
-// Turn the headless connectionReason fragment ("shows X…") into a sentence.
-function relatesFallback(reason: string): string {
-  const r = reason.trim();
-  if (!r) return "";
-  const sentence = /^[a-z]/.test(r) ? `This study ${r}` : r;
-  return /[.!?]$/.test(sentence) ? sentence : sentence + ".";
 }
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
@@ -465,9 +487,10 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
     return paper ? <PaperChip key={i} paper={paper} paperIdx={s.paperIdx} label={s.label} cap={lineStart && i === 0} onOpen={openCard} /> : <strong key={i}>{s.label}</strong>;
   };
 
-  // Assemble revealed lines into paragraphs. Each paragraph is one study's block:
-  // its card wraps the paragraph's prose, so all of that study's info lives in one
-  // box. A paragraph with no card (e.g. a closing line) renders as plain prose.
+  // Assemble revealed lines into paragraphs. Each source's paragraph is replaced
+  // by its card (the card composes its own study-context line — the synthesis
+  // bullet prose is not rendered). A paragraph with no card (the intro answer,
+  // a closing line) still renders as plain prose.
   const revealed = lines.slice(0, n);
   const els: React.ReactNode[] = [];
   let buf: React.ReactNode[] = [];
@@ -476,11 +499,11 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, digestId, s
   const flush = () => {
     const prose = buf.length ? <>{buf}</> : null;
     if (pendingCards.length) {
-      pendingCards.forEach((pi, k) => {
+      pendingCards.forEach((pi) => {
         if (!papers[pi]) return;
         els.push(
           <div key={`c${pi}`} className="brief-line" style={{ margin: firstEl ? "0" : "34px 0 0" }}>
-            <PaperBlobCard paper={papers[pi]} paperIdx={pi} prose={k === 0 ? prose : undefined} expandTick={expandTicks[pi]} />
+            <PaperBlobCard paper={papers[pi]} paperIdx={pi} expandTick={expandTicks[pi]} />
           </div>
         );
         firstEl = false;
