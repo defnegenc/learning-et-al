@@ -132,3 +132,12 @@ never spent on bookmarks nobody revisits.
 **Study names in synthesis are plain language** ("the chatbot privacy study"), never
 author surnames ("the Kwesi S&P controls study") — a reader who hasn't read the paper
 must understand what a study is about from its name alone.
+
+**One place per source, no clicked-into view (2026-07-23).** Everything about a
+source lives on its inline card: the See-more tiles answer the four questions a
+reader actually has — what IS this (method category + how they did it), what are
+they arguing (the claim), what did they find (findings bullets), and what should
+I remember (the takeaway, in the card's loudest solid color, one sentence max).
+The PaperDetailOverlay modal was removed; a modal on top of a card duplicated
+the card's content and broke reading flow. Tile headers adapt to news sources
+("News feature", "Key points") so news never wears a fake lab coat.
