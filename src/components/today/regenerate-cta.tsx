@@ -5,6 +5,11 @@ import { X, Loader2 } from "lucide-react";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
+const MIN_REASON_WORDS = 3;
+
+function wordCount(value: string) {
+  return value.trim().split(/\s+/).filter(word => /[\p{L}\p{N}]/u.test(word)).length;
+}
 
 // End-of-digest escape hatch: big centered dark-grey text + X. Clicking reveals
 // a one-line reason input; submitting files digest feedback, hides the digest,
@@ -17,9 +22,11 @@ export function RegenerateCta({ digestId, generating, onRegenerate }: {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const reasonWordCount = wordCount(reason);
+  const hasEnoughWords = reasonWordCount >= MIN_REASON_WORDS;
 
   const submit = async () => {
-    if (!reason.trim() || submitted) return;
+    if (!hasEnoughWords || submitted) return;
     setSubmitted(true);
     try {
       await fetch("/api/digest/feedback", {
@@ -66,20 +73,24 @@ export function RegenerateCta({ digestId, generating, onRegenerate }: {
             <input
               value={reason}
               onChange={e => setReason(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && reason.trim()) submit(); }}
+              onKeyDown={e => { if (e.key === "Enter" && hasEnoughWords) submit(); }}
               placeholder="e.g. too technical, already know this topic…"
               autoFocus
+              aria-describedby="regenerate-reason-requirement"
               style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #1a1a1a", fontSize: "0.8rem", outline: "none", fontFamily: "var(--font-inter), sans-serif" }}
             />
             <button
               onClick={submit}
-              disabled={!reason.trim() || generating}
+              disabled={!hasEnoughWords || generating}
               className="hover:bg-[#333] disabled:opacity-40"
               style={{ padding: "8px 14px", background: "#1a1a1a", color: "white", border: "none", cursor: "pointer", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", fontFamily: MONO }}
             >
               {generating ? <Loader2 size={12} className="animate-spin" /> : "Regenerate"}
             </button>
           </div>
+          <p id="regenerate-reason-requirement" style={{ fontSize: "0.68rem", color: "#888", fontFamily: MONO, margin: 0, textAlign: "left" }}>
+            {hasEnoughWords ? "Thanks — that helps." : `Please enter at least ${MIN_REASON_WORDS} words.`}
+          </p>
         </div>
       )}
     </div>
