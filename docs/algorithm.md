@@ -27,21 +27,24 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 
 **Central question generation** (AI call 1, lines ~250-310):
 - Trending headlines fetched via web search and injected as optional temporal context.
+- **Query memory**: the last ~12 search queries (from `digests.search_queries`, last 5 digests) are shown to the LLM with "do not reuse" — prevents near-identical queries hitting the same OpenAlex window day after day.
 - LLM picks 1-3 interests, generates theme (max 8 words), 3 search queries, news query, and `focusFields[]` (array for cross-domain).
 - **Theme validation**: if >8 words, a retry call (AI call 2, conditional) requests shorter version.
-- **Theme novelty**: theme embedded and compared to last 5 themes. If similarity >0.5, a fresh-angle call (AI call 3, conditional) generates a completely different theme.
+- **Theme novelty**: word-overlap check vs last 5 themes (≥2 shared non-stop words = too similar). If too similar, a fresh-angle call (AI call 3, conditional) generates a completely different theme. (Note: this is a word check, not embedding similarity — see Part 5.2 of algo-audit.md.)
 - Fallback: if LLM fails, top interest keyword is used as theme.
 
 **Theme retry loop** (up to 2 retries): If the theme produces too few qualifying papers, the pipeline generates a fresh theme and re-searches. Each retry is an additional AI call.
 
 ### Step 2: Paper Search (lines ~370-400)
 
-3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv**.
+3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv** (in practice OpenAlex nearly always answers, so it's effectively the sole source — audit 6.1).
 
+- **Relevance-ranked recency**: OpenAlex "recent" mode sorts by `relevance_score:desc` within a 2-year `publication_year` window. (Was `publication_year:desc`, which discarded relevance and returned the newest works mentioning the query words anywhere — audit 6.2.)
 - **Cross-domain field distribution**: queries distributed across `focusFields[]` (query 1 → field 1, query 2 → field 2, etc.)
+- Each result is tagged with its **originating query** for scoring (see Step 3).
 - For beginner interests: `"introduction overview applications"` appended.
-- All results deduplicated by title.
-- Cross-digest dedup: skip papers seen in last 30 days.
+- All results deduplicated by **normalized title** (lowercase, alphanumerics only).
+- Cross-digest dedup: skip papers shown in ANY past digest — `open_alex_id` match first, normalized title second. (Was exact-lowercase title, 30-day window.)
 - **Citation floor**: OpenAlex filters `cited_by_count:>1`.
 - **Predatory venue filter**: papers from venues on the `PREDATORY_VENUES` list in `lib/venue-quality.ts` (SciRP, OMICS, Bentham Open, IJARCCE, etc.) are dropped at scoring. Soft penalty (-0.05 to quality boost) applied to high-volume controversial publishers (MDPI, Hindawi, "Frontiers in X" journals).
 
@@ -49,12 +52,15 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 
 **Scoring**: BM25 + embedding (`all-MiniLM-L6-v2`) fused via **Reciprocal Rank Fusion** (k=60).
 
+- **Relevance signal (`relSim`)** = max(cosine to theme, cosine to the paper's originating search query). The theme is deliberately jargon-free, so good papers under-score against it alone (vocabulary mismatch — audit 6.3); the originating query carries domain vocabulary. The LLM re-rank (Step 4b) still judges theme fit.
+- BM25 is computed against `theme + all 3 queries` for the same reason.
+
 Quality boosts (scaled to RRF range):
 - `recencyBonus`: +0.003 current year, +0.0015 last year
 - `venueBoost`: `venueQualityBoost(venue, domain) * 0.03` (0 to ~0.0024)
 - `instBoost`: `institutionBoost(institutions) * 0.03` (0 to ~0.0015)
 
-Hard floor: `SIM_MIN_THEME = 0.15` (raw embedding similarity).
+Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 
 **Threshold cascade**: try `SIM_ONTOPIC` (0.25) → `SIM_MIDPOINT` (0.20) → `SIM_FALLBACK` (0.18) → hard floor (0.15). If still <2, take top papers by score.
 
@@ -80,20 +86,21 @@ If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the
 
 When news slots are needed:
 - Web search via Serper / DuckDuckGo using `newsQuery + focusInterest + currentYear-1 + currentYear`.
-- Scored by embedding similarity to theme (raw cosine, threshold 0.15).
+- Scored by embedding similarity to theme (raw cosine, threshold 0.15) **AND** the `isNewsRelevant` word guard (≥2 interest words + ≥2 theme words in title+snippet) — snippets are too short for embeddings alone (audit 6.4).
 - **Listicle filter**, **academic domain filter** (20+ publisher domains), dedup.
 - **Paywall detection**: article fetcher rejects pages with 2+ paywall signals.
 - Article text via **paragraph density scoring** (`<p>` tag extraction), longest-run heuristic as fallback.
 - RSS fallback: **field-specific feeds** + Google News RSS by topic.
-- **`isNewsRelevant`** validation (word-count guard) only applied to RSS fallback, NOT primary web search path.
+- **`isNewsRelevant`** validation (word-count guard) applied to BOTH the primary web search path and the RSS fallback (fixed 2026-07-23).
 
 ### Step 4 Fill Passes (lines ~732-825)
 
 If items < 3 after news search:
 - Pass 1: third search query with moderate threshold
-- Pass 2: broad fill without field filter
+- Pass 2: broad fill without field filter — query is `focusInterest + 2 theme words` (varies per digest; the bare interest string returned a fixed result set every run)
 - Pass 3: search using theme text as query (last resort)
-- Pass 4: if still only 1 item, broad news search with very lenient threshold (0.10) for a second source
+- Pass 4: if still only 1 item, broad news search (threshold 0.15 + `isNewsRelevant` word guard; was 0.10 with no guard) for a second source
+- Passes 1-2 score against max(theme, fill-query) embedding, mirroring Step 3.
 
 Minimum target: 2 sources. 1 is acceptable if nothing else fits.
 
@@ -149,8 +156,8 @@ picturable noun, so titles are graspable, not just punchy.
 
 ### Step 7: Storage
 
-- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, gist, starred flag.
-- Papers saved with: summaries, keywords, key findings, connectionReason, plainName.
+- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, search_queries (query memory), gist, starred flag.
+- Papers saved with: summaries, keywords, key findings, connectionReason, plainName, openAlexId (dedup identity).
 - All linked to user and dated.
 
 ---
@@ -186,15 +193,15 @@ picturable noun, so titles are graspable, not just punchy.
 | SIM_MIN_THEME | cosine > 0.15 | Step 3 hard floor |
 | SIM_ONTOPIC | cosine > 0.25 | Step 3 paper qualification |
 | SIM_FALLBACK | cosine > 0.15 | Step 3 cascade fallback |
-| News embedding | cosine > 0.15 (raw) | Step 4 web results |
-| Broad news fallback | cosine > 0.10 | Step 4 fill pass 4 |
+| News embedding | cosine > 0.15 (raw) + `isNewsRelevant` word guard | Step 4 web results |
+| Broad news fallback | cosine > 0.15 + `isNewsRelevant` word guard | Step 4 fill pass 4 |
 | Listicle filter | regex + domain blocklist | Step 4 web results |
 | Academic domain | hostname check (20+ domains) | Step 4 web results |
 | Paywall detection | 2+ paywall signals | Step 4 article fetch |
-| Theme novelty | cosine > 0.5 vs recent themes | Step 1 |
+| Theme novelty | ≥2 shared non-stop words vs recent themes | Step 1 |
 | Theme word count | ≤ 8 words | Step 1 |
 | LLM re-rank | score > 2 to keep | Step 4b |
-| Cross-digest dedup | last 30 days | Step 2 |
+| Cross-digest dedup | all past digests, openAlexId + normalized title | Step 2 |
 | Citation floor | cited_by_count > 1 | Step 2 OpenAlex |
 | Bold coverage | all papers in **bold** | Step 6 final gate |
 
@@ -234,8 +241,8 @@ Feedback events also store contextual features (paper category, source, year, ke
 3. **`digestPrompt` is dead code**: legacy single-call prompt, never called. `SYNTHESIS_RULES` also dead (only reachable from `digestPrompt`).
 4. **`finalPaperListing` redundant**: identical to `paperListing` since skeleton no longer drops papers.
 5. **Complementarity selection output wasted**: `argumentArc` and `paperRoles` from Step 3b are discarded, then re-derived in Stage B at cost.
-6. **`isNewsRelevant` only on RSS path**: primary web search news only checks embedding similarity, not the stricter word-count guard.
-7. **News short snippets**: embedding similarity on 1-2 sentence snippets is imprecise, contributing to irrelevant news.
+6. ~~**`isNewsRelevant` only on RSS path**~~ Fixed 2026-07-23 — word guard now on primary path and broad fill too.
+7. **News short snippets**: embedding similarity on 1-2 sentence snippets is imprecise; mitigated by the word guard, not solved.
 8. **Content mix slider not wired**: stored in DB, not used by pipeline. Dynamic item count uses candidate quality instead.
 9. **all-MiniLM-L6-v2 cross-domain weakness**: general-purpose embeddings, not trained on scientific papers. SPECTER2 would improve paper-to-theme matching.
 

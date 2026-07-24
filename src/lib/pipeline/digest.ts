@@ -52,9 +52,17 @@ type TaggedItem = {
   source: "semantic_scholar" | "rss" | "arxiv";
   category: "foundational" | "recent" | "news";
   year?: number;
+  /** OpenAlex work ID — persisted for ID-based cross-digest dedup */
+  openAlexId?: string;
   /** Hint for synthesis: "this paper was selected to contradict/complicate paper 1" */
   tensionHint?: string;
 };
+
+/** Normalize a title for dedup: exact-lowercase matching misses preprint vs
+ *  published variants (punctuation, casing, trailing periods). */
+function normTitle(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
 
 async function searchPapers(
   query: string,
@@ -174,17 +182,21 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     orderBy: desc(digests.createdAt),
   });
   const recentDigestsForRotation = allPastDigests.slice(0, 5);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const recentDigestIds = allPastDigests.filter(d => d.date >= thirtyDaysAgo).map(d => d.id);
+  // Dedup against EVERY paper ever shown to this user — shown papers live in the
+  // vault, so re-surfacing one is repetition no matter how long ago it appeared
+  // (the old 30-day window let papers recur on day 31; audit 6.5).
+  const allDigestIds = allPastDigests.map(d => d.id);
 
   // Fetch papers for both rotation keywords and dedup in one query
-  const seenPaperTitles = new Set<string>();
+  const seenPaperTitles = new Set<string>();   // normalized titles
+  const seenOpenAlexIds = new Set<string>();   // stable work IDs (survive title variants)
   const recentlyUsedKeywords = new Set<string>();
-  if (recentDigestIds.length > 0) {
-    const allRecentPapers = await db.query.papers.findMany({ where: inArray(papers.digestId, recentDigestIds) });
+  if (allDigestIds.length > 0) {
+    const allRecentPapers = await db.query.papers.findMany({ where: inArray(papers.digestId, allDigestIds) });
     const rotationDigestIds = new Set(recentDigestsForRotation.map(d => d.id));
     for (const p of allRecentPapers) {
-      seenPaperTitles.add(p.title.toLowerCase());
+      seenPaperTitles.add(normTitle(p.title));
+      if (p.openAlexId) seenOpenAlexIds.add(p.openAlexId);
       // Only use rotation keywords from the last 5 digests
       if (rotationDigestIds.has(p.digestId)) {
         try {
@@ -259,10 +271,25 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     `"${i.keyword}" (${i.level ?? "beginner"} level, field: ${i.field ?? "general"})`
   ).join("\n");
 
+  // Query memory: similar interests make the LLM write near-identical queries day
+  // after day, which hit the same OpenAlex result window (audit 6.6). Show recent
+  // queries so it explores different wording/angles.
+  const recentSearchQueries: string[] = [];
+  for (const d of allPastDigests.slice(0, 5)) {
+    try {
+      const qs = JSON.parse(d.searchQueries || "[]") as string[];
+      recentSearchQueries.push(...qs);
+    } catch { /* older rows have no queries */ }
+  }
+  const queryMemoryBlock = recentSearchQueries.length > 0
+    ? `\nSearch queries used in recent digests (DO NOT reuse these or near-identical wording — find genuinely different angles and vocabulary):\n${recentSearchQueries.slice(0, 12).map(q => `- "${q}"`).join("\n")}\n`
+    : "";
+
   const hypothesisPrompt = `You curate a daily research digest. Your job: pick 1-3 of these user interests and generate a central question with genuine surprise value.
 
 User interests (sorted by priority):
 ${interestList}
+${queryMemoryBlock}
 
 GOOD themes are SHORT and PUNCHY — like a magazine cover headline. Can be a question OR a statement:
 - "When fakes become indistinguishable from reality" (statement)
@@ -402,7 +429,7 @@ Return JSON only (no markdown):
   let themeEmb: number[] = [];
   let allResults: PaperSearchResult[] = [];
   let resultEmbs: number[][] = [];
-  let scored: { p: PaperSearchResult; themeSim: number; score: number }[] = [];
+  let scored: { p: PaperSearchResult; relSim: number; score: number }[] = [];
   let qualified: typeof scored = [];
   let threshold = SIM_ONTOPIC;
   const SIM_MIN_THEME = 0.15; // hard floor — filters truly unrelated papers while allowing cross-domain picks
@@ -438,6 +465,9 @@ Return JSON only (no markdown):
   console.log(`[Digest] Step 2: searching papers with ${searchQueries.length} queries across ${focusFields.length} field(s)...`);
   allResults = [];
   const seenSearchTitles = new Set<string>();
+  // Which query found each paper — relevance is scored against the originating
+  // query (domain vocabulary), not just the jargon-free headline (audit 6.3).
+  const originQueryIdx = new Map<string, number>();
 
   for (let qi = 0; qi < searchQueries.length; qi++) {
     const query = searchQueries[qi];
@@ -447,9 +477,10 @@ Return JSON only (no markdown):
     try {
       const results = await searchPapers(query, 10, "publicationDate", fieldForQuery);
       for (const p of results) {
-        const key = p.title.toLowerCase();
+        const key = normTitle(p.title);
         if (!seenSearchTitles.has(key)) {
           seenSearchTitles.add(key);
+          originQueryIdx.set(key, qi);
           allResults.push(p);
         }
       }
@@ -463,13 +494,14 @@ Return JSON only (no markdown):
   // Retry without field filter if first pass found too few papers
   if (allResults.length < 3) {
     console.log(`[Digest] Only ${allResults.length} results — retrying without field filter...`);
-    for (const query of searchQueries) {
+    for (let qi = 0; qi < searchQueries.length; qi++) {
       try {
-        const results = await searchPapers(query, 10, "publicationDate", undefined);
+        const results = await searchPapers(searchQueries[qi], 10, "publicationDate", undefined);
         for (const p of results) {
-          const key = p.title.toLowerCase();
+          const key = normTitle(p.title);
           if (!seenSearchTitles.has(key)) {
             seenSearchTitles.add(key);
+            originQueryIdx.set(key, qi);
             allResults.push(p);
           }
         }
@@ -487,18 +519,27 @@ Return JSON only (no markdown):
   // ─── Step 3: Hybrid scoring — BM25 + embeddings + RRF ───────────────────────
   // Research: Cormack et al. (2009) RRF, Kotkov et al. (2016) serendipity factors
   resultEmbs = await embedBatch(allResults.map(paperText));
+  const queryEmbs = await embedBatch(searchQueries);
   const currentYear = new Date().getFullYear();
 
-  // Signal 1: Embedding similarity (semantic meaning)
-  const embeddingSims = allResults.map((_, i) => cosineSimilarity(themeEmb, resultEmbs[i]));
-  // Signal 2: BM25 (keyword matching — catches specific terms embeddings miss)
-  const bm25Scores = bm25Score(theme, allResults.map(paperText));
+  // Signal 1: Embedding similarity. The theme headline is deliberately jargon-free
+  // and metaphorical, so good papers under-score against it (vocabulary mismatch).
+  // Score against BOTH the theme and the paper's originating search query (domain
+  // vocabulary) and take the max — the LLM re-rank later judges theme fit properly.
+  const embeddingSims = allResults.map((p, i) => {
+    const themeSim = cosineSimilarity(themeEmb, resultEmbs[i]);
+    const qi = originQueryIdx.get(normTitle(p.title));
+    const querySim = qi != null && queryEmbs[qi] ? cosineSimilarity(queryEmbs[qi], resultEmbs[i]) : 0;
+    return Math.max(themeSim, querySim);
+  });
+  // Signal 2: BM25 (keyword matching — theme + queries so domain terms count)
+  const bm25Scores = bm25Score(`${theme} ${searchQueries.join(" ")}`, allResults.map(paperText));
   // Fuse with Reciprocal Rank Fusion
   const rrfScores = rrfFuse([embeddingSims, bm25Scores]);
 
   scored = allResults
     .map((p, i) => {
-      const themeSim = embeddingSims[i];
+      const relSim = embeddingSims[i];
       const rrfScore = rrfScores[i];
       const age = p.year ? currentYear - p.year : 2;
       const recencyBonus = age <= 0 ? 0.003 : age === 1 ? 0.0015 : 0;
@@ -507,41 +548,42 @@ Return JSON only (no markdown):
       if (venueBoost !== 0) {
         console.log(`[Digest] Venue signal: "${p.title.slice(0, 50)}" ${venueBoost > 0 ? "+" : ""}${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
       }
-      return { p, themeSim, score };
+      return { p, relSim, score };
     })
-    .filter(({ p }) => !seenPaperTitles.has(p.title.toLowerCase()))
+    .filter(({ p }) => !seenPaperTitles.has(normTitle(p.title)))
+    .filter(({ p }) => !(p.openAlexId && seenOpenAlexIds.has(p.openAlexId)))
     .filter(({ p }) => !isPredatoryVenue(p.venueName))
-    .filter(({ themeSim }) => themeSim >= SIM_MIN_THEME)
+    .filter(({ relSim }) => relSim >= SIM_MIN_THEME)
     .sort((a, b) => b.score - a.score);
 
-  // Use raw themeSim for qualification (not RRF score) — keeps thresholds interpretable
+  // Use raw relSim (max of theme/query similarity) for qualification — keeps thresholds interpretable
   // Cascade: SIM_ONTOPIC (strong) → SIM_MIDPOINT (moderate) → SIM_FALLBACK (last resort)
   // Only break the theme retry loop early when papers pass SIM_ONTOPIC — weaker matches
   // mean the theme and paper pool don't align well, so prefer a fresh theme over bad papers.
   threshold = SIM_ONTOPIC;
-  qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+  qualified = scored.filter(({ relSim }) => relSim > threshold);
   if (qualified.length < 2) {
     threshold = SIM_MIDPOINT;
-    qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+    qualified = scored.filter(({ relSim }) => relSim > threshold);
     if (qualified.length >= 2) {
       console.log(`[Digest] Fell back to SIM_MIDPOINT (${SIM_MIDPOINT}) — ${qualified.length} papers`);
     }
   }
   if (qualified.length < 2) {
     threshold = SIM_FALLBACK;
-    qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+    qualified = scored.filter(({ relSim }) => relSim > threshold);
     if (qualified.length >= 2) {
       console.log(`[Digest] Fell back to SIM_FALLBACK (${SIM_FALLBACK}) — ${qualified.length} papers (weak match, prefer retry)`);
     }
   }
   if (qualified.length < 2) {
     threshold = SIM_MIN_THEME;
-    qualified = scored.filter(({ themeSim }) => themeSim > threshold);
+    qualified = scored.filter(({ relSim }) => relSim > threshold);
     if (qualified.length > 0) {
       console.log(`[Digest] Using hard-floor threshold (${SIM_MIN_THEME}) — only ${qualified.length} papers passed`);
     }
   }
-  console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (theme: ${scored[0]?.themeSim.toFixed(2)})`);
+  console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (rel: ${scored[0]?.relSim.toFixed(2)})`);
 
   // Break only if we have strong matches — weak matches (below SIM_MIDPOINT) should
   // trigger a theme retry if we haven't exhausted attempts yet.
@@ -570,7 +612,7 @@ Return JSON only (no markdown):
   // Dynamic item count: only upgrade to all-papers when we have abundant strong matches.
   // Never downgrade paper slots to news — the fill passes find additional papers via
   // progressive threshold relaxation, and news rarely improves digest quality.
-  const strongPapers = scored.filter(({ themeSim }) => themeSim > SIM_ONTOPIC).length;
+  const strongPapers = scored.filter(({ relSim }) => relSim > SIM_ONTOPIC).length;
   if (strongPapers >= 3) {
     targetPapers = TOTAL_ITEMS;
     targetNews = 0;
@@ -587,7 +629,7 @@ Return JSON only (no markdown):
   const widePool: TaggedItem[] = [];
   const seenTitles = new Set<string>(seenPaperTitles);
   const selectedEmbs: number[][] = [];
-  const mmrCandidates = [...qualified.filter(({ p }) => !seenTitles.has(p.title.toLowerCase()))];
+  const mmrCandidates = [...qualified.filter(({ p }) => !seenTitles.has(normTitle(p.title)))];
 
   for (let slot = 0; slot < WIDE_POOL_SIZE && mmrCandidates.length > 0; slot++) {
     let bestIdx = 0;
@@ -615,10 +657,11 @@ Return JSON only (no markdown):
       title: pick.p.title, authors: pick.p.authors, abstract: pick.p.abstract,
       sourceUrl: pick.p.sourceUrl, pdfUrl: pick.p.pdfUrl || undefined,
       source: pick.p.source, year: pick.p.year,
+      openAlexId: pick.p.openAlexId || undefined,
       category: slot === 0 ? "foundational" : "recent",
     });
-    seenTitles.add(pick.p.title.toLowerCase());
-    console.log(`[Digest] Wide pool ${slot + 1}/${WIDE_POOL_SIZE}: "${pick.p.title}" (score ${pick.score.toFixed(4)}, theme ${pick.themeSim.toFixed(2)})`);
+    seenTitles.add(normTitle(pick.p.title));
+    console.log(`[Digest] Wide pool ${slot + 1}/${WIDE_POOL_SIZE}: "${pick.p.title}" (score ${pick.score.toFixed(4)}, rel ${pick.relSim.toFixed(2)})`);
     mmrCandidates.splice(bestIdx, 1);
   }
 
@@ -687,13 +730,20 @@ Return JSON only (no markdown):
       .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, newsEmbs[i]) }))
       .filter(({ result }) => !isListicle(result.title, result.source))
       .filter(({ result }) => !isAcademicDomain(result.link))
-      .filter(({ result }) => !seenTitles.has(result.title.toLowerCase()))
+      .filter(({ result }) => !seenTitles.has(normTitle(result.title)))
       .sort((a, b) => b.sim - a.sim);
 
     let newsFound = 0;
     for (const { result, sim } of scoredNews) {
       if (newsFound >= newsNeeded) break;
       if (sim < 0.15) continue;
+      // Word-guard on top of embedding sim — snippets are 1-2 sentences, where
+      // cosine 0.15 is near the noise floor (audit 6.4). Better a 2-source digest
+      // than a third slot with garbage news.
+      if (!isNewsRelevant({ title: result.title, abstract: result.snippet }, themeWords, focusInterest)) {
+        console.log(`[Digest] News rejected by word guard: "${result.title.slice(0, 60)}"`);
+        continue;
+      }
       const articleText = await fetchArticleText(result.link);
       const abstract = articleText.length > 200 ? articleText : result.snippet;
       items.push({
@@ -701,7 +751,7 @@ Return JSON only (no markdown):
         abstract, sourceUrl: result.link,
         source: "rss", category: "news", year: new Date().getFullYear(),
       });
-      seenTitles.add(result.title.toLowerCase());
+      seenTitles.add(normTitle(result.title));
       console.log(`[Digest] News ${newsFound + 1}/${newsNeeded}: "${result.title}" (sim ${sim.toFixed(2)})`);
       newsFound++;
     }
@@ -712,12 +762,12 @@ Return JSON only (no markdown):
       const rss = await fetchRssArticles(newsTerms, 10, focusFields[0]);
       for (const article of rss) {
         if (newsFound >= newsNeeded) break;
-        if (seenTitles.has(article.title.toLowerCase())) continue;
+        if (seenTitles.has(normTitle(article.title))) continue;
         if (isNewsRelevant(article, themeWords, focusInterest)) {
           const articleText = await fetchArticleText(article.sourceUrl);
           const abstract = articleText.length > 200 ? articleText : article.abstract;
           items.push({ ...article, abstract, source: "rss", category: "news", year: new Date().getFullYear() });
-          seenTitles.add(article.title.toLowerCase());
+          seenTitles.add(normTitle(article.title));
           newsFound++;
         }
       }
@@ -734,19 +784,21 @@ Return JSON only (no markdown):
     const fillQuery = searchQueries[2] || `${focusInterest} applications`;
     const fillResults = await searchPapers(fillQuery, 10, "citationCount", focusFields[0]);
     const fillEmbs = await embedBatch(fillResults.map(paperText));
+    const fillQueryEmb = await embedText(fillQuery);
     for (let fi = 0; fi < fillResults.length; fi++) {
       if (items.length >= TOTAL_ITEMS) break;
       const paper = fillResults[fi];
-      if (seenTitles.has(paper.title.toLowerCase())) continue;
-      const sim = cosineSimilarity(themeEmb, fillEmbs[fi]);
+      if (seenTitles.has(normTitle(paper.title))) continue;
+      if (paper.openAlexId && seenOpenAlexIds.has(paper.openAlexId)) continue;
+      const sim = Math.max(cosineSimilarity(themeEmb, fillEmbs[fi]), cosineSimilarity(fillQueryEmb, fillEmbs[fi]));
       if (sim > SIM_FALLBACK) { // use FALLBACK, not ONTOPIC — this is a fill, be less strict
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
           source: paper.source, category: "recent",
-          year: paper.year,
+          year: paper.year, openAlexId: paper.openAlexId || undefined,
         });
-        seenTitles.add(paper.title.toLowerCase());
+        seenTitles.add(normTitle(paper.title));
         console.log(`[Digest] Fill paper: "${paper.title}" (sim ${sim.toFixed(2)})`);
       }
     }
@@ -756,21 +808,27 @@ Return JSON only (no markdown):
   if (items.length < TOTAL_ITEMS) {
     console.log(`[Digest] Still ${items.length}/${TOTAL_ITEMS}, broad fill without field filter...`);
     await delay(500);
-    const broadResults = await searchPapers(focusInterest, 12, "publicationDate", undefined); // no field filter
+    // Vary the broad query with theme words — the bare interest string returned a
+    // nearly fixed result set every run (audit 6.6)
+    const broadQuery = `${focusInterest} ${themeWords.slice(0, 2).join(" ")}`.trim();
+    const broadResults = await searchPapers(broadQuery, 12, "publicationDate", undefined); // no field filter
     const broadEmbs = await embedBatch(broadResults.map(paperText));
+    const broadQueryEmb = await embedText(broadQuery);
     for (let bi = 0; bi < broadResults.length; bi++) {
       if (items.length >= TOTAL_ITEMS) break;
       const paper = broadResults[bi];
-      if (seenTitles.has(paper.title.toLowerCase())) continue;
-      const sim = cosineSimilarity(themeEmb, broadEmbs[bi]);
+      if (seenTitles.has(normTitle(paper.title))) continue;
+      if (paper.openAlexId && seenOpenAlexIds.has(paper.openAlexId)) continue;
+      const sim = Math.max(cosineSimilarity(themeEmb, broadEmbs[bi]), cosineSimilarity(broadQueryEmb, broadEmbs[bi]));
       if (sim > SIM_MIN_THEME) { // hard floor — accept anything somewhat related
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
           source: paper.source, year: paper.year,
+          openAlexId: paper.openAlexId || undefined,
           category: "recent",
         });
-        seenTitles.add(paper.title.toLowerCase());
+        seenTitles.add(normTitle(paper.title));
         console.log(`[Digest] Broad fill: "${paper.title}" (sim ${sim.toFixed(2)})`);
       }
     }
@@ -785,15 +843,17 @@ Return JSON only (no markdown):
     for (let ti = 0; ti < themeResults.length; ti++) {
       if (items.length >= TOTAL_ITEMS) break;
       const paper = themeResults[ti];
-      if (seenTitles.has(paper.title.toLowerCase())) continue;
+      if (seenTitles.has(normTitle(paper.title))) continue;
+      if (paper.openAlexId && seenOpenAlexIds.has(paper.openAlexId)) continue;
       const sim = cosineSimilarity(themeEmb, themeResultEmbs[ti]);
       if (sim > SIM_MIN_THEME) {
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
           source: paper.source, year: paper.year, category: "recent",
+          openAlexId: paper.openAlexId || undefined,
         });
-        seenTitles.add(paper.title.toLowerCase());
+        seenTitles.add(normTitle(paper.title));
         console.log(`[Digest] Theme fill: "${paper.title}" (sim ${sim.toFixed(2)})`);
       }
     }
@@ -807,17 +867,20 @@ Return JSON only (no markdown):
       const broadNewsEmbs = broadNewsResults.length > 0 ? await embedBatch(broadNewsResults.map(r => `${r.title}. ${r.snippet}`)) : [];
       for (let i = 0; i < broadNewsResults.length && items.length < 2; i++) {
         const r = broadNewsResults[i];
-        if (seenTitles.has(r.title.toLowerCase())) continue;
+        if (seenTitles.has(normTitle(r.title))) continue;
         if (isListicle(r.title, r.source)) continue;
         const sim = cosineSimilarity(themeEmb, broadNewsEmbs[i]);
-        if (sim > 0.10) { // very lenient for the second source
+        // Floor raised from 0.10 (indistinguishable from noise) + word guard —
+        // a 1-source digest beats a 2-source digest with one garbage item (audit 6.4)
+        if (!isNewsRelevant({ title: r.title, abstract: r.snippet }, themeWords, focusInterest)) continue;
+        if (sim > 0.15) {
           const articleText = await fetchArticleText(r.link);
           items.push({
             title: r.title, authors: [r.source],
             abstract: articleText.length > 200 ? articleText : r.snippet,
             sourceUrl: r.link, source: "rss", category: "news", year: new Date().getFullYear(),
           });
-          seenTitles.add(r.title.toLowerCase());
+          seenTitles.add(normTitle(r.title));
           console.log(`[Digest] Broad news fill: "${r.title}" (sim ${sim.toFixed(2)})`);
         }
       }
@@ -891,10 +954,10 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
             const isWeak = combined <= 3; // relevance=2 + insight=1 or similar
 
             if (isOffTopic || isWeak) {
-              const replacement = qualified.find(({ p, themeSim }) =>
-                !seenTitles.has(p.title.toLowerCase()) &&
+              const replacement = qualified.find(({ p, relSim }) =>
+                !seenTitles.has(normTitle(p.title)) &&
                 !items.some(it => it.title === p.title) &&
-                themeSim > SIM_MIN_THEME
+                relSim > SIM_MIN_THEME
               );
               if (replacement) {
                 const originalCategory = items[itemIdx].category;
@@ -904,9 +967,10 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
                   abstract: replacement.p.abstract, sourceUrl: replacement.p.sourceUrl,
                   pdfUrl: replacement.p.pdfUrl || undefined,
                   source: replacement.p.source, year: replacement.p.year,
+                  openAlexId: replacement.p.openAlexId || undefined,
                   category: originalCategory,
                 };
-                seenTitles.add(replacement.p.title.toLowerCase());
+                seenTitles.add(normTitle(replacement.p.title));
               } else if (isOffTopic && items.length >= 3) {
                 // No replacement, and the paper is genuinely off-topic (relevance=1).
                 // Drop it: 2 good sources beat 3 with one the synthesis would have to
@@ -1351,6 +1415,7 @@ Return JSON (no markdown fences):
     suggestedQuestions: JSON.stringify(suggestedQuestions),
     suggestedAnswers: JSON.stringify(suggestedAnswers),
     seedInterests: JSON.stringify(seedInterests),
+    searchQueries: JSON.stringify(searchQueries),
     gist: gist || null,
   }).returning();
 
@@ -1373,6 +1438,7 @@ Return JSON (no markdown fences):
         category: item.category,
         year: item.year,
         sourceIndex: i,
+        openAlexId: item.openAlexId || null,
       };
     })
   );
