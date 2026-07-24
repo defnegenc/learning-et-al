@@ -202,14 +202,37 @@ function bigNums(text: string): React.ReactNode[] {
   let key = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) out.push(<span key={key++}>{text.slice(last, m.index)}</span>);
-    out.push(<strong key={key++} style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.35em", lineHeight: 1, letterSpacing: "-0.01em" }}>{m[0]}</strong>);
+    out.push(<strong key={key++} style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.5em", lineHeight: 1, letterSpacing: "-0.01em" }}>{m[0]}</strong>);
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push(<span key={key++}>{text.slice(last)}</span>);
   return out;
 }
 
+// bigNums + **bold** markers (the pipeline flags each finding's key phrase).
+function emphasize(text: string): React.ReactNode[] {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+    !part ? null : i % 2 === 1
+      ? <strong key={i} style={{ fontWeight: 750 }}>{bigNums(part)}</strong>
+      : <span key={i}>{bigNums(part)}</span>
+  );
+}
+
+// Collapsed headline for a finding row: the **bolded** phrase when the pipeline
+// marked one, otherwise the first few words. Rows whose headline IS the whole
+// finding don't expand.
+function findingHeadline(f: string): { head: string; expandable: boolean } {
+  const plain = f.replace(/\*\*/g, "").trim();
+  const bold = f.match(/\*\*(.+?)\*\*/)?.[1]?.trim();
+  if (bold && bold.length < plain.length - 8) return { head: bold, expandable: true };
+  if (plain.length > 64) return { head: plain.slice(0, 56).replace(/\s+\S*$/, "") + "…", expandable: true };
+  return { head: plain, expandable: false };
+}
+
 const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 7 };
+// One body style for every tile so the grid reads as one system (sizes were
+// drifting: 0.74 / 0.8 / 0.95 / 0.98rem). Loudness comes from weight + background.
+const TILE_BODY: React.CSSProperties = { fontSize: "0.8rem", lineHeight: 1.55, color: "#1a1a1a" };
 
 function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperItem; paperIdx: number; prose?: React.ReactNode; expandTick?: number }) {
   // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
@@ -218,6 +241,8 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
   // solid-palette TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
   // everything about a source lives on its card.
   const [expanded, setExpanded] = useState(false);
+  // Which finding rows are unfolded (collapsed rows show just the headline phrase)
+  const [openFindings, setOpenFindings] = useState<number[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   // A paper-chip click in the prose bumps expandTick → open the tiles and scroll
   // here. Expansion is adjusted during render (not in the effect) so the scroll
@@ -297,9 +322,9 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
                     <div style={{ background: `${c2}99`, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
                       <div style={TILE_LABEL}>{paper.methodType || "Method"}</div>
                       {methodFacts.length > 0 ? methodFacts.map((f, i) => (
-                        <div key={i} style={{ fontSize: "0.74rem", lineHeight: 1.5, color: "#1a1a1a", marginTop: i === 0 ? 0 : 5 }}>{bigNums(f)}</div>
+                        <div key={i} style={{ ...TILE_BODY, marginTop: i === 0 ? 0 : 5 }}>{emphasize(f)}</div>
                       )) : (
-                        <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "0.95rem", color: "#1a1a1a" }}>{paper.methodType}</div>
+                        <div style={{ ...TILE_BODY, fontFamily: DISPLAY, fontWeight: 700 }}>{paper.methodType}</div>
                       )}
                     </div>
                   )}
@@ -307,26 +332,37 @@ function PaperBlobCard({ paper, paperIdx, prose, expandTick }: { paper: PaperIte
                   {claim && (
                     <div style={{ background: `${c1}99`, border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
                       <div style={TILE_LABEL}>The claim</div>
-                      <div style={{ fontSize: "0.8rem", fontWeight: 600, lineHeight: 1.5, color: "#1a1a1a" }}>{claim}</div>
+                      <div style={{ ...TILE_BODY, fontWeight: 600 }}>{emphasize(claim)}</div>
                     </div>
                   )}
                   {/* FINDINGS — bullets, numbers set big */}
                   {findings.length > 0 && (
                     <div style={{ background: "#fff", border: "1.5px solid #1a1a1a", padding: "12px 14px" }}>
                       <div style={TILE_LABEL}>{isNews ? "Key points" : "Findings"}</div>
-                      {findings.map((f, i) => (
-                        <div key={i} style={{ display: "flex", gap: 6, fontSize: "0.74rem", lineHeight: 1.5, color: "#1a1a1a", marginTop: i === 0 ? 0 : 6 }}>
-                          <span style={{ flexShrink: 0 }}>▸</span>
-                          <span>{bigNums(f)}</span>
-                        </div>
-                      ))}
+                      {findings.map((f, i) => {
+                        const { head, expandable } = findingHeadline(f);
+                        const open = !expandable || openFindings.includes(i);
+                        return (
+                          <div
+                            key={i}
+                            role={expandable ? "button" : undefined}
+                            onClick={expandable ? () => setOpenFindings(v => v.includes(i) ? v.filter(x => x !== i) : [...v, i]) : undefined}
+                            style={{ display: "flex", gap: 6, ...TILE_BODY, marginTop: i === 0 ? 0 : 7, cursor: expandable ? "pointer" : undefined }}
+                          >
+                            <span style={{ flexShrink: 0, transform: open && expandable ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▸</span>
+                            {open
+                              ? <span>{emphasize(f)}</span>
+                              : <span style={{ fontWeight: 750 }}>{bigNums(head)}</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   {/* TAKEAWAY — the loudest tile: solid palette, one sentence max */}
                   {takeaway && (
                     <div style={{ background: c1, border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "12px 14px", gridColumn: tileCount % 2 === 1 ? "1 / -1" : undefined }}>
                       <div style={TILE_LABEL}>Takeaway</div>
-                      <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "0.98rem", lineHeight: 1.4, color: "#1a1a1a", letterSpacing: "-0.01em" }}>{bigNums(takeaway)}</div>
+                      <div style={{ ...TILE_BODY, fontFamily: DISPLAY, fontWeight: 800, letterSpacing: "-0.01em" }}>{emphasize(takeaway)}</div>
                     </div>
                   )}
                 </div>

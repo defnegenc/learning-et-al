@@ -58,7 +58,7 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
+    { "index": 1, "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding with its **key result phrase** bolded", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
   ],
   "synthesis": "see format below",
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
@@ -88,7 +88,7 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding 1", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" }, "methodType": "what this IS, 1-3 plain words", "methodFacts": ["method fact 1", "method fact 2"], "claim": "the paper's central claim, one plain sentence" }
+    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding with its **key result phrase** bolded", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" }, "methodType": "what this IS, 1-3 plain words", "methodFacts": ["method fact 1", "method fact 2"], "claim": "the paper's central claim, one plain sentence" }
   ],
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
   "suggestedQuestions": ["question 1", "question 2", "question 3"]
@@ -480,9 +480,10 @@ BAD findings (these describe the STUDY, not the RESULTS):
 - "Researchers surveyed 381 students about emoji use" — that's what they DID, not what they LEARNED
 
 GOOD findings (these tell me WHAT WORKED, WHAT HAPPENED, WHAT'S TRUE):
-- "Leaderboards boosted student attention by 40% but badges had no measurable effect"
-- "The podcast group's motivation jumped massively (1.33 effect size) while the control group showed zero change"
-- "Multi-agent collaboration is the #1 AI agent trend for 2026 according to the report"
+- "Leaderboards **boosted student attention by 40%** but badges had no measurable effect"
+- "The podcast group's **motivation jumped massively** (1.33 effect size) while the control group showed zero change"
+- "**Multi-agent collaboration** is the #1 AI agent trend for 2026 according to the report"
+- Wrap the single most load-bearing phrase of each finding — the result itself, 2-6 words — in **double asterisks**. It renders bold on the card and doubles as the finding's collapsed headline. Exactly ONE bolded phrase per finding; never bold the whole sentence.
 
 For NEWS: name the specific companies, products, numbers, trends.
 
