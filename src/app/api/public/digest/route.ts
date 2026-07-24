@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
         authors: p.authors ? JSON.parse(p.authors) : [],
         keywords: p.keywords ? JSON.parse(p.keywords) : [],
         keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
+        methodFacts: p.methodFacts ? JSON.parse(p.methodFacts) : [],
       })),
     });
   } catch (error) {

@@ -36,7 +36,7 @@ type PaperSearchResult = {
 };
 
 interface DigestAIResponse {
-  items: { index: number; plainName?: string; summary: string; keywords: string[]; findings?: string[]; connectionToTheme?: string; takeaway?: { hook?: string; stat?: string | null; line?: string } }[];
+  items: { index: number; plainName?: string; summary: string; keywords: string[]; findings?: string[]; connectionToTheme?: string; takeaway?: { hook?: string; stat?: string | null; line?: string }; methodType?: string; methodFacts?: string[]; claim?: string }[];
   synthesis: string;
   keyConcepts: string[];
 }
@@ -1421,7 +1421,7 @@ Return JSON (no markdown fences):
 
   await db.insert(papers).values(
     items.map((item, i) => {
-      const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "", plainName: "", takeaway: undefined };
+      const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "", plainName: "", takeaway: undefined, methodType: undefined, methodFacts: undefined, claim: undefined };
       return {
         digestId: digest.id,
         title: item.title, authors: JSON.stringify(item.authors),
@@ -1430,6 +1430,9 @@ Return JSON (no markdown fences):
         takeawayHook: aiItem.takeaway?.hook || null,
         takeawayStat: aiItem.takeaway?.stat || null,
         takeawayLine: aiItem.takeaway?.line || null,
+        methodType: aiItem.methodType || null,
+        methodFacts: aiItem.methodFacts?.length ? JSON.stringify(aiItem.methodFacts) : null,
+        claim: aiItem.claim || null,
         source: item.source,
         sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
         keywords: JSON.stringify(aiItem.keywords),
