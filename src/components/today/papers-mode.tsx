@@ -34,7 +34,7 @@ function venueLabel(p: PaperItem): string {
 // stays hidden until you reveal it).
 function lensLabel(p: PaperItem): string {
   if (p.category === "news") return "Recent news";
-  if (p.category === "foundational") return "A foundational view";
+  if (p.category === "foundational") return "The foundational text";
   const kw = p.keywords[0]?.toLowerCase();
   if (kw) return `${/^[aeiou]/.test(kw) ? "An" : "A"} ${kw} lens`;
   return "Another angle";
@@ -57,10 +57,14 @@ function verdictLead(synthesis: string, theme?: string): string {
 /* ---- an anonymized paper card: the lens + what it does, title hidden until reveal ---- */
 function RowCard({ paper, idx, onOpen }: { paper: PaperItem; idx: number; onOpen: () => void }) {
   const [c1] = PALETTES[idx % PALETTES.length];
-  const teaser = paper.relatesLine || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
+  const isFoundational = paper.category === "foundational";
+  // Foundational lane: gold frame + the "why this mattered" line instead of the relates teaser
+  const teaser = (isFoundational && paper.foundationalReason)
+    || paper.relatesLine
+    || (paper.connectionReason ? relatesFallback(paper.connectionReason) : "");
   return (
-    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: "2px solid #1a1a1a", boxShadow: "5px 5px 0 0 rgba(0,0,0,1)", padding: "20px 22px", cursor: "pointer", height: "100%" }}>
-      <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "1.15rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, letterSpacing: "-0.01em", color: "#1a1a1a", marginBottom: 12, paddingBottom: 5, borderBottom: `3px solid ${c1}` }}>{lensLabel(paper)}</span>
+    <button onClick={onOpen} className="pm-card" style={{ ...washStyle(idx), display: "flex", flexDirection: "column", textAlign: "left", border: isFoundational ? "3px solid transparent" : "2px solid #1a1a1a", ...(isFoundational ? { borderImage: "linear-gradient(135deg, #F7E38F 0%, #C9A227 35%, #8C6D1F 55%, #E6C34A 75%, #F7E38F 100%) 1" } : {}), boxShadow: isFoundational ? "5px 5px 0 0 #C9A227, 0 0 12px rgba(201, 162, 39, 0.45)" : "5px 5px 0 0 rgba(0,0,0,1)", padding: "20px 22px", cursor: "pointer", height: "100%" }}>
+      <span style={{ alignSelf: "flex-start", fontFamily: DISPLAY, fontSize: "1.15rem", fontWeight: 800, textTransform: "uppercase", lineHeight: 1.15, letterSpacing: "-0.01em", color: "#1a1a1a", marginBottom: 12, paddingBottom: 5, borderBottom: `3px solid ${isFoundational ? "#C9A227" : c1}` }}>{lensLabel(paper)}</span>
       {teaser && <span style={{ fontFamily: DISPLAY, fontSize: "1.0rem", fontWeight: 600, lineHeight: 1.32, color: "#1a1a1a", marginBottom: 16 }}>{teaser}</span>}
       <span style={{ marginTop: "auto", alignSelf: "flex-end", fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a" }}>Reveal the paper →</span>
     </button>

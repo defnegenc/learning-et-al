@@ -346,3 +346,66 @@ DB migration (run on local sqlite AND Turso prod):
 ALTER TABLE digests ADD COLUMN search_queries TEXT;
 ALTER TABLE papers ADD COLUMN open_alex_id TEXT;
 ```
+
+---
+
+## Part 7: Sourcing Diversity & Depth — recency monoculture, foundational papers, interest coverage (audited 2026-07-24)
+
+User-reported concerns: (a) fear of unrelated/uninteresting papers slipping through, (b) everything is from 2024-2026 and there's no path to foundational texts (the "Weiser 1991" problem), (c) digests cluster on a few interests (fonts, venture, AI) — is that bias in the pipeline or just venue availability?
+
+### 7.1 Relevance drift: mostly fixed by Part 6, three residual gaps
+
+The Part 6 fixes (relevance-sorted OpenAlex, query-anchored `relSim`, word guards on news) closed the biggest holes. What remains:
+
+1. **The query anchor can over-admit.** `relSim = max(themeSim, querySim)` (digest.ts:530-535) means a paper only has to match its *originating search query* at 0.25 to qualify — even if that query itself drifted from the theme (the LLM writes queries before any paper exists; nothing validates query↔theme alignment). The LLM re-rank (Step 4b) is the backstop, but it only fires when ≥2 paper items survive, and its replacement pool (`qualified`) was gated by the same signal.
+2. **Degraded mode is now fail-closed but silent.** With ONNX down, unknown pairs return 0.1 < every gate → nothing qualifies → theme retries burn → final fallback takes "top 3 by score", which at that point is BM25-only ranking. Correct direction (conservative), but a cold-start digest is quietly a keyword-ranked digest. Consider surfacing degraded mode in the digest row for later quality triage.
+3. **Fill passes 2-3 remain the leak.** Thresholds 0.15-0.18 against theme-or-fill-query, explicitly "accept anything somewhat related" (digest.ts:824). Known and documented (6.4); the honest-2-source preference mitigates but the passes still run before the re-rank drop logic, and fill papers added *after* Step 4b's shortlist was formed are never LLM-scored at all if they arrive in passes that run post-rerank — they don't; fills run before 4b, so they ARE re-ranked. The actual residue: pass 2/3 papers score against a *fill query* even further from the theme than the originating queries.
+
+**Verdict on concern (a):** the gate stack (floor → cascade → predatory filter → LLM re-rank with drop) is genuinely layered now; the most likely unrelated-paper path today is query drift (7.1.1), not threshold leakage.
+
+### 7.2 Foundational papers are structurally impossible, while the UI pretends they exist
+
+1. **The 2-year hard window.** All main-path searches call `searchPapers(query, 10, "publicationDate", field)`, and OpenAlex "recent" mode applies `publication_year:{Y-2}-{Y}` as a *filter* (open-alex.ts:131-133). A foundational text never loses a ranking contest — it is excluded from the candidate pool before ranking happens. Semantic Scholar mirrors the same window (semantic-scholar.ts:63-67). The only unwindowed path is fill pass 1 (`citationCount` sort), which fires only when slots remain unfilled.
+2. **`category: "foundational"` is a lie today.** Wide-pool slot 0 — simply the top MMR pick, a 2024-2026 paper — is tagged `foundational` (digest.ts:662), and `papers-mode.tsx:37` renders it as "A foundational view". The schema enum, DB column, and a UI hook already exist; only the retrieval behind them doesn't.
+3. **Prompts actively suppress old papers.** `selectionSkeletonPrompt` (prompts.ts:203): ">5 years old must offer something newer papers can't… Don't pick old papers just because they're highly cited." Right instinct for the recent pool, but it means even if an old paper leaked in, selection is biased against it. (The ERA AWARENESS block in prompts.ts:272 shows the synthesis side is already prepared to handle dated papers well.)
+4. **arXiv fallback fabricates recency**: `year: new Date().getFullYear()` for every result (digest.ts:100) — an old paper arriving via arXiv would be mislabeled as current. Near-dead path (6.1), but it corrupts the year signal the staleness guard and recency bonus rely on.
+
+**Design direction — a real foundational slot ("shared ancestor" method, preferred):**
+- After Step 3b selects the recent papers, fetch their OpenAlex `referenced_works` (1 batched call per paper, IDs are already in hand via `relatedWorkIds`/select fields — add `referenced_works` to `OA_SELECT`). Find the most-cited *common or near-common ancestor* ≥8 years old above a citation bar (e.g. >500). That is a principled definition of "set the stage for this field of thought" — it's literally what today's papers built on — and it's theme-specific for free, no extra embedding gate needed.
+- Fallback when no shared ancestor clears the bar: one extra OpenAlex query per digest with `sort=cited_by_count:desc`, `publication_year:<Y-8`, `cited_by_count:>500`, using the domain-vocabulary search query (not the headline), then one cheap LLM yes/no: "is this genuinely a foundational text for {theme}, or just an old survey?"
+- **Cadence: not every digest.** Ship it only when a candidate clears both bars — scarcity is what makes the gold border mean something. Expect ~1-2 per week.
+- **Presentation:** the enum and card hook exist. Add gold border treatment + a stored one-liner (`foundationalReason`: "This 1991 essay coined 'ubiquitous computing' — the frame every ambient-tech paper since has argued with") generated in Stage A alongside the takeaway. Loosen the prompts.ts:203 age rule for items tagged foundational; the ERA AWARENESS machinery already handles the synthesis tone.
+- **Do NOT** relax the 2-year window on the main pool — recency-by-default is the right product call (user-confirmed); foundational is a separate, additive retrieval lane with its own bar.
+
+### 7.3 Interest diversity: the sampler is fair, the layers around it aren't
+
+The weighted sampler + rotation penalty (digest.ts:233-254) is sound. The clustering pressure comes from four surrounding mechanisms:
+
+1. **The LLM is the real selector and it has taste.** Sampling picks 5 candidates; the hypothesis LLM picks 1-3 of them — and it's instructed to prefer interests that make catchy, dinner-table, naturally-connecting questions (digest.ts:316-321). AI/fonts/venture are simply easier to write a punchy 8-word headline about than consciousness. Nothing counteracts this preference: `seed_interests` (which interests the LLM actually chose) is persisted per digest but **never fed back into rotation** — the penalty instead uses noisy word-overlap between interest keywords and theme/paper words (2.6, still true).
+2. **Rich-get-richer via engagement.** Stars add +0.1 to the best-matching interest, and you can only star what you're shown. Interests that never get picked earn no boosts while decaying ×0.95/day, so their sampling odds shrink over time. The learning loop amplifies the LLM's selection bias instead of correcting it.
+3. **Theme-retry drift toward well-published fields.** When a consciousness-flavored theme finds few papers (thin OpenAlex abstract coverage + the 2-year window hits humanities/philosophy hardest), the retry prompt demands "a concrete, researchable angle" (digest.ts:444) — which in practice means drifting back to CS/AI. So venue availability is real, but the pipeline *converts* it into interest bias rather than compensating.
+4. **Field mapping gaps.** `OA_CONCEPT_MAP` (open-alex.ts:11-29) has no HCI, Design, Neuroscience, or Cognitive Science entries. An unmapped `focusField` falls through to `display_name:{lowercased}`, which can silently match zero OpenAlex concepts (OpenAlex's is "Human–computer interaction", en dash) → field-filtered queries return nothing → the no-field retry returns CS-dominant results.
+
+**Verdict on concern (c):** it's both — venues do carry more AI/design material, but three pipeline layers (LLM selection with no fairness memory, engagement rich-get-richer, retry drift) each push the same direction, so the clustering is stronger than the venue base rate.
+
+**Fix direction (priority order):**
+1. **Exact-match rotation on `seed_interests`**: load the last ~7 digests' `seed_interests`, apply the -0.5/use penalty to those exact interests (replacing the word-overlap heuristic for this purpose). Cheap, data already stored.
+2. **Coverage floor**: if an interest hasn't appeared in `seed_interests` for K digests (e.g. 10), force-include it in the candidate 5 and add one prompt line: "Interest X hasn't been featured in a while — strongly prefer it if it can carry a good question."
+3. **Fill `OA_CONCEPT_MAP` gaps** for the user-facing field list (HCI, Design, Neuroscience, Cognitive Science, Media Studies) and log when a concept filter returns 0 so silent fallthrough becomes visible.
+4. **Measure before further tuning** — prod query: `SELECT json_extract(value,'$.keyword') kw, count(*) FROM digests, json_each(digests.seed_interests) WHERE date > date('now','-30 day') GROUP BY kw ORDER BY 2 DESC;` vs the interests table. If clustering persists after fixes 1-2, it's genuinely venue availability.
+
+### Part 7 implementation status (2026-07-25)
+
+Shipped:
+- **7.2 Foundational lane** (Step 4c in digest.ts), two tiers: **Tier 1** fetches the selected papers' `referenced_works` (one batched OpenAlex call) and keeps ancestors ≥8 years old with >500 citations (ancestors shared by ≥2 of today's papers ranked first). **Tier 2** (when tier 1 surfaces nothing) mimics googling "foundational papers on X": web-search snippets ground an LLM that names up to 3 canonical works, each verified against OpenAlex (title match + same bars) so hallucinated titles die at the lookup. Both tiers end at the same LLM gate ("genuinely field-defining, not just an old survey") which writes the one-sentence `foundationalReason`. Additive 4th item; ships only when a candidate clears every bar. Gold border + ★ FOUNDATIONAL chip + reason line on `paper-card.tsx`; gold frame + reason teaser on the papers-mode RowCard. The 2-year window on the main pool is unchanged — recency stays the default.
+- **7.2.2 Fake label fixed**: wide-pool slot 0 is now `category: "recent"`; `foundational` is reserved for the lane.
+- **7.3 fix 1 — exact-match rotation**: the -0.5/use penalty now counts exact appearances in the last 5 digests' `seed_interests` (word-overlap heuristic kept only as fallback for pre-seed rows).
+- **7.3 fix 2 — coverage floor**: with ≥10 digests, an interest absent from the last 10 digests' seeds is forced into the candidate 5 (highest-weight starved one) plus a "strongly prefer featuring it" prompt line.
+- **7.3 fix 3 — OA_CONCEPT_MAP gaps**: added HCI (en-dash variant), Design, Neuroscience, Cognitive Science, Media Studies; searches log when a concept filter returns 0 results.
+
+NOT done: 7.1.1 query↔theme alignment validation (LLM re-rank remains the backstop), 7.1.2 degraded-mode flag on digest rows, 7.2.4 arXiv fallback year fabrication (near-dead path).
+
+DB migration (run on local sqlite AND Turso prod):
+```sql
+ALTER TABLE papers ADD COLUMN foundational_reason TEXT;
+```

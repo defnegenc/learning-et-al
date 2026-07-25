@@ -26,6 +26,13 @@ const OA_CONCEPT_MAP: Record<string, string> = {
   "Philosophy": "philosophy",
   "Linguistics": "linguistics",
   "Political Science": "political science",
+  // OpenAlex concept display names use an en dash in "Human–computer interaction"
+  "Human-Computer Interaction": "human–computer interaction",
+  "Human Computer Interaction": "human–computer interaction",
+  "Design": "design",
+  "Neuroscience": "neuroscience",
+  "Cognitive Science": "cognitive science",
+  "Media Studies": "media studies",
 };
 
 interface OARawWork {
@@ -152,12 +159,93 @@ export async function searchOpenAlex(
       return [];
     }
     const data = await res.json();
-    return (data.results as OARawWork[] || [])
+    const mapped = (data.results as OARawWork[] || [])
       .filter(w => w.title && w.abstract_inverted_index)
       .map(mapWork)
       .filter(p => p.title && p.abstract.length > 50);
+    // A concept filter that silently matches no OpenAlex concept returns 0 results
+    // and the caller falls back to an unfiltered (CS-dominant) search — make that visible.
+    if (mapped.length === 0 && fieldsOfStudy) {
+      console.log(`[OpenAlex] 0 results with concept filter "${OA_CONCEPT_MAP[fieldsOfStudy] ?? fieldsOfStudy.toLowerCase()}" (field: ${fieldsOfStudy}) — check OA_CONCEPT_MAP`);
+    }
+    return mapped;
   } catch (err) {
     console.log(`[OpenAlex] Search error: ${err}`);
+    return [];
+  }
+}
+
+// ─── Foundational lane ────────────────────────────────────────────────────────
+// "What did today's papers build on?" — fetch the reference lists of the selected
+// works, then look up the referenced works that are old + heavily cited.
+
+/** Batch-fetch reference lists for a set of works. One API call. */
+export async function getReferencedWorkIds(
+  openAlexIds: string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const ids = openAlexIds.filter(Boolean).slice(0, 10);
+  if (ids.length === 0) return out;
+  try {
+    const params = new URLSearchParams({
+      filter: `openalex_id:${ids.join("|")}`,
+      select: "id,referenced_works",
+      "per-page": String(ids.length),
+      mailto: OA_MAILTO,
+    });
+    const res = await oaFetch(`${OA_BASE}/works?${params}`);
+    if (!res.ok) {
+      console.log(`[OpenAlex] Referenced works ${res.status}`);
+      return out;
+    }
+    const data = await res.json();
+    for (const w of (data.results as { id: string; referenced_works?: string[] }[] || [])) {
+      const shortId = w.id.replace("https://openalex.org/", "");
+      out.set(shortId, (w.referenced_works || []).map(u => u.replace("https://openalex.org/", "")));
+    }
+    return out;
+  } catch (err) {
+    console.log(`[OpenAlex] Referenced works error: ${err}`);
+    return out;
+  }
+}
+
+/** From a set of candidate ancestor IDs, return the ones that qualify as
+ *  foundational: ≥8 years old, heavily cited, with a usable abstract. */
+export async function getFoundationalCandidates(
+  candidateIds: string[],
+  minCitations = 500,
+  minAgeYears = 8,
+  limit = 5,
+): Promise<OpenAlexPaper[]> {
+  const ids = candidateIds.filter(Boolean).slice(0, 50); // OA OR-filter cap is 100; stay well under
+  if (ids.length === 0) return [];
+  try {
+    const cutoffYear = new Date().getFullYear() - minAgeYears;
+    const params = new URLSearchParams({
+      filter: [
+        `openalex_id:${ids.join("|")}`,
+        `publication_year:<${cutoffYear}`,
+        `cited_by_count:>${minCitations}`,
+        "has_abstract:true",
+      ].join(","),
+      sort: "cited_by_count:desc",
+      "per-page": String(limit),
+      select: OA_SELECT,
+      mailto: OA_MAILTO,
+    });
+    const res = await oaFetch(`${OA_BASE}/works?${params}`);
+    if (!res.ok) {
+      console.log(`[OpenAlex] Foundational candidates ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    return (data.results as OARawWork[] || [])
+      .filter(w => w.title && w.abstract_inverted_index)
+      .map(mapWork)
+      .filter(p => p.abstract.length > 50);
+  } catch (err) {
+    console.log(`[OpenAlex] Foundational candidates error: ${err}`);
     return [];
   }
 }
