@@ -87,6 +87,7 @@ export const papers = sqliteTable("papers", {
   keyFindings: text("key_findings"),
   connectionReason: text("connection_reason"),
   category: text("category", { enum: ["foundational", "recent", "news"] }),
+  foundationalReason: text("foundational_reason"), // foundational lane only: one sentence on why this text set the stage for the field
   year: integer("year"),
   sourceIndex: integer("source_index"),
   openAlexId: text("open_alex_id"), // stable work ID for cross-digest dedup (title matching misses preprint/published variants)

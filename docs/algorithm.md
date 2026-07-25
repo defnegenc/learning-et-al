@@ -22,8 +22,9 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 **Interest sampling** (lines ~140-200):
 - Fetch all user interests, **decay once per day** (`weight *= 0.95`). Skips decay if already decayed today (prevents double-decay on regeneration).
 - Deduplicate by lowercased keyword. Drop keywords ≤2 chars.
-- **Recency penalty**: loads paper keywords + title words from last 5 digests into `recentlyUsedKeywords`. Theme words also added as secondary signal. Any interest overlapping these words gets -0.5 penalty.
+- **Rotation penalty (exact-match)**: counts how many of the last 5 digests' `seed_interests` featured each interest — -0.5 per appearance (capped -1.5). This replaced theme-word overlap, which penalized "machine learning" because a theme said "machines" (audit 7.3); word overlap survives only as a fallback for rows predating `seed_interests`.
 - **Weighted random sampling** without replacement to pick 5 candidates.
+- **Coverage floor** (audit 7.3): with ≥10 digests, an interest absent from the last 10 digests' `seed_interests` is forced into the candidate 5 (highest-weight starved one), and the hypothesis prompt gets a "strongly prefer featuring it" line. Counters the Step-1 LLM's bias toward interests that make catchy questions.
 
 **Central question generation** (AI call 1, lines ~250-310):
 - Trending headlines fetched via web search and injected as optional temporal context.
@@ -112,6 +113,36 @@ After all items are assembled, papers are scored on two dimensions:
 
 Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** a genuinely off-topic paper (relevance=1) is now DROPPED when ≥2 sources remain — 2 good sources beat 3 where the synthesis has to narrate one as irrelevant ("doesn't weigh in on the question at all"). A weak-but-relevant paper (or when dropping would leave <2 sources) is still kept and the synthesis gives it one honest sentence. Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
 
+### Step 4c: Foundational Lane (1-2 OpenAlex calls + AI gate, conditional)
+
+The main pool is deliberately windowed to the last 2 years — recency is the product
+default. This lane is ADDITIVE: it asks "what did today's papers build on?" Two tiers:
+
+**Tier 1 — citation graph:**
+- Fetch the selected papers' `referenced_works` (one batched OpenAlex call).
+- Keep ancestors **≥8 years old** with **>500 citations**, excluding already-shown works;
+  ancestors referenced by ≥2 of today's papers rank first (shared intellectual ancestor).
+
+**Tier 2 — canonical lookup (when tier 1 surfaces nothing):**
+- Do what a person would do: web-search "foundational seminal papers {interest} {theme words}"
+  (Serper/DDG, best-effort grounding), then an LLM names up to 3 REAL canonical works
+  (title + author + year) — instructed to return [] for niche topics.
+- Each named work is **verified against OpenAlex** (title search sorted by citations,
+  normalized-title match, same ≥8y / >500-cite bars, dedup, predatory filter).
+  Hallucinated or misremembered titles die at this lookup.
+
+Both tiers end at the same LLM gate on the top ≤3: "genuinely field-defining (Weiser's
+ubiquitous computing essay), or just an old survey?" Picking NONE is the expected outcome
+most days — scarcity is what keeps the gold treatment meaningful (~1-2 per week).
+- On a pick: added as a 4th item with `category: "foundational"` and the gate's one-sentence
+  `foundationalReason` (stored on `papers.foundational_reason`). UI: gold border + ★
+  FOUNDATIONAL chip + reason line on the paper card; gold frame on the papers-mode card.
+- The synthesis's ERA AWARENESS block (metadataPrompt) already handles decade-old papers:
+  acknowledge the era, say why it still matters, one sentence of contrast with today.
+
+Note: `category: "foundational"` used to be slapped on wide-pool slot 0 (just the top MMR
+pick) — that mislabel is fixed; the category is now exclusive to this lane.
+
 ### Step 5: Theme Revision (AI call 6, lines ~900-925)
 
 LLM sees actual papers (600 chars of abstract each) and conditionally revises the central question.
@@ -162,7 +193,7 @@ picturable noun, so titles are graspable, not just punchy.
 ### Step 7: Storage
 
 - Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, search_queries (query memory), gist, starred flag.
-- Papers saved with: summaries, keywords, key findings, connectionReason, plainName, openAlexId (dedup identity).
+- Papers saved with: summaries, keywords, key findings, connectionReason, plainName, openAlexId (dedup identity), foundationalReason (foundational lane only).
 - All linked to user and dated.
 
 ---
