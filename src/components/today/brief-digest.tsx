@@ -306,12 +306,13 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
 
   // Every expanded detail uses the same tile component and type hierarchy.
   // Older digests can miss claim or findings, so only what exists renders.
-  // Takeaway is capped at one sentence.
+  // The takeaway line is conversational and often lands its point in sentence 2-3
+  // ("You know how X…? Turns out Y.") — capping at one sentence kept the setup
+  // and cut the payoff, so the full line renders.
   const isNews = paper.source === "rss";
   const claim = (paper.claim || paper.takeawayHook || "").trim();
   const findings = (paper.keyFindings ?? []).slice(0, 3);
-  const takeawayFull = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
-  const takeaway = takeawayFull.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || takeawayFull;
+  const takeaway = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
   const tileCount = [!!claim, findings.length > 0, !!takeaway].filter(Boolean).length;
 
   return (

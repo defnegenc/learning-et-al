@@ -27,6 +27,14 @@ Brutalist research archive. Information-dense, no decoration for decoration's sa
 - Padding: 20-40px in panels, 20px in cards
 - Gap between cards: 20px
 
+### Foundational card frame (the one exception to black borders)
+A paper with `category: "foundational"` keeps its normal pastel wash but the FRAME goes gold:
+- Border: 3px, shiny gradient via `border-image: linear-gradient(135deg, #F7E38F, #C9A227, #8C6D1F, #E6C34A, #F7E38F) 1` (light→deep gold reads as metallic sheen)
+- Shadow: hard gold offset (`3px 3px 0 0 #C9A227`) + soft glow (`0 0 10px rgba(201,162,39,0.45)`)
+- Badge: small ★ FOUNDATIONAL chip — mono uppercase, `#F5D547` background, 1px black border (standard brutalist tag)
+- Below the citation line: the one-sentence `foundationalReason` in italic with a 3px gold left bar
+Max one per digest, rare by design — the gold means something because most digests don't have it.
+
 ## Cursor
 - Crosshair everywhere
 

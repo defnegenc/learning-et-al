@@ -3,7 +3,7 @@ import { digests, papers, interests, users } from "@/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { searchArxiv } from "@/lib/fetchers/arxiv";
-import { searchOpenAlex } from "@/lib/fetchers/open-alex";
+import { searchOpenAlex, getReferencedWorkIds, getFoundationalCandidates, type OpenAlexPaper } from "@/lib/fetchers/open-alex";
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
@@ -56,6 +56,8 @@ type TaggedItem = {
   openAlexId?: string;
   /** Hint for synthesis: "this paper was selected to contradict/complicate paper 1" */
   tensionHint?: string;
+  /** Foundational lane only: one sentence on why this text set the stage for the field */
+  foundationalReason?: string;
 };
 
 /** Normalize a title for dedup: exact-lowercase matching misses preprint vs
@@ -100,6 +102,42 @@ async function searchPapers(
     citationCount: 0, year: new Date().getFullYear(),
     source: "arxiv" as const,
   }));
+}
+
+// Foundational lane bars — shared by both tiers (citation graph + canonical lookup)
+const FOUNDATIONAL_MIN_AGE_YEARS = 8;
+const FOUNDATIONAL_MIN_CITATIONS = 500;
+
+/** Foundational-lane LLM gate: is any candidate a genuinely field-defining text for
+ *  this theme (not just an old survey)? Returns the pick + a one-sentence plain-English
+ *  "why this mattered", or null — null is the expected outcome most days. */
+async function pickFoundational(
+  aiConfig: AIConfig,
+  theme: string,
+  todayPapers: { title: string; year?: number }[],
+  candidates: OpenAlexPaper[],
+): Promise<{ work: OpenAlexPaper; reason: string } | null> {
+  if (candidates.length === 0) return null;
+  const gateResp = await aiComplete(aiConfig,
+    "You judge whether an old, highly-cited paper is a genuinely foundational text. Return only JSON.",
+    `Today's digest question: "${theme}"
+Today's papers: ${todayPapers.map(p => `"${p.title}" (${p.year})`).join("; ")}
+
+Older, heavily-cited candidate works:
+${candidates.map((a, i) => `[${i + 1}] "${a.title}" (${a.year}, ${a.citationCount.toLocaleString()} citations) — ${a.abstract.slice(0, 300)}`).join("\n\n")}
+
+A FOUNDATIONAL text set the stage for a whole field of thought — it coined the framing, opened the research agenda, or changed how everyone after it worked (think Weiser's "The Computer for the 21st Century" for ubiquitous computing). An old survey, textbook chapter, or merely-well-cited methods paper is NOT foundational.
+
+Pick AT MOST ONE — only if it is genuinely foundational AND genuinely behind today's question (a reader would feel "oh, THIS is where that whole idea started"). It is completely fine to pick none; most days have none.
+
+Return JSON: {"pick": 1 | null, "reason": "one plain-English sentence on why this text changed the field — written for a smart non-expert, no citation counts"}`
+  );
+  const gate = extractJson<{ pick?: number | null; reason?: string }>(gateResp);
+  const pickIdx = gate?.pick;
+  if (pickIdx != null && pickIdx >= 1 && pickIdx <= candidates.length && gate?.reason) {
+    return { work: candidates[pickIdx - 1], reason: gate.reason };
+  }
+  return null;
 }
 
 const STOP_WORDS = new Set([
@@ -217,15 +255,37 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   }
   console.log(`[Digest] Cross-digest dedup: ${seenPaperTitles.size} seen, ${recentlyUsedKeywords.size} rotation keywords`);
 
-  // Count how many recent themes each interest's keywords appear in (not just binary overlap)
+  // Rotation penalty: count how many recent digests actually FEATURED each interest.
+  // seed_interests records exactly which interests the Step-1 LLM selected — an exact
+  // signal, unlike the old theme-word-overlap heuristic that penalized "machine
+  // learning" because a theme contained "machines" (audit 2.6/7.3). Fall back to
+  // word overlap only for accounts whose recent digests predate seed_interests.
   const keywordFrequency = new Map<string, number>();
+  const seedsByDigest: Set<string>[] = [];
   for (const d of recentDigestsForRotation) {
-    if (!d.theme) continue;
-    const themeTokens = d.theme.toLowerCase().split(/\s+/);
-    for (const interest of deduped) {
-      const words = interest.keyword.toLowerCase().split(/\s+/);
-      if (words.some(w => themeTokens.includes(w) || recentlyUsedKeywords.has(w))) {
-        keywordFrequency.set(interest.keyword, (keywordFrequency.get(interest.keyword) || 0) + 1);
+    try {
+      const seeds = JSON.parse(d.seedInterests || "[]") as { keyword?: string }[];
+      if (seeds.length > 0) seedsByDigest.push(new Set(seeds.map(s => (s.keyword || "").toLowerCase().trim())));
+    } catch { /* older rows have no seeds */ }
+  }
+  if (seedsByDigest.length > 0) {
+    for (const seedSet of seedsByDigest) {
+      for (const interest of deduped) {
+        if (seedSet.has(interest.keyword.toLowerCase().trim())) {
+          keywordFrequency.set(interest.keyword, (keywordFrequency.get(interest.keyword) || 0) + 1);
+        }
+      }
+    }
+  } else {
+    // Legacy fallback: theme-word overlap (imprecise, kept only for old accounts)
+    for (const d of recentDigestsForRotation) {
+      if (!d.theme) continue;
+      const themeTokens = d.theme.toLowerCase().split(/\s+/);
+      for (const interest of deduped) {
+        const words = interest.keyword.toLowerCase().split(/\s+/);
+        if (words.some(w => themeTokens.includes(w) || recentlyUsedKeywords.has(w))) {
+          keywordFrequency.set(interest.keyword, (keywordFrequency.get(interest.keyword) || 0) + 1);
+        }
       }
     }
   }
@@ -253,6 +313,33 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     pool.splice(picked, 1);
   }
   if (candidateInterests.length === 0) throw new Error("No interests found. Add some first.");
+
+  // Coverage floor: the Step-1 LLM systematically prefers interests that make catchy
+  // questions, so some interests never get featured (audit 7.3). If an interest hasn't
+  // appeared in seed_interests for the last 10 digests, force the most-starved one
+  // (highest weight among them) into the candidate list and flag it in the prompt.
+  let starvedInterest: string | null = null;
+  if (allPastDigests.length >= 10) {
+    const recentSeeds = new Set<string>();
+    for (const d of allPastDigests.slice(0, 10)) {
+      try {
+        (JSON.parse(d.seedInterests || "[]") as { keyword?: string }[])
+          .forEach(s => recentSeeds.add((s.keyword || "").toLowerCase().trim()));
+      } catch { /* ignore */ }
+    }
+    if (recentSeeds.size > 0) {
+      const starved = deduped
+        .filter(i => !recentSeeds.has(i.keyword.toLowerCase().trim()))
+        .sort((a, b) => (b.weight ?? 1.0) - (a.weight ?? 1.0));
+      if (starved.length > 0) {
+        starvedInterest = starved[0].keyword;
+        if (!candidateInterests.some(c => c.keyword === starvedInterest)) {
+          candidateInterests[candidateInterests.length - 1] = starved[0];
+        }
+        console.log(`[Digest] Coverage floor: "${starvedInterest}" hasn't been featured in 10 digests — forcing into candidates`);
+      }
+    }
+  }
   console.log(`[Digest] Candidate interests: [${candidateInterests.map(i => i.keyword).join(", ")}]`);
 
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -289,7 +376,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
 
 User interests (sorted by priority):
 ${interestList}
-${queryMemoryBlock}
+${starvedInterest ? `\nNOTE: "${starvedInterest}" hasn't been featured in a while. STRONGLY prefer building today's question around it if it can carry a genuinely good question — the reader added it because they care about it.\n` : ""}${queryMemoryBlock}
 
 GOOD themes are SHORT and PUNCHY — like a magazine cover headline. Can be a question OR a statement:
 - "When fakes become indistinguishable from reality" (statement)
@@ -659,7 +746,10 @@ Return JSON only (no markdown):
       sourceUrl: pick.p.sourceUrl, pdfUrl: pick.p.pdfUrl || undefined,
       source: pick.p.source, year: pick.p.year,
       openAlexId: pick.p.openAlexId || undefined,
-      category: slot === 0 ? "foundational" : "recent",
+      // All wide-pool picks come from the 2-year recent window. "foundational" is
+      // reserved for the ancestor lane (Step 4c) — labeling slot 0 foundational was
+      // a lie the UI repeated ("A foundational view" on a current-year paper).
+      category: "recent",
     });
     seenTitles.add(normTitle(pick.p.title));
     console.log(`[Digest] Wide pool ${slot + 1}/${WIDE_POOL_SIZE}: "${pick.p.title}" (score ${pick.score.toFixed(4)}, rel ${pick.relSim.toFixed(2)})`);
@@ -991,6 +1081,124 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
     } catch (err) {
       console.log(`[Digest] LLM re-ranking failed (${err}), keeping embedding-ranked papers`);
     }
+  }
+
+  // ─── Step 4c: Foundational lane — "what did today's papers build on?" ────────
+  // Every main-path search is hard-filtered to the last 2 years (deliberately — recency
+  // is the product default), so foundational texts can never enter the pool. This lane
+  // is additive, with two tiers:
+  //   Tier 1 (citation graph): a heavily-cited common ancestor from the selected
+  //     papers' reference lists — "the text today's papers built on."
+  //   Tier 2 (canonical lookup): when the reference lists surface nothing, do what a
+  //     person would do — search the web for the field's seminal works, have the LLM
+  //     name the canon (grounded by the snippets), and verify each candidate actually
+  //     exists on OpenAlex with the same age/citation bars. Hallucinated or
+  //     misremembered titles die at the OpenAlex lookup.
+  // Both tiers end at the same LLM gate ("field-defining, or just an old survey?").
+  // Ships only when a candidate clears every bar — most digests won't have one, which
+  // is what keeps the gold border meaningful.
+  try {
+    const lanePapers = items.filter(i => i.category !== "news");
+    const laneCutoffYear = new Date().getFullYear() - FOUNDATIONAL_MIN_AGE_YEARS;
+    let foundational: { work: OpenAlexPaper; reason: string } | null = null;
+
+    // Tier 1: shared ancestor via reference lists
+    const lanePapersWithIds = lanePapers.filter(p => p.openAlexId);
+    if (lanePapersWithIds.length >= 1) {
+      const refMap = await getReferencedWorkIds(lanePapersWithIds.map(p => p.openAlexId!));
+      const refCounts = new Map<string, number>();
+      for (const refs of refMap.values()) {
+        for (const id of new Set(refs)) refCounts.set(id, (refCounts.get(id) || 0) + 1);
+      }
+      const selectedIds = new Set(lanePapersWithIds.map(p => p.openAlexId));
+      const eligible = [...refCounts.entries()]
+        .filter(([id]) => !selectedIds.has(id) && !seenOpenAlexIds.has(id));
+      // Shared ancestors (referenced by ≥2 of today's papers) first, then the rest
+      const shared = eligible.filter(([, c]) => c >= 2).map(([id]) => id);
+      const rest = eligible.filter(([, c]) => c === 1).map(([id]) => id);
+      const candidateIds = [...shared, ...rest].slice(0, 50);
+
+      if (candidateIds.length > 0) {
+        const ancestors = (await getFoundationalCandidates(candidateIds, FOUNDATIONAL_MIN_CITATIONS, FOUNDATIONAL_MIN_AGE_YEARS))
+          .filter(a => !seenTitles.has(normTitle(a.title)))
+          .filter(a => !isPredatoryVenue(a.venueName))
+          .slice(0, 3);
+        if (ancestors.length > 0) {
+          foundational = await pickFoundational(aiConfig, theme, lanePapers, ancestors);
+          if (!foundational) console.log(`[Digest] Foundational tier 1: ${ancestors.length} ancestor(s), LLM picked none`);
+        } else {
+          console.log(`[Digest] Foundational tier 1: no ancestor cleared the age/citation bar`);
+        }
+      }
+    }
+
+    // Tier 2: canonical-works lookup ("foundational papers on X")
+    if (!foundational) {
+      // Web snippets ground the LLM's memory of the canon (best-effort — empty is fine)
+      let webContext = "";
+      try {
+        const canonResults = await webSearch(`foundational seminal papers ${focusInterest} ${themeWords.slice(0, 2).join(" ")}`.trim(), 5);
+        if (canonResults.length > 0) {
+          webContext = `\nWeb search context (may mention the field's canonical works):\n${canonResults.map(r => `- ${r.title}: ${r.snippet}`).join("\n").slice(0, 1500)}\n`;
+        }
+      } catch { /* search is optional grounding */ }
+
+      const nameResp = await aiComplete(aiConfig,
+        "You know the canonical foundational texts of academic fields. Return only JSON.",
+        `Today's digest question: "${theme}" (user interest: ${focusInterest})
+${webContext}
+Name up to 3 REAL, widely-recognized FOUNDATIONAL works behind this field of thought — the texts that coined the framing or opened the research agenda (like Weiser's "The Computer for the 21st Century" for ubiquitous computing, or Bush's "As We May Think" for hypertext). They must be at least ${FOUNDATIONAL_MIN_AGE_YEARS} years old.
+
+Only name works you are CERTAIN exist, with their real titles — each will be verified against a citation database, so a misremembered title is wasted. If this topic has no true canonical text, return an empty list; that is the right answer for most niche topics.
+
+Return JSON: {"works": [{"title": "exact title", "author": "lead author surname", "year": 1991}]}`
+      );
+      const named = extractJson<{ works?: { title?: string; author?: string; year?: number }[] }>(nameResp);
+      const namedWorks = (named?.works || []).filter(w => w.title).slice(0, 3);
+
+      // Verify each named work on OpenAlex: it must exist, match the title, and clear the bars
+      const verified: OpenAlexPaper[] = [];
+      for (const w of namedWorks) {
+        try {
+          const hits = await searchOpenAlex(`${w.title} ${w.author || ""}`.trim(), undefined, "cited_by_count", 3);
+          const match = hits.find(h =>
+            (normTitle(h.title).includes(normTitle(w.title!)) || normTitle(w.title!).includes(normTitle(h.title))) &&
+            h.year > 0 && h.year <= laneCutoffYear &&
+            h.citationCount > FOUNDATIONAL_MIN_CITATIONS &&
+            !seenTitles.has(normTitle(h.title)) &&
+            !seenOpenAlexIds.has(h.openAlexId) &&
+            !isPredatoryVenue(h.venueName)
+          );
+          if (match) verified.push(match);
+          else console.log(`[Digest] Foundational tier 2: "${w.title}" failed OpenAlex verification`);
+        } catch { /* skip this candidate */ }
+        await delay(300);
+      }
+      if (verified.length > 0) {
+        foundational = await pickFoundational(aiConfig, theme, lanePapers, verified);
+        if (!foundational) console.log(`[Digest] Foundational tier 2: ${verified.length} verified candidate(s), LLM picked none`);
+      } else if (namedWorks.length > 0) {
+        console.log(`[Digest] Foundational tier 2: none of ${namedWorks.length} named work(s) verified`);
+      } else {
+        console.log(`[Digest] Foundational tier 2: LLM named no canonical works`);
+      }
+    }
+
+    if (foundational) {
+      const anc = foundational.work;
+      items.push({
+        title: anc.title, authors: anc.authors, abstract: anc.abstract,
+        sourceUrl: anc.sourceUrl, pdfUrl: anc.pdfUrl || undefined,
+        source: anc.sourceUrl.includes("arxiv.org") ? "arxiv" : "semantic_scholar",
+        year: anc.year, openAlexId: anc.openAlexId,
+        category: "foundational",
+        foundationalReason: foundational.reason,
+      });
+      seenTitles.add(normTitle(anc.title));
+      console.log(`[Digest] Foundational: "${anc.title}" (${anc.year}, ${anc.citationCount} cites) — ${foundational.reason}`);
+    }
+  } catch (err) {
+    console.log(`[Digest] Foundational lane failed (${err}), continuing without`);
   }
 
   // ─── Step 5: Revise the theme to better thread the actual papers ─────────────
@@ -1429,6 +1637,7 @@ Return JSON (no markdown fences):
         keyFindings: JSON.stringify(aiItem.findings || []),
         connectionReason: aiItem.connectionToTheme || null,
         category: item.category,
+        foundationalReason: item.foundationalReason || null,
         year: item.year,
         sourceIndex: i,
         openAlexId: item.openAlexId || null,
