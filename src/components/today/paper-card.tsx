@@ -16,6 +16,7 @@ export interface PaperItem {
   abstract?: string | null;
   fullText?: string | null;
   category?: "foundational" | "recent" | "news" | null;
+  foundationalReason?: string | null;
   keyFindings?: string[];
   connectionReason?: string | null;
   plainName?: string | null;
@@ -149,11 +150,16 @@ export function PaperCard({
   const summaryExpandable = !compact && !!paper.summary && paper.summary.length > SUMMARY_COLLAPSE_THRESHOLD;
   const palette = CARD_PALETTES[index % CARD_PALETTES.length];
   const tags = CARD_TAGS[index % CARD_TAGS.length];
+  // Foundational texts keep the normal card wash — only the FRAME goes gold: a shiny
+  // gradient border (light→deep gold, reads as a metallic sheen) + a soft outer glow.
+  const isFoundational = paper.category === "foundational";
   // Match the vault card: clean 2px black border, flat (no heavy drop shadow).
-  const borderStyle = "2px solid #1a1a1a";
+  const borderStyle = isFoundational ? "3px solid transparent" : "2px solid #1a1a1a";
   const shadowStyle = isCompareSelected || highlighted
     ? "3px 3px 0px 0px rgba(0,0,0,1)"
-    : "none";
+    : isFoundational
+      ? "3px 3px 0px 0px #C9A227, 0 0 10px rgba(201, 162, 39, 0.45)"
+      : "none";
 
   return (
     <article
@@ -161,6 +167,7 @@ export function PaperCard({
       style={{
         aspectRatio: compact ? "auto" : summaryExpanded ? "auto" : "1 / 1",
         border: borderStyle,
+        ...(isFoundational ? { borderImage: "linear-gradient(135deg, #F7E38F 0%, #C9A227 35%, #8C6D1F 55%, #E6C34A 75%, #F7E38F 100%) 1" } : {}),
         boxShadow: shadowStyle,
         padding: compact ? "12px" : "16px",
         display: "flex",
@@ -204,6 +211,25 @@ export function PaperCard({
         >
           {getSourceLabel(paper.source, paper.year, paper.sourceUrl)}
         </span>
+        {isFoundational && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono), monospace",
+              fontSize: compact ? "0.55rem" : "0.65rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              color: "#1a1a1a",
+              background: "#F5D547",
+              border: "1px solid #1a1a1a",
+              padding: "2px 6px",
+              marginLeft: "6px",
+              display: "inline-block",
+            }}
+          >
+            ★ Foundational
+          </span>
+        )}
         {compareMode && (
           <span style={{
             padding: "3px 8px", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
@@ -252,6 +278,20 @@ export function PaperCard({
                 : ""}
             {paper.authors.length > 0 && paper.year ? ", " : ""}
             {paper.year ?? ""}
+          </p>
+        )}
+        {/* Foundational: one sentence on why this text changed the field */}
+        {isFoundational && paper.foundationalReason && !compact && (
+          <p style={{
+            fontSize: "0.7rem",
+            color: "#1a1a1a",
+            fontStyle: "italic",
+            lineHeight: 1.45,
+            margin: "0 0 8px 0",
+            paddingLeft: "8px",
+            borderLeft: "3px solid #C9A227",
+          }}>
+            {paper.foundationalReason}
           </p>
         )}
         {/* Plain-English summary — hidden in compact mode */}
