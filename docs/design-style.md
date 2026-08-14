@@ -1,42 +1,165 @@
 # Learning et al. — Design System
 
+> The canonical spec. `src/components/design-system.tsx` is the code half; this
+> is the decision half. If the two disagree, fix the code.
+
 ## Philosophy
-Brutalist research archive. Information-dense, no decoration for decoration's sake. Every element earns its place. Clean, readable, with personality coming from typography and layout — not from visual noise.
+Brutalist research archive. Information-dense, no decoration for decoration's
+sake. Personality comes from typography, hard edges and colour — never from
+chrome, labels, or busywork around the content.
 
-## Color Palette
-- **Background:** #e8e8e8
-- **Ink:** #1a1a1a
-- **Accent colors (tags only):**
-  - Green: #38b000 / pastel: #d4edda
-  - Pink: #ff007f / pastel: #f8d7da
-  - Purple: #7700ff / pastel: #e2d5f1
-  - Blue: #0077ff / pastel: #cce5ff
-  - Orange: #ff5500 / pastel: #ffeeba
-- **Accent colors are ONLY used in tags and badges.** Never as backgrounds, blobs, or decoration in content areas.
+**The test for any element: would removing it lose information the reader
+wants?** If not, remove it.
 
-## Typography
-- **Body:** Apercu Pro (fallback: Inter), 0.9-1.1rem, line-height 1.6-1.7
-- **Display:** Space Grotesk, bold, geometric
-- **System labels:** IBM Plex Mono, 0.65-0.7rem, uppercase, letter-spacing 2px
-- **Titles:** Apercu Pro, 1.1-1.2rem, bold, uppercase
-- **Card titles:** 1rem, bold, uppercase, line-height 1.2
+---
 
-## Borders & Spacing
-- All borders: 1.5px solid #1a1a1a
-- No rounded corners anywhere
-- Padding: 20-40px in panels, 20px in cards
-- Gap between cards: 20px
+## Fonts
+
+Four faces, each with one job. Reference them through the CSS variables, never
+by name.
+
+| Role | Variable | Face | Where |
+|------|----------|------|-------|
+| Body | (default, set on `body`) | **Apercu Pro** (self-hosted; Inter fallback) | All prose, bylines, list text, buttons' inner text |
+| Display | `var(--font-display)` | **Cabinet Grotesk** (self-hosted, 400/500/700/800) | Headings, card titles, the big TLDR line, buttons |
+| Logo | `var(--font-logo)` | **Space Grotesk** 700 | The wordmark only |
+| Mono | `var(--font-mono)` | **IBM Plex Mono** | Rare. See "Where mono is allowed" below |
+
+### Type scale
+
+| Use | Font | Size | Weight | Case | Colour |
+|-----|------|------|--------|------|--------|
+| Page title | Display | 2rem | 800 | Sentence | `#1a1a1a` |
+| Section heading | Display | 1.25rem | 800 | Sentence | `#1a1a1a` |
+| Card title | Display | 1.15rem | 700 | Sentence | `#1a1a1a` |
+| Hero / TLDR line | Display | 1.5rem | 700 | Sentence | `#1a1a1a` |
+| Reading prose | Body | 1.05rem / 1.75 | 400 | Sentence | `#1a1a1a` |
+| Body prose | Body | 0.95rem / 1.7 | 400 | Sentence | `#333` |
+| Secondary (byline, meta) | Body | 0.8–0.88rem | 400 | Sentence | `#666` |
+| Button | Display | 0.85–0.9rem | 700 | Sentence | ink or white |
+
+Letter-spacing: `-0.02em` on display headings, `-0.03em` at 2rem+. Zero on body.
+**Never positive tracking on body text.**
+
+### Where mono is allowed
+
+Mono uppercase is a *structural* signal, not a decorative one. Allowed in:
+nav tabs, the digest date line, and code-ish values.
+
+**Not allowed:** as an eyebrow above content, as a card's meta rail, as a label
+on a section that already has a heading, or anywhere at `<0.7rem` in grey.
+
+---
+
+## Anti-patterns — the "AI slop" list
+
+These are the things that make a UI look generated. None of them are allowed.
+
+1. **Tiny faint uppercase labels.** `0.55–0.62rem`, `letter-spacing: 1–2px`,
+   `color: #888/#999`, `text-transform: uppercase`, sitting above real content.
+   They read as a template, they're hard to read, and they almost always label
+   something that's obvious from the content underneath. If a section needs a
+   name, give it a **display-font heading at a readable size**.
+2. **Metadata rails on cards.** "Paper · 2024 · From 'theme' (date)" strips,
+   source-type chips, "From: {digest}" attributions. A card is a title, who made
+   it, and one action.
+3. **Labelling the obvious.** Don't put "Abstract" over an abstract or "Title"
+   over a title. Don't caption a list of citing papers as "Homework —
+   what's happened since?" *and* head the section with the same words.
+4. **Stacked wrappers.** A card inside a modal inside a dimmed backdrop. Pick
+   one container. Full-screen beats a card for anything you actually read.
+5. **Sections that exist because the data exists.** The reading view had did /
+   found / caveats / remember / glossary / questions / homework because the
+   model produced them, not because anyone read that far.
+6. **Fake progress.** No bar that fills toward a percentage the code can't know.
+7. **More than one loading indicator per wait.** See "Loading".
+
+---
+
+## Colour
+
+- **Background:** `#fff`
+- **Ink:** `#1a1a1a` — all borders, all body text, button fills
+- **Greys:** `#666` secondary text · `#888` tertiary · `rgba(26,26,26,0.12)` hairline rules
+- **Never** pure black `#000` or a grey outside that set.
+
+### The palette (the "rainbow")
+
+Four ordered pairs, cycled by index — `SOURCE_PALETTES` in
+`src/components/today/palettes.ts`. Source 1 always gets pair 1, so a paper
+keeps its colour across the digest.
+
+| # | Pair | Reads as |
+|---|------|----------|
+| 1 | `#6EE9A8` → `#D4F04A` | green → lime |
+| 2 | `#FF85A8` → `#FFD020` | pink → yellow |
+| 3 | `#60AAE8` → `#A878E8` | blue → purple |
+| 4 | `#FFD020` → `#FF85A8` | yellow → pink |
+
+Used for: card blob washes (`dispersedWash`, ~0.42 alpha), the sweep bar under
+the digest title, takeaway tile fills, and the loader. Not for text, not for
+borders, not for backgrounds of whole pages.
+
+---
+
+## Borders, shadows, spacing
+
+- **Card border:** `2px solid #1a1a1a`. **Hairline rule:** `1px solid rgba(26,26,26,0.12)`.
+- **No rounded corners** anywhere except `TopicChip` (6px — the one exception).
+- **Hard shadows only**, no blur: `6px 6px 0 0 #1a1a1a` cards · `4px 4px` buttons ·
+  `3px 3px` small/nested. Hover lifts by `translate(-2px,-2px)` and grows the shadow 2px.
+- **Padding:** 26–28px in cards, 14–18px in small tiles.
+- **Reading column:** max-width 680px. **Digest column:** 760px. **Grid page:** 1400px.
+- **Cursor:** crosshair everywhere.
+
+### What a card is
+
+A card may contain, in this order: **title** (display 700), **one line of
+attribution** (authors · journal · year, body 0.8rem `#666`), **one primary
+action**. Everything else belongs in the view the card opens.
 
 ### Foundational card frame (the one exception to black borders)
+
 A paper with `category: "foundational"` keeps its normal pastel wash but the FRAME goes gold:
 - Border: 3px, shiny gradient via `border-image: linear-gradient(135deg, #F7E38F, #C9A227, #8C6D1F, #E6C34A, #F7E38F) 1` (light→deep gold reads as metallic sheen)
 - Shadow: hard gold offset (`3px 3px 0 0 #C9A227`) + soft glow (`0 0 10px rgba(201,162,39,0.45)`)
-- Badge: small ★ FOUNDATIONAL chip — mono uppercase, `#F5D547` background, 1px black border (standard brutalist tag)
+- Badge: small ★ FOUNDATIONAL chip — mono uppercase, `#F5D547` background, 1px black border (the one sanctioned mono uppercase micro-label, because it's a rare award, not a section eyebrow)
 - Below the citation line: the one-sentence `foundationalReason` in italic with a 3px gold left bar
+
 Max one per digest, rare by design — the gold means something because most digests don't have it.
 
-## Cursor
-- Crosshair everywhere
+---
+
+## Loading
+
+One primitive: `PageLoader` in `design-system.tsx`. Rules:
+
+1. **At most one loading indicator per wait.** If two things load in sequence,
+   the first must render the page chrome and hand off to the second *in the same
+   position*, so it reads as one wait. (Fixed 2026-08-14: auth showed a spinning
+   square on a blank screen, then the digest fetch showed a circle somewhere
+   else.)
+2. **Never move the indicator** between phases, and never change its shape.
+3. **No fake progress.**
+4. Inline spinners inside buttons are fine and separate from this.
+5. Honour `prefers-reduced-motion` — animation off, mark still visible.
+
+Candidates for a custom loader live at `/prototype/loaders`.
+
+---
+
+## Motion
+
+- **No animation library.** Framer Motion (~120 KB) and Lottie (~250 KB) both
+  cost more than the thing they animate. CSS `@keyframes`, declared in a
+  `<style>` block in the component that uses them.
+- Durations: 120–150ms for hover/state, 400–520ms for entrances, 1.5–2s for
+  loops.
+- Entrances rise 6px and fade (`briefRise`). Mechanical loops use
+  `steps()`, not easing.
+- Custom art arrives as **SVG** (square viewBox, strokes left as strokes, no
+  masks or filters, named layers), inlined as a component and animated in CSS.
+  Not GIF, not Lottie.
 
 ---
 

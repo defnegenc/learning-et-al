@@ -6,7 +6,6 @@ import type { PaperItem } from "@/components/today/paper-card";
 import { washStyle } from "@/components/today/brief-threads";
 import { journalName } from "@/lib/venue-name";
 
-const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
 
 // Reading-list card — same anatomy as the digest's PaperBlobCard (wash
@@ -48,11 +47,12 @@ export function ReadingListCard({ paper, index, onOpen, onUnsaved }: {
       onClick={() => onOpen(paper)}
       style={{ ...washStyle(index), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 14, cursor: "pointer", height: "100%" }}
     >
-      {/* Plain name top-left (mono, underlined — mirrors the digest card), bookmark top-right */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-        <span style={{ fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.5 }}>
-          {paper.plainName || ((paper.sourceUrl || "").toLowerCase().includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper")}
-        </span>
+      {/* Title first — the card is the title plus who wrote it. No mono eyebrow,
+          no "from which digest" rail: see docs/design-style.md, "What a card is". */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14 }}>
+        <p style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.15rem", lineHeight: 1.32, color: "#1a1a1a", margin: 0, letterSpacing: "-0.01em", flex: 1 }}>
+          {paper.title}
+        </p>
         <button
           onClick={toggleBookmark}
           title={bookmarked ? "Remove from reading list" : "Save to reading list"}
@@ -62,19 +62,8 @@ export function ReadingListCard({ paper, index, onOpen, onUnsaved }: {
         </button>
       </div>
 
-      {/* The actual paper title, big and bold — where the digest card puts its TLDR */}
-      <p style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.15rem", lineHeight: 1.32, color: "#1a1a1a", margin: 0, letterSpacing: "-0.01em", flex: 1 }}>
-        {paper.title}
-      </p>
-
       {byline && (
-        <div style={{ fontSize: "0.62rem", fontStyle: "italic", color: "#999" }}>{byline}</div>
-      )}
-
-      {paper.digestTheme && (
-        <div style={{ fontFamily: MONO, fontSize: "0.56rem", letterSpacing: "1px", textTransform: "uppercase", color: "#888" }}>
-          From: {paper.digestTheme}{paper.digestDate ? ` · ${paper.digestDate}` : ""}
-        </div>
+        <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "auto" }}>{byline}</div>
       )}
     </div>
   );
