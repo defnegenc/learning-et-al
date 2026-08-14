@@ -111,16 +111,16 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
         style={{
           maxWidth: step === 2 ? "860px" : "480px",
           maxHeight: "92vh",
-          border: "4px solid #1a1a1a",
+          border: "2px solid #1a1a1a",
           background: "white",
-          boxShadow: "8px 8px 0px 0px rgba(0,0,0,1)",
+          boxShadow: "6px 6px 0 0 rgba(0,0,0,1)",
         }}
       >
-        <div style={{ padding: "24px 24px 16px", borderBottom: "3px solid #1a1a1a" }}>
-          <h2 style={{ fontSize: "1.4rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif", marginBottom: "4px" }}>
-            {step === 1 ? "Connect AI Provider" : "What are you curious about?"}
+        <div style={{ padding: "28px 28px 20px", borderBottom: "2px solid #1a1a1a" }}>
+          <h2 style={{ fontSize: "1.6rem", fontWeight: 800, letterSpacing: "-0.02em", fontFamily: "var(--font-display), sans-serif", margin: "0 0 8px" }}>
+            {step === 1 ? "Connect an AI provider" : "What are you curious about?"}
           </h2>
-          <p style={{ fontSize: "0.85rem", color: "#666" }}>
+          <p style={{ fontSize: "1rem", color: "#666", lineHeight: 1.6, margin: 0 }}>
             {step === 1 ? "We use an LLM to generate your daily digest." : "Pick at least 3 topics. We'll find papers and news that connect them."}
           </p>
         </div>
@@ -131,13 +131,13 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
             <div className="flex gap-0 flex-wrap">
               {(["gemini", "anthropic", "openai", "other"] as Provider[]).map((p) => (
                 <button key={p} onClick={() => handleProviderChange(p)}
-                  className={`flex-1 px-2 py-2.5 text-[0.7rem] font-bold uppercase tracking-[1px] ${provider === p ? "bg-[#1a1a1a] text-white" : "text-[#1a1a1a] hover:bg-gray-50"}`}
-                  style={{ border: "2px solid #1a1a1a", marginRight: "-2px", fontFamily: "var(--font-mono), monospace" }}>
+                  className={`flex-1 px-2 py-2.5 text-[0.88rem] font-bold ${provider === p ? "bg-[#1a1a1a] text-white" : "text-[#1a1a1a] hover:bg-gray-50"}`}
+                  style={{ border: "2px solid #1a1a1a", marginRight: "-2px", fontFamily: "var(--font-display), sans-serif" }}>
                   {providerDefaults[p].label}
                 </button>
               ))}
             </div>
-            <input type="password" placeholder="Paste your API key..." value={apiKey}
+            <input type="password" placeholder="Paste your API key…" value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && apiKey.trim() && setStep(2)}
               className="w-full bg-transparent px-4 py-3 text-[0.9rem] placeholder:text-[#bbb] focus:outline-none"
@@ -149,27 +149,27 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
               </div>
             )}
             <button disabled={!apiKey.trim()} onClick={() => setStep(2)}
-              className="w-full bg-[#1a1a1a] text-white px-4 py-3 text-[0.8rem] uppercase tracking-[2px] hover:bg-[#333] disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}>
+              className="w-full bg-[#1a1a1a] text-white px-4 py-3 text-[0.9rem] font-bold hover:bg-[#333] disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-display), sans-serif", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)" }}>
               Continue <ArrowRight className="size-3.5" />
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ flex: 1, height: "1px", background: "#e5e7eb" }} />
-              <span style={{ fontSize: "0.65rem", color: "#999", fontFamily: "var(--font-mono), monospace" }}>OR</span>
-              <div style={{ flex: 1, height: "1px", background: "#e5e7eb" }} />
+              <div style={{ flex: 1, height: "1px", background: "rgba(26,26,26,0.12)" }} />
+              <span style={{ fontSize: "0.85rem", color: "#666" }}>or</span>
+              <div style={{ flex: 1, height: "1px", background: "rgba(26,26,26,0.12)" }} />
             </div>
             <div>
-              <p style={{ fontSize: "0.75rem", color: "#666", marginBottom: "6px" }}>Have an invite code?</p>
+              <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "8px" }}>Have an invite code?</p>
               <div style={{ display: "flex", gap: "6px" }}>
                 <input value={inviteCode} onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
                   onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
-                  placeholder="Enter code..." style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.85rem", fontFamily: "var(--font-mono), monospace", outline: "none" }} />
+                  placeholder="Enter code…" style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.9rem", outline: "none" }} />
                 <button onClick={handleCodeSubmit} disabled={!inviteCode.trim() || validatingCode}
-                  style={{ padding: "10px 16px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", cursor: "pointer", opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1 }}>
-                  {validatingCode ? "..." : "Go"}
+                  style={{ padding: "10px 18px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.88rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer", opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1 }}>
+                  {validatingCode ? "…" : "Go"}
                 </button>
               </div>
-              {codeError && <p style={{ fontSize: "0.7rem", color: "#ff007f", marginTop: "4px" }}>{codeError}</p>}
+              {codeError && <p style={{ fontSize: "0.85rem", color: "#ff007f", marginTop: "6px" }}>{codeError}</p>}
             </div>
           </div>
         )}
@@ -188,18 +188,18 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
             </div>
 
             {/* Footer */}
-            <div style={{ borderTop: "3px solid #1a1a1a", padding: "12px 24px", background: "#fafafa" }}>
-              {error && <p style={{ fontSize: "0.75rem", color: "#ff007f", marginBottom: "6px" }}>{error}</p>}
+            <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 28px", background: "#fff" }}>
+              {error && <p style={{ fontSize: "0.85rem", color: "#ff007f", marginBottom: "8px" }}>{error}</p>}
               <div className="flex gap-2">
                 {!skipApiKey && (
-                  <button onClick={() => setStep(1)} disabled={submitting} style={{ padding: "10px 16px", border: "2px solid #1a1a1a", background: "white", fontSize: "0.75rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", cursor: "pointer" }}>
+                  <button onClick={() => setStep(1)} disabled={submitting} style={{ padding: "10px 18px", border: "2px solid #1a1a1a", background: "white", fontSize: "0.88rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer" }}>
                     Back
                   </button>
                 )}
                 <button onClick={handleSubmit} disabled={selectedTopics.length < 3 || submitting}
                   className="flex-1 flex items-center justify-center gap-2"
-                  style={{ padding: "10px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.8rem", fontWeight: 700, fontFamily: "var(--font-mono), monospace", cursor: "pointer", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", opacity: selectedTopics.length < 3 || submitting ? 0.5 : 1 }}>
-                  {submitting ? <><Loader2 className="size-3.5 animate-spin" /> Setting up...</> : `Start Exploring (${selectedTopics.length}/3+)`}
+                  style={{ padding: "11px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.9rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", opacity: selectedTopics.length < 3 || submitting ? 0.5 : 1 }}>
+                  {submitting ? <><Loader2 className="size-3.5 animate-spin" /> Setting up…</> : `Start exploring (${selectedTopics.length}/3+)`}
                 </button>
               </div>
             </div>

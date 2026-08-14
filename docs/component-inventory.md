@@ -51,8 +51,8 @@ Audited 2026-08-14. Update the status column when you touch one.
 | `app-shell.tsx` | Signed-in chrome | ✅ uses the shared `SiteHeader` |
 | `providers.tsx` | SessionProvider with server-primed session | ✅ |
 | `noise-overlay.tsx` | Paper grain | ✅ |
-| `settings-dialog.tsx` | Full-screen settings | ⚠️ ~20 mono-uppercase micro-labels not yet audited |
-| `onboarding.tsx` | Interests setup | ⚠️ same, plus it hosts `InterestLedger` |
+| `settings-dialog.tsx` | Full-screen settings | ✅ uses the shared `SiteHeader`; "Hide" / "Clear all" / cadence tiles now Display sentence case; every hairline is `rgba(26,26,26,0.12)` |
+| `onboarding.tsx` | Interests setup | ✅ frame down to 2px/6px shadow, title on the page scale, provider tabs and both footer buttons Display sentence case. Still hosts `InterestLedger` — see its brief |
 | `interest-ledger.tsx` | The interests panel | 📋 `docs/briefs/interests-panel.md` |
 | `keyword-tag.tsx` | Pastel keyword tag | ✅ tags are a sanctioned mono-uppercase use |
 | `admin-dashboard.tsx` | Admin only | ⚠️ low priority — not user-facing |
