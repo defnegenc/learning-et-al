@@ -16,6 +16,7 @@ Audited 2026-08-14. Update the status column when you touch one.
 | `PageHeader` | Page title (Display 800 2rem) + one plain intro line + optional action | ✅ |
 | `Card` | The frame: 2px ink border, `6px 6px 0` hard shadow, optional flush media region | ✅ |
 | `CardGrid` | `auto-fill minmax(260px, 1fr)`, gap 24 | ✅ |
+| `SiteHeader` | The 52px top bar — wordmark left, caller's controls right. Used by the signed-out page, the loading state and the app shell | ✅ |
 | `Wordmark` | Space Grotesk lockup, the only logo treatment | ✅ |
 | `ActionButton` | Display 700, sentence case, hard shadow. primary = ink fill / outline = white | ✅ |
 | `PageTitle` | Display heading, sm/md/lg | ✅ |
@@ -27,11 +28,11 @@ Audited 2026-08-14. Update the status column when you touch one.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `today/today-page.tsx` | Orchestrator for all four modes | ✅ buttons now `ActionButton`; loader now `PageLoader` |
+| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ buttons now `ActionButton`; loader now `PageLoader` |
 | `today/brief-digest.tsx` | The digest itself — prose, paper cards, term chips | ✅ tile headings, card name, "See more", "Read paper" and "Next source" all de-slopped |
 | `today/digest-header.tsx` | Date + topic chips above the digest | ✅ keyword tags may stay mono uppercase (sanctioned); note it defines a **second local `TopicChip`** unrelated to the design-system one — rename |
 | `today/regenerate-cta.tsx` | End-of-digest "don't like this?" | ✅ button now Display sentence case |
-| `today/palettes.ts` | `SOURCE_PALETTES`, `hex2rgba`, `dispersedWash` | ✅ |
+| `today/palettes.ts` | `SOURCE_PALETTES` (saturated), `CARD_PALETTES` (pastel), `hex2rgba`, `dispersedWash`, `washStyle` — the single source for card colour | ✅ |
 | `today/synthesis-text.ts` | Pure parsing helpers | ✅ |
 
 ## Vault
@@ -47,7 +48,7 @@ Audited 2026-08-14. Update the status column when you touch one.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `app-shell.tsx` | Signed-in chrome | ⚠️ header duplicates `page.tsx`'s `SiteHeader` geometry — extract one `SiteHeader` into `design-system.tsx` and use it in both |
+| `app-shell.tsx` | Signed-in chrome | ✅ uses the shared `SiteHeader` |
 | `providers.tsx` | SessionProvider with server-primed session | ✅ |
 | `noise-overlay.tsx` | Paper grain | ✅ |
 | `settings-dialog.tsx` | Full-screen settings | ⚠️ ~20 mono-uppercase micro-labels not yet audited |
@@ -56,13 +57,16 @@ Audited 2026-08-14. Update the status column when you touch one.
 | `keyword-tag.tsx` | Pastel keyword tag | ✅ tags are a sanctioned mono-uppercase use |
 | `admin-dashboard.tsx` | Admin only | ⚠️ low priority — not user-facing |
 
-## Flag-gated alternates (lazy-loaded, off the default path)
+## Classic mode — the one surviving alternate
 
-`?classic=1` → `synthesis-banner` → `source-card`; `?papers=1` → `papers-mode` →
-`paper-detail` → `qa-thread`; `?papersog=1` → `papers-mode-og`. All ⚠️ — they
-carry the old mono-uppercase styling throughout. **Decide whether these modes
-still earn their keep before spending any restyle effort on them.** If they're
-experiments that lost, deleting them removes ~1,900 lines and a lazy chunk.
+`?classic=1` → `synthesis-banner` → `source-card`, lazy-loaded. It stays because
+`/digest/[id]` (public permalinks) renders the same `SynthesisBanner`, so the
+code is on the critical path for shared links regardless. Both still carry the
+old mono-uppercase styling — ⚠️ if you ever restyle, do it for the permalink's
+sake, not for the flag.
+
+`?papers=1` and `?papersog=1` were deleted 2026-08-14 along with `papers-mode`,
+`papers-mode-og`, `paper-detail`, `qa-thread` and `brief-threads`. Brief won.
 
 ## Dead code — DELETED 2026-08-14
 
@@ -74,22 +78,23 @@ recovers any of them.
 | `public-digest.tsx` | Superseded by `app/digest/[id]/page.tsx`, which builds its own view |
 | `today/knowledge-graph.tsx` | The old node map, removed from the UI |
 | `today/synthesis-chat.tsx` | Superseded by the reading companion |
-| `today/paper-card.tsx` → `PaperCard` | **The component is unused**, but 14 files import the `PaperItem` *type* from it. Move `PaperItem` to `src/lib/types.ts`, then delete the component |
+| `today/paper-card.tsx` | The component was unused; `PaperItem` moved to `src/lib/types.ts` first, where the 14 importers now point |
+| `today/papers-mode, papers-mode-og, paper-detail, qa-thread, brief-threads` | The `?papers` / `?papersog` experiments |
+| `app/prototype/brief` | Superseded prototype |
 | `ui/badge, card, input, scroll-area, separator, sonner, tabs, textarea` | Unused shadcn scaffolding |
-
-Not deleted — flagged for a decision, since a delete is easy to do and annoying
-to undo.
+| `api/thread`, `api/papers/[id]/blurb`, `api/papers/[id]/related`, `api/email-preview` | Served only the deleted views |
+| `lib/ai/agent.ts` | The thread engine behind `/api/thread` |
+| Dead exports | `digestPrompt`, `comparisonPrompt`, `getOpenAlexRelatedWorks`, `getS2Recommendations`, `institutionBoost`, `getActiveModel`, `topicColor` |
+| Schema | `threadCache`, `comparisons` — **tables still exist in prod**; a future `drizzle-kit push` would drop them |
+| Deps | `next-themes`, `node-cron`, `sonner`, `@types/node-cron`. **`shadcn` looks unused but is not** — `globals.css` imports `shadcn/tailwind.css` |
 
 ---
 
 ## Duplication worth fixing
 
-1. **Two wash implementations.** `dispersedWash` in `today/palettes.ts` and
-   `washStyle` in `today/brief-threads.tsx` do the same job with different blob
-   layouts. `reading-list-card` reaches into `brief-threads` for it, which is why
-   a vault card depends on a Today module. Consolidate into `palettes.ts`.
-2. **Two `SiteHeader`s.** `page.tsx` and `app-shell.tsx` each build the 52px
-   bar with the wordmark. One primitive, two right-hand slots.
+1. ~~Two wash implementations~~ — fixed. `CARD_PALETTES` + `washStyle` live in
+   `palettes.ts`; the vault card no longer reaches into a Today module.
+2. ~~Two `SiteHeader`s~~ — fixed. One primitive in `design-system.tsx`.
 3. **Two `TopicChip`s.** `design-system.tsx` (interest picker) and
    `today/digest-header.tsx` (follow-this-topic). Different jobs, same name.
 4. **Font constants re-declared per file.** `const MONO = "var(--font-mono)…"`
