@@ -6,7 +6,6 @@ import type { PaperItem } from "@/components/today/paper-card";
 import { TermChip } from "@/components/today/brief-digest";
 import { journalName } from "@/lib/venue-name";
 
-const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
 
 type Jargon = { term: string; def: string };
@@ -90,7 +89,7 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
         >
           {item.title}
         </a>
-        <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1px", textTransform: "uppercase", color: "#999", marginTop: 6 }}>
+        <div style={{ fontSize: "0.78rem", color: "#888", marginTop: 6 }}>
           {meta}
         </div>
       </div>
@@ -172,16 +171,16 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
       <div style={{ maxWidth: 680, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
         <button
           onClick={onClose}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", color: "#666", padding: 0, marginBottom: 28 }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: "0.9rem", background: "none", border: "none", cursor: "pointer", color: "#1a1a1a", padding: 0, marginBottom: 28 }}
         >
-          <ArrowLeft size={11} /> Back
+          <ArrowLeft size={15} /> Back
         </button>
 
         <h1 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.7rem", lineHeight: 1.2, letterSpacing: "-0.02em", color: "#1a1a1a", margin: "0 0 10px" }}>
           {paper.title}
         </h1>
         {(paper.authors.length > 0 || journal) && (
-          <p style={{ fontSize: "0.78rem", fontStyle: "italic", color: "#888", margin: "0 0 28px" }}>
+          <p style={{ fontSize: "0.88rem", color: "#666", margin: "0 0 28px" }}>
             {paper.authors.slice(0, 6).join(", ")}
             {paper.authors.length > 0 && journal ? " — " : ""}
             {journal}
@@ -192,7 +191,7 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
         {companionPending ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
             <Loader2 size={13} className="animate-spin" style={{ color: "#666" }} />
-            <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888" }}>
+            <span style={{ fontSize: "0.9rem", color: "#666" }}>
               Reading the paper…
             </span>
           </div>
@@ -211,7 +210,7 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
             href={paper.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "10px 16px", textDecoration: "none", marginTop: 28 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: DISPLAY, fontSize: "0.9rem", fontWeight: 700, background: "#1a1a1a", color: "#fff", padding: "11px 18px", textDecoration: "none", marginTop: 28 }}
           >
             Read the full paper ↗
           </a>
