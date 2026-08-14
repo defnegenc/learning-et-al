@@ -152,17 +152,3 @@ export function isPredatoryVenue(venueName: string | undefined): boolean {
   return false;
 }
 
-/**
- * Score institutional credibility from author affiliations.
- * Returns 0-0.05 boost.
- */
-export function institutionBoost(institutions: string[]): number {
-  if (institutions.length === 0) return 0;
-  for (const inst of institutions) {
-    const lower = inst.toLowerCase();
-    for (const top of TOP_INSTITUTIONS) {
-      if (lower.includes(top)) return 0.05;
-    }
-  }
-  return 0;
-}

@@ -64,7 +64,10 @@ carry the old mono-uppercase styling throughout. **Decide whether these modes
 still earn their keep before spending any restyle effort on them.** If they're
 experiments that lost, deleting them removes ~1,900 lines and a lazy chunk.
 
-## Dead code — nothing imports these
+## Dead code — DELETED 2026-08-14
+
+All of the below are gone; listed so the history is legible. `git show HEAD~1`
+recovers any of them.
 
 | File | Note |
 |------|------|

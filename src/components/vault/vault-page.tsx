@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Bookmark, ArrowLeft } from "lucide-react";
-import type { PaperItem } from "@/components/today/paper-card";
+import type { PaperItem } from "@/lib/types";
 import { ReadingListCard } from "./reading-list-card";
 import { ActionButton, PageHeader, PageLoader } from "@/components/design-system";
 import { ReadingPaperDetail } from "./reading-paper-detail";

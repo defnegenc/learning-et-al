@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Bookmark } from "lucide-react";
 import React from "react";
-import type { PaperItem } from "./paper-card";
+import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 
 /*

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, Bookmark, Loader2 } from "lucide-react";
-import type { PaperItem } from "@/components/today/paper-card";
+import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { journalName } from "@/lib/venue-name";
 

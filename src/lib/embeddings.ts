@@ -20,7 +20,6 @@ const MODEL_REGISTRY: Record<string, string> = {
 };
 
 export function isEmbeddingDegraded(): boolean { return _degraded; }
-export function getActiveModel(): string { return _modelName || "keyword-fallback"; }
 
 async function getModel() {
   if (!embeddingsAvailable) return null;
