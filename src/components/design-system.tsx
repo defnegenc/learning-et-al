@@ -190,11 +190,11 @@ export function ActionButton({ children, onClick, variant = "outline", size = "m
  * controls the surface needs on the right. Signed-out (sign in), signed-in (nav
  * + settings) and the loading state all use this, so the bar never shifts.
  */
-export function SiteHeader({ right }: { right?: React.ReactNode }) {
+export function SiteHeader({ right, style }: { right?: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <header
       className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
-      style={{ borderBottom: `1px solid ${INK}`, background: "white", height: "52px" }}
+      style={{ borderBottom: `1px solid ${INK}`, background: "white", height: "52px", ...style }}
     >
       <h1 className="hidden md:block" style={{ margin: 0 }}><Wordmark /></h1>
       <span className="block md:hidden"><Wordmark compact /></span>

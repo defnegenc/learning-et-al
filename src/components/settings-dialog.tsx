@@ -12,7 +12,7 @@ import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
-import { Wordmark, NavTab, PageTitle, SectionLabel, ActionButton } from "@/components/design-system";
+import { NavTab, PageTitle, SectionLabel, ActionButton, SiteHeader } from "@/components/design-system";
 
 export type SettingsTab = "interests" | "account";
 
@@ -162,12 +162,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
         showCloseButton={false}
       >
         {/* ── Top bar ── */}
-        <header
-          className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
-          style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px", flexShrink: 0 }}
-        >
-          <span className="hidden md:block"><Wordmark /></span>
-          <span className="md:hidden"><Wordmark compact /></span>
+        <SiteHeader style={{ flexShrink: 0 }} right={
           <div className="flex items-center gap-4">
             {navItems.map(n => (
               <NavTab key={n.key} active={tab === n.key} onClick={() => setTab(n.key)}>{n.label}</NavTab>
@@ -175,12 +170,12 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
             <button
               onClick={() => setOpen(false)}
               className="text-[#888] hover:text-[#1a1a1a] transition-colors"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", fontSize: "0.625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", fontFamily: "var(--font-mono), monospace" }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", fontSize: "0.9rem", fontFamily: "var(--font-display), sans-serif", fontWeight: 700 }}
             >
               Hide
             </button>
           </div>
-        </header>
+        } />
 
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* ── Interests tab ── */}
@@ -188,16 +183,16 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="px-5 pt-6 pb-4 md:px-10 md:pt-10 md:pb-5">
                 <PageTitle size="lg" style={{ marginBottom: "8px" }}>Curate your feed</PageTitle>
-                <p style={{ fontSize: "0.9rem", color: "#666" }}>Pick topics to personalize your daily digest.</p>
+                <p style={{ fontSize: "1rem", color: "#666", lineHeight: 1.6, maxWidth: 560, margin: 0 }}>Pick topics to personalize your daily digest.</p>
               </div>
 
               {/* Delivery cadence */}
-              <div className="px-5 md:px-10 pb-4" style={{ borderBottom: "1px solid #eee" }}>
-                <SectionLabel style={{ marginBottom: "10px" }}>Delivery Cadence</SectionLabel>
+              <div className="px-5 md:px-10 pb-4" style={{ borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
+                <SectionLabel style={{ marginBottom: "10px" }}>Delivery cadence</SectionLabel>
                 <div className="flex gap-0">
                   {([
                     { key: "daily" as const, label: "Daily", desc: "The morning digest." },
-                    { key: "biweekly" as const, label: "Bi-Weekly", desc: "Tuesday & Friday." },
+                    { key: "biweekly" as const, label: "Bi-weekly", desc: "Tuesday & Friday." },
                     { key: "weekly" as const, label: "Weekly", desc: "The Sunday recap." },
                   ]).map(opt => (
                     <button
@@ -211,18 +206,18 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                         cursor: "pointer", textAlign: "center",
                       }}
                     >
-                      <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>{opt.label}</div>
-                      <div style={{ fontSize: "0.6rem", color: cadence === opt.key ? "#ccc" : "#888", marginTop: "2px" }}>{opt.desc}</div>
+                      <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 700 }}>{opt.label}</div>
+                      <div style={{ fontSize: "0.8rem", color: cadence === opt.key ? "#ccc" : "#666", marginTop: "3px" }}>{opt.desc}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Email opt-out */}
-              <div className="px-5 md:px-10 py-3" style={{ borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div className="px-5 md:px-10 py-3" style={{ borderBottom: "1px solid rgba(26,26,26,0.12)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <SectionLabel>Email digests</SectionLabel>
-                  <div style={{ fontSize: "0.7rem", color: "#aaa", marginTop: "2px" }}>Receive your digest by email</div>
+                  <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "3px" }}>Receive your digest by email</div>
                 </div>
                 <button
                   onClick={() => setEmailOptOut(v => !v)}
@@ -256,17 +251,17 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               </div>
 
               {selectedTopics.length > 0 && (
-                <div className="px-5 md:px-10" style={{ borderTop: "1px solid #e5e7eb", paddingTop: "12px", paddingBottom: "12px", flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px" }}>
+                <div className="px-5 md:px-10" style={{ borderTop: "1px solid rgba(26,26,26,0.12)", paddingTop: "12px", paddingBottom: "12px", flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px" }}>
                   {saved && (
-                    <span className="flex items-center gap-1 text-[#38b000] text-[0.7rem] mr-auto">
+                    <span className="flex items-center gap-1.5 text-[#38b000] text-[0.85rem] mr-auto">
                       <CheckCircle className="size-3" /> Saved
                     </span>
                   )}
                   <button
                     onClick={() => setSelectedTopics([])}
-                    style={{ fontSize: "0.65rem", fontWeight: 700, color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px" }}
+                    style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.88rem", fontWeight: 700, color: "#1a1a1a", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px" }}
                   >
-                    Clear All
+                    Clear all
                   </button>
                   <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
                     {saving ? <Loader2 className="size-3 animate-spin" /> : "Save"}
@@ -281,13 +276,13 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
             <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
               <PageTitle size="lg" style={{ marginBottom: "8px" }}>Account</PageTitle>
               {authSession?.user && (
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "32px", paddingBottom: "24px", borderBottom: "1px solid #e5e7eb" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "32px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
                   {authSession.user.image && (
-                    <img src={authSession.user.image} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", border: "1.5px solid #ddd" }} />
+                    <img src={authSession.user.image} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", border: "1.5px solid rgba(26,26,26,0.12)" }} />
                   )}
                   <div>
                     <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{authSession.user.name}</div>
-                    <div style={{ fontSize: "0.8rem", color: "#888" }}>{authSession.user.email}</div>
+                    <div style={{ fontSize: "0.85rem", color: "#666" }}>{authSession.user.email}</div>
                   </div>
                 </div>
               )}
