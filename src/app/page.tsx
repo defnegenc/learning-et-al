@@ -7,7 +7,7 @@ import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
 import { TodayPage } from "@/components/today/today-page";
 import { NoiseOverlay } from "@/components/noise-overlay";
-import { PageLoader, Wordmark } from "@/components/design-system";
+import { ActionButton, PageLoader, Wordmark } from "@/components/design-system";
 
 // Same chrome as AppShell's header so the bar never jumps between the loading
 // state, the logged-out page, and the signed-in app.
@@ -105,18 +105,9 @@ export default function Home() {
 
       <SiteHeader
         right={
-          <button
-            onClick={() => signIn("google")}
-            style={{
-              padding: "8px 20px", background: "#1a1a1a", color: "white",
-              border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
-              textTransform: "uppercase", letterSpacing: "2px",
-              fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-              boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
-            }}
-          >
-            Sign In
-          </button>
+          <ActionButton variant="primary" size="sm" onClick={() => signIn("google")}>
+            Sign in
+          </ActionButton>
         }
       />
 

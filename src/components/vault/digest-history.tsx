@@ -83,7 +83,7 @@ export function DigestHistory() {
   if (list.length === 0) {
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
-        <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: MONO }}>
+        <span style={{ fontFamily: DISPLAY, fontSize: "1.1rem", fontWeight: 700, color: "#1a1a1a" }}>
           No digests yet — generate your first from Today
         </span>
       </div>
@@ -107,7 +107,7 @@ export function DigestHistory() {
             }}
             className={isActive ? "" : "hover:bg-[#f5f5f5]"}
           >
-            <span style={{ fontFamily: MONO, fontSize: "0.55rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: isActive ? "rgba(255,255,255,0.5)" : "#aaa" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.7rem", fontWeight: 500, color: isActive ? "rgba(255,255,255,0.65)" : "#888" }}>
               {item.date}
             </span>
             <span style={{ fontFamily: DISPLAY, fontSize: "0.8rem", fontWeight: isActive ? 700 : 500, lineHeight: 1.3 }}>
@@ -123,7 +123,7 @@ export function DigestHistory() {
     <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}><Loader2 className="size-5 animate-spin" style={{ color: "#666" }} /></div>
   ) : (
     <div>
-      <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#999", marginBottom: 10 }}>
+      <div style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#888", marginBottom: 10 }}>
         {new Date(digest.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
       </div>
       <h2 style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.6rem", lineHeight: 1.25, letterSpacing: "-0.03em", color: "#1a1a1a", margin: "0 0 8px" }}>
@@ -156,8 +156,8 @@ export function DigestHistory() {
       <div className="md:hidden">
         {activeId && digest ? (
           <div>
-            <button onClick={() => { setActiveId(null); setDigest(null); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", color: "#666", padding: 0, marginBottom: 16 }}>
-              <ArrowLeft size={11} /> All digests
+            <button onClick={() => { setActiveId(null); setDigest(null); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: "0.9rem", background: "none", border: "none", cursor: "pointer", color: "#1a1a1a", padding: 0, marginBottom: 16 }}>
+              <ArrowLeft size={15} /> All digests
             </button>
             {pane}
           </div>

@@ -19,7 +19,7 @@ const SynthesisBanner = dynamic(() => import("./synthesis-banner").then(m => m.S
 const SourceCard = dynamic(() => import("./source-card").then(m => m.SourceCard), { ssr: false });
 const PapersMode = dynamic(() => import("./papers-mode").then(m => m.PapersMode), { ssr: false });
 const PapersModeOg = dynamic(() => import("./papers-mode-og").then(m => m.PapersModeOg), { ssr: false });
-import { PageLoader } from "@/components/design-system";
+import { ActionButton, PageLoader } from "@/components/design-system";
 import React from "react";
 
 /* ── Types ── */
@@ -373,18 +373,11 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">{generateError}</p>
         )}
         {session && (
-          <button
-            onClick={() => handleGenerate(true)}
-            disabled={generating}
-            className="border border-[#1a1a1a] px-4 py-2 text-[0.65rem] uppercase tracking-[2px] hover:bg-[#1a1a1a] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
-            style={{ borderWidth: "1.5px", fontFamily: "var(--font-mono), monospace" }}
-          >
-            {generating ? (
-              <span className="flex items-center gap-2"><Loader2 className="size-3 animate-spin" /> GENERATING...</span>
-            ) : (
-              <span className="flex items-center gap-2"><RefreshCw className="size-3" />{generateError ? "Try again" : "Generate today's digest"}</span>
-            )}
-          </button>
+          <ActionButton onClick={() => handleGenerate(true)} disabled={generating}>
+            {generating
+              ? <><Loader2 className="size-3.5 animate-spin" /> Generating…</>
+              : <><RefreshCw className="size-3.5" />{generateError ? "Try again" : "Generate today's digest"}</>}
+          </ActionButton>
         )}
       </div>
     );
@@ -544,11 +537,11 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                 {(session && generateError) || "No digest found for today"}
               </p>
               {session && (
-                <button onClick={() => handleGenerate(true)} disabled={generating}
-                  className="flex items-center gap-2 px-4 py-2 text-[0.7rem] uppercase tracking-[2px] bg-[#1a1a1a] text-white disabled:opacity-50"
-                  style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-mono), monospace", boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)" }}>
-                  {generating ? <><Loader2 className="size-3 animate-spin" /> Generating...</> : <><RefreshCw className="size-3" /> Generate digest</>}
-                </button>
+                <ActionButton variant="primary" onClick={() => handleGenerate(true)} disabled={generating}>
+                  {generating
+                    ? <><Loader2 className="size-3.5 animate-spin" /> Generating…</>
+                    : <><RefreshCw className="size-3.5" /> Generate digest</>}
+                </ActionButton>
               )}
             </div>
           )}

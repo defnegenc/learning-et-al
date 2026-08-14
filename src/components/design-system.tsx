@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Loader2 } from "lucide-react";
 
 /*
  * Learning et al. design system — the shared primitives every surface composes.
@@ -16,15 +15,34 @@ export const DISPLAY = "var(--font-display), sans-serif";
 export const LOGO = "var(--font-logo), sans-serif";
 
 /**
- * The ONE full-page loading indicator. Every surface that waits on a first load
- * (auth resolving, digest fetching, vault opening) renders this, in the same
- * place under the header, so a multi-step load reads as a single wait instead of
- * a chain of different spinners. Don't add another page-level spinner shape.
+ * The ONE full-page loading indicator — "the stamp". A hard square turns in 90°
+ * steps while its offset shadow cycles the four card palette colours, so the
+ * wait carries the product's own rainbow rather than a generic spinner.
+ *
+ * Every surface that waits on a first load (auth resolving, digest fetching,
+ * vault opening) renders this, in the same place under the header, so a
+ * multi-step load reads as a single wait. Don't add another page-level loader
+ * shape, and don't animate it toward a percentage — see docs/design-style.md.
  */
+const STAMP_COLORS = ["#6EE9A8", "#FF85A8", "#60AAE8", "#FFD020"];
+
 export function PageLoader() {
   return (
     <div className="flex items-center justify-center py-20" role="status" aria-label="Loading">
-      <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
+      <style>{`
+        @keyframes dsStamp {
+          0%   { transform: rotate(0deg);   box-shadow: 5px 5px 0 0 ${STAMP_COLORS[0]} }
+          25%  { transform: rotate(90deg);  box-shadow: 5px 5px 0 0 ${STAMP_COLORS[1]} }
+          50%  { transform: rotate(180deg); box-shadow: 5px 5px 0 0 ${STAMP_COLORS[2]} }
+          75%  { transform: rotate(270deg); box-shadow: 5px 5px 0 0 ${STAMP_COLORS[3]} }
+          100% { transform: rotate(360deg); box-shadow: 5px 5px 0 0 ${STAMP_COLORS[0]} }
+        }
+        .ds-stamp { animation: dsStamp 1.8s steps(1, end) infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .ds-stamp { animation: none; box-shadow: 5px 5px 0 0 ${STAMP_COLORS[0]}; }
+        }
+      `}</style>
+      <div className="ds-stamp" style={{ width: 30, height: 30, border: `3px solid ${INK}`, background: "#fff" }} />
     </div>
   );
 }
@@ -80,7 +98,11 @@ export function NavTab({ active, onClick, children }: {
   );
 }
 
-/** Mono uppercase eyebrow above a section — "Delivery cadence", drawer titles, etc. */
+/**
+ * Small section heading — display face, sentence case. Replaced the mono
+ * uppercase eyebrow (0.6rem, 2px tracking, #888): see the anti-patterns list in
+ * docs/design-style.md. Use it where a section genuinely needs a name.
+ */
 export function SectionLabel({ children, style }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
@@ -88,12 +110,11 @@ export function SectionLabel({ children, style }: {
   return (
     <div
       style={{
-        fontFamily: MONO,
-        fontSize: "0.6rem",
+        fontFamily: DISPLAY,
+        fontSize: "0.95rem",
         fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: "2px",
-        color: "#888",
+        letterSpacing: "-0.01em",
+        color: INK,
         ...style,
       }}
     >
@@ -142,10 +163,8 @@ export function ActionButton({ children, onClick, variant = "outline", size = "m
       disabled={disabled}
       style={{
         fontFamily: DISPLAY,
-        fontSize: size === "md" ? "0.8rem" : "0.65rem",
+        fontSize: size === "md" ? "0.9rem" : "0.78rem",
         fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
         padding: size === "md" ? "10px 18px" : "6px 12px",
         background: variant === "primary" ? INK : "#fff",
         color: variant === "primary" ? "#fff" : INK,
@@ -163,6 +182,72 @@ export function ActionButton({ children, onClick, variant = "outline", size = "m
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Page header — the title-and-one-sentence opening every full page uses.
+ * Display 2rem, sentence case, with a single plain-language line under it at a
+ * readable size. No mono eyebrow above the title, no rule under it.
+ */
+export function PageHeader({ title, children, action }: {
+  title: React.ReactNode;
+  children?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, marginBottom: 40 }}>
+      <div>
+        <h1 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "2rem", letterSpacing: "-0.03em", color: INK, margin: "0 0 8px" }}>
+          {title}
+        </h1>
+        {children && (
+          <p style={{ fontSize: "1rem", color: "#666", margin: 0, maxWidth: 560, lineHeight: 1.6 }}>{children}</p>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/**
+ * The frame. A hard 2px border and an unblurred offset shadow — the single
+ * container shape in the product. `media` renders a flush top region divided by
+ * a border (how the loader cards show their subject); everything else is body.
+ */
+export function Card({ children, media, onClick, style }: {
+  children?: React.ReactNode;
+  media?: React.ReactNode;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        border: `2px solid ${INK}`,
+        background: "#fff",
+        boxShadow: "6px 6px 0 0 rgba(0,0,0,1)",
+        cursor: onClick ? "pointer" : undefined,
+        ...style,
+      }}
+    >
+      {media && (
+        <div style={{ display: "grid", placeItems: "center", borderBottom: `2px solid ${INK}`, padding: 24 }}>
+          {media}
+        </div>
+      )}
+      {children && <div style={{ padding: "16px 18px" }}>{children}</div>}
+    </div>
+  );
+}
+
+/** Card grid — the standard responsive shelf. Same geometry everywhere. */
+export function CardGrid({ children, min = 260 }: { children: React.ReactNode; min?: number }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${min}px, 1fr))`, gap: 24 }}>
+      {children}
+    </div>
   );
 }
 
