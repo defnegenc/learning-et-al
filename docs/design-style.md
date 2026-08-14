@@ -130,6 +130,36 @@ Max one per digest, rare by design — the gold means something because most dig
 
 ---
 
+## The page template
+
+`/prototype/loaders` is the reference page. Every full page should read like it:
+a big sentence-case title, one plain line of explanation, then bordered cards on
+a white field. Nothing else. Use the primitives — `PageHeader`, `Card`,
+`CardGrid` in `design-system.tsx` — rather than rebuilding the geometry.
+
+| Element | Spec |
+|---------|------|
+| Page padding | `48px 24px 80px` |
+| Page width | 880px for card pages · 680px reading · 760px digest · 1400px dense grids |
+| Title | Display 800, `2rem`, `-0.03em`, sentence case, `0 0 8px` |
+| Intro line | Body `1rem`, `#666`, `line-height 1.6`, `max-width 560px` |
+| Title → content gap | 40px |
+| Card grid | `repeat(auto-fill, minmax(260px, 1fr))`, gap 24px |
+| Card frame | `2px solid #1a1a1a`, `box-shadow: 6px 6px 0 0 #1a1a1a`, white |
+| Card media region | flush, `borderBottom: 2px solid`, contents centred |
+| Card body | padding `16px 18px` — title Display 700 `1.05rem`, note body `0.85rem` `#666` |
+
+What makes it work, and what to preserve when applying it elsewhere:
+
+- **No rule under the page title.** The whitespace separates; a border adds noise.
+- **Sentence case everywhere**, including buttons and card titles.
+- **Exactly two type sizes per card** — the title and the note. No third tier.
+- **One colour of secondary text** (`#666`). Not `#888` *and* `#999` *and* `#aaa`.
+- **Colour appears in the content, not the chrome.** The frame is always black on
+  white; the palette lives inside the card.
+- **Generous vertical rhythm** — 24px between cards, 40px under the header. The
+  density belongs in the digest, not in the surfaces around it.
+
 ## Loading
 
 One primitive: `PageLoader` in `design-system.tsx`. Rules:
@@ -171,6 +201,10 @@ restyling their own. Added 2026-07-19.
 
 | Component | What it is | Used in |
 |-----------|-----------|---------|
+| `PageLoader` | The stamp — the ONE page-level loader | Home (auth), Today (digest fetch), Vault, Digest history |
+| `PageHeader` | Page title + one intro line + optional action | Vault; the template for every full page |
+| `Card` | The frame — 2px border, hard shadow, optional media region | Loader prototype; use for any new card surface |
+| `CardGrid` | `auto-fill minmax(260px, 1fr)`, gap 24 | Same |
 | `Wordmark` | "Learning et al." lockup — Space Grotesk 700, 0.2em tracking | App-shell header, Settings dialog header |
 | `NavTab` | Mono uppercase tab, active underline | App-shell nav (today/vault/admin), Settings tabs, Vault filter bar (By Digest / By Domain / Starred / Bookmarked / Compare) |
 | `SectionLabel` | Mono uppercase eyebrow, 2px tracking, #888 | Settings "Delivery cadence" / "Email digests", Vault drawer title |
