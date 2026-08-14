@@ -152,6 +152,103 @@ const STOP_WORDS = new Set([
   "said", "says", "news", "report", "article", "paper", "study",
 ]);
 
+/*
+ * Words that look like a subject but name nothing. A theme built on these
+ * ("Can technology read your mind?") is grammatical, parseable, and completely
+ * uninformative — the failure mode the coherence guard can't catch, because
+ * it tests whether the theme parses, not whether it says anything.
+ */
+const PLACEHOLDER_NOUNS = new Set([
+  // Generic subjects — "which technology? whose systems?"
+  "technology", "technologies", "tech", "system", "systems", "machine", "machines",
+  "model", "models", "tool", "tools", "device", "devices", "science", "sciences",
+  "algorithm", "algorithms", "innovation", "innovations", "future", "mind", "minds",
+  "human", "humans", "people", "world", "signal", "signals", "method", "methods",
+  "approach", "approaches", "research", "researchers", "solution", "solutions",
+  // Abstract topic nouns. These matter because they DO appear in paper titles
+  // ("Emotion recognition from consumer-grade EEG headbands"), so without them
+  // listed here a theme like "Can machines understand emotion?" counts as
+  // grounded and ships — it borrowed a real word from a real title and still
+  // named nothing you can picture.
+  "emotion", "emotions", "behavior", "behaviour", "behaviors", "behaviours",
+  "performance", "learning", "intelligence", "understanding", "perception",
+  "cognition", "experience", "experiences", "quality", "ability", "abilities",
+  "accuracy", "state", "states", "effect", "effects", "impact", "impacts",
+  "outcome", "outcomes", "pattern", "patterns", "trend", "trends", "insight",
+  "insights", "potential", "challenge", "challenges", "opportunity",
+  "opportunities", "process", "processes", "factor", "factors", "framework",
+  "frameworks", "analysis", "development", "application", "applications",
+]);
+
+/*
+ * Paraphrased-jargon constructions. The anti-jargon rule tells the model to
+ * strip technical terms, and it complies by describing the term's abstract
+ * PROPERTY instead of naming the thing: "non-invasive" comes out as "without
+ * touching it", which is harder to read than the jargon was. The tell is a
+ * negative construction — the headline says what something ISN'T rather than
+ * what it IS, and the reader has to decode it before they can even tell what
+ * is being asked.
+ */
+const PARAPHRASED_JARGON = [
+  // "without touching it", "without any central planning" — a "without" whose
+  // object is a nominalisation is the paraphrase tell. "without a teacher" and
+  // "without soil" name real things and are fine, so the suffix is what's
+  // matched, not the word "without".
+  /\bwithout\b[^?.!]{0,20}\b\w{3,}(?:ing|ion|ment|ness|ity)\b/i,
+  /\bwithout (?:any |a |an )?(?:direct|physical|actual|real|human)\b/i,
+  /\bthat (?:doesn'?t|don'?t|isn'?t|aren'?t|can'?t|never)\b/i,
+  /\beven when there'?s no\b/i,
+  /\bnever (?:touching|seeing|knowing|meeting)\b/i,
+];
+
+/*
+ * Subject position — the first few words, where the headline says what it's
+ * about. A placeholder here sinks the whole line ("Can TECHNOLOGY read your
+ * mind?"), while the same word later is usually harmless ("Old traditions, new
+ * machines"). Checked separately from grounding because a theme can borrow one
+ * real word from a title and still be about nothing.
+ */
+const SUBJECT_WINDOW = 3;
+
+/**
+ * Does the theme name something real? True when it carries a number, or a word
+ * that is grounded in the papers' own titles and isn't a placeholder. Titles
+ * are where the specific nouns live (the headband, the city, the species), so
+ * grounding there is what separates "a $200 headband" from "technology".
+ */
+function themeNamesAThing(theme: string, papers: { title: string }[]): boolean {
+  const words = theme.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  // A placeholder in subject position sinks the theme no matter what follows.
+  if (words.slice(0, SUBJECT_WINDOW).some(w => PLACEHOLDER_NOUNS.has(w))) return false;
+  if (/\d/.test(theme)) return true;
+  const titleText = papers.map(p => p.title.toLowerCase()).join(" ");
+  // >3 rather than >4 so short concrete nouns (curb, bees, rice, sand) count.
+  // Known limitation: a verb shared with a title ("strains SHAPE flavour") can
+  // ground a theme. The subject check above is what catches those in practice.
+  return words.some(w =>
+    w.length > 3 && !STOP_WORDS.has(w) && !PLACEHOLDER_NOUNS.has(w)
+    && titleText.includes(w.replace(/(ing|ed|s)$/, ""))
+  );
+}
+
+/**
+ * What's wrong with this theme, in plain terms the retry prompt can act on.
+ * Empty array = ships. Two independent failure modes, because a headline can
+ * be perfectly readable and say nothing ("Can machines understand emotion?"),
+ * or name a real thing and still be unreadable ("Can technology read your mind
+ * without touching it?").
+ */
+function themeProblems(theme: string, papers: { title: string }[]): string[] {
+  const problems: string[] = [];
+  if (!themeNamesAThing(theme, papers)) {
+    problems.push("It is too VAGUE — it names nothing specific from the papers and could headline a hundred other digests.");
+  }
+  if (PARAPHRASED_JARGON.some(re => re.test(theme))) {
+    problems.push("It is HARD TO READ — it describes what something isn't or doesn't do, instead of naming the thing. The reader has to decode the phrase before they can tell what is being asked.");
+  }
+  return problems;
+}
+
 function paperText(paper: { title: string; abstract: string }): string {
   return `${paper.title}. ${paper.abstract.slice(0, 500)}`;
 }
@@ -378,17 +475,19 @@ User interests (sorted by priority):
 ${interestList}
 ${starvedInterest ? `\nNOTE: "${starvedInterest}" hasn't been featured in a while. STRONGLY prefer building today's question around it if it can carry a genuinely good question — the reader added it because they care about it.\n` : ""}${queryMemoryBlock}
 
-GOOD themes are SHORT and PUNCHY — like a magazine cover headline. Can be a question OR a statement:
-- "When fakes become indistinguishable from reality" (statement)
-- "Can AI out-create humans?" (question)
-- "The death of the expert" (statement)
-- "When will robots cook dinner?" (question)
-- "Old traditions, new machines" (statement)
-- "Do machines have taste?" (question)
+GOOD themes are SHORT, PUNCHY, and they NAME SOMETHING — like a magazine cover headline. Question or statement:
+- "Why can't robots fold laundry?" (question — you can picture the laundry)
+- "The expert is often the last to know" (statement — a real reversal, said plainly)
+- "Can a $200 headband read your mood?" (question — names the object AND the price)
+- "Sourdough is a city of microbes" (statement — concrete image, zero jargon)
+- "When will robots cook dinner?" (question — a specific scene, not a capability)
+- "Fake reviews now outnumber real ones" (statement — a claim with a stake in it)
+Notice: every one of these puts a thing you can SEE in the sentence. None of them is about "technology" or "systems" in the abstract.
 
-BAD themes are wordy, academic, or just topic labels:
+BAD themes are wordy, academic, topic labels, or built on words that name nothing:
+- "Can technology read your mind without touching it?" — DOUBLE FAIL, the most common one. "Technology" names nothing (which technology? the papers were about cheap EEG headbands), and "without touching it" is a paraphrase of "non-invasive" that the reader has to decode before they can even tell what's being asked. "Can a $200 headband read your mood?" is the same question, said by a human.
 - "Can better architecture solve computational bottlenecks?" — JARGON. No normal person talks like this. "Why are AI models still so slow?" is the same idea but human.
-- "When fakes become indistinguishable from reality?" — drop the question mark, it's stronger as a statement
+- "When fakes become indistinguishable from reality?" — drop the question mark, it's stronger as a statement. And "indistinguishable" is a mouthful — "Fake reviews now outnumber real ones" says more with smaller words.
 - "Can AI out-create humans, or will it expand our artistic horizons?" — TOO LONG
 - "Recent advances in AI" — not interesting, zero surprise
 - "The question of whether generative AI..." — NO. Never start with "The question of"
@@ -400,7 +499,11 @@ Rules:
   BAD: "When signals speak, do our models truly listen?" — all abstractions; you can't tell it's about reading emotion in text and brainwaves.
   GOOD: "Can AI read emotion in text and brainwaves?" — same idea, but graspable.
 - NO JARGON in the theme. If it contains words like "computational", "architecture", "optimization", "framework", "methodology", "paradigm", "scalability" — REWRITE in plain English. Your grandma should understand the question.
-- The theme must pass the DINNER TABLE TEST: would a smart non-expert actually wonder about this? "Why can't robots fold laundry?" passes. "Can better architecture solve computational bottlenecks?" fails — nobody talks like that.
+- WHEN YOU STRIP JARGON, NAME THE OBJECT — never paraphrase the term's abstract property. Describing what a thing does or lacks produces a riddle that reads WORSE than the jargon did:
+  BAD: "non-invasive" → "without touching it" ("Can technology read your mind without touching it?" — the reader has to decode the phrase before they can tell what's being asked). GOOD: "non-invasive" → "a headband".
+  BAD: "low-resource languages" → "languages without much data". GOOD: "Swahili and Tamil".
+  Negative constructions ("without…", "that doesn't…", "even when there's no…") are almost always a paraphrased property. Cut them and name the physical thing the reader can picture.
+- The theme must pass the DINNER TABLE TEST: would a smart non-expert actually SAY these words out loud? "Why can't robots fold laundry?" passes. "Can better architecture solve computational bottlenecks?" fails — nobody talks like that. The reader must get it on ONE pass, with no re-reading.
 - For beginner interests: concrete and real-world, avoid pure theory
 - For a single interest: find the unexpected angle within it
 - Only combine 2 interests if they NATURALLY connect (AI + design, robotics + cooking, biology + fashion-tech). If interests are truly unrelated (like microbiome + cryptocurrency), just pick ONE and find a great angle within it.
@@ -461,7 +564,10 @@ Return JSON only (no markdown):
       try {
         const retryResp = await aiComplete(aiConfig,
           "You shorten headlines. Return only JSON.",
-          `Shorten this to MAX 8 WORDS while keeping the surprise value. Return JSON: {"theme": "shorter version"}\n\nOriginal: "${theme}"`
+          // Rule-free shortening used to undo the specificity work: the concrete
+          // noun is usually the longest token, so it got cut first and a generic
+          // one took its place. Cut hedges instead.
+          `Shorten this to MAX 8 WORDS. Cut hedges, qualifiers and abstractions FIRST. NEVER replace a specific thing, place or number with a generic word ("technology", "systems", "AI models") — the specific noun is the most valuable word in the headline. Return JSON: {"theme": "shorter version"}\n\nOriginal: "${theme}"`
         );
         const retryParsed = extractJson<{ theme?: string }>(retryResp);
         if (retryParsed) {
@@ -1235,33 +1341,48 @@ GOOD revision: recognizing the papers are actually about evidence and trust, not
 BAD: "Does AI hype match real classroom results?" — when the papers are really about research reproducibility
 GOOD: "Can we trust the research behind the hype?" — captures what ALL three papers actually share
 
-PART 2 — SURPRISE: Once you have an accurate theme, ask: is there a more unexpected or counterintuitive way to frame this same insight?
+PART 2 — SPECIFICITY: an accurate theme still fails if it could headline a hundred other digests. Name the actual thing.
 
-The best themes make a reader stop and think "wait, really?" They hide a tension or reversal inside them.
+You are the ONLY step that has seen these papers. Mine them. The surprise must be one that is IN the papers — the number that shouldn't be that high, the group that behaved backwards, the cheap object that beat the expensive one — not a rhetorical reversal you invented.
 
-GENERIC (accurate but forgettable):
-- "How does AI shape human psychology?" — broad, expected, could describe 1000 papers
-- "Can machines understand emotion?" — we've heard this question a thousand times
-- "AI and creativity" — a topic label, not a question worth asking
+HARD RULE — NAME A THING: the theme must contain at least one specific noun or number lifted from THESE papers: the real object, material, place, group, or measurement that was studied (a $200 headband, sourdough starter, Lagos, teenagers, 40%). These placeholders are BANNED as the subject, because they tell the reader nothing: technology, systems, machines, models, tools, devices, science, data, algorithms, innovation, the future, our minds, humans. If your draft leans on one, go back to the papers and swap in what the researchers actually used.
 
-SURPRISING (accurate AND makes you think):
+VAGUE (accurate but says nothing):
+- "Can technology read your mind without touching it?" — "technology" is a placeholder; the papers are about cheap EEG headbands. Nothing is learned from this title.
+- "Can machines understand emotion?" — could headline a thousand digests
+- "How does AI shape human psychology?" — a topic label wearing a question mark
+
+SPECIFIC (same claim, names the thing):
+- "Can a $200 headband read your mood?" — the object is right there
 - "Why do AI tutors make kids worse at reading?" — specific, counterintuitive, has a villain
-- "The expert is often the last to know" — implies a reversal, feels true and uncomfortable
-- "Your brain lies to you. So does the model." — parallel structure with a sting
+- "Sarcasm still breaks emotion-detecting AI" — names the exact failure
 
-Ask yourself: if someone saw ONLY the theme, would they immediately think "I know what this is about" (bad) or "wait, tell me more" (good)? Aim for the second.
-
-COHERENCE GUARD (HARD RULE): the twist must still make literal sense to someone who has NOT read the papers. Read your candidate theme cold — if a smart stranger couldn't say in one sentence what it's asking, it's too clever. A twist earns its place only when it's BOTH unexpected AND instantly parseable:
+COHERENCE GUARD (HARD RULE): the theme must make literal sense to someone who has NOT read the papers. Read it cold — if a smart stranger couldn't say in one sentence what today's digest is about, from the theme ALONE, it fails:
 - "Can AI bring out creativity in designers?" — clear, direct, still interesting, good
-- "Does AI make human designers more human?" — sounds twisty but is actually a riddle: nobody can say what "more human" means cold, FAIL
+- "Does AI make human designers more human?" — sounds twisty but is a riddle: nobody can say what "more human" means cold, FAIL
 - "The designer inside the machine inside the designer" — clever-sounding but meaningless, FAIL
-Beware the FAKE TWIST: wordplay that mimics a paradox ("more human", "less artificial", "the X inside the X") without a real claim behind it. A real twist answers a real question. When forced to choose, comprehension beats cleverness — ship the straightforward interesting question, not the riddle.
+Beware the FAKE TWIST: wordplay that mimics a paradox ("more human", "less artificial", "the X inside the X") without a real claim behind it. A specific plain question beats a vague clever one every time.
+
+PART 3 — PLAIN ENGLISH: say it out loud. If you would never say this sentence to a friend, rewrite it.
+
+DINNER TABLE TEST: would a smart non-expert actually say these words? "Why can't robots fold laundry?" passes. "Can technology read your mind without touching it?" fails — nobody talks like that, and the reader has to stop and decode "without touching it" before they can even tell what's being asked.
+
+NEVER PARAPHRASE JARGON — NAME THE OBJECT. This is the single most common way these headlines go wrong. You correctly avoid a technical term, then describe its abstract PROPERTY in roundabout words, which is harder to read than the jargon was:
+- "non-invasive" becomes "without touching it" — WRONG, that's a riddle. Name the thing instead: "a headband".
+- "wearable biosensor" becomes "technology that senses you" — WRONG. Say "a smartwatch".
+- "low-resource languages" becomes "languages without much data" — WRONG. Say "Swahili and Tamil".
+The rule: when you strip a technical term, replace it with the PHYSICAL THING a reader can picture, never with a description of what the thing does or lacks. Negative constructions ("without…", "that doesn't…", "even when there's no…") are almost always a paraphrased property — cut them and name the object.
+
+Also cut: abstract possessives ("our minds", "the human condition"), stacked qualifiers, and any clause the reader has to re-read. One clear idea, said the way a person would say it.
 
 Rules:
 - MAX 8 WORDS
-- Must connect ALL papers at their CORE, not their surface topic
+- At least one concrete noun or number taken from the papers themselves
+- Thread the papers through the concrete thing they SHARE — do NOT climb to the abstraction that covers them all. The surface topic is where the real nouns live; keep them.
+- Plain spoken English. No jargon, and no roundabout paraphrase of jargon either.
+- A reader must get it on ONE pass, at a glance, without re-reading
 - A normal person should want to click on it
-- If the original is already both accurate AND surprising, keep it unchanged
+- If the original is already accurate, specific AND plainly said, keep it unchanged
 
 Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or statement", "kept_original": true|false}`;
 
@@ -1275,6 +1396,29 @@ Return JSON only: {"theme": "catchy headline MAX 8 WORDS — question or stateme
         console.log(`[Digest] Theme revised: "${reviseParsed.theme}" (was: "${theme}")`);
       }
       finalTheme = reviseParsed.theme;
+    }
+
+    // Readability gate — the same shape as the word-count gate in Step 1, and
+    // the reason it exists: the prompt can ask for a headline that names a real
+    // thing and reads like speech, but only a deterministic check stops one that
+    // does neither from shipping as the page title AND the email subject line.
+    const problems = themeProblems(finalTheme, items);
+    if (problems.length > 0) {
+      console.log(`[Digest] Theme "${finalTheme}" failed the readability gate — requesting a rewrite:\n${problems.map(p => `  - ${p}`).join("\n")}`);
+      try {
+        const groundResp = await aiComplete(aiConfig,
+          "You rewrite research headlines into plain spoken English that names the specific thing studied. Return only JSON.",
+          `This headline fails:\n"${finalTheme}"\n\nWhat's wrong with it:\n${problems.map(p => `- ${p}`).join("\n")}\n\nThe papers it is supposed to describe:\n${paperList}\n\nRewrite it so that:\n1. It NAMES THE ACTUAL THING — the real object, material, place, group, or number the researchers studied. Do NOT use these placeholder words as the subject: technology, systems, machines, models, tools, devices, science, data, algorithms, innovation, the future, our minds, humans.\n2. It reads like something a person would SAY OUT LOUD to a friend. A smart non-expert must get it on ONE pass, with no re-reading and nothing to decode.\n3. It never paraphrases a technical term into a description of what something isn't or doesn't do — name the physical thing instead. Cut constructions like "without touching it", "that doesn't need X", "even when there's no Y".\n4. MAX 8 WORDS. Keep the same underlying claim.\n\nExample — fails on both counts: "Can technology read your mind without touching it?" ("technology" names nothing, and "without touching it" is a decoded-in-your-head paraphrase of "non-invasive"). Fixed: "Can a $200 headband read your mood?"\n\nReturn JSON: {"theme": "plain, specific headline MAX 8 WORDS"}`
+        );
+        const groundParsed = extractJson<{ theme?: string }>(groundResp);
+        const grounded = groundParsed?.theme;
+        if (grounded && grounded.split(/\s+/).length <= 8 && themeProblems(grounded, items).length === 0) {
+          console.log(`[Digest] Theme rewritten: "${grounded}" (was: "${finalTheme}")`);
+          finalTheme = grounded;
+        } else {
+          console.log(`[Digest] Rewrite did not clear the gate, keeping "${finalTheme}"`);
+        }
+      } catch { /* keep the revised theme if the rewrite fails */ }
     }
   } catch (err) {
     console.log(`[Digest] Theme revision failed (${err}), keeping original`);
