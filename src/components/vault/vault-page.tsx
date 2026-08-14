@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Bookmark, ArrowLeft } from "lucide-react";
+import { Bookmark, ArrowLeft } from "lucide-react";
 import type { PaperItem } from "@/components/today/paper-card";
 import { ReadingListCard } from "./reading-list-card";
-import { PageTitle, ActionButton } from "@/components/design-system";
+import { PageTitle, ActionButton, PageLoader } from "@/components/design-system";
 import { ReadingPaperDetail } from "./reading-paper-detail";
 import { DigestHistory } from "./digest-history";
 
@@ -49,9 +49,7 @@ export function VaultPage() {
       {view === "history" ? (
         <DigestHistory />
       ) : loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
-          <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
-        </div>
+        <PageLoader />
       ) : papers.length === 0 ? (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "80px 0" }}>
           <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
@@ -75,7 +73,7 @@ export function VaultPage() {
         </div>
       )}
 
-      {detail && <ReadingPaperDetail paper={detail} index={papers.findIndex(p => p.id === detail.id)} onClose={() => setDetail(null)} />}
+      {detail && <ReadingPaperDetail paper={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

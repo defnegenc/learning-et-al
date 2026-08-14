@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { PaperItem } from "./paper-card";
-import { splitSynthesisTheme } from "./synthesis-banner";
+import { splitSynthesisTheme } from "./synthesis-text";
 import { journalName } from "@/lib/venue-name";
 import {
   type AgentSource,

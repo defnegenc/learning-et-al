@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { LIST_COLUMNS, attachNewsFullText } from "@/lib/db/paper-payload";
 
 /**
  * GET /api/digest/[id] — public permalink for any digest.
@@ -19,9 +20,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Digest not found" }, { status: 404 });
     }
 
-    const digestPapers = await db.query.papers.findMany({
-      where: eq(papers.digestId, digest.id),
-    });
+    const digestPapers = await attachNewsFullText(
+      await db.query.papers.findMany({
+        where: eq(papers.digestId, digest.id),
+        columns: LIST_COLUMNS,
+      }),
+    );
 
     return NextResponse.json({
       digest: {

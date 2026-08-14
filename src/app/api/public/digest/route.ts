@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
 import { eq, desc, asc, and } from "drizzle-orm";
+import { LIST_COLUMNS, attachNewsFullText } from "@/lib/db/paper-payload";
+
+/**
+ * The logged-out digest is the same bytes for everyone, so let the CDN answer it.
+ * This is what keeps a first-time visitor off a cold serverless function — a cold
+ * /api/public/digest was measured at ~1.9s against ~0.2s warm.
+ */
+const PUBLIC_CACHE_HEADERS = { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" };
 
 /**
  * Public endpoint — no auth required.
@@ -29,10 +37,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ digest: null, papers: [] });
     }
 
-    const digestPapers = await db.query.papers.findMany({
-      where: eq(papers.digestId, digest.id),
-      orderBy: asc(papers.sourceIndex),
-    });
+    const digestPapers = await attachNewsFullText(
+      await db.query.papers.findMany({
+        where: eq(papers.digestId, digest.id),
+        orderBy: asc(papers.sourceIndex),
+        columns: LIST_COLUMNS,
+      }),
+    );
 
     return NextResponse.json({
       digest: {
@@ -49,7 +60,7 @@ export async function GET(req: NextRequest) {
         keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
         methodFacts: p.methodFacts ? JSON.parse(p.methodFacts) : [],
       })),
-    });
+    }, { headers: PUBLIC_CACHE_HEADERS });
   } catch (error) {
     console.error("Public digest error:", error);
     return NextResponse.json({ digest: null, papers: [] });

@@ -166,3 +166,38 @@ questions) plus a homework rail of recent works citing the paper (OpenAlex).
 The reading view is where questions live now — "Ask this paper" answers from
 the full text and persists the thread. Digest-level Q&A (BriefThreads, Dig
 Deeper) was removed entirely: asking happens where reading happens.
+
+---
+
+## 2026-08-14: One loader, and the reading view is a page not a card
+
+**One page-level loading indicator.** Entering the site used to show two spinners back to back: a spinning square centered on an otherwise blank screen while auth resolved, then a circular `Loader2` under the header while the digest fetched. Two shapes, two positions, one after the other — it read as two separate waits. Now there's a single `PageLoader` primitive, the header paints immediately during the auth phase, and the loader occupies the same spot across both phases. The vault had the same pattern (digest-list spinner handing off to a reading-pane spinner) and got the same fix.
+
+**Don't add another page-level spinner shape.** Inline spinners inside buttons are fine; a second full-page loading style is not.
+
+**The reading view is a full-screen page.** It was a modal card — palette wash, hard border, box shadow, dimmed backdrop, its own scroll container inside the page's scroll container (which is what made mobile scrolling feel wrong). Now: white, full-screen, own scroll, body scroll locked, `← Back` instead of `✕ Close`.
+
+What it shows, in order: title, byline, **the gist**, "Read the full paper", then **What's happened since** (a real display-font heading, not a mono label) over a plain hairline list of citing works. What it deliberately no longer shows: the metadata tag line at the top, the what-they-did / what-they-found / where-it's-shaky / remember-this sections, and the "Ask this paper" Q&A. The bet is that a reading view earns its keep by being short enough to actually read — one clear takeaway plus where the field went next.
+
+**Payload discipline.** List endpoints select explicit columns and never ship `full_text`, `companion`, `homework`, `abstract_jargon`, or `eli5` — a three-paper digest response went from ~390 KB to ~27 KB. Anything large and generated that lands on `papers` belongs in `LIST_COLUMNS` (`src/lib/db/paper-payload.ts`) and gets fetched on demand by the view that needs it.
+
+---
+
+## 2026-08-14: What actually makes the first load slow
+
+Measured against production (learningetal.com) rather than guessed:
+
+| Step | Cost |
+|------|------|
+| HTML | 13.4 KB raw / 3.4 KB wire, TTFB ~190ms (CDN) |
+| JS before anything can paint | **932 KB raw / 283 KB wire across 11 chunks** |
+| `/api/public/digest` | 19.6 KB raw / 6.4 KB wire — TTFB 0.17–0.26s warm, **1.9s cold** |
+
+The payload was never the bottleneck on the public path; **JS and cold starts are**. Rules that follow from this:
+
+- **The digest response is not where the time goes.** A fresh digest stores `fullText = abstract`, so trimming columns only moves the public digest from ~19.6 KB to ~15 KB. It matters enormously in the *vault*, because the companion and Q&A routes write the real PDF text (50–200 KB) plus companion/homework JSON onto every paper you bookmark — so the reading list was shipping all of it on every open.
+- **Anything behind a URL flag must be `next/dynamic`.** Classic mode's banner alone pulled react-markdown + micromark — a 132 KB chunk — into every visitor's first load, for a view almost nobody opens. Same for the paper-first variants.
+- **Don't import helpers from a component module.** Brief mode imported three pure functions from `synthesis-banner.tsx` and inherited the entire banner. Pure text helpers live in `synthesis-text.ts`, palettes in `palettes.ts`; components import from those, never the reverse.
+- **Public endpoints get CDN cache headers.** The logged-out digest is identical for everyone; served from the edge it skips the cold function entirely. Per-user endpoints get a short `private` cache, and any request that's polling for or confirming new data passes `cache: "no-store"`.
+
+**Still open:** server-rendering the initial digest. It's the only thing that removes "download and hydrate the bundle before the first fetch leaves" from the critical path, and it's worth the most to logged-out first-time visitors — who also happen to be the ones search engines and social previews see.
