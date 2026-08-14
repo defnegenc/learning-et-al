@@ -8,7 +8,7 @@ import { VaultPage } from "@/components/vault/vault-page";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import type { SettingsTab } from "@/components/settings-dialog";
-import { Wordmark, NavTab } from "@/components/design-system";
+import { NavTab, SiteHeader } from "@/components/design-system";
 
 interface Session {
   userId: string | null;
@@ -43,16 +43,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
     <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
       <NoiseOverlay />
 
-      {/* Header */}
-      <header
-        className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
-        style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px" }}
-      >
-        {/* Logo */}
-        <h1 className="hidden md:block" style={{ margin: 0 }}><Wordmark /></h1>
-        <span className="block md:hidden"><Wordmark compact /></span>
-
-        {/* Right side: nav tabs + settings */}
+      <SiteHeader right={
         <div className="flex items-center gap-1 md:gap-0">
           {/* Desktop nav tabs */}
           <div className="hidden md:flex items-center gap-6 mr-4">
@@ -95,7 +86,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             onRegenerate={() => refreshDigestRef.current?.()}
           />
         </div>
-      </header>
+      } />
 
       {/* Mobile slide-down nav menu */}
       {menuOpen && (

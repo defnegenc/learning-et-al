@@ -54,3 +54,28 @@ export function dispersedWash(palette: [string, string], hover = false, idx = 0)
   const c2 = hex2rgba(h2, a);
   return { background: BLOB_LAYOUTS[idx % BLOB_LAYOUTS.length](c1, c2) } as React.CSSProperties;
 }
+
+/**
+ * Pastel card palette — the softer set used for card washes (the saturated
+ * SOURCE_PALETTES above drive the sweep bar, tiles and the loader). Five pairs,
+ * cycled by paper index.
+ *
+ * This and washStyle were duplicated byte-for-byte in brief-digest.tsx and
+ * brief-threads.tsx, and reading-list-card reached into brief-threads to get it,
+ * which made a vault card depend on a Today module.
+ */
+export const CARD_PALETTES: [string, string][] = [
+  ["#C8F0D8", "#F0F5A8"],
+  ["#FFD6E0", "#FFE89A"],
+  ["#D0E3F7", "#E2D6F7"],
+  ["#FFE89A", "#FFD6E0"],
+  ["#D8C8F0", "#F0C8D8"],
+];
+
+export function washStyle(idx: number): React.CSSProperties {
+  const [h1, h2] = CARD_PALETTES[idx % CARD_PALETTES.length];
+  return {
+    background: `radial-gradient(circle 120px at 2% 4%, ${h1}cc 0%, transparent 60%), radial-gradient(circle 120px at 98% 8%, ${h2}cc 0%, transparent 60%), radial-gradient(circle 110px at 96% 100%, ${h1}99 0%, transparent 60%), #fff`,
+    backgroundBlendMode: "multiply, multiply, multiply, normal",
+  };
+}

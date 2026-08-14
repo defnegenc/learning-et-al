@@ -7,22 +7,7 @@ import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
 import { TodayPage } from "@/components/today/today-page";
 import { NoiseOverlay } from "@/components/noise-overlay";
-import { ActionButton, PageLoader, Wordmark } from "@/components/design-system";
-
-// Same chrome as AppShell's header so the bar never jumps between the loading
-// state, the logged-out page, and the signed-in app.
-function SiteHeader({ right }: { right?: React.ReactNode }) {
-  return (
-    <header
-      className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
-      style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px" }}
-    >
-      <h1 className="hidden md:block" style={{ margin: 0 }}><Wordmark /></h1>
-      <span className="block md:hidden"><Wordmark compact /></span>
-      {right}
-    </header>
-  );
-}
+import { ActionButton, PageLoader, SiteHeader } from "@/components/design-system";
 
 export default function Home() {
   const { session, updateSession, loaded } = useSession();

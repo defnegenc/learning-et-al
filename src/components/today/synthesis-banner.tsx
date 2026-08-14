@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { BookOpen, Loader2, MessageCircle, Star, PenLine, Check } from "lucide-react";
-import type { PaperItem } from "./paper-card";
+import type { PaperItem } from "@/lib/types";
 import { CATEGORY_PALETTES } from "@/components/interest-ledger";
 
 const CONCEPT_GRADIENTS = Object.values(CATEGORY_PALETTES);

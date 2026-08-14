@@ -1,28 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { PaperItem } from "./paper-card";
+import type { PaperItem } from "@/lib/types";
+import { CARD_PALETTES as PALETTES, washStyle } from "./palettes";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-text";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
 const BODY = "var(--font-inter), sans-serif";
 
-const PALETTES: [string, string][] = [
-  ["#C8F0D8", "#F0F5A8"],
-  ["#FFD6E0", "#FFE89A"],
-  ["#D0E3F7", "#E2D6F7"],
-  ["#FFE89A", "#FFD6E0"],
-  ["#D8C8F0", "#F0C8D8"],
-];
-
-function washStyle(idx: number): React.CSSProperties {
-  const [h1, h2] = PALETTES[idx % PALETTES.length];
-  return {
-    background: `radial-gradient(circle 120px at 2% 4%, ${h1}cc 0%, transparent 60%), radial-gradient(circle 120px at 98% 8%, ${h2}cc 0%, transparent 60%), radial-gradient(circle 110px at 96% 100%, ${h1}99 0%, transparent 60%), #fff`,
-    backgroundBlendMode: "multiply, multiply, multiply, normal",
-  };
-}
 
 function venueLabel(p: PaperItem): string {
   const url = (p.sourceUrl || "").toLowerCase();

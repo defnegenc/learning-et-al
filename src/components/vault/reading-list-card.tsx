@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { Bookmark } from "lucide-react";
-import type { PaperItem } from "@/components/today/paper-card";
-import { washStyle } from "@/components/today/brief-threads";
+import type { PaperItem } from "@/lib/types";
+import { washStyle } from "@/components/today/palettes";
 import { journalName } from "@/lib/venue-name";
 
 const DISPLAY = "var(--font-display), sans-serif";

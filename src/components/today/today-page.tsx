@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
-import type { PaperItem } from "./paper-card";
+import type { PaperItem } from "@/lib/types";
 import dynamic from "next/dynamic";
 import { SOURCE_PALETTES } from "./palettes";
 import { BriefDigest } from "./brief-digest";
@@ -10,15 +10,12 @@ import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
 
 /*
- * Brief is the default experience — everything below renders only behind a URL
- * flag (?classic=1, ?papers=1, ?papersog=1). Loading them lazily keeps the
- * classic banner (and its markdown renderer) and both paper-first variants out
- * of the bundle every normal visitor downloads before the page can paint.
+ * Brief is the default experience; classic (?classic=1) is the only alternate
+ * left. Loading it lazily keeps the banner — and its markdown renderer — out of
+ * the bundle every normal visitor downloads before the page can paint.
  */
 const SynthesisBanner = dynamic(() => import("./synthesis-banner").then(m => m.SynthesisBanner), { ssr: false });
 const SourceCard = dynamic(() => import("./source-card").then(m => m.SourceCard), { ssr: false });
-const PapersMode = dynamic(() => import("./papers-mode").then(m => m.PapersMode), { ssr: false });
-const PapersModeOg = dynamic(() => import("./papers-mode-og").then(m => m.PapersModeOg), { ssr: false });
 import { ActionButton, PageLoader } from "@/components/design-system";
 import React from "react";
 
@@ -204,20 +201,15 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
 
-  /* ── Experience modes — brief is the DEFAULT; flags select alternatives ──
-     ?classic=1 → original synthesis + paper-rail view
-     ?papers=1 / ?papersog=1 → paper-first comparison variants                */
-  const [papersMode, setPapersMode] = useState(false);
-  const [papersOgMode, setPapersOgMode] = useState(false);
+  /* ── Experience modes — brief is the DEFAULT; ?classic=1 selects the
+     original synthesis + paper-rail view (also what /digest/[id] renders) ── */
   const [classicMode, setClassicMode] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setPapersMode(params.get("papers") === "1");
-    setPapersOgMode(params.get("papersog") === "1");
     setClassicMode(params.get("classic") === "1");
   }, []);
   // Brief is the default reading experience; everything but classic is single-column.
-  const briefMode = !papersMode && !papersOgMode && !classicMode;
+  const briefMode = !classicMode;
   const focusMode = !classicMode;
 
   /* ── Digest notes — DB-backed, tied to this digest's permanent history ──
@@ -401,7 +393,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
-    <div style={{ maxWidth: papersMode ? 1100 : classicMode ? 1380 : 760, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
+    <div style={{ maxWidth: classicMode ? 1380 : 760, margin: "0 auto" }} className="px-4 md:px-8 pt-5 md:pt-12 pb-20">
       <div className={focusMode ? "" : "grid grid-cols-1 md:grid-cols-[1fr_400px] items-start"} style={{ gap: "48px" }}>
 
         {/* ── Left: title + synthesis + dig deeper ── */}
@@ -477,29 +469,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
           </div>
 
-          {/* Synthesis — gated experiences swap in here:
-              ?papers=1 → paper-first (verdict + 3 cards you interrogate)
-              ?brief=1  → dig-through (scroll-revealed verdict, inline cards, threads) */}
-          {digest.synthesisContent && papersOgMode && digest.id ? (
-            <PapersModeOg
-              synthesis={digest.synthesisContent}
-              theme={digest.theme ?? undefined}
-              papers={papers}
-              digestId={digest.id}
-              isLoggedIn={!!session}
-              onSignIn={onSignIn}
-            />
-          ) : digest.synthesisContent && papersMode && digest.id ? (
-            <PapersMode
-              synthesis={digest.synthesisContent}
-              theme={digest.theme ?? undefined}
-              keyConcepts={digest.keyConcepts}
-              papers={papers}
-              digestId={digest.id}
-              isLoggedIn={!!session}
-              onSignIn={onSignIn}
-            />
-          ) : digest.synthesisContent && briefMode && digest.id ? (
+          {/* Synthesis — brief by default, classic banner behind ?classic=1 */}
+          {digest.synthesisContent && briefMode && digest.id ? (
             <BriefDigest
               synthesis={digest.synthesisContent}
               theme={digest.theme ?? undefined}

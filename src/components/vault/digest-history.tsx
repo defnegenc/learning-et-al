@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, ArrowLeft } from "lucide-react";
-import type { PaperItem } from "@/components/today/paper-card";
+import type { PaperItem } from "@/lib/types";
 import { BriefDigest } from "@/components/today/brief-digest";
 import { PageLoader } from "@/components/design-system";
 

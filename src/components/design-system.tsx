@@ -186,6 +186,24 @@ export function ActionButton({ children, onClick, variant = "outline", size = "m
 }
 
 /**
+ * The top bar. One geometry — 52px, 1px ink rule, wordmark left — with whatever
+ * controls the surface needs on the right. Signed-out (sign in), signed-in (nav
+ * + settings) and the loading state all use this, so the bar never shifts.
+ */
+export function SiteHeader({ right }: { right?: React.ReactNode }) {
+  return (
+    <header
+      className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
+      style={{ borderBottom: `1px solid ${INK}`, background: "white", height: "52px" }}
+    >
+      <h1 className="hidden md:block" style={{ margin: 0 }}><Wordmark /></h1>
+      <span className="block md:hidden"><Wordmark compact /></span>
+      {right}
+    </header>
+  );
+}
+
+/**
  * Page header — the title-and-one-sentence opening every full page uses.
  * Display 2rem, sentence case, with a single plain-language line under it at a
  * readable size. No mono eyebrow above the title, no rule under it.
