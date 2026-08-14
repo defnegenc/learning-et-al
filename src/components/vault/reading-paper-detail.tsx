@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { Bookmark, Loader2, Send } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ArrowLeft, Bookmark, Loader2 } from "lucide-react";
 import type { PaperItem } from "@/components/today/paper-card";
-import { SOURCE_PALETTES, dispersedWash } from "@/components/today/source-card";
 import { TermChip } from "@/components/today/brief-digest";
 import { journalName } from "@/lib/venue-name";
 
@@ -14,12 +13,7 @@ type Jargon = { term: string; def: string };
 
 interface Companion {
   gist: string;
-  did: string;
-  found: string;
-  caveats: string;
-  remember: string;
   glossary: Jargon[];
-  questions: string[];
 }
 
 interface HomeworkItem {
@@ -33,8 +27,6 @@ interface HomeworkItem {
   abstract: string;
   citationCount: number;
 }
-
-interface QaPair { id: string; question: string; answer: string; }
 
 // Interleave TermChips into a text block at the first occurrence of each term.
 function annotateText(text: string, jargon: Jargon[]): React.ReactNode[] {
@@ -59,25 +51,9 @@ function annotateText(text: string, jargon: Jargon[]): React.ReactNode[] {
   return out;
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontFamily: MONO, fontSize: "0.56rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#999", marginBottom: 7 }}>
-      {children}
-    </div>
-  );
-}
-
-function CompanionSection({ label, text, glossary }: { label: string; text: string; glossary: Jargon[] }) {
-  if (!text) return null;
-  return (
-    <div style={{ marginBottom: 18 }}>
-      <SectionLabel>{label}</SectionLabel>
-      <p style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#333", margin: 0 }}>{annotateText(text, glossary)}</p>
-    </div>
-  );
-}
-
-function HomeworkCard({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperId: string }) {
+// Follow-up work reads as a plain list, not as cards — one hairline-separated
+// row per paper with a save control on the right.
+function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperId: string }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -97,52 +73,62 @@ function HomeworkCard({ item, sourcePaperId }: { item: HomeworkItem; sourcePaper
     finally { setSaving(false); }
   }
 
+  const meta = [
+    item.year ? String(item.year) : "",
+    item.venue || "",
+    item.citationCount > 0 ? `${item.citationCount} citations` : "",
+  ].filter(Boolean).join(" · ");
+
   return (
-    <a
-      href={item.url || "#"}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={e => { if (!item.url) e.preventDefault(); }}
-      style={{ display: "block", background: "#fff", border: "2px solid #1a1a1a", boxShadow: "3px 3px 0 0 rgba(0,0,0,1)", padding: "12px 14px", textDecoration: "none", color: "#1a1a1a" }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "1px", textTransform: "uppercase", color: "#888" }}>
-          {item.year || ""}{item.venue ? ` · ${item.venue}` : ""}
-          {item.citationCount > 0 ? ` · ${item.citationCount} citations` : ""}
-        </div>
-        <button
-          onClick={save}
-          title={saved ? "In your reading list" : "Save to reading list"}
-          style={{ background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: "#1a1a1a" }}
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "16px 0", borderTop: "1px solid rgba(26,26,26,0.12)" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <a
+          href={item.url || undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1rem", lineHeight: 1.4, color: "#1a1a1a", textDecoration: item.url ? "underline" : "none", textUnderlineOffset: "3px" }}
         >
-          {saving
-            ? <Loader2 size={14} className="animate-spin" />
-            : <Bookmark size={14} fill={saved ? "#1a1a1a" : "none"} />}
-        </button>
-      </div>
-      <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "0.85rem", lineHeight: 1.35, margin: "6px 0 4px" }}>{item.title}</div>
-      {item.authors.length > 0 && (
-        <div style={{ fontSize: "0.68rem", fontStyle: "italic", color: "#666" }}>
-          {item.authors.slice(0, 3).join(", ")}{item.authors.length > 3 ? " et al." : ""}
+          {item.title}
+        </a>
+        <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "1px", textTransform: "uppercase", color: "#999", marginTop: 6 }}>
+          {meta}
         </div>
-      )}
-    </a>
+      </div>
+      <button
+        onClick={save}
+        title={saved ? "In your reading list" : "Save to reading list"}
+        style={{ background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: "#1a1a1a", marginTop: 3 }}
+      >
+        {saving
+          ? <Loader2 size={15} className="animate-spin" />
+          : <Bookmark size={15} fill={saved ? "#1a1a1a" : "none"} />}
+      </button>
+    </div>
   );
 }
 
-export function ReadingPaperDetail({ paper, index, onClose }: { paper: PaperItem; index: number; onClose: () => void }) {
-  const idx = Math.max(index, 0);
-  const palette = SOURCE_PALETTES[idx % SOURCE_PALETTES.length];
+// Full-screen reading view: the gist, then what's happened since. Nothing else —
+// no card chrome, no metadata rail, no Q&A.
+export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClose: () => void }) {
   const journal = journalName(paper.sourceUrl, paper.authors);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [companionPending, setCompanionPending] = useState(true);
   const [homework, setHomework] = useState<HomeworkItem[] | null>(null);
-  const [qaPairs, setQaPairs] = useState<QaPair[]>([]);
-  const [question, setQuestion] = useState("");
-  const [asking, setAsking] = useState(false);
-  const [askError, setAskError] = useState(false);
-  const threadEndRef = useRef<HTMLDivElement>(null);
+
+  // Full-screen means the page behind must not scroll with it (the source of the
+  // jittery double-scroll on mobile).
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   // Companion + homework: use the cache if the bookmark already generated
   // them, otherwise trigger generation now and wait.
@@ -171,168 +157,86 @@ export function ReadingPaperDetail({ paper, index, onClose }: { paper: PaperItem
         if (!cancelled) setHomework(data.homework ?? []);
       } catch { if (!cancelled) setHomework([]); }
     })();
-    fetch(`/api/papers/${paper.id}/qa`)
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setQaPairs(d.qaPairs ?? []); })
-      .catch(() => {});
     return () => { cancelled = true; };
   }, [paper.id]);
 
-  async function ask(q: string) {
-    const trimmed = q.trim();
-    if (!trimmed || asking) return;
-    setAsking(true);
-    setAskError(false);
-    setQuestion("");
-    try {
-      const res = await fetch(`/api/papers/${paper.id}/qa`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: trimmed }),
-      });
-      const data = await res.json();
-      if (data.qaPair) {
-        setQaPairs(prev => [...prev, data.qaPair]);
-        setTimeout(() => threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
-      } else {
-        setAskError(true);
-        setQuestion(trimmed);
-      }
-    } catch {
-      setAskError(true);
-      setQuestion(trimmed);
-    } finally {
-      setAsking(false);
-    }
-  }
-
   const glossary = companion?.glossary ?? [];
-  const askedQuestions = new Set(qaPairs.map(p => p.question));
-  const suggested = (companion?.questions ?? []).filter(q => !askedQuestions.has(q));
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(26,26,26,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ ...dispersedWash(palette, false, idx), maxWidth: 720, width: "100%", maxHeight: "90vh", overflowY: "auto", border: "2px solid #1a1a1a", boxShadow: "8px 8px 0 0 rgba(0,0,0,1)", padding: "26px 30px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#666" }}>
-            {(paper.sourceUrl || "").toLowerCase().includes("arxiv") ? "arXiv" : paper.source === "rss" ? "News" : "Paper"}
-            {paper.year ? ` · ${paper.year}` : ""}
-            {paper.digestTheme ? ` · From “${paper.digestTheme}”${paper.digestDate ? ` (${paper.digestDate})` : ""}` : ""}
-          </span>
-          <button onClick={onClose} style={{ fontSize: "0.78rem", background: "none", border: "none", cursor: "pointer", color: "#888" }}>✕ Close</button>
-        </div>
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 80, background: "#fff",
+        overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain",
+      }}
+    >
+      <div style={{ maxWidth: 680, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
+        <button
+          onClick={onClose}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", color: "#666", padding: 0, marginBottom: 28 }}
+        >
+          <ArrowLeft size={11} /> Back
+        </button>
 
-        <h3 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.35rem", lineHeight: 1.25, margin: "0 0 8px" }}>{paper.title}</h3>
+        <h1 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.7rem", lineHeight: 1.2, letterSpacing: "-0.02em", color: "#1a1a1a", margin: "0 0 10px" }}>
+          {paper.title}
+        </h1>
         {(paper.authors.length > 0 || journal) && (
-          <p style={{ fontSize: "0.75rem", fontStyle: "italic", color: "#666", margin: "0 0 20px" }}>
+          <p style={{ fontSize: "0.78rem", fontStyle: "italic", color: "#888", margin: "0 0 28px" }}>
             {paper.authors.slice(0, 6).join(", ")}
             {paper.authors.length > 0 && journal ? " — " : ""}
             {journal}
           </p>
         )}
 
-        {/* ── Reading companion ── */}
+        {/* ── The gist ── */}
         {companionPending ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 0 22px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
             <Loader2 size={13} className="animate-spin" style={{ color: "#666" }} />
             <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#888" }}>
-              Preparing your reading companion…
+              Reading the paper…
             </span>
           </div>
-        ) : companion ? (
-          <>
-            <div style={{ background: "#FFF4B8", border: "2px solid #1a1a1a", padding: "14px 16px", marginBottom: 20 }}>
-              <div style={{ fontFamily: MONO, fontSize: "0.56rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", marginBottom: 7, fontWeight: 700 }}>The gist</div>
-              <p style={{ fontSize: "0.9rem", lineHeight: 1.65, color: "#1a1a1a", margin: 0 }}>{companion.gist}</p>
-            </div>
-            <CompanionSection label="What they did" text={companion.did} glossary={glossary} />
-            <CompanionSection label="What they found" text={companion.found} glossary={glossary} />
-            <CompanionSection label="Where it's shaky" text={companion.caveats} glossary={glossary} />
-            {companion.remember && (
-              <div style={{ borderLeft: "4px solid #1a1a1a", padding: "4px 0 4px 12px", marginBottom: 22 }}>
-                <SectionLabel>Remember this</SectionLabel>
-                <p style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "0.95rem", lineHeight: 1.5, color: "#1a1a1a", margin: 0 }}>{companion.remember}</p>
-              </div>
-            )}
-          </>
+        ) : companion?.gist ? (
+          <p style={{ fontSize: "1.05rem", lineHeight: 1.75, color: "#1a1a1a", margin: 0 }}>
+            {annotateText(companion.gist, glossary)}
+          </p>
         ) : paper.abstract ? (
-          <div style={{ marginBottom: 22 }}>
-            <SectionLabel>Abstract</SectionLabel>
-            <p style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#333", margin: 0 }}>{paper.abstract}</p>
-          </div>
+          <p style={{ fontSize: "1.05rem", lineHeight: 1.75, color: "#1a1a1a", margin: 0 }}>{paper.abstract}</p>
         ) : (
-          <p style={{ fontSize: "0.88rem", color: "#999", fontStyle: "italic", marginBottom: 22 }}>No abstract available.</p>
+          <p style={{ fontSize: "0.9rem", color: "#999", fontStyle: "italic", margin: 0 }}>No summary available.</p>
         )}
 
-        {/* ── Ask this paper — Q&A grounded in the full text ── */}
-        <div style={{ borderTop: "1px solid #1a1a1a", paddingTop: 18, marginBottom: 24 }}>
-          <SectionLabel>Ask this paper</SectionLabel>
-          {qaPairs.map(pair => (
-            <div key={pair.id} style={{ marginBottom: 14 }}>
-              <p style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "0.88rem", margin: "0 0 5px", color: "#1a1a1a" }}>{pair.question}</p>
-              <p style={{ fontSize: "0.88rem", lineHeight: 1.65, color: "#333", margin: 0, whiteSpace: "pre-wrap" }}>{pair.answer}</p>
-            </div>
-          ))}
-          {suggested.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-              {suggested.map(q => (
-                <button
-                  key={q}
-                  onClick={() => ask(q)}
-                  disabled={asking}
-                  style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.5px", background: "#fff", border: "2px solid #1a1a1a", padding: "7px 10px", cursor: asking ? "wait" : "pointer", color: "#1a1a1a", textAlign: "left" }}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
-          <form
-            onSubmit={e => { e.preventDefault(); ask(question); }}
-            style={{ display: "flex", gap: 8 }}
-          >
-            <input
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              placeholder="Ask anything — answers come from the full text"
-              disabled={asking}
-              style={{ flex: 1, fontSize: "0.85rem", border: "2px solid #1a1a1a", background: "#fff", padding: "9px 12px", outline: "none", color: "#1a1a1a" }}
-            />
-            <button
-              type="submit"
-              disabled={asking || !question.trim()}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: MONO, fontSize: "0.65rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", border: "2px solid #1a1a1a", padding: "9px 14px", cursor: asking ? "wait" : "pointer", opacity: !question.trim() && !asking ? 0.5 : 1 }}
-            >
-              {asking ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-            </button>
-          </form>
-          {askError && <p style={{ fontSize: "0.7rem", color: "#ff007f", marginTop: 8 }}>Couldn&apos;t answer that — try again.</p>}
-          <div ref={threadEndRef} />
-        </div>
-
-        {/* ── Homework: what's happened since ── */}
-        <div style={{ borderTop: "1px solid #1a1a1a", paddingTop: 18, marginBottom: 24 }}>
-          <SectionLabel>Homework — what&apos;s happened since?</SectionLabel>
-          {homework === null ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
-              <Loader2 size={12} className="animate-spin" style={{ color: "#666" }} />
-              <span style={{ fontSize: "0.75rem", color: "#888" }}>Looking for follow-up work…</span>
-            </div>
-          ) : homework.length === 0 ? (
-            <p style={{ fontSize: "0.78rem", color: "#999", fontStyle: "italic", margin: 0 }}>Nothing citing this yet — it may be too new.</p>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-              {homework.map(item => (
-                <HomeworkCard key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
-              ))}
-            </div>
-          )}
-        </div>
-
         {paper.sourceUrl && (
-          <a href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "10px 16px", textDecoration: "none" }}>
+          <a
+            href={paper.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "10px 16px", textDecoration: "none", marginTop: 28 }}
+          >
             Read the full paper ↗
           </a>
+        )}
+
+        {/* ── What's happened since ── */}
+        <h2 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#1a1a1a", margin: "52px 0 4px" }}>
+          What&apos;s happened since
+        </h2>
+        <p style={{ fontSize: "0.85rem", color: "#888", margin: "0 0 8px" }}>
+          Newer work that cites this paper.
+        </p>
+        {homework === null ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
+            <Loader2 size={12} className="animate-spin" style={{ color: "#666" }} />
+            <span style={{ fontSize: "0.78rem", color: "#888" }}>Looking for follow-up work…</span>
+          </div>
+        ) : homework.length === 0 ? (
+          <p style={{ fontSize: "0.82rem", color: "#999", fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
+        ) : (
+          <div>
+            {homework.map(item => (
+              <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
+            ))}
+          </div>
         )}
       </div>
     </div>

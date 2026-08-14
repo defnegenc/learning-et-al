@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, ArrowLeft } from "lucide-react";
 import type { PaperItem } from "@/components/today/paper-card";
 import { BriefDigest } from "@/components/today/brief-digest";
+import { PageLoader } from "@/components/design-system";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
@@ -76,9 +77,9 @@ export function DigestHistory() {
     return () => { cancelled = true; };
   }, [activeId]);
 
-  if (list === null) {
-    return <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}><Loader2 className="size-6 animate-spin" style={{ color: "#666" }} /></div>;
-  }
+  // One loader for the whole entry: the list arriving only to hand off to a
+  // second spinner in the reading pane read as two separate waits.
+  if (list === null || (list.length > 0 && digest === null)) return <PageLoader />;
   if (list.length === 0) {
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>

@@ -3,13 +3,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import type { PaperItem } from "./paper-card";
-import { SourceCard, SOURCE_PALETTES } from "./source-card";
-import { SynthesisBanner } from "./synthesis-banner";
+import dynamic from "next/dynamic";
+import { SOURCE_PALETTES } from "./palettes";
 import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
-import { PapersMode } from "./papers-mode";
-import { PapersModeOg } from "./papers-mode-og";
+
+/*
+ * Brief is the default experience — everything below renders only behind a URL
+ * flag (?classic=1, ?papers=1, ?papersog=1). Loading them lazily keeps the
+ * classic banner (and its markdown renderer) and both paper-first variants out
+ * of the bundle every normal visitor downloads before the page can paint.
+ */
+const SynthesisBanner = dynamic(() => import("./synthesis-banner").then(m => m.SynthesisBanner), { ssr: false });
+const SourceCard = dynamic(() => import("./source-card").then(m => m.SourceCard), { ssr: false });
+const PapersMode = dynamic(() => import("./papers-mode").then(m => m.PapersMode), { ssr: false });
+const PapersModeOg = dynamic(() => import("./papers-mode-og").then(m => m.PapersModeOg), { ssr: false });
+import { PageLoader } from "@/components/design-system";
 import React from "react";
 
 /* ── Types ── */
@@ -266,14 +276,16 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     setNotes(prev => (prev.trim() ? `${prev}\n\n${block}` : block));
   }, []);
 
-  const fetchDigest = useCallback(async (digestId?: string) => {
+  // `fresh` bypasses the short private cache on /api/digest — required after
+  // generating, otherwise the just-made digest can be masked by the cached one.
+  const fetchDigest = useCallback(async (digestId?: string, fresh = false) => {
     try {
       const endpoint = session
         ? "/api/digest"
         : digestId
           ? `/api/public/digest?digestId=${digestId}`
           : "/api/public/digest";
-      const res = await fetch(endpoint);
+      const res = await fetch(endpoint, fresh ? { cache: "no-store" } : undefined);
       if (!res.ok) return;
       const data = await res.json();
       setDigest(data.digest);
@@ -309,7 +321,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     const deadline = Date.now() + 4 * 60 * 1000;
     const id = setInterval(() => {
       if (Date.now() > deadline) { clearInterval(id); return; }
-      fetchDigest();
+      fetchDigest(undefined, true); // polling for a digest that doesn't exist yet — must not be cached
     }, 10000);
     return () => clearInterval(id);
   }, [session, digest, fetchDigest]);
@@ -328,7 +340,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         body: JSON.stringify({ force }),
       });
       if (res.ok) {
-        await fetchDigest();
+        await fetchDigest(undefined, true);
       } else {
         const data = await res.json().catch(() => ({}));
         setGenerateError(data.error || `Generation failed (${res.status}). Check your API key in settings.`);
@@ -343,14 +355,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
 
   const openSource = (p: PaperItem) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer");
 
-  /* ── Loading state ── */
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-[#666]" />
-      </div>
-    );
-  }
+  /* ── Loading state — the same PageLoader the auth gate shows, so the two
+     waits look like one continuous load rather than two spinners ── */
+  if (loading) return <PageLoader />;
 
   /* ── No digest state ── */
   if (!digest) {

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 /*
  * Learning et al. design system — the shared primitives every surface composes.
@@ -13,6 +14,20 @@ export const INK = "#1a1a1a";
 export const MONO = "var(--font-mono), monospace";
 export const DISPLAY = "var(--font-display), sans-serif";
 export const LOGO = "var(--font-logo), sans-serif";
+
+/**
+ * The ONE full-page loading indicator. Every surface that waits on a first load
+ * (auth resolving, digest fetching, vault opening) renders this, in the same
+ * place under the header, so a multi-step load reads as a single wait instead of
+ * a chain of different spinners. Don't add another page-level spinner shape.
+ */
+export function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-20" role="status" aria-label="Loading">
+      <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
+    </div>
+  );
+}
 
 /** Site logo lockup — Space Grotesk, wide tracking. Same everywhere it appears. */
 export function Wordmark({ compact = false }: { compact?: boolean }) {

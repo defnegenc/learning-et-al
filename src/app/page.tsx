@@ -7,6 +7,22 @@ import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
 import { TodayPage } from "@/components/today/today-page";
 import { NoiseOverlay } from "@/components/noise-overlay";
+import { PageLoader, Wordmark } from "@/components/design-system";
+
+// Same chrome as AppShell's header so the bar never jumps between the loading
+// state, the logged-out page, and the signed-in app.
+function SiteHeader({ right }: { right?: React.ReactNode }) {
+  return (
+    <header
+      className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
+      style={{ borderBottom: "1px solid #1a1a1a", background: "white", height: "52px" }}
+    >
+      <h1 className="hidden md:block" style={{ margin: 0 }}><Wordmark /></h1>
+      <span className="block md:hidden"><Wordmark compact /></span>
+      {right}
+    </header>
+  );
+}
 
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
@@ -45,10 +61,15 @@ export default function Home() {
     }
   }, [authStatus, authSession, session.userId, session.isSetUp, updateSession, isAdmin]);
 
+  // Auth resolving. The chrome renders immediately and the loader sits exactly
+  // where TodayPage's own first-load loader sits, so auth → digest reads as ONE
+  // wait with one indicator rather than two spinners in a row.
   if (!loaded || authStatus === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: "white" }}>
-        <div className="size-6 animate-spin border-[1.5px] border-[#1a1a1a] border-t-transparent" />
+      <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
+        <NoiseOverlay />
+        <SiteHeader />
+        <main className="relative z-10 flex-1"><PageLoader /></main>
       </div>
     );
   }
@@ -82,45 +103,22 @@ export default function Home() {
     <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
       <NoiseOverlay />
 
-      {/* Header — matches AppShell header */}
-      <header
-        className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
-        style={{ borderBottom: "4px solid #1a1a1a", background: "white", height: "56px" }}
-      >
-        <h1
-          className="hidden md:block"
-          style={{
-            fontSize: "1.25rem", fontWeight: 700, letterSpacing: "0.2em",
-            textTransform: "uppercase", color: "#1a1a1a",
-            fontFamily: "var(--font-logo), sans-serif",
-          }}
-        >
-          LEARNING ET AL.
-        </h1>
-        <span
-          className="block md:hidden"
-          style={{
-            fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.15em", color: "#1a1a1a",
-            fontFamily: "var(--font-logo), sans-serif",
-          }}
-        >
-          Learning et al.
-        </span>
-
-        <button
-          onClick={() => signIn("google")}
-          style={{
-            padding: "8px 20px", background: "#1a1a1a", color: "white",
-            border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: "2px",
-            fontFamily: "var(--font-mono), monospace", cursor: "pointer",
-            boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
-          }}
-        >
-          Sign In
-        </button>
-      </header>
+      <SiteHeader
+        right={
+          <button
+            onClick={() => signIn("google")}
+            style={{
+              padding: "8px 20px", background: "#1a1a1a", color: "white",
+              border: "2px solid #1a1a1a", fontSize: "0.7rem", fontWeight: 700,
+              textTransform: "uppercase", letterSpacing: "2px",
+              fontFamily: "var(--font-mono), monospace", cursor: "pointer",
+              boxShadow: "3px 3px 0px 0px rgba(0,0,0,1)",
+            }}
+          >
+            Sign In
+          </button>
+        }
+      />
 
       <main className="relative z-10 flex-1">
         <TodayPage onSignIn={() => signIn("google")} />

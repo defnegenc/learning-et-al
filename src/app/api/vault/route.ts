@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { papers, feedback, digests } from "@/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
+import { LIST_COLUMNS } from "@/lib/db/paper-payload";
 
 // The vault is the reading list: the papers this user has bookmarked
 // (feedback rows of type "star"). Returns them all, newest first.
@@ -18,9 +19,12 @@ export async function GET(req: NextRequest) {
     const starredIds = [...new Set(starredRows.map((r) => r.paperId))];
     if (starredIds.length === 0) return NextResponse.json({ papers: [] });
 
+    // The reading list renders titles and bylines; the reading view pulls the
+    // companion and homework from their own endpoints when a paper is opened.
     const rows = await db.query.papers.findMany({
       where: inArray(papers.id, starredIds),
       orderBy: desc(papers.createdAt),
+      columns: LIST_COLUMNS,
     });
 
     // Attach the digest each paper came from so the reading list can attribute it.

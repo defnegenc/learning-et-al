@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
+import { LIST_COLUMNS, attachNewsFullText } from "@/lib/db/paper-payload";
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthUser(req);
@@ -62,10 +63,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ digest: null, papers: [] });
     }
 
-    const digestPapers = await db.query.papers.findMany({
-      where: eq(papers.digestId, digest.id),
-      orderBy: asc(papers.sourceIndex),
-    });
+    const digestPapers = await attachNewsFullText(
+      await db.query.papers.findMany({
+        where: eq(papers.digestId, digest.id),
+        orderBy: asc(papers.sourceIndex),
+        columns: LIST_COLUMNS,
+      }),
+    );
 
     return NextResponse.json({
       digest: {
@@ -82,6 +86,11 @@ export async function GET(req: NextRequest) {
         methodFacts: p.methodFacts ? JSON.parse(p.methodFacts) : [],
         connectionReason: p.connectionReason || null,
       })),
+    }, {
+      // Per-user, so never shared — but a short browser cache makes Today ⇄ Vault
+      // switching instant. The refetch after generating passes cache: "no-store"
+      // so a fresh digest is never masked by this.
+      headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=120" },
     });
   } catch (error) {
     console.error("Digest fetch error:", error);
