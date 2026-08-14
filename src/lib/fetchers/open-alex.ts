@@ -250,44 +250,6 @@ export async function getFoundationalCandidates(
   }
 }
 
-export async function getOpenAlexRelatedWorks(
-  relatedWorkIds: string[],
-  fieldsOfStudy?: string,
-  limit = 10,
-): Promise<OpenAlexPaper[]> {
-  if (relatedWorkIds.length === 0) return [];
-  try {
-    // Fetch up to 2x limit to account for filtering
-    const ids = relatedWorkIds.slice(0, Math.min(limit * 2, 20)).join("|");
-    // type:article|preprint excludes dissertations, reports, book chapters, etc.
-    const filters: string[] = [`openalex_id:${ids}`, "has_abstract:true", "type:article|preprint"];
-
-    if (fieldsOfStudy) {
-      const concept = OA_CONCEPT_MAP[fieldsOfStudy] ?? fieldsOfStudy.toLowerCase();
-      filters.push(`concepts.display_name:${concept}`);
-    }
-
-    const params = new URLSearchParams({
-      filter: filters.join(","),
-      "per-page": String(limit),
-      select: OA_SELECT,
-      mailto: OA_MAILTO,
-    });
-
-    const res = await oaFetch(`${OA_BASE}/works?${params}`);
-    if (!res.ok) {
-      console.log(`[OpenAlex] Related works ${res.status}`);
-      return [];
-    }
-    const data = await res.json();
-    return (data.results as OARawWork[] || [])
-      .filter(w => w.title && w.abstract_inverted_index)
-      .map(mapWork);
-  } catch (err) {
-    console.log(`[OpenAlex] Related works error: ${err}`);
-    return [];
-  }
-}
 
 // "What's happened since": the most notable recent works that CITE this one.
 // Sorted by publication date so the newest follow-up work surfaces first.

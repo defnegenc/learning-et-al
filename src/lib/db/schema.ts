@@ -107,19 +107,6 @@ export const papers = sqliteTable("papers", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
-// Cached thread-agent runs for brief mode — one row per (digest, question, trail)
-// so preloading the seed threads costs agent runs only once per digest.
-export const threadCache = sqliteTable("thread_cache", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  digestId: text("digest_id").notNull().references(() => digests.id),
-  question: text("question").notNull(),
-  trailKey: text("trail_key").notNull().default(""),
-  answer: text("answer").notNull(),
-  seeds: text("seeds"),     // JSON string[]
-  sources: text("sources"), // JSON AgentSource[]
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
-
 export const qaPairs = sqliteTable("qa_pairs", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   paperId: text("paper_id").notNull().references(() => papers.id),
@@ -143,14 +130,6 @@ export const digestFeedback = sqliteTable("digest_feedback", {
   digestId: text("digest_id").notNull().references(() => digests.id),
   userId: text("user_id").notNull().references(() => users.id),
   reason: text("reason").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
-
-export const comparisons = sqliteTable("comparisons", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id").notNull().references(() => users.id),
-  paperIds: text("paper_ids").notNull(),
-  content: text("content").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

@@ -83,7 +83,7 @@ export function RegenerateCta({ digestId, generating, onRegenerate }: {
               onClick={submit}
               disabled={!hasEnoughWords || generating}
               className="hover:bg-[#333] disabled:opacity-40"
-              style={{ padding: "8px 14px", background: "#1a1a1a", color: "white", border: "none", cursor: "pointer", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", fontFamily: MONO }}
+              style={{ padding: "9px 16px", background: "#1a1a1a", color: "white", border: "none", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700, fontFamily: DISPLAY }}
             >
               {generating ? <Loader2 size={12} className="animate-spin" /> : "Regenerate"}
             </button>

@@ -15,7 +15,8 @@ export async function GET() {
       .orderBy(desc(digests.date))
       .limit(30);
 
-    return NextResponse.json(rows);
+    // Same list for every logged-out visitor — cacheable at the CDN.
+    return NextResponse.json(rows, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } });
   } catch {
     return NextResponse.json([]);
   }

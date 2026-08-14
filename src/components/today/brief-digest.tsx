@@ -1,28 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { PaperItem } from "./paper-card";
-import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-banner";
+import type { PaperItem } from "@/lib/types";
+import { CARD_PALETTES as PALETTES, washStyle } from "./palettes";
+import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-text";
 
 const MONO = "var(--font-mono), monospace";
 const DISPLAY = "var(--font-display), sans-serif";
 const BODY = "var(--font-inter), sans-serif";
 
-const PALETTES: [string, string][] = [
-  ["#C8F0D8", "#F0F5A8"],
-  ["#FFD6E0", "#FFE89A"],
-  ["#D0E3F7", "#E2D6F7"],
-  ["#FFE89A", "#FFD6E0"],
-  ["#D8C8F0", "#F0C8D8"],
-];
-
-function washStyle(idx: number): React.CSSProperties {
-  const [h1, h2] = PALETTES[idx % PALETTES.length];
-  return {
-    background: `radial-gradient(circle 120px at 2% 4%, ${h1}cc 0%, transparent 60%), radial-gradient(circle 120px at 98% 8%, ${h2}cc 0%, transparent 60%), radial-gradient(circle 110px at 96% 100%, ${h1}99 0%, transparent 60%), #fff`,
-    backgroundBlendMode: "multiply, multiply, multiply, normal",
-  };
-}
 
 function venueLabel(p: PaperItem): string {
   const url = (p.sourceUrl || "").toLowerCase();
@@ -181,7 +167,6 @@ export function TermChip({ text, def }: { text: string; def: string }) {
           padding: "10px 14px",
           boxShadow: "4px 4px 0 0 rgba(0,0,0,0.3)",
         }}>
-          <span style={{ display: "block", fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "1.5px", textTransform: "uppercase", color: "#aaa", marginBottom: 4 }}>Definition</span>
           {def}
         </span>
       )}
@@ -206,7 +191,7 @@ function startCap(text: string): string {
   return text.replace(/[A-Za-z]/, (letter) => letter.toUpperCase());
 }
 
-const TILE_LABEL: React.CSSProperties = { fontFamily: MONO, fontSize: "0.55rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#1a1a1a", opacity: 0.55, marginBottom: 10 };
+const TILE_LABEL: React.CSSProperties = { fontFamily: DISPLAY, fontSize: "0.85rem", fontWeight: 700, letterSpacing: "-0.01em", color: "#1a1a1a", marginBottom: 10 };
 // One explicit body style for every tile. Claim, findings, and takeaway now use
 // the same Apercu face, size, weight, and rhythm regardless of their content.
 const TILE_BODY: React.CSSProperties = {
@@ -321,7 +306,7 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
       <div>
         <button
           onClick={() => setExpanded(v => !v)}
-          style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.5 }}
+          style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.01em", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.4 }}
         >
           {paper.plainName || paper.title}
         </button>
@@ -347,7 +332,7 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
         <div>
           <button
             onClick={() => setExpanded(v => !v)}
-            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "#555", textDecoration: "underline", textUnderlineOffset: "3px" }}
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: DISPLAY, fontSize: "0.88rem", fontWeight: 700, color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px" }}
           >
             {expanded ? "See less ↑" : "See more ↓"}
           </button>
@@ -384,7 +369,7 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
                   href={paper.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: MONO, fontSize: "0.62rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", background: "#1a1a1a", color: "#fff", padding: "9px 15px", textDecoration: "none" }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: DISPLAY, fontSize: "0.88rem", fontWeight: 700, background: "#1a1a1a", color: "#fff", padding: "10px 16px", textDecoration: "none" }}
                 >
                   Read paper ↗
                 </a>
@@ -538,7 +523,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
 
       {/* User-paced: reveal one source at a time, then straight into dig deeper */}
       {!allRevealed && (
-        <button onClick={() => setStep((s) => s + 1)} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.92rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", background: "#fff", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#1a1a1a" }}>
+        <button onClick={() => setStep((s) => s + 1)} className="brief-advance brief-line" style={{ marginTop: 24, fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 700, background: "#fff", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", padding: "11px 18px", cursor: "pointer", color: "#1a1a1a" }}>
           {anySourceRevealed ? "Next source →" : "Reveal first source →"}
         </button>
       )}

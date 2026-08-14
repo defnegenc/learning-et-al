@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Bookmark, ArrowLeft } from "lucide-react";
-import type { PaperItem } from "@/components/today/paper-card";
+import { Bookmark, ArrowLeft } from "lucide-react";
+import type { PaperItem } from "@/lib/types";
 import { ReadingListCard } from "./reading-list-card";
-import { PageTitle, ActionButton } from "@/components/design-system";
+import { ActionButton, PageHeader, PageLoader } from "@/components/design-system";
 import { ReadingPaperDetail } from "./reading-paper-detail";
 import { DigestHistory } from "./digest-history";
 
@@ -33,31 +33,31 @@ export function VaultPage() {
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
-      {/* ── Header: title left, history toggle top-right ── */}
-      <div
-        className="flex flex-wrap items-center justify-between gap-4"
-        style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: "12px", marginBottom: "24px" }}
+      <PageHeader
+        title={view === "history" ? "Digest history" : "Reading list"}
+        action={
+          <ActionButton size="sm" onClick={() => setView(v => (v === "history" ? "list" : "history"))}>
+            {view === "history"
+              ? <><Bookmark size={13} />Reading list</>
+              : <><ArrowLeft size={13} />Back to history</>}
+          </ActionButton>
+        }
       >
-        <PageTitle size="sm">{view === "history" ? "Digest History" : "Reading List"}</PageTitle>
-        <ActionButton size="sm" onClick={() => setView(v => (v === "history" ? "list" : "history"))}>
-          {view === "history"
-            ? <><Bookmark size={11} />Reading List</>
-            : <><ArrowLeft size={11} />Back to History</>}
-        </ActionButton>
-      </div>
+        {view === "history"
+          ? "Every digest you've been sent, newest first."
+          : "Papers you bookmarked. Open one to read the gist and what's happened since."}
+      </PageHeader>
 
       {view === "history" ? (
         <DigestHistory />
       ) : loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
-          <Loader2 className="size-6 animate-spin" style={{ color: "#666" }} />
-        </div>
+        <PageLoader />
       ) : papers.length === 0 ? (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", padding: "80px 0" }}>
-          <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>
+          <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1.1rem", fontWeight: 700, color: "#1a1a1a" }}>
             No saved papers yet
           </span>
-          <span style={{ fontSize: "0.8rem", color: "#aaa" }}>
+          <span style={{ fontSize: "0.9rem", color: "#666" }}>
             Tap the bookmark on any paper card in your digest to save it here.
           </span>
         </div>
@@ -75,7 +75,7 @@ export function VaultPage() {
         </div>
       )}
 
-      {detail && <ReadingPaperDetail paper={detail} index={papers.findIndex(p => p.id === detail.id)} onClose={() => setDetail(null)} />}
+      {detail && <ReadingPaperDetail paper={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

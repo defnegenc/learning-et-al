@@ -39,43 +39,6 @@ function formatPapers(items: PaperListing[], maxChars = 2000) {
 
 // ─── Legacy single-call prompt (kept as fallback) ────────────────────────────
 
-export function digestPrompt(
-  items: PaperListing[],
-  theme: string,
-  ctx?: DigestContext
-) {
-  const listing = formatPapers(items);
-
-  const contextBlock = ctx
-    ? `User's interest: "${ctx.focusInterest}" (level: ${ctx.focusLevel})
-Research angle for today: "${ctx.researchAngle}"
-`
-    : "";
-
-  return `${contextBlock}Today's theme: "${theme}"
-
-Here are ${items.length} items. Produce JSON (no markdown fences):
-
-{
-  "items": [
-    { "index": 1, "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding with its **key result phrase** bolded", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question" }
-  ],
-  "synthesis": "see format below",
-  "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"]
-}
-
-${METADATA_RULES(ctx)}
-
-${SYNTHESIS_RULES(theme, ctx)}
-
-Papers:
-
-${listing}`;
-}
-
-// ─── Multi-stage prompts ─────────────────────────────────────────────────────
-
-/** Stage A: Metadata only (items, keywords, findings, keyConcepts) */
 export function metadataPrompt(items: PaperListing[], theme: string, ctx?: DigestContext) {
   const listing = formatPapers(items);
   const contextBlock = ctx
@@ -549,14 +512,4 @@ Title: ${paperTitle}
 Full text: ${fullText.slice(0, 15000)}
 
 Question: ${question}`;
-}
-
-export function comparisonPrompt(papers: { title: string; fullText: string }[]) {
-  const texts = papers.map((p, i) =>
-    `## ${i + 1}. ${p.title}\n\n${p.fullText.slice(0, 8000)}`
-  ).join("\n\n---\n\n");
-
-  return `Compare these ${papers.length} papers. What do they agree on? Where do they differ? Write it like you're explaining to a smart friend. No em dashes. Be specific.
-
-${texts}`;
 }

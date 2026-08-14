@@ -3,6 +3,7 @@ import { Inter, IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Providers } from "@/components/providers";
+import { auth } from "@/lib/auth";
 import "./globals.css";
 
 const inter = Inter({
@@ -52,11 +53,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+// Async so the JWT session is decoded on the server and passed to the client
+// provider — this trades `/` being prerendered for one fewer sequential request
+// (/api/auth/session) before the digest fetch can start.
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
     <html lang="en">
       <head>
@@ -66,7 +72,7 @@ export default function RootLayout({
         <link rel="preload" href="/fonts/CabinetGrotesk-Extrabold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body className={`${inter.variable} ${plexMono.variable} ${spaceGrotesk.variable} antialiased`}>
-        <Providers>{children}</Providers>
+        <Providers session={session}>{children}</Providers>
         <Analytics />
         <SpeedInsights />
       </body>
