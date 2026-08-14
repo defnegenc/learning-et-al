@@ -20,15 +20,22 @@ export const LOGO = "var(--font-logo), sans-serif";
  * wait carries the product's own rainbow rather than a generic spinner.
  *
  * Every surface that waits on a first load (auth resolving, digest fetching,
- * vault opening) renders this, in the same place under the header, so a
- * multi-step load reads as a single wait. Don't add another page-level loader
- * shape, and don't animate it toward a percentage — see docs/design-style.md.
+ * vault opening) renders this, and each renders it as the sole page content —
+ * so it pins to the viewport centre rather than to whatever height its parent
+ * happens to have. Auth → digest then holds the stamp on the exact same pixel
+ * across the handoff, and a short page no longer parks the wait up against the
+ * header. Don't add another page-level loader shape, and don't animate it
+ * toward a percentage — see docs/design-style.md.
  */
 const STAMP_COLORS = ["#6EE9A8", "#FF85A8", "#60AAE8", "#FFD020"];
 
 export function PageLoader() {
   return (
-    <div className="flex items-center justify-center py-20" role="status" aria-label="Loading">
+    <div
+      className="fixed inset-0 z-10 flex items-center justify-center pointer-events-none"
+      role="status"
+      aria-label="Loading"
+    >
       <style>{`
         @keyframes dsStamp {
           0%   { transform: rotate(0deg);   box-shadow: 5px 5px 0 0 ${STAMP_COLORS[0]} }

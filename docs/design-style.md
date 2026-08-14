@@ -169,7 +169,12 @@ One primitive: `PageLoader` in `design-system.tsx`. Rules:
    position*, so it reads as one wait. (Fixed 2026-08-14: auth showed a spinning
    square on a blank screen, then the digest fetch showed a circle somewhere
    else.)
-2. **Never move the indicator** between phases, and never change its shape.
+2. **Never move the indicator** between phases, and never change its shape. It
+   is `fixed inset-0` and centred in the *viewport*, not padded down from the
+   top of whatever container renders it — every caller renders it as the sole
+   page content, so viewport centring is what keeps rule 1 true across a
+   handoff regardless of how tall each page is. (Fixed 2026-08-14: `py-20`
+   parked the stamp just under the header on tall screens.)
 3. **No fake progress.**
 4. Inline spinners inside buttons are fine and separate from this.
 5. Honour `prefers-reduced-motion` — animation off, mark still visible.
