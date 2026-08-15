@@ -518,3 +518,29 @@ halved the headline, and 1.5px on 32px type is a heavier outline than the same
 value was on 64px. The em-dash rule reaches `paperByline`, which is exactly the
 separator change the now-deleted SourceCard had made.
 
+---
+
+## 2026-08-15: Define the doorway; put the field on the shelf label
+
+A plain-English answer can still be cognitively hostile when its first word is
+"It" and the headline introduced two terms the reader only half knows. The gist
+now treats an unfamiliar headline contrast as a doorway: define both sides in
+parallel, then explain the finding. Matching definitions already extracted into
+`keyConcepts` are passed into the call, so the explanation is grounded rather
+than improvised. This case may use two short sentences and 35 words; the normal
+one-sentence, 25-word limit remains.
+
+The small "Daily digest" line is content, not machinery. It therefore leaves the
+grey uppercase mono Label style and uses sentence-case black Display type. The
+right side of that same row shows unique seeded fields such as Education as
+colored category chips. Keywords and extra topics stay out of this row: the chip
+answers the quick orientation question — *what shelf am I on?* — without turning
+the headline area back into a tag cloud.
+
+Glossary underlines belong at the doorway too, not only deep in the synthesis.
+The first matching term in the gist and later argument is dotted and exposes its
+existing `keyConcepts` definition on hover, focus, or tap. The definition tip is
+rendered into the document body and positioned against the viewport. It is not
+owned by the line or card containing the term, because those containers may clip
+overflow; at an edge it flips or shifts, and a long definition scrolls inside the
+viewport instead of disappearing beyond it.

@@ -195,16 +195,21 @@ Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
 
 Powers the zero-click header rendered under the central question (`DigestHeader` in
 `today-page.tsx`, shown in all modes). One JSON call over the FINAL synthesis returns:
-- **gist** — a one-sentence answer to the central question (≤25 words, plain English, leads with the answer). The reader gets the payoff before clicking through sources.
+- **gist** — normally a one-sentence answer to the central question (≤25 words, plain English, leads with the answer). If the headline depends on an unfamiliar term or named contrast, matching `keyConcepts` definitions are injected and the gist may use two short sentences / 35 words: define the terms in parallel first, then answer. This prevents pronoun-led explanations such as "It works…" when the reader does not yet know what "dynamic assessment" means.
+
+The first matching mention of each `keyConcept` in both the gist and synthesis is
+underlined as an interactive definition. Its tooltip is portalled to the document body,
+measured after render, flipped above or below the term, and clamped to the viewport so
+cards and narrow columns cannot cut it off. Hover, keyboard focus, and click/tap all work.
 
 (A second field, **framing** — an "I pulled N sources — a X, a Y, a Z" provenance line —
 was generated here until July 2026, but was removed as too distracting. The DB column
 remains for old rows; nothing renders it.)
 
 Also persisted: **seed_interests** (`[{keyword, field}]`, the canonical user interests
-used by Step 1) — free, no AI call — which drives the header's domain chips (colored via
-`field-hierarchy.ts`), and **seed_topic** (the OpenAlex topic + subfield that grounded the
-question) for topic-level rotation and debugging.
+used by Step 1) — free, no AI call — whose unique fields drive the category chips beside
+the "Daily digest" heading (colored via `field-hierarchy.ts`), and **seed_topic** (the
+OpenAlex topic + subfield that grounded the question) for topic-level rotation and debugging.
 
 (Digest-level Q&A was removed in July 2026 — suggested questions are still stored for
 legacy rows but answers are no longer pre-generated. Questions now live on reading-list

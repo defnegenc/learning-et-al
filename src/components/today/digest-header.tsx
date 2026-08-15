@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { fieldColor } from "@/lib/field-hierarchy";
 import { BODY_STYLE, INK, SURFACE, Tag } from "@/components/design-system";
+import { DefinitionText } from "./definition-term";
 
 /**
  * A digest topic that isn't one of your interests yet — click + to follow it.
@@ -51,9 +52,10 @@ function AddableTopic({ topic, field, isLoggedIn, onSignIn }: {
  * gist — the one-line answer. Renders nothing if the digest predates these
  * fields.
  */
-export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, onSignIn }: {
+export function DigestHeader({ seedInterests, gist, keyConcepts = [], topics, isLoggedIn = false, onSignIn }: {
   seedInterests?: { keyword: string; field: string }[];
   gist?: string | null;
+  keyConcepts?: string[];
   topics?: string[];
   isLoggedIn?: boolean;
   onSignIn?: () => void;
@@ -83,7 +85,9 @@ export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, 
         </div>
       )}
       {showGist && (
-        <p style={{ ...BODY_STYLE, fontWeight: 600, color: INK, margin: 0 }}>{gist}</p>
+        <p style={{ ...BODY_STYLE, fontWeight: 600, color: INK, margin: 0 }}>
+          <DefinitionText text={gist} keyConcepts={keyConcepts} />
+        </p>
       )}
     </div>
   );

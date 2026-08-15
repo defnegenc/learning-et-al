@@ -4,7 +4,8 @@ import React, { useMemo, useState } from "react";
 import type { PaperItem } from "@/lib/types";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-text";
 import { PaperCard, paperByline } from "@/components/paper-card";
-import { ActionButton, BODY_STYLE, DIM, INK, InkTip, MUTED } from "@/components/design-system";
+import { ActionButton, BODY_STYLE, DIM, INK, InkTip } from "@/components/design-system";
+import { DefinitionTerm, parseDefinitions } from "./definition-term";
 
 /* ---- verdict parsing: **[Source N] name** → paper chips, concept terms → hover defs ---- */
 
@@ -138,31 +139,7 @@ function PaperChip({ paper, label, cap, onOpen }: { paper: PaperItem; label: str
 
 /** Hard-word definitions. Same ink tooltip as everything else that explains. */
 export function TermChip({ text, def }: { text: string; def: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span
-      style={{ position: "relative", display: "inline" }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen(v => !v)}
-        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setOpen(v => !v); }}
-        style={{
-          borderBottom: `2px dotted ${MUTED}`,
-          cursor: "help",
-          textDecorationSkipInk: "none",
-        }}
-      >{text}</span>
-      {open && (
-        <span style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, zIndex: 40 }}>
-          <InkTip>{def}</InkTip>
-        </span>
-      )}
-    </span>
-  );
+  return <DefinitionTerm text={text} def={def} />;
 }
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
@@ -189,13 +166,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
 }) {
   const lines = useMemo(() => {
     const { bodyText } = splitSynthesisTheme(synthesis, theme);
-    const defs = keyConcepts
-      .map((c) => {
-        const i = c.indexOf(": ");
-        return i > 0 ? { term: c.slice(0, i).trim(), def: c.slice(i + 2).trim() } : null;
-      })
-      .filter((d): d is { term: string; def: string } => !!d)
-      .sort((a, b) => b.term.length - a.term.length); // longest first so "spaced practice" wins over "practice"
+    const defs = parseDefinitions(keyConcepts);
     return toLines(flattenSynthesis(bodyText), defs, papers);
   }, [synthesis, theme, keyConcepts, papers]);
 
