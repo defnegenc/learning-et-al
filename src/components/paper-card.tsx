@@ -173,7 +173,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
   const findings = (paper.keyFindings ?? []).slice(0, 3);
   const findingsLabel = isNews ? "Key points" : "Findings";
   const takeaway = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
-  const tileLabels = [claim ? "Claim" : "", findings.length > 0 ? findingsLabel : "", takeaway ? "Takeaway" : ""].filter(Boolean);
+  // Claim folds into the takeaway — one punchy conclusion tile instead of two.
+  const combinedTakeaway = [claim, takeaway !== claim ? takeaway : ""].filter(Boolean).join(" ");
+  const tileLabels = [findings.length > 0 ? findingsLabel : "", combinedTakeaway ? "Takeaway" : ""].filter(Boolean);
 
   return (
     <div
@@ -206,7 +208,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: -6 }}>{byline}</div>
       )}
 
-      {hero && <p style={{ ...BODY_STYLE, fontWeight: 600, lineHeight: "26px", margin: "4px 0 0" }}>{hero}</p>}
+      {hero && <p style={{ ...BODY_STYLE, fontSize: 18, fontWeight: 500, lineHeight: "28px", margin: "4px 0 0" }}>{hero}</p>}
 
       {(tileLabels.length > 0 || paper.sourceUrl) && (
         <div>
@@ -218,23 +220,18 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
           </button>
 
           {expanded && (
-            <div style={{ marginTop: 14 }}>
-              {tileLabels.length > 0 && (
-                <div className="paper-tiles" style={{ marginBottom: 16 }}>
-                  {claim && <BriefTile heading="The claim">{emphasize(startCap(claim))}</BriefTile>}
-                  {findings.length > 0 && (
-                    <BriefTile heading={findingsLabel}>
-                      <ul className="paper-tile-list">
-                        {findings.map((f, i) => <li key={i}>{emphasize(startCap(f))}</li>)}
-                      </ul>
-                    </BriefTile>
-                  )}
-                  {takeaway && (
-                    <BriefTile heading="Takeaway" background={takeawayFill} fullWidth>
-                      {emphasize(startCap(takeaway))}
-                    </BriefTile>
-                  )}
-                </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+              {findings.length > 0 && (
+                <BriefTile heading={findingsLabel} fullWidth>
+                  <ul className="paper-tile-list">
+                    {findings.map((f, i) => <li key={i}>{emphasize(startCap(f))}</li>)}
+                  </ul>
+                </BriefTile>
+              )}
+              {combinedTakeaway && (
+                <BriefTile heading="Takeaway" background={takeawayFill} fullWidth>
+                  {emphasize(startCap(combinedTakeaway))}
+                </BriefTile>
               )}
               {paper.sourceUrl && (
                 <a
@@ -242,7 +239,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ds-lift"
-                  style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "12px 22px", textDecoration: "none" }}
+                  style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "12px 22px", textDecoration: "none", alignSelf: "flex-start" }}
                 >
                   Read paper ↗
                 </a>
@@ -253,11 +250,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
       )}
 
       <style>{`
-        .paper-tiles { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 12px; align-items: stretch; }
         .paper-tile-list { margin: 0; padding-left: 1rem; display: grid; gap: 10px; list-style: disc outside; text-align: left; }
         .paper-tile-list li { display: list-item; padding-left: 0; }
         .paper-tile-list li::marker { font-size: 0.8em; color: ${INK}; }
-        @media (max-width: 520px) { .paper-tiles { grid-template-columns: minmax(0, 1fr); } }
       `}</style>
     </div>
   );
