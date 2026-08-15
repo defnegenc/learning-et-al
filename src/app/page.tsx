@@ -20,8 +20,13 @@ export default function Home() {
     // no-op: invite code no longer returns credentials
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync Auth.js session → local session + check if returning user
+  // Sync Auth.js session → local session + check if returning user.
+  // Guard on `loaded`: the auth effect overwrites localStorage via updateSession, which
+  // spreads the current session object. If it fires before the localStorage hydration
+  // effect has run, `session` still holds DEFAULT_SESSION (isSetUp: false) and the
+  // spread clobbers the stored isSetUp: true — causing onboarding to flash every refresh.
   useEffect(() => {
+    if (!loaded) return;
     if (authStatus === "authenticated" && authSession?.user?.id) {
       if (!session.userId) {
         updateSession({ userId: authSession.user.id });
@@ -44,7 +49,7 @@ export default function Home() {
           .catch(() => {});
       }
     }
-  }, [authStatus, authSession, session.userId, session.isSetUp, updateSession, isAdmin]);
+  }, [loaded, authStatus, authSession, session.userId, session.isSetUp, updateSession, isAdmin]);
 
   // Auth resolving. The chrome renders immediately and the loader sits exactly
   // where TodayPage's own first-load loader sits, so auth → digest reads as ONE
