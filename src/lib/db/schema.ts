@@ -73,6 +73,24 @@ export const digests = sqliteTable("digests", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const digestJobs = sqliteTable("digest_jobs", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  date: text("date").notNull(),
+  status: text("status", {
+    enum: ["pending", "running", "generated", "failed", "skipped_paused", "skipped_no_interests"],
+  }).notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  digestId: text("digest_id").references(() => digests.id),
+  error: text("error"),
+  emailStatus: text("email_status"),
+  emailError: text("email_error"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  startedAt: integer("started_at", { mode: "timestamp" }),
+  finishedAt: integer("finished_at", { mode: "timestamp" }),
+});
+
 export const papers = sqliteTable("papers", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   digestId: text("digest_id").notNull().references(() => digests.id),

@@ -3,6 +3,54 @@
     {
       "path": "/api/cron",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/digests/05",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/digests/06",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/digests/07",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/digests/08",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/digests/09",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/digests/10",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/digests/11",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/digests/12",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/digests/13",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/digests/14",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/digests/15",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/digests/16",
+      "schedule": "0 16 * * *"
     }
   ]
 }
