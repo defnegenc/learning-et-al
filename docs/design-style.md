@@ -90,6 +90,23 @@ this decade should not look like it drew a slot. Retired: `#F7E38F`, `#8C6D1F`,
 `#E6C34A`, `#F5D547` — a flat 2px gold border reads as gold at every size the
 five-stop gradient did.
 
+### Two things colour may never be
+
+**Never a swatch.** A row or grid of colour-filled squares — the spectrum shown
+as itself, a band strip, a legend of slots — is banned everywhere in the
+product, marketing surfaces included. The spectrum is a wayfinding index, not an
+ornament; the moment it is displayed as a set of chips it stops naming anything
+and becomes decoration. The one sanctioned way to put colour beside ink is the
+**loader's move**: a white object with an ink border and a spectrum *offset
+shadow*, or a sweep bar under a line of type. Colour falls behind things. It
+does not fill them.
+
+**Never a fake record.** Numbered boxes, issue stamps, `NO. 214`, `PAPER · 2026`
+and any other invented catalogue metadata are out. The archive aesthetic comes
+from the geometry — hard borders, one shadow, no radius — not from cosplaying a
+library card with numbers that mean nothing. If a number is on screen it has to
+be true and it has to matter.
+
 ---
 
 ## 2 · Type — five styles, three faces
@@ -252,13 +269,38 @@ under a run of text has to be a sibling `<div>` pulled up with a negative margin
 and the phrase column needs `alignSelf: flex-start` or the bar stretches full
 width.
 
-The card's hero keeps the **sweep bars** — two phrases each with a gradient bar
-under it, in card 1 and card 2's wash hues. The digest headline used to draw the
-same device and doesn't any more, so this is the one place it still lives: a
-static image has no animation to carry, and a white card with plain black type
-says nothing. That's a deliberate divergence, not drift, and it's the thing to
-reconsider if the card gets another pass. The hues are inlined and must move
-when `washSlots` moves.
+**What the card is** (rebuilt 2026-08-15): white ground, no outer frame, and one
+object — the wordmark boxed in a 5px ink border and tipped −2.5°, with the line
+*"Color me curious."* under it in the body face. That's the whole card. The
+previous version carried two swept phrases and a paragraph of body copy; at the
+width iOS actually renders a Messages bubble (260pt) the paragraph was a five-
+pixel grey smear, and iMessage prints the description under the image anyway, so
+it was saying the same thing twice. **Design the card at bubble size, not at
+1200×630.**
+
+The outer ink frame is gone for the same reason — at that scale it reads as a
+hairline artefact rather than a border. The slab keeps its own border, and that
+is what stops the card dissolving on the white grounds Slack and Twitter render
+previews on. Any future version needs *something* holding an edge.
+
+**The ring shadow.** The card's one shadow sits at one depth, with the ten
+spectrum slots running round the object's perimeter — bottom-left corner, right
+along the bottom, then up the right edge — in lengths proportional to the path.
+It is the loader held still: `PageLoader` steps its single shadow through four
+slots over time, and a static image can't step, so it shows the cycle at once.
+Colour still only falls behind ink. It is not a swatch, and the ten slots are not
+ten stacked shadows — one depth, recoloured along its length, which is an
+extension of the `5px 5px 0` rule rather than an exception to it.
+
+Because CSS cannot recolour a `box-shadow` across its own length, the ring is a
+**layer**: absolutely positioned, first child, inside a `position: relative`
+wrapper, with the object's width and height passed in explicitly so the path can
+be measured. If the slab is resized, `SLAB` must be resized with it — the shadow
+cannot infer content width.
+
+The `openGraph.title` and `twitter.title` in `layout.tsx` carry the same line as
+the card. iMessage prints that title directly beneath the image, so the two
+saying different things reads as a mismatch — move them together.
 
 **Email** (`src/lib/email.ts`) can't load web fonts, CSS variables or
 `radial-gradient`. The display face falls back to the system grotesque and the
