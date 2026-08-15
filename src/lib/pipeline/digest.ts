@@ -1897,11 +1897,24 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
   let gist = "";
   try {
     const seedList = seedInterests.map(s => s.keyword).join(", ");
+    const headlineConcepts = (metadata.keyConcepts || [])
+      .map(concept => {
+        const separator = concept.indexOf(":");
+        return {
+          term: (separator >= 0 ? concept.slice(0, separator) : concept).trim(),
+          definition: (separator >= 0 ? concept.slice(separator + 1) : "").trim(),
+        };
+      })
+      .filter(concept => concept.term && finalTheme.toLowerCase().includes(concept.term.toLowerCase()));
+    const headlineConceptBlock = headlineConcepts.length > 0
+      ? `\nPotentially unfamiliar terms used in the question (metadata grounded in today's sources):\n${headlineConcepts.map(concept => `- ${concept.term}${concept.definition ? `: ${concept.definition}` : ""}`).join("\n")}\nDefine them in plain language before interpreting the result.\n`
+      : "";
     const gistResp = await aiComplete(
       aiConfig,
       "You write punchy, plain-English digest headers that sound like a smart friend talking, not an AI. Return only JSON.",
       `Central question: "${finalTheme}"
 Seed interests: ${seedList}
+${headlineConceptBlock}
 
 Today's synthesis:
 ${synthesis}
@@ -1910,9 +1923,15 @@ VOICE: Sound like a real person talking to a friend. Use contractions. Plain wor
 
 EVIDENCE GUARD: Every claim in the gist must be supported by the synthesis. Do not invent a psychological mechanism to make the answer sound complete. Avoid "everyone", "every", "always", and "never" unless the sources actually establish that universal claim.
 
+TERM BRIDGE: If the central question relies on a specialist term, unfamiliar phrase, or named contrast that a smart non-expert may only half-understand, define it BEFORE giving the verdict or implication. When two terms are contrasted, define both in parallel. Use concrete verbs, not a dictionary definition. You may use two short sentences and up to 35 words for this case.
+
+Example — Q: "Dynamic assessment beats static testing. Why is it still rare?"
+GOOD: "Dynamic assessment adapts through live back-and-forth; static testing gives everyone the same fixed test. The adaptive approach works, but is hard to run at scale."
+BAD: "It works, but running it well requires a real-time conversation." This withholds what "it" is and assumes the reader already understands the headline.
+
 Return JSON (no markdown fences):
 {
-  "gist": "In ONE plain sentence (max 25 words), answer the central question the way the synthesis does. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question. If it's a who/what/how/why question, answer it DIRECTLY with the real answer — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT echo the question's own words back (it sits right above this on the page). No jargon or unsupported mechanism. Examples — Q 'Does good UX ignore how users feel?' -> 'No. Treating emotion as optional is a design gap, not a real tradeoff.' | Q 'Who checks AI when it grades students?' -> 'Almost nobody yet: one new system flags bad AI scores, but teachers haven't started using it.'"
+  "gist": "Usually ONE plain sentence, max 25 words. When TERM BRIDGE applies, use up to TWO short sentences and 35 words: define first, then answer. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question and needs no term definition. If it's a who/what/how/why question, answer it DIRECTLY — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT merely echo the question. No unexplained jargon or unsupported mechanism."
 }`
     );
     const gp = extractJson<{ gist?: string }>(gistResp);
