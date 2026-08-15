@@ -4,32 +4,32 @@ import React, { useState } from "react";
 import type { PaperItem } from "@/lib/types";
 import { PaperCard, paperByline } from "@/components/paper-card";
 import {
-  BODY_STYLE, BODY_SM, BORDER, DIM, DISPLAY, DISPLAY_LG, DISPLAY_SM, HAIRLINE,
-  INK, MUTED, RULE, SHADOW, SPECTRUM, SURFACE, Segmented, washSlots, wash,
+  BODY_STYLE, BODY_SM, BORDER, DIM, DISPLAY, DISPLAY_SM, HAIRLINE, INK, MUTED,
+  RULE, SHADOW, SURFACE, Segmented, washSlots, wash,
 } from "@/components/design-system";
 
 /*
  * Paper card candidates — /prototype/cards.
  *
- * Two shapes survived the first two rounds, and everything else is deleted.
+ * Settled, and no longer switchable:
  *
- *  · The SPLIT (H). One rule down the middle: the point on one side, the
- *    evidence on the other, read together instead of one under the other.
- *    Four of the five below are this shape rearranged.
- *  · The BROADSHEET (K), with two fixes. The method line is gone, and the
- *    takeaway is no longer a filled band — the pink is a mark on the claim,
- *    which is all the colour that sentence needed.
+ *  · The hero is 22, not Display/LG. At 32 the long sample ran to five lines
+ *    and the TL;DR ate the card.
+ *  · The takeaway's mark takes the card's own hue, not a fixed pink. It is
+ *    wayfinding — the mark should match the card it belongs to.
+ *  · Headings are Cabinet Grotesk at Display/SM in ink, findings mark with
+ *    **bold**, everything reads at Body 15, order is title, byline, TL;DR.
  *
- * The hierarchy note from the review: in K the hero sat between the title and
- * the section headings, all three in Cabinet Grotesk, so nothing led. The fix
- * is the Hero control — Display/LG 32 makes the TL;DR twice the size of any
- * heading on the card, which is the only way the display face can carry
- * hierarchy when it is also the heading face. 22 is what prod runs today.
+ * The news card is fixed: `findings` can be two items, and the broadsheet's
+ * grid was hard-coded to three columns, so the third sat empty. The columns
+ * now count the findings.
  *
- * Settled and no longer switchable: section headings are Cabinet Grotesk at
- * Display/SM in ink (never a mono grey eyebrow), findings mark with **bold**,
- * the takeaway marks with the highlight, and the order is title, byline,
- * TL;DR.
+ * Deleted this round: the stat card (a number with no sentence around it says
+ * nothing), and everything else from rounds one and two.
+ *
+ * Open, and what the Bullets control is for: the findings are a list rendered
+ * as paragraphs. A marker in a gutter makes each one a discrete unit and
+ * hangs the text in a column — which is most of what "cleaner" means here.
  */
 
 /* ── Samples ─────────────────────────────────────────────────────────────── */
@@ -56,15 +56,6 @@ const SAMPLES: PaperItem[] = [
       "AI models that treat different prediction mistakes as having different costs can meaningfully reduce risk for startup investors.",
     takeawayLine:
       "Turns out you can basically dial in how risky you want your startup bets to be — tell the AI 'missing a winner hurts more than backing a loser' and it changes its whole strategy.",
-    takeawayStat: "10,000 startups",
-    methodType: "Field study",
-    methodFacts: [
-      "They analysed 10,000 Israeli startups.",
-      "Five prediction models were compared.",
-      "Outcomes were tracked through 2022.",
-    ],
-    connectionReason:
-      "It shows what happens when a prediction system is told which mistake it should be afraid of.",
   },
   {
     id: "s2",
@@ -86,15 +77,6 @@ const SAMPLES: PaperItem[] = [
     claim: "Shade is triage, not decoration.",
     takeawayLine:
       "Planting is a health intervention with a dose-response curve, and the dose that matters is the first ten points of shade on the hottest, barest blocks. Spending the same budget spreading trees evenly across a city is, on this evidence, close to wasting most of it.",
-    takeawayStat: "7% fewer visits",
-    methodType: "Panel study",
-    methodFacts: [
-      "They tracked 1,200 counties for twenty years.",
-      "Canopy was measured from satellite imagery.",
-      "Visits came from emergency-department records.",
-    ],
-    connectionReason:
-      "It turns a landscaping budget into a public-health lever with a measurable dose.",
   },
   {
     id: "s3",
@@ -114,17 +96,14 @@ const SAMPLES: PaperItem[] = [
     ],
     claim: "The burden is moving from the person rejected to the company doing the rejecting.",
     takeawayLine: "",
-    takeawayStat: null,
-    methodType: "News feature",
-    methodFacts: ["The consultation runs for three months.", "Comments close in November."],
-    connectionReason:
-      "It is the first draft that makes the vendor, not the employer, hold the paperwork.",
   },
 ];
 
 /* ── Shared ──────────────────────────────────────────────────────────────── */
 
-/** Findings mark with weight — settled. */
+type Bullet = "none" | "dot" | "square" | "number";
+
+/** Findings mark with weight. */
 function marks(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     !part ? null : i % 2 === 1
@@ -133,7 +112,7 @@ function marks(text: string): React.ReactNode[] {
   );
 }
 
-/** The takeaway marks with the highlight — the one place colour lands on type. */
+/** The takeaway marks with the card's own hue. */
 function Marked({ children, hue }: { children: React.ReactNode; hue: string }) {
   return (
     <span style={{ background: hue, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px" }}>
@@ -146,8 +125,18 @@ function startCap(text: string): string {
   return text.replace(/[A-Za-z]/, (l) => l.toUpperCase());
 }
 
-/** Reading size. Prod runs the tiles at 13. */
+/** The first bold phrase — a finding's headline, when only one line fits. */
+function headline(f: string): string {
+  return startCap((f.match(/\*\*(.+?)\*\*/)?.[1] ?? f).trim());
+}
+
 const READ: React.CSSProperties = { ...BODY_STYLE, lineHeight: "26px" };
+const READ_TIGHT: React.CSSProperties = { ...BODY_STYLE, lineHeight: "24px" };
+
+const HERO: React.CSSProperties = {
+  fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em",
+  lineHeight: "28px", color: INK, margin: "4px 0 0",
+};
 
 function content(p: PaperItem) {
   const body = (p.summary || p.abstract || "").trim();
@@ -158,7 +147,6 @@ function content(p: PaperItem) {
     line: (p.takeawayLine || "").trim(),
     findings: (p.keyFindings ?? []).slice(0, 3),
     findingsLabel: p.source === "rss" ? "Key points" : "Findings",
-    stat: (p.takeawayStat || "").trim(),
     byline: paperByline(p),
   };
 }
@@ -166,32 +154,25 @@ function content(p: PaperItem) {
 interface CandidateProps {
   paper: PaperItem;
   index: number;
-  /** The resolved highlight colour. */
   hue: string;
-  /** 22 = today's hero. 32 = Display/LG, twice any heading on the card. */
-  heroSize: 22 | 32;
+  bullet: Bullet;
 }
 
-/** Section heading — Cabinet Grotesk in ink. Never a mono grey eyebrow. */
-function Heading({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <h3 style={{ ...DISPLAY_SM, margin: "0 0 10px", ...style }}>{children}</h3>;
+/** Section heading — Cabinet Grotesk in ink. */
+function Heading({ children }: { children: React.ReactNode }) {
+  return <h3 style={{ ...DISPLAY_SM, margin: "0 0 10px" }}>{children}</h3>;
 }
 
-/** Title, byline, TL;DR — the prod order. The hero is what carries hierarchy. */
-function Head({ paper, c, heroSize }: { paper: PaperItem; c: ReturnType<typeof content>; heroSize: 22 | 32 }) {
-  const hero: React.CSSProperties = heroSize === 32
-    ? { ...DISPLAY_LG, margin: "6px 0 0" }
-    : { fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "28px", color: INK, margin: "4px 0 0" };
+function Head({ paper, c }: { paper: PaperItem; c: ReturnType<typeof content> }) {
   return (
     <div>
       <h3 style={{ ...DISPLAY_SM, margin: 0 }}>{paper.plainName || paper.title}</h3>
       {c.byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{c.byline}</div>}
-      {c.hero && <p style={hero}>{c.hero}</p>}
+      {c.hero && <p style={HERO}>{c.hero}</p>}
     </div>
   );
 }
 
-/** Claim marked, the spoken line plain behind it. */
 function Takeaway({ c, hue }: { c: ReturnType<typeof content>; hue: string }) {
   const lead = startCap(c.claim || c.line);
   const rest = c.claim && c.line ? c.line : "";
@@ -204,23 +185,49 @@ function Takeaway({ c, hue }: { c: ReturnType<typeof content>; hue: string }) {
   );
 }
 
-function Findings({ items, gap = 14 }: { items: string[]; gap?: number }) {
+/**
+ * A marker in an 18px gutter with the text hanging in a column beside it.
+ * Without one the findings are three paragraphs that happen to be near each
+ * other; with one they read as a list.
+ */
+function Mark({ bullet, i, hue, lh }: { bullet: Bullet; i: number; hue: string; lh: number }) {
+  if (bullet === "none") return null;
+  if (bullet === "number")
+    return (
+      <span style={{ ...DISPLAY_SM, color: MUTED, width: 22, flexShrink: 0, lineHeight: `${lh}px` }}>
+        {String(i + 1).padStart(2, "0")}
+      </span>
+    );
+  const size = bullet === "dot" ? 5 : 8;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap }}>
-      {items.map((f, i) => <p key={i} style={{ ...READ, margin: 0 }}>{marks(startCap(f))}</p>)}
-    </div>
+    <span aria-hidden style={{ width: 18, flexShrink: 0, display: "flex", justifyContent: "flex-start" }}>
+      <span
+        style={{
+          width: size, height: size, marginTop: (lh - size) / 2 - 1,
+          background: bullet === "dot" ? INK : hue,
+          border: bullet === "square" ? `1px solid ${INK}` : undefined,
+          borderRadius: bullet === "dot" ? "50%" : 0,
+        }}
+      />
+    </span>
   );
 }
 
-function NumberedFindings({ items }: { items: string[] }) {
+function FindingList({ items, bullet, hue, tight = false, gap = 14 }: {
+  items: string[];
+  bullet: Bullet;
+  hue: string;
+  tight?: boolean;
+  gap?: number;
+}) {
+  const style = tight ? READ_TIGHT : READ;
+  const lh = tight ? 24 : 26;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap }}>
       {items.map((f, i) => (
-        <div key={i} style={{ display: "flex", gap: 12 }}>
-          <span style={{ ...DISPLAY_SM, color: MUTED, width: 22, flexShrink: 0, lineHeight: "26px" }}>
-            {String(i + 1).padStart(2, "0")}
-          </span>
-          <p style={{ ...READ, margin: 0 }}>{marks(startCap(f))}</p>
+        <div key={i} style={{ display: "flex" }}>
+          <Mark bullet={bullet} i={i} hue={hue} lh={lh} />
+          <p style={{ ...style, margin: 0 }}>{marks(startCap(f))}</p>
         </div>
       ))}
     </div>
@@ -235,7 +242,7 @@ function Shell({ index, children, style }: { index: number; children: React.Reac
   );
 }
 
-function ReadPaper({ href, small = false }: { href: string | null; small?: boolean }) {
+function ReadPaper({ href }: { href: string | null }) {
   if (!href) return null;
   return (
     <a
@@ -243,7 +250,7 @@ function ReadPaper({ href, small = false }: { href: string | null; small?: boole
       target="_blank"
       rel="noopener noreferrer"
       className="ds-lift"
-      style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: small ? "9px 16px" : "12px 22px", textDecoration: "none", alignSelf: "flex-start" }}
+      style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "9px 16px", textDecoration: "none", alignSelf: "flex-start" }}
     >
       Read paper ↗
     </a>
@@ -253,23 +260,32 @@ function ReadPaper({ href, small = false }: { href: string | null; small?: boole
 /* ── K · Broadsheet ──────────────────────────────────────────────────────── */
 
 /**
- * The one you liked, with both fixes: the method line is gone, and the
- * takeaway's band is no longer filled — the pink is a mark on the claim, so
- * colour lands on the sentence that earns it rather than on 200px of card.
- * The strata are still divided by the card's own 2px rule.
+ * The winner. Strata divided by the card's own 2px rule, findings as poster
+ * columns, the takeaway marked in the card's hue.
+ *
+ * The columns count the findings — hard-coding three left the news card, which
+ * carries two key points, with an empty third of a band.
  */
-function Broadsheet({ paper, index, hue, heroSize }: CandidateProps) {
+function Broadsheet({ paper, index, hue, bullet }: CandidateProps) {
   const c = content(paper);
   return (
     <div style={{ ...wash(index), border: BORDER, boxShadow: SHADOW, overflow: "hidden" }}>
       <div style={{ padding: "22px 24px" }}>
-        <Head paper={paper} c={c} heroSize={heroSize} />
+        <Head paper={paper} c={c} />
       </div>
       {c.findings.length > 0 && (
         <section style={{ borderTop: BORDER, padding: "18px 24px", background: SURFACE }}>
           <Heading>{c.findingsLabel}</Heading>
-          <div className="proto-triptych">
-            {c.findings.map((f, i) => <p key={i} style={{ ...READ, margin: 0 }}>{marks(startCap(f))}</p>)}
+          <div
+            className="proto-cols"
+            style={{ gridTemplateColumns: `repeat(${c.findings.length}, 1fr)` }}
+          >
+            {c.findings.map((f, i) => (
+              <div key={i} style={{ display: "flex" }}>
+                <Mark bullet={bullet} i={i} hue={hue} lh={26} />
+                <p style={{ ...READ, margin: 0 }}>{marks(startCap(f))}</p>
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -278,9 +294,7 @@ function Broadsheet({ paper, index, hue, heroSize }: CandidateProps) {
           <Heading>Takeaway</Heading>
           <Takeaway c={c} hue={hue} />
         </div>
-        {/* Wrapped: ReadPaper sets its own alignSelf, which would otherwise
-            override the row's flex-end and float the button to the top. */}
-        <div><ReadPaper href={paper.sourceUrl} small /></div>
+        <div><ReadPaper href={paper.sourceUrl} /></div>
       </section>
     </div>
   );
@@ -288,21 +302,42 @@ function Broadsheet({ paper, index, hue, heroSize }: CandidateProps) {
 
 /* ── The split family ────────────────────────────────────────────────────── */
 
-/** H · Split — the one you liked. Point left, evidence right, one 2px rule. */
-function Split({ paper, index, hue, heroSize }: CandidateProps) {
+/** H · Split — point left, evidence right. */
+function Split({ paper, index, hue, bullet }: CandidateProps) {
   const c = content(paper);
   return (
     <Shell index={index}>
-      <Head paper={paper} c={c} heroSize={heroSize} />
+      <Head paper={paper} c={c} />
       <div className="proto-split">
         <section>
           <Heading>Takeaway</Heading>
           <Takeaway c={c} hue={hue} />
-          <div style={{ marginTop: 18 }}><ReadPaper href={paper.sourceUrl} small /></div>
+          <div style={{ marginTop: 18 }}><ReadPaper href={paper.sourceUrl} /></div>
         </section>
         <section>
           <Heading>{c.findingsLabel}</Heading>
-          <Findings items={c.findings} />
+          <FindingList items={c.findings} bullet={bullet} hue={hue} />
+        </section>
+      </div>
+    </Shell>
+  );
+}
+
+/** H2 · Evidence first — the same rule, columns swapped. */
+function SplitFlipped({ paper, index, hue, bullet }: CandidateProps) {
+  const c = content(paper);
+  return (
+    <Shell index={index}>
+      <Head paper={paper} c={c} />
+      <div className="proto-split">
+        <section>
+          <Heading>{c.findingsLabel}</Heading>
+          <FindingList items={c.findings} bullet={bullet} hue={hue} />
+        </section>
+        <section>
+          <Heading>Takeaway</Heading>
+          <Takeaway c={c} hue={hue} />
+          <div style={{ marginTop: 18 }}><ReadPaper href={paper.sourceUrl} /></div>
         </section>
       </div>
     </Shell>
@@ -310,24 +345,27 @@ function Split({ paper, index, hue, heroSize }: CandidateProps) {
 }
 
 /**
- * H2 · Evidence first. The same rule, the columns swapped: findings take the
- * wide left column and the takeaway closes on the right. Left-to-right means
- * this version argues *toward* the conclusion; H states it and then shows work.
+ * H3 · Rail, even. The height problem was the rail's width: at 290px each
+ * finding wrapped to four or five lines, so the evidence column drove the
+ * card. Equal columns cut most findings to two or three lines and hand the
+ * height back to the left column, which is the one with something to say.
  */
-function SplitFlipped({ paper, index, hue, heroSize }: CandidateProps) {
+function RailEven({ paper, index, hue, bullet }: CandidateProps) {
   const c = content(paper);
   return (
-    <Shell index={index}>
-      <Head paper={paper} c={c} heroSize={heroSize} />
-      <div className="proto-split">
-        <section>
-          <Heading>{c.findingsLabel}</Heading>
-          <Findings items={c.findings} />
+    <Shell index={index} style={{ padding: 0, gap: 0 }}>
+      <div className="proto-rail proto-rail--even">
+        <section style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <Head paper={paper} c={c} />
+          <div>
+            <Heading>Takeaway</Heading>
+            <Takeaway c={c} hue={hue} />
+          </div>
+          <ReadPaper href={paper.sourceUrl} />
         </section>
-        <section>
-          <Heading>Takeaway</Heading>
-          <Takeaway c={c} hue={hue} />
-          <div style={{ marginTop: 18 }}><ReadPaper href={paper.sourceUrl} small /></div>
+        <section style={{ padding: "22px 24px" }}>
+          <Heading>{c.findingsLabel}</Heading>
+          <FindingList items={c.findings} bullet={bullet} hue={hue} tight gap={12} />
         </section>
       </div>
     </Shell>
@@ -335,90 +373,35 @@ function SplitFlipped({ paper, index, hue, heroSize }: CandidateProps) {
 }
 
 /**
- * H3 · Rail. The rule runs the full height of the card instead of starting
- * below the header, so the findings become a marginal column and the wide
- * column is one uninterrupted read: title, TL;DR, takeaway. The most hierarchy
- * of the family — nothing sits beside the hero to compete with it.
+ * H3b · Rail, headlines. The narrow rail kept, but each finding shows only its
+ * bold phrase — one line each, so the column can never drive the card's height.
+ * The cost is real: "Within three summers of planting" is not a sentence, and a
+ * reader who wants the qualification has to open the paper.
  */
-function Rail({ paper, index, hue, heroSize }: CandidateProps) {
+function RailHeadlines({ paper, index, hue, bullet }: CandidateProps) {
   const c = content(paper);
   return (
     <Shell index={index} style={{ padding: 0, gap: 0 }}>
       <div className="proto-rail">
         <section style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
-          <Head paper={paper} c={c} heroSize={heroSize} />
+          <Head paper={paper} c={c} />
           <div>
             <Heading>Takeaway</Heading>
             <Takeaway c={c} hue={hue} />
           </div>
-          <ReadPaper href={paper.sourceUrl} small />
+          <ReadPaper href={paper.sourceUrl} />
         </section>
         <section style={{ padding: "22px 24px" }}>
           <Heading>{c.findingsLabel}</Heading>
-          <NumberedFindings items={c.findings} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {c.findings.map((f, i) => (
+              <div key={i} style={{ display: "flex" }}>
+                <Mark bullet={bullet} i={i} hue={hue} lh={24} />
+                <p style={{ ...READ_TIGHT, margin: 0, fontWeight: 600 }}>{headline(f)}</p>
+              </div>
+            ))}
+          </div>
         </section>
-      </div>
-    </Shell>
-  );
-}
-
-/**
- * H4 · Split with the number. `takeawayStat` is written for every paper and
- * rendered nowhere; here it opens the left column at display size, marked, and
- * the takeaway reads as its caption. The only new material on the card.
- */
-function SplitStat({ paper, index, hue, heroSize }: CandidateProps) {
-  const c = content(paper);
-  return (
-    <Shell index={index}>
-      <Head paper={paper} c={c} heroSize={heroSize} />
-      <div className="proto-split">
-        <section>
-          {c.stat && (
-            <p style={{ ...DISPLAY_LG, margin: "0 0 12px" }}>
-              <Marked hue={hue}>{c.stat}</Marked>
-            </p>
-          )}
-          <Heading>Takeaway</Heading>
-          <p style={{ ...READ, margin: 0 }}>{startCap([c.claim, c.line].filter(Boolean).join(" "))}</p>
-          <div style={{ marginTop: 18 }}><ReadPaper href={paper.sourceUrl} small /></div>
-        </section>
-        <section>
-          <Heading>{c.findingsLabel}</Heading>
-          <Findings items={c.findings} />
-        </section>
-      </div>
-    </Shell>
-  );
-}
-
-/**
- * H5 · Split, closed. The two columns carry only the evidence — findings left,
- * why-it-matters right — and the takeaway comes back full width under a
- * hairline as the card's last line, which is where a conclusion belongs.
- * Broadsheet's ending on Split's body.
- */
-function SplitClosed({ paper, index, hue, heroSize }: CandidateProps) {
-  const c = content(paper);
-  const half = Math.ceil(c.findings.length / 2);
-  return (
-    <Shell index={index}>
-      <Head paper={paper} c={c} heroSize={heroSize} />
-      <div className="proto-split proto-split--even">
-        <section>
-          <Heading>{c.findingsLabel}</Heading>
-          <Findings items={c.findings.slice(0, half)} />
-        </section>
-        <section>
-          <Findings items={c.findings.slice(half)} />
-        </section>
-      </div>
-      <div style={{ borderTop: HAIRLINE, paddingTop: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 20, flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 340px" }}>
-          <Heading>Takeaway</Heading>
-          <Takeaway c={c} hue={hue} />
-        </div>
-        <div><ReadPaper href={paper.sourceUrl} small /></div>
       </div>
     </Shell>
   );
@@ -437,80 +420,73 @@ const CANDIDATES: Candidate[] = [
   {
     key: "K",
     name: "Broadsheet",
-    note: "Yours, fixed. The method line is gone and the takeaway's band is no longer filled — the pink is a mark on the claim, so colour lands on the one sentence that earns it. Findings still run as three poster columns between the card's own 2px rules.",
+    note: "The winner. Hero back to 22, the mark takes the card's own hue, and the findings band counts its columns — the news card has two key points, and three hard-coded columns left the last one empty. That was the broken one.",
     render: (p) => <Broadsheet {...p} />,
   },
   {
     key: "H",
     name: "Split",
-    note: "The one you liked, unchanged except for the hero. Point on the left, evidence on the right, one rule between them.",
+    note: "Point left, evidence right, one rule. Same bullet treatment as the rest — set it with the control above.",
     render: (p) => <Split {...p} />,
   },
   {
     key: "H2",
     name: "Evidence first",
-    note: "The same rule with the columns swapped. Reading left to right, this version argues toward the conclusion; H states the conclusion and then shows its work. Same weight of ink, opposite rhetoric.",
+    note: "The columns swapped, so the card argues toward its conclusion instead of stating it and then showing work. With a marker in the gutter the findings finally read as a list rather than three adjacent paragraphs.",
     render: (p) => <SplitFlipped {...p} />,
   },
   {
     key: "H3",
-    name: "Rail",
-    note: "The rule runs the full height instead of starting under the header, so the findings become a margin column and the wide column is one uninterrupted read — title, TL;DR, takeaway. Nothing sits beside the hero to compete with it, which is the most hierarchy of the family.",
-    render: (p) => <Rail {...p} />,
+    name: "Rail, even",
+    note: "The height problem was the rail's width: at 290px every finding wrapped to four or five lines, so the evidence column drove the card. Equal columns cut most to two or three and hand the height back to the left column, which is the one with something to say.",
+    render: (p) => <RailEven {...p} />,
   },
   {
-    key: "H4",
-    name: "Split with the number",
-    note: "takeawayStat is written for every paper and rendered nowhere in the product. Here it opens the left column at display size, marked, and the takeaway reads as its caption. One new field, no extra furniture.",
-    render: (p) => <SplitStat {...p} />,
-  },
-  {
-    key: "H5",
-    name: "Split, closed",
-    note: "The columns carry only the evidence, split between them, and the takeaway returns full width under a hairline as the card's last line — which is where a conclusion belongs. Broadsheet's ending on Split's body.",
-    render: (p) => <SplitClosed {...p} />,
+    key: "H3b",
+    name: "Rail, headlines",
+    note: "The narrow rail kept, but each finding shows only its bold phrase — one line each, so the column can never drive the height. The cost is real: “Within three summers of planting” is not a sentence, and anyone who wants the qualification has to open the paper.",
+    render: (p) => <RailHeadlines {...p} />,
   },
 ];
 
 export default function CardPrototypes() {
   const [sample, setSample] = useState(0);
-  const [heroSize, setHeroSize] = useState<22 | 32>(32);
-  const [pink, setPink] = useState(true);
+  const [bullet, setBullet] = useState<Bullet>("dot");
 
   const paper = SAMPLES[sample];
-  const hue = pink ? SPECTRUM[0] : washSlots(sample)[0];
-  const props: CandidateProps = { paper, index: sample, hue, heroSize };
+  const hue = washSlots(sample)[0];
+  const props: CandidateProps = { paper, index: sample, hue, bullet };
 
   return (
     <div style={{ minHeight: "100vh", background: SURFACE, color: INK }}>
       <style>{`
         .proto-split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
-        .proto-split--even { grid-template-columns: 1fr 1fr; }
         .proto-split > section + section { border-left: ${BORDER}; padding-left: 24px; }
         .proto-rail { display: grid; grid-template-columns: 1fr 290px; }
+        .proto-rail--even { grid-template-columns: 1fr 1fr; }
         .proto-rail > section + section { border-left: ${BORDER}; }
-        .proto-triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .proto-triptych > p + p { border-left: ${HAIRLINE}; padding-left: 20px; }
+        .proto-cols { display: grid; gap: 20px; }
+        .proto-cols > div + div { border-left: ${HAIRLINE}; padding-left: 20px; }
         @media (max-width: 720px) {
-          .proto-split, .proto-rail, .proto-triptych { grid-template-columns: 1fr; }
+          .proto-split, .proto-rail, .proto-cols { grid-template-columns: 1fr !important; }
           .proto-split > section + section { border-left: none; border-top: ${BORDER}; padding-left: 0; padding-top: 20px; }
           .proto-rail > section + section { border-left: none; border-top: ${BORDER}; }
-          .proto-triptych > p + p { border-left: none; border-top: ${HAIRLINE}; padding-left: 0; padding-top: 16px; }
+          .proto-cols > div + div { border-left: none; border-top: ${HAIRLINE}; padding-left: 0; padding-top: 16px; }
         }
       `}</style>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 24px 120px" }}>
-        <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>Paper card candidates</h1>
+        <h1 style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "40px", margin: "0 0 10px" }}>
+          Paper card candidates
+        </h1>
         <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 8px", maxWidth: 640 }}>
-          Two shapes survived: the split, and the broadsheet with its band unfilled. Four
-          of the six below are the split rearranged. Settled and no longer switchable —
-          headings are Cabinet Grotesk in ink, findings mark with bold, the takeaway marks
-          with the highlight, and everything reads at Body 15.
+          The broadsheet, fixed, and three ways to make the split cleaner. Hero is 22, the
+          takeaway&rsquo;s mark follows the card&rsquo;s hue, and the stat card is gone — a number
+          with no sentence around it says nothing.
         </p>
         <p style={{ ...BODY_SM, color: MUTED, margin: "0 0 32px", maxWidth: 640 }}>
-          The hero control is the hierarchy fix: when the display face is also the heading
-          face, only size can make the TL;DR lead. 32 is Display/LG — twice any heading on
-          the card. 22 is what prod runs today.
+          The Bullets control runs across every candidate at once. A marker in an 18px
+          gutter is most of what makes a findings list read as a list.
         </p>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginBottom: 44 }}>
@@ -522,20 +498,17 @@ export default function CardPrototypes() {
               style={{ width: 290 }}
             />
           </Control>
-          <Control label="Hero">
+          <Control label="Bullets">
             <Segmented
-              value={String(heroSize)}
-              onChange={(v) => setHeroSize(v === "32" ? 32 : 22)}
-              options={[{ key: "32", label: "32 · Display/LG" }, { key: "22", label: "22 · today" }]}
-              style={{ width: 300 }}
-            />
-          </Control>
-          <Control label="Highlight">
-            <Segmented
-              value={pink ? "pink" : "hue"}
-              onChange={(v) => setPink(v === "pink")}
-              options={[{ key: "pink", label: "Pink" }, { key: "hue", label: "Card hue" }]}
-              style={{ width: 240 }}
+              value={bullet}
+              onChange={setBullet}
+              options={[
+                { key: "dot" as const, label: "Dot" },
+                { key: "square" as const, label: "Square" },
+                { key: "number" as const, label: "Number" },
+                { key: "none" as const, label: "None" },
+              ]}
+              style={{ width: 380 }}
             />
           </Control>
         </div>
@@ -549,7 +522,7 @@ export default function CardPrototypes() {
         <Frame
           eyebrow="For reference"
           name="What's in prod today"
-          note="The real component, unmodified — open it with its own See more. Kept only as the baseline to measure against."
+          note="The real component, unmodified — open it with its own See more."
         >
           <PaperCard paper={paper} index={sample} size="digest" />
         </Frame>
