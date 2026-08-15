@@ -12,7 +12,7 @@ import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
-import { NavTab, PageTitle, SectionLabel, ActionButton, SiteHeader } from "@/components/design-system";
+import { NavTab, PageTitle, SectionLabel, ActionButton, SiteHeader, Segmented, INK, DISPLAY } from "@/components/design-system";
 
 export type SettingsTab = "interests" | "account";
 
@@ -32,6 +32,12 @@ interface SettingsDialogProps {
   isAdmin?: boolean;
   onRegenerate?: () => void;
 }
+
+const CADENCE = [
+  { key: "daily" as const, label: "Daily", desc: "The morning digest, every day." },
+  { key: "biweekly" as const, label: "Bi-weekly", desc: "Tuesday and Friday mornings." },
+  { key: "weekly" as const, label: "Weekly", desc: "One Sunday recap." },
+];
 
 export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, isAdmin, onRegenerate, updateSession: _updateSession }: SettingsDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -157,86 +163,50 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
         </DialogTrigger>
       )}
       <DialogContent
-        className="flex flex-col p-0 gap-0"
-        style={{ width: "100%", height: "90vh", maxWidth: "880px", maxHeight: "90vh", borderRadius: 0 }}
+        className="flex flex-col p-0 gap-0 w-screen h-[100dvh] max-w-none rounded-none md:w-full md:max-w-[880px] md:h-[90vh]"
+        style={{ borderRadius: 0 }}
         showCloseButton={false}
       >
-        {/* ── Top bar ── */}
+        {/* ── Top bar — tabs live here on desktop, under it on mobile ── */}
         <SiteHeader style={{ flexShrink: 0 }} right={
           <div className="flex items-center gap-4">
-            {navItems.map(n => (
-              <NavTab key={n.key} active={tab === n.key} onClick={() => setTab(n.key)}>{n.label}</NavTab>
-            ))}
+            <div className="hidden md:flex items-center gap-4">
+              {navItems.map(n => (
+                <NavTab key={n.key} active={tab === n.key} onClick={() => setTab(n.key)}>{n.label}</NavTab>
+              ))}
+            </div>
             <button
               onClick={() => setOpen(false)}
               className="text-[#888] hover:text-[#1a1a1a] transition-colors"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", fontSize: "0.9rem", fontFamily: "var(--font-display), sans-serif", fontWeight: 700 }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 0 6px 6px", fontSize: "0.95rem", fontFamily: DISPLAY, fontWeight: 700 }}
             >
-              Hide
+              Done
             </button>
           </div>
         } />
+
+        {/* Mobile tab bar — full width, thumb-sized, so Account is never a
+            9px word tucked in the corner of the header. */}
+        <div className="md:hidden px-4 pt-3 pb-1" style={{ flexShrink: 0 }}>
+          <Segmented
+            value={tab}
+            onChange={setTab}
+            options={navItems.map(n => ({ key: n.key, label: n.label }))}
+          />
+        </div>
 
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* ── Interests tab ── */}
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="px-5 pt-6 pb-4 md:px-10 md:pt-10 md:pb-5">
-                <PageTitle size="lg" style={{ marginBottom: "8px" }}>Curate your feed</PageTitle>
-                <p style={{ fontSize: "1rem", color: "#666", lineHeight: 1.6, maxWidth: 560, margin: 0 }}>Pick topics to personalize your daily digest.</p>
+              <div className="px-4 pt-5 pb-3 md:px-10 md:pt-8 md:pb-4" style={{ flexShrink: 0 }}>
+                <PageTitle size="lg" style={{ marginBottom: "6px" }}>Curate your feed</PageTitle>
+                <p style={{ fontSize: "0.95rem", color: "#666", lineHeight: 1.6, maxWidth: 560, margin: 0 }}>
+                  Pick the topics your digest thinks with. Breadth beats depth — it samples across everything you choose.
+                </p>
               </div>
 
-              {/* Delivery cadence */}
-              <div className="px-5 md:px-10 pb-4" style={{ borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
-                <SectionLabel style={{ marginBottom: "10px" }}>Delivery cadence</SectionLabel>
-                <div className="flex gap-0">
-                  {([
-                    { key: "daily" as const, label: "Daily", desc: "The morning digest." },
-                    { key: "biweekly" as const, label: "Bi-weekly", desc: "Tuesday & Friday." },
-                    { key: "weekly" as const, label: "Weekly", desc: "The Sunday recap." },
-                  ]).map(opt => (
-                    <button
-                      key={opt.key}
-                      onClick={() => setCadence(opt.key)}
-                      className="flex-1"
-                      style={{
-                        padding: "10px 8px", border: "2px solid #1a1a1a", marginRight: "-2px",
-                        background: cadence === opt.key ? "#1a1a1a" : "white",
-                        color: cadence === opt.key ? "white" : "#1a1a1a",
-                        cursor: "pointer", textAlign: "center",
-                      }}
-                    >
-                      <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 700 }}>{opt.label}</div>
-                      <div style={{ fontSize: "0.8rem", color: cadence === opt.key ? "#ccc" : "#666", marginTop: "3px" }}>{opt.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Email opt-out */}
-              <div className="px-5 md:px-10 py-3" style={{ borderBottom: "1px solid rgba(26,26,26,0.12)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <SectionLabel>Email digests</SectionLabel>
-                  <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "3px" }}>Receive your digest by email</div>
-                </div>
-                <button
-                  onClick={() => setEmailOptOut(v => !v)}
-                  style={{
-                    width: 40, height: 22, borderRadius: 999, border: "2px solid #1a1a1a",
-                    background: emailOptOut ? "#e5e7eb" : "#1a1a1a",
-                    position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 0.15s",
-                  }}
-                >
-                  <span style={{
-                    position: "absolute", top: 1, left: emailOptOut ? 2 : 16,
-                    width: 14, height: 14, borderRadius: "50%",
-                    background: emailOptOut ? "#999" : "white",
-                    transition: "left 0.15s",
-                  }} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-5 md:px-10 pt-4">
+              <div className="flex-1 overflow-y-auto px-4 md:px-10">
                 {loadingInterests ? (
                   <div className="flex items-center justify-center py-16"><Loader2 className="size-5 animate-spin text-[#888]" /></div>
                 ) : (
@@ -249,63 +219,123 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                   />
                 )}
               </div>
-
-              {selectedTopics.length > 0 && (
-                <div className="px-5 md:px-10" style={{ borderTop: "1px solid rgba(26,26,26,0.12)", paddingTop: "12px", paddingBottom: "12px", flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px" }}>
-                  {saved && (
-                    <span className="flex items-center gap-1.5 text-[#38b000] text-[0.85rem] mr-auto">
-                      <CheckCircle className="size-3" /> Saved
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setSelectedTopics([])}
-                    style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.88rem", fontWeight: 700, color: "#1a1a1a", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px" }}
-                  >
-                    Clear all
-                  </button>
-                  <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
-                    {saving ? <Loader2 className="size-3 animate-spin" /> : "Save"}
-                  </ActionButton>
-                </div>
-              )}
             </div>
           )}
 
-          {/* ── Account tab ── */}
+          {/* ── Account tab — who you are, when it arrives, and the two buttons ── */}
           {tab === "account" && (
-            <div className="flex-1 overflow-y-auto px-5 py-6 md:p-10">
-              <PageTitle size="lg" style={{ marginBottom: "8px" }}>Account</PageTitle>
+            <div className="flex-1 overflow-y-auto px-4 py-5 md:px-10 md:py-8">
+              <PageTitle size="lg" style={{ marginBottom: "20px" }}>Account</PageTitle>
+
               {authSession?.user && (
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "32px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
                   {authSession.user.image && (
                     <img src={authSession.user.image} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", border: "1.5px solid rgba(26,26,26,0.12)" }} />
                   )}
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{authSession.user.name}</div>
-                    <div style={{ fontSize: "0.85rem", color: "#666" }}>{authSession.user.email}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{authSession.user.name}</div>
+                    <div style={{ fontSize: "0.85rem", color: "#666", overflow: "hidden", textOverflow: "ellipsis" }}>{authSession.user.email}</div>
                   </div>
                 </div>
               )}
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start" }}>
-                {isAdmin && (
-                  <ActionButton onClick={() => { onRegenerate?.(); setOpen(false); }}>
+
+              {/* Delivery — moved off the Interests tab so picking topics on a
+                  phone isn't two screens of preferences before the first chip. */}
+              <div style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
+                <SectionLabel style={{ marginBottom: "10px" }}>How often</SectionLabel>
+                <Segmented
+                  value={cadence}
+                  onChange={setCadence}
+                  options={CADENCE.map(c => ({ key: c.key, label: c.label }))}
+                />
+                <p style={{ fontSize: "0.85rem", color: "#666", margin: "8px 0 0" }}>
+                  {CADENCE.find(c => c.key === cadence)?.desc}
+                </p>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginTop: 20 }}>
+                  <div>
+                    <SectionLabel>Email it to me</SectionLabel>
+                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "3px" }}>Otherwise it waits for you on the site.</div>
+                  </div>
+                  <button
+                    onClick={() => setEmailOptOut(v => !v)}
+                    role="switch"
+                    aria-checked={!emailOptOut}
+                    aria-label="Email digests"
+                    style={{
+                      width: 46, height: 26, border: `2px solid ${INK}`,
+                      background: emailOptOut ? "#e5e7eb" : INK,
+                      position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 0.15s",
+                    }}
+                  >
+                    <span style={{
+                      position: "absolute", top: 2, left: emailOptOut ? 2 : 20,
+                      width: 18, height: 18,
+                      background: emailOptOut ? "#999" : "white",
+                      transition: "left 0.15s",
+                    }} />
+                  </button>
+                </div>
+              </div>
+
+              {isAdmin && (
+                <div style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
+                  <SectionLabel style={{ marginBottom: "4px" }}>Today&rsquo;s digest</SectionLabel>
+                  <p style={{ fontSize: "0.85rem", color: "#666", margin: "0 0 12px" }}>
+                    Build it again from scratch — new question, new papers.
+                  </p>
+                  <ActionButton onClick={() => { onRegenerate?.(); setOpen(false); }} style={{ width: "100%", justifyContent: "center" }}>
                     <RefreshCw className="size-3.5" />
                     Regenerate digest
                   </ActionButton>
-                )}
-                <ActionButton
-                  onClick={() => {
-                    localStorage.removeItem("pp_session");
-                    window.location.href = "/api/logout";
-                  }}
-                >
-                  <LogOut className="size-3.5" />
-                  Sign out
-                </ActionButton>
-              </div>
+                </div>
+              )}
+
+              <ActionButton
+                variant="outline"
+                onClick={() => {
+                  localStorage.removeItem("pp_session");
+                  window.location.href = "/api/logout";
+                }}
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                <LogOut className="size-3.5" />
+                Sign out
+              </ActionButton>
             </div>
           )}
         </main>
+
+        {/* ── One footer for both tabs — Save is never scrolled off ── */}
+        <div
+          className="px-4 md:px-10"
+          style={{
+            borderTop: `2px solid ${INK}`, background: "#fff", flexShrink: 0,
+            paddingTop: 12, paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+            display: "flex", alignItems: "center", gap: 10,
+          }}
+        >
+          {saved ? (
+            <span className="flex items-center gap-1.5 text-[#38b000] text-[0.85rem] mr-auto">
+              <CheckCircle className="size-3.5" /> Saved
+            </span>
+          ) : (
+            <span style={{ fontSize: "0.85rem", color: "#666", marginRight: "auto" }}>
+              {tab === "interests" && selectedTopics.length < 3 ? "Pick at least 3 topics." : ""}
+            </span>
+          )}
+          {tab === "interests" && selectedTopics.length > 0 && (
+            <button
+              onClick={() => { setSelectedTopics([]); setCustomTopics({}); }}
+              style={{ fontFamily: DISPLAY, fontSize: "0.88rem", fontWeight: 700, color: INK, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px", padding: "8px 4px" }}
+            >
+              Clear all
+            </button>
+          )}
+          <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+          </ActionButton>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -15,6 +15,32 @@ interface Session {
   isSetUp: boolean;
 }
 
+/** A row in the mobile slide-down menu — display face, sentence case, 48px tall. */
+function MenuItem({ label, active, onClick, last = false }: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  last?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "block", width: "100%", textAlign: "left",
+        padding: "15px 20px", border: "none", background: "transparent",
+        borderBottom: last ? "none" : "1px solid rgba(26,26,26,0.12)",
+        borderLeft: `3px solid ${active ? "#1a1a1a" : "transparent"}`,
+        fontFamily: "var(--font-display), sans-serif",
+        fontSize: "1rem", fontWeight: 700,
+        color: active ? "#1a1a1a" : "#666",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 interface AppShellProps {
   session: Session;
   updateSession: (updates: Record<string, unknown>) => void;
@@ -96,55 +122,24 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             className="fixed md:hidden"
             style={{ top: "52px", right: 0, left: 0, zIndex: 40, background: "white", borderBottom: "2px solid #1a1a1a" }}
           >
-            {(["today", "vault"] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setMenuOpen(false); }}
-                style={{
-                  display: "block", width: "100%", textAlign: "left",
-                  padding: "14px 20px", border: "none", background: "transparent",
-                  borderBottom: "1px solid #e5e7eb",
-                  borderLeft: activeTab === tab ? "3px solid #1a1a1a" : "3px solid transparent",
-                  fontFamily: "var(--font-mono), monospace",
-                  fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
-                  letterSpacing: "2px", color: activeTab === tab ? "#1a1a1a" : "#888",
-                  cursor: "pointer",
-                }}
-              >
-                {tab}
-              </button>
+            {([
+              { key: "today", label: "Today" },
+              { key: "vault", label: "Vault" },
+              ...(adminVerified ? [{ key: "admin" as const, label: "Admin" }] : []),
+            ] satisfies { key: "today" | "vault" | "admin"; label: string }[]).map(item => (
+              <MenuItem
+                key={item.key}
+                label={item.label}
+                active={activeTab === item.key}
+                onClick={() => { setActiveTab(item.key); setMenuOpen(false); }}
+              />
             ))}
-            {adminVerified && (
-              <button
-                onClick={() => { setActiveTab("admin"); setMenuOpen(false); }}
-                style={{
-                  display: "block", width: "100%", textAlign: "left",
-                  padding: "14px 20px", border: "none", background: "transparent",
-                  borderBottom: "1px solid #e5e7eb",
-                  borderLeft: activeTab === "admin" ? "3px solid #1a1a1a" : "3px solid transparent",
-                  fontFamily: "var(--font-mono), monospace",
-                  fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
-                  letterSpacing: "2px", color: activeTab === "admin" ? "#1a1a1a" : "#888",
-                  cursor: "pointer",
-                }}
-              >
-                admin
-              </button>
-            )}
-            <button
+            <MenuItem
+              label="Settings"
+              active={false}
+              last
               onClick={() => { setMenuOpen(false); openSettings("interests"); }}
-              style={{
-                display: "block", width: "100%", textAlign: "left",
-                padding: "14px 20px", border: "none", background: "transparent",
-                borderLeft: "3px solid transparent",
-                fontFamily: "var(--font-mono), monospace",
-                fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase",
-                letterSpacing: "2px", color: "#888",
-                cursor: "pointer",
-              }}
-            >
-              settings
-            </button>
+            />
           </div>
         </>
       )}

@@ -174,10 +174,12 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
           </div>
         )}
 
-        {/* STEP 2 — ledger */}
+        {/* STEP 2 — ledger. No top padding: the picker's toolbar sticks to the
+            top of this scroller, and a padding band would let chips slide
+            behind it in the gap. */}
         {step === 2 && (
           <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "20px 24px" }}>
+            <div className="flex-1 overflow-y-auto" style={{ padding: "0 20px 8px" }}>
               <InterestLedger
                 selected={selectedTopics}
                 custom={custom}
@@ -188,18 +190,22 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
             </div>
 
             {/* Footer */}
-            <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 28px", background: "#fff" }}>
+            <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 20px max(14px, env(safe-area-inset-bottom))", background: "#fff" }}>
               {error && <p style={{ fontSize: "0.85rem", color: "#ff007f", marginBottom: "8px" }}>{error}</p>}
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 {!skipApiKey && (
-                  <button onClick={() => setStep(1)} disabled={submitting} style={{ padding: "10px 18px", border: "2px solid #1a1a1a", background: "white", fontSize: "0.88rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer" }}>
+                  <button onClick={() => setStep(1)} disabled={submitting} style={{ padding: "11px 18px", border: "2px solid #1a1a1a", background: "white", fontSize: "0.88rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer" }}>
                     Back
                   </button>
                 )}
                 <button onClick={handleSubmit} disabled={selectedTopics.length < 3 || submitting}
                   className="flex-1 flex items-center justify-center gap-2"
-                  style={{ padding: "11px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.9rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", opacity: selectedTopics.length < 3 || submitting ? 0.5 : 1 }}>
-                  {submitting ? <><Loader2 className="size-3.5 animate-spin" /> Setting up…</> : `Start exploring (${selectedTopics.length}/3+)`}
+                  style={{ padding: "12px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.9rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", opacity: selectedTopics.length < 3 || submitting ? 0.5 : 1 }}>
+                  {submitting
+                    ? <><Loader2 className="size-3.5 animate-spin" /> Setting up…</>
+                    : selectedTopics.length < 3
+                      ? `Pick ${3 - selectedTopics.length} more topic${selectedTopics.length === 2 ? "" : "s"}`
+                      : "Start exploring"}
                 </button>
               </div>
             </div>
