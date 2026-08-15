@@ -37,7 +37,7 @@ one overrides Paper.
 
 | Export | What it is | Status |
 |---|---|---|
-| `PaperCard` size `digest` | Title, byline, hero, tags, tiles behind one expand control | ✅ |
+| `PaperCard` size `digest` | Title, byline, hero, then findings and takeaway side by side behind one 2px rule; `Read paper` bottom right. No expand control, no tiles | ✅ |
 | `PaperCard` size `compact` | The same card smaller — title, byline, tags | ✅ what the rail, the vault and the permalink render |
 | `FoundationalMark` (internal) | Gold frame, the label, the eye, the reason rule | ✅ |
 | `paperByline` | authors — venue, year. One line, everywhere | ✅ |
