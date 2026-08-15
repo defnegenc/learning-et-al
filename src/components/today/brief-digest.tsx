@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Bookmark } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { CARD_PALETTES as PALETTES, washStyle } from "./palettes";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-text";
@@ -240,7 +241,65 @@ function tileListLabel(labels: string[]): string {
   return `See ${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
 }
 
-function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; paperIdx: number; expandTick?: number }) {
+// The card's one save affordance: a bookmark that says what it does. An icon
+// alone read as decoration on a card this loud, so it carries a mono label —
+// "Read later" before, "Saved" after. Optimistic, reverting if the write fails.
+function ReadLater({ paperId, initialSaved }: { paperId: string; initialSaved?: boolean }) {
+  const [saved, setSaved] = useState(!!initialSaved);
+  const [busy, setBusy] = useState(false);
+  const [hover, setHover] = useState(false);
+
+  async function toggle(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (busy) return;
+    const next = !saved;
+    setSaved(next);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/papers/${paperId}/feedback`, {
+        method: next ? "POST" : "DELETE",
+        headers: next ? { "Content-Type": "application/json" } : undefined,
+        body: next ? JSON.stringify({ type: "star" }) : undefined,
+      });
+      if (!res.ok) throw new Error("save failed");
+      if (next) {
+        // Warm the reading prep so the vault detail opens ready rather than
+        // spinning — same background pair the old source-card fired.
+        fetch(`/api/papers/${paperId}/companion`, { method: "POST" }).catch(() => {});
+        fetch(`/api/papers/${paperId}/homework`, { method: "POST" }).catch(() => {});
+      }
+    } catch {
+      setSaved(!next);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const lit = saved || hover;
+  return (
+    <button
+      onClick={toggle}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      aria-pressed={saved}
+      title={saved ? "Remove from your vault" : "Save to your vault"}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
+        background: "none", border: "none", padding: 0, cursor: "pointer",
+        fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700,
+        letterSpacing: "0.12em", textTransform: "uppercase", whiteSpace: "nowrap",
+        color: lit ? "#1a1a1a" : "rgba(26,26,26,0.5)",
+        transition: "color 0.15s",
+      }}
+    >
+      <Bookmark size={13} style={{ fill: saved ? "#1a1a1a" : "none", stroke: "currentColor", transition: "fill 0.15s" }} />
+      {saved ? "Saved" : "Read later"}
+    </button>
+  );
+}
+
+function PaperBlobCard({ paper, paperIdx, expandTick, canSave, initialSaved }: { paper: PaperItem; paperIdx: number; expandTick?: number; canSave?: boolean; initialSaved?: boolean }) {
   // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
   // sentence as the big bold TLDR; then one expand line that names the tiles it
   // reveals — THE CLAIM + FINDINGS side by side and a solid-palette full-width
@@ -288,17 +347,21 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
 
   return (
     <div ref={ref} style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Paper identity, top-left: name toggles the tiles; faint authors · year */}
-      <div>
-        <button
-          onClick={() => setExpanded(v => !v)}
-          style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.01em", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.4 }}
-        >
-          {paper.plainName || paper.title}
-        </button>
-        {byline && (
-          <div style={{ fontSize: "0.62rem", fontStyle: "italic", color: "#999", marginTop: 3 }}>{byline}</div>
-        )}
+      {/* Paper identity, top-left: name toggles the tiles; faint authors · year.
+          Top-right: the read-later bookmark. */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+        <div>
+          <button
+            onClick={() => setExpanded(v => !v)}
+            style={{ textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: DISPLAY, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.01em", color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px", lineHeight: 1.4 }}
+          >
+            {paper.plainName || paper.title}
+          </button>
+          {byline && (
+            <div style={{ fontSize: "0.62rem", fontStyle: "italic", color: "#999", marginTop: 3 }}>{byline}</div>
+          )}
+        </div>
+        {canSave && <ReadLater paperId={paper.id} initialSaved={initialSaved} />}
       </div>
 
       {/* TLDR — the first sentence, big and bold */}
@@ -365,11 +428,15 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, endSlot }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, endSlot, canSave, savedIds }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
   papers: PaperItem[];
+  /** Show the read-later bookmark on each paper card (signed-in surfaces only). */
+  canSave?: boolean;
+  /** Paper ids already in the vault, so the bookmark renders filled on load. */
+  savedIds?: Set<string>;
   /** Accepted for call-site compatibility; no longer read since digest-level Q&A was removed. */
   digestId?: string;
   /** Start fully revealed (no "Next source" pacing) — used by the digest history view. */
@@ -466,7 +533,13 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
         if (!papers[pi]) return;
         els.push(
           <div key={`c${pi}`} className="brief-line" style={{ margin: firstEl ? "0" : "34px 0 0" }}>
-            <PaperBlobCard paper={papers[pi]} paperIdx={pi} expandTick={expandTicks[pi]} />
+            <PaperBlobCard
+              paper={papers[pi]}
+              paperIdx={pi}
+              expandTick={expandTicks[pi]}
+              canSave={canSave}
+              initialSaved={savedIds?.has(papers[pi].id)}
+            />
           </div>
         );
         firstEl = false;

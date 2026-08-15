@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bookmark, ArrowLeft } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { ReadingListCard } from "./reading-list-card";
-import { ActionButton, PageHeader, PageLoader } from "@/components/design-system";
+import { NavTab, PageHeader, PageLoader } from "@/components/design-system";
 import { ReadingPaperDetail } from "./reading-paper-detail";
 import { DigestHistory } from "./digest-history";
 
 export function VaultPage() {
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
-  // Digest history is the vault's home; the reading list is a sub-view behind
-  // the top-right button.
+  // The vault is one place with two shelves — past digests and saved papers.
+  // They're peers behind tabs, not a page plus a hidden sub-view: the old
+  // bookmark-icon button read as "save this", not "go here".
   const [view, setView] = useState<"history" | "list">("history");
   const [detail, setDetail] = useState<PaperItem | null>(null);
 
@@ -34,19 +34,14 @@ export function VaultPage() {
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
       <PageHeader
-        title={view === "history" ? "Digest history" : "Reading list"}
+        title="Vault"
         action={
-          <ActionButton size="sm" onClick={() => setView(v => (v === "history" ? "list" : "history"))}>
-            {view === "history"
-              ? <><Bookmark size={13} />Reading list</>
-              : <><ArrowLeft size={13} />Back to history</>}
-          </ActionButton>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, paddingTop: 12 }}>
+            <NavTab active={view === "history"} onClick={() => setView("history")}>Digests</NavTab>
+            <NavTab active={view === "list"} onClick={() => setView("list")}>Saved papers</NavTab>
+          </div>
         }
-      >
-        {view === "history"
-          ? "Every digest you've been sent, newest first."
-          : "Papers you bookmarked. Open one to read the gist and what's happened since."}
-      </PageHeader>
+      />
 
       {view === "history" ? (
         <DigestHistory />
@@ -58,7 +53,7 @@ export function VaultPage() {
             No saved papers yet
           </span>
           <span style={{ fontSize: "0.9rem", color: "#666" }}>
-            Tap the bookmark on any paper card in your digest to save it here.
+            Hit &ldquo;Read later&rdquo; on any paper in a digest and it lands here.
           </span>
         </div>
       ) : (

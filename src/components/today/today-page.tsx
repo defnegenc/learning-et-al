@@ -452,6 +452,8 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               digestId={digest.id}
               interests={interestKeywords}
               seedField={digest.seedInterests?.[0]?.field}
+              canSave={!!session?.userId}
+              savedIds={bookmarkedIds}
               endSlot={session ? (
                 <RegenerateCta digestId={digest.id} generating={generating} onRegenerate={() => handleGenerate(true)} />
               ) : undefined}
