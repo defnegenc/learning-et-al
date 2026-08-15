@@ -37,13 +37,15 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://learningetal.com",
     siteName: "Learning et al.",
-    title: "Learning et al. — The digest that thinks.",
+    /* Matches the line on the share card — iMessage prints this under the
+       image, so the two saying different things reads as a mismatch. */
+    title: "Learning et al. — Color me curious.",
     description:
       "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests. One provocative question a day.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Learning et al. — The digest that thinks.",
+    title: "Learning et al. — Color me curious.",
     description:
       "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests.",
   },
