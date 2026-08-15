@@ -295,6 +295,56 @@ so it keeps its gradient bars. The doc used to claim the card mirrors the
 digest headline; it doesn't any more, and that's a deliberate divergence rather
 than drift. Worth revisiting if the card gets another pass.
 
+---
+
+## 2026-08-14: Saving a paper says "Read later"
+
+The vault had no door. `SourceCard` carried the only bookmark in the product and
+it renders in the "Referenced sources" rail, which is gated on `!focusMode` —
+so once the brief digest became the default view, the save control existed only
+at `?classic=1`. The API, the preloaded bookmark ids and the vault query all
+worked the whole time. Worth remembering as a class of bug: **a feature can die
+by having its entry point moved out from under it**, with every test of the
+feature itself still passing.
+
+**The bookmark carries a word.** Three options were on the table — a bare icon
+top-right, a named button inside the expanded card next to "Read paper ↗", and
+an end-of-digest "keeping anything?" step. The pick was the top-right position
+of the first with the explicitness of the second: glyph plus a mono "Read
+later". A bare bookmark on a card whose whole design thesis is one enormous bold
+line reads as decoration, and the icon alone doesn't answer *what does saving
+do* — "Read later" does, in two words, and it names the vault's purpose rather
+than its mechanism.
+
+**Saved state is a label change, not just a fill.** The control flips to
+"Saved". The filled glyph alone is the kind of state you have to look for; the
+word is the kind you notice.
+
+**Saving prefetches.** Clicking it fires the companion and homework calls in the
+background, same as the old source card, so the reading view opens ready instead
+of spinning. That's the actual argument for saving being a deliberate act rather
+than a stray tap — each save costs two model calls.
+
+**The end-of-digest keep step is still open.** It reads as the better ritual —
+you decide what to keep after you've read, not while you're reading — but it's
+a new surface. Revisit once there's data on how often the card control gets used.
+
+## 2026-08-14: The vault is two shelves, not a page with a trapdoor
+
+Digest history was the vault's home and the reading list hid behind a
+bookmark-icon `ActionButton` in the top-right corner. Two things were wrong.
+A bookmark icon on a button means *save this* everywhere else in the product,
+so the corner of the vault looked like it was offering to save the page. And
+the reading list is not a sub-view of digest history — they're the two things
+the vault holds.
+
+Now: one "Vault" title, two `NavTab`s below it (DIGESTS / SAVED PAPERS), the
+same mono-uppercase-underline the app shell uses for TODAY / VAULT. Both
+subtitle lines came out. "Every digest you've been sent, newest first." is a
+caption for a list that is visibly a list of digests in date order.
+
+**"Reading list" became "Saved papers"** in the UI. Reading list describes an
+intention the product doesn't track; saved papers describes what's in there.
 ## 2026-08-14: The short menu — one design system across every surface
 
 Paper is now the source of truth for the design system (*Brilliant petal* →

@@ -41,8 +41,18 @@ export function DigestHistory() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [digest, setDigest] = useState<LoadedDigest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
+  // Which papers are already saved — re-reading an old digest shows its
+  // bookmarks filled rather than offering to save what's already in the vault.
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   // Derived, not state: the selected digest is loading until its data arrives.
   const loadingDigest = activeId !== null && digest?.id !== activeId;
+
+  useEffect(() => {
+    fetch("/api/papers/bookmarks")
+      .then(r => (r.ok ? r.json() : { ids: [] }))
+      .then(d => setSavedIds(new Set(d.ids ?? [])))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/digest?all=true")
@@ -132,6 +142,7 @@ export function DigestHistory() {
           papers={papers}
           digestId={digest.id}
           loggedIn
+          savedIds={savedIds}
         />
       ) : (
         <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic" }}>This digest has no synthesis.</p>
