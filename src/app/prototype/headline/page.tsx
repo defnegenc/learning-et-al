@@ -257,32 +257,20 @@ function Rise({ text }: { text: string }) {
   );
 }
 
-/* ── 7. Ink-fill ──────────────────────────────────────────────────────────
-   Mine, and the one I'd actually ship. The question arrives as hollow outline
-   type and fills with ink word by word — the poster language the whole site is
-   already built on, applied to the one piece of type that deserves it. Colour
-   arrives at the end as the rule. Wrap-safe, and it costs one property. */
+/* ── 7. Ink-fill — SHIPPED ────────────────────────────────────────────────
+   The question arrives as hollow outline type and fills with ink word by word.
+   No colour at all: the palette rule this originally ended on was cut, so the
+   only event is the fill. This is what `InkTitle` in today-page.tsx does. */
 function InkFill({ text }: { text: string }) {
-  const n = text.split(" ").length;
   return (
-    <div>
-      <h1 style={{ ...H1, WebkitTextStroke: `1.5px ${INK}` }}>
-        <Words
-          text={text}
-          render={(w, i) => (
-            <span className="if-word" style={{ display: "inline-block", animationDelay: `${0.15 + i * 0.1}s` }}>{w}</span>
-          )}
-        />
-      </h1>
-      <div
-        className="if-rule"
-        style={{
-          height: 9, marginTop: 16, transformOrigin: "left center",
-          background: `linear-gradient(90deg, ${SOURCE_PALETTES[0][0]}, ${SOURCE_PALETTES[1][0]}, ${SOURCE_PALETTES[2][1]})`,
-          animationDelay: `${0.15 + n * 0.1 + 0.1}s`,
-        }}
+    <h1 style={{ ...H1, WebkitTextStrokeColor: INK }}>
+      <Words
+        text={text}
+        render={(w, i) => (
+          <span className="if-word" style={{ display: "inline-block", animationDelay: `${0.15 + i * 0.1}s` }}>{w}</span>
+        )}
       />
-    </div>
+    </h1>
   );
 }
 
@@ -318,8 +306,8 @@ const CANDIDATES: { key: string; name: string; note: string; el: (t: string) => 
     el: t => <Rise text={t} />,
   },
   {
-    key: "inkfill", name: "7 · Ink-fill",
-    note: "Hollow outline type fills with ink word by word, then the palette rule lands. The poster language the site already uses, applied to the one line that earns it. My pick.",
+    key: "inkfill", name: "7 · Ink-fill — SHIPPED",
+    note: "Hollow outline type fills with ink word by word. No colour — the palette rule it used to end on was cut. This is what the digest headline does now.",
     el: t => <InkFill text={t} />,
   },
 ];
@@ -392,23 +380,25 @@ export default function HeadlinePrototype() {
         @keyframes rsRule { from { transform: scaleX(0) } to { transform: scaleX(1) } }
         .rs-rule { animation: rsRule calc(0.45s * var(--spd)) ease-out both; }
 
-        /* 7 · Ink-fill — the stroke stays put, only the fill animates. */
-        @keyframes ifFill { from { color: transparent } to { color: ${INK} } }
+        /* 7 · Ink-fill — the stroke goes to 0 as the fill arrives, so the
+           resting headline is exactly today's weight, not a stroked version. */
+        @keyframes ifFill {
+          from { color: transparent; -webkit-text-stroke-width: 1.5px }
+          to   { color: ${INK};      -webkit-text-stroke-width: 0px }
+        }
         .if-word { animation: ifFill calc(0.4s * var(--spd)) ease-out both; }
-        @keyframes ifRule { from { transform: scaleX(0) } to { transform: scaleX(1) } }
-        .if-rule { animation: ifRule calc(0.5s * var(--spd)) ease-out both; }
 
         /* Reduced motion gets each candidate's RESTING state — not its first
            frame, which for Declassify would be a fully redacted headline. */
         @media (prefers-reduced-motion: reduce) {
           .sw-bar, .ti-word, .hl-word, .st-word, .st-tile, .dc-block, .dc-rule,
-          .rs-word, .rs-rule, .if-word, .if-rule {
+          .rs-word, .rs-rule, .if-word {
             animation: none !important;
           }
           .ti-word, .if-word { color: ${INK} !important }
           .hl-word { background-size: 100% 46% !important }
           .dc-block { transform: scaleX(0) !important }
-          .dc-rule, .rs-rule, .if-rule { transform: scaleX(1) !important }
+          .dc-rule, .rs-rule { transform: scaleX(1) !important }
         }
       `}</style>
 
