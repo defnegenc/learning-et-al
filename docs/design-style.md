@@ -183,6 +183,32 @@ Candidates for a custom loader live at `/prototype/loaders`.
 
 ---
 
+## The share card (OG image)
+
+`src/app/opengraph-image.tsx` — the 1200×630 thumbnail iMessage, Slack and
+Twitter render. `twitter-image.tsx` re-exports it, so there is one card.
+
+It follows the page template, not a poster language: white field, ink frame,
+wordmark top-left, hero, one line at `#666`, the address. The hero is the
+**sweep** — two phrases in Cabinet Grotesk 700 `-0.04em`, each with the
+gradient bar from `SOURCE_PALETTES[0]` and `[1]` under it, exactly as
+`SweepTitle` draws it on the digest. Colour appears only in those two bars.
+
+Two constraints, both from Satori (the renderer behind `next/og`):
+
+- **No `filter: blur()`.** It rasterises as hard-edged rectangles, not soft
+  blobs. Washes must be `linear-gradient` / `radial-gradient`.
+- **No woff2.** Only ttf/otf/woff. Cabinet Grotesk ships as woff2, so a
+  decompressed `CabinetGrotesk-Bold.ttf` lives in `public/fonts` purely for
+  this route (`fonttools`: open the woff2, clear `flavor`, save as `.ttf`).
+  Apercu is already `.otf` and Space Grotesk already `.ttf`.
+
+Satori has no inline layout — a background under a run of text has to be a
+sibling `<div>` pulled up with a negative margin, and the phrase column needs
+`alignSelf: flex-start` or the bar stretches the full width.
+
+---
+
 ## Motion
 
 - **No animation library.** Framer Motion (~120 KB) and Lottie (~250 KB) both
