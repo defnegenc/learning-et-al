@@ -185,7 +185,7 @@ the wash index can no longer drift between two files.
 | `Card` / `CardGrid` | The frame (2px + `5px 5px 0`) and the standard shelf |
 | `Tag` | Body-face tag, `glass` \| `solid` |
 | `TopicChip` / `AddChip` | Interest-picker units. Idle white + 2px dashed rule; selected = the field's slot behind a solid ink border |
-| `Segmented` | The one "pick exactly one" shape |
+| `Segmented` | The one "pick exactly one" shape. Settings navigation is the nav rail, not this — a segmented control reads as a toggle |
 | `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye |
 | `TextInput` | The one input shape |
 | `wash` / `washSlots` / `wordSlot` / `SPECTRUM` | The three spectrum indexes |
@@ -200,11 +200,11 @@ are separate, honour `prefers-reduced-motion`.
 
 | Surface | Notes |
 |---|---|
-| Today (`today/`) | Digest column 760px. Question at Display/LG with the sweep (spectrum 0+1 and 3+4, 7px bar). `PaperCard` size `digest` |
+| Today (`today/`) | Digest column 760px. Question at Display/LG, ink-fill (see §8) — no colour. `PaperCard` size `digest`. No em dashes in static copy on this surface, and `METADATA_RULES` bans them in generated copy |
 | Classic (`?classic=1`) | `synthesis-banner.tsx`. Paper names are ink underlines, not coloured highlights; `[N]` citations take the cited card's wash slot |
 | Vault | Digest history (rail + pane) and the reading list — `PaperCard` size `compact` |
 | Reading detail | 680px column. Title, byline, gist, then what's happened since |
-| Settings / Onboarding | Full-screen sheet below `md`. `InterestLedger` for both |
+| Settings / Onboarding | Full-screen sheet below `md`, nav rail above it. `InterestLedger` for both |
 | `/prototype/*` | `interests`, `loaders`, `headline`. Live, unauthenticated, rendering the shipping components |
 | Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards |
 | Share card | `opengraph-image.tsx`. No `filter: blur()` and no woff2 — Satori limits. See §7 |
@@ -212,17 +212,33 @@ are separate, honour `prefers-reduced-motion`.
 
 ### The interest picker
 
-Ten fields, ~80 topics. Fields collapse: a field opens if it holds something you
-picked, else the first opens so it doesn't read as ten locked drawers. Collapsed
-rows preview their contents. One search box does two jobs — filter everything at
-once, and a phrase that matches nothing becomes the custom-topic adder. The
-capacity meter is `N of 30 topics · across K of 10 fields` over a 10px bar whose
-segments are the field slots; no bar at zero.
+Ten fields, ~80 topics, **ten collapsing rows and nothing else**. A field opens
+if it holds something you picked, else the first opens so it doesn't read as ten
+locked drawers; a closed row previews what's inside it. No search box, no
+All/Selected filter, no capacity meter — all three shipped and all three came
+out. The cap speaks only when it binds. "+ Add" is per field, at the end of its
+chips: the original objection was ten of them stacked down the page, but with
+fields collapsed only the open one shows a button.
 
-Row vocabulary comes from the Paper board: swatch (the field's fixed slot),
-field name at Display/SM, count as the row's one mono Label. The board draws all
-ten fields open in a 1280px panel; the accordion stays because the settings
-sheet is 880px and a phone is 375px.
+The row header's geometry is fixed — swatch, name and chevron share one line and
+the preview hangs below, so nothing whose position depends on `isOpen` sits on
+that line and opening a field can't shift the swatch or the title.
+
+Row vocabulary is the Paper board's: swatch in the field's own fixed slot, name
+at Display/SM, preview in Body/SM. **The board also draws a per-row count and
+that stays cut** — the board decides how a row looks, the product decision
+decides what it contains. Same reason the board draws all ten fields open in a
+1280px panel and the accordion stays: the settings sheet is 880px and a phone is
+375px.
+
+### Settings
+
+A 190px nav rail on the left, the section on the right, the active row marked by
+a 2px ink left bar. Below `md` the rail becomes a full-width underlined tab
+strip — the segmented control it replaced read as a toggle rather than as
+navigation. The footer rule is 1px so the panel's top and bottom lines match.
+Initial focus lands on the panel, not on "Done", which was otherwise opening
+inside a focus ring that read as a border.
 
 ---
 
@@ -232,8 +248,17 @@ sheet is 880px and a phone is 375px.
 `filter: blur()` (it rasterises as hard rectangles) and no woff2. Cabinet
 Grotesk ships as woff2, so a decompressed `CabinetGrotesk-Bold.ttf` lives in
 `public/fonts` purely for this route. Satori has no inline layout — a background
-under a run of text has to be a sibling `<div>` pulled up with a negative margin.
-The sweep hues are inlined and must move when `washSlots` moves.
+under a run of text has to be a sibling `<div>` pulled up with a negative margin,
+and the phrase column needs `alignSelf: flex-start` or the bar stretches full
+width.
+
+The card's hero keeps the **sweep bars** — two phrases each with a gradient bar
+under it, in card 1 and card 2's wash hues. The digest headline used to draw the
+same device and doesn't any more, so this is the one place it still lives: a
+static image has no animation to carry, and a white card with plain black type
+says nothing. That's a deliberate divergence, not drift, and it's the thing to
+reconsider if the card gets another pass. The hues are inlined and must move
+when `washSlots` moves.
 
 **Email** (`src/lib/email.ts`) can't load web fonts, CSS variables or
 `radial-gradient`. The display face falls back to the system grotesque and the
@@ -250,6 +275,17 @@ Durations: 120–150ms hover/state, 400–520ms entrances, 1.5–2s loops. Entra
 rise 6px and fade (`briefRise`); mechanical loops use `steps()`, not easing.
 Custom art arrives as SVG (square viewBox, strokes left as strokes, no masks or
 filters, named layers), inlined and animated in CSS — not GIF, not Lottie.
+
+**The digest headline is `InkTitle`** (`today-page.tsx`): Display/LG as hollow
+outline type, filling with ink one word at a time, 0.4s per word on a 0.1s
+stagger. The stroke animates to 0 as the fill lands, so the resting headline is
+plain Display/LG — the animation leaves nothing behind, which is the test any
+future headline treatment has to pass: *what does this look like after it
+finishes?* No colour; every candidate that ended on a palette rule was rejected,
+because colour on this product means **a source** and the question isn't one.
+The stroke is 1px, not the prototype's 1.5px — the menu halved the headline, and
+1.5px on 32px type is a heavier outline than the same value was on 64px.
+Alternatives live at `/prototype/headline`.
 
 ---
 

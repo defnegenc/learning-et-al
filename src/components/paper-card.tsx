@@ -33,7 +33,7 @@ export function paperByline(paper: PaperItem): string {
       ? paper.authors.join(" & ")
       : `${paper.authors[0]}${paper.authors[1] ? `, ${paper.authors[1]}` : ""} et al.`;
   const venue = [journal, paper.year ? String(paper.year) : ""].filter(Boolean).join(", ");
-  return [authors, venue].filter(Boolean).join(" — ");
+  return [authors, venue].filter(Boolean).join(" · ");
 }
 
 /** The bookmark — the acid green fill is the only colour on the card's chrome. */

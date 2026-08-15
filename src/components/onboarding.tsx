@@ -169,12 +169,10 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
           </div>
         )}
 
-        {/* STEP 2 — ledger. No top padding: the picker's toolbar sticks to the
-            top of this scroller, and a padding band would let chips slide
-            behind it in the gap. */}
+        {/* STEP 2 — ledger */}
         {step === 2 && (
           <>
-            <div className="flex-1 overflow-y-auto" style={{ padding: "0 20px 8px" }}>
+            <div className="flex-1 overflow-y-auto" style={{ padding: "4px 20px 8px" }}>
               <InterestLedger
                 selected={selectedTopics}
                 custom={custom}

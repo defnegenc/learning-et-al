@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import dynamic from "next/dynamic";
-import { washSlots } from "./palettes";
 import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
@@ -24,71 +23,41 @@ import React from "react";
 
 /* ── Types ── */
 
-/* ── Animated sweep title ── */
-// Phase "exit-prep" instantly switches background anchor to right (no visual change at 100% size),
-// then "exit" animates size→0 with right anchor so the bar collapses left-to-right.
-type BarPhase = "hidden" | "in" | "exit-prep" | "exit";
-
-function SweepTitle({ text }: { text: string }) {
-  const [p1, setP1] = useState<BarPhase>("hidden");
-  const [p2, setP2] = useState<BarPhase>("hidden");
-
-  const VERBS = new Set(["drive", "drives", "shape", "shapes", "affect", "affects", "are", "is",
-    "make", "makes", "help", "helps", "change", "changes", "influence", "influences",
-    "determine", "determines", "impact", "impacts", "reveal", "reveals", "show", "shows",
-    "explain", "explains", "challenge", "challenges", "use", "uses", "enable", "enables",
-    "transform", "transforms", "predict", "predicts", "blur", "blurs", "define", "defines"]);
+/* ── Ink-fill title ── */
+// The question arrives as hollow outline type and fills with ink one word at a
+// time. Replaced the two-phase gradient sweep: same resting state, no colour,
+// and because each word is its own box it survives line wrapping without
+// measuring anything.
+//
+// The stroke goes to 0 as the fill arrives, so the headline you actually sit
+// and read is exactly Display/LG with nothing left over. The stroke is 1px, not
+// the prototype's 1.5px: the menu halved the headline, and 1.5px on 32px type
+// is a heavier outline than 1.5px on 64px was. `key` on the h1 remounts it when
+// the headline changes, restarting the fill.
+function InkTitle({ text }: { text: string }) {
   const words = text.split(" ");
-  let splitIdx = -1;
-  for (let i = 1; i < words.length - 1; i++) {
-    if (VERBS.has(words[i].replace(/[^a-z]/gi, "").toLowerCase())) { splitIdx = i; break; }
-  }
-  if (splitIdx <= 0) splitIdx = Math.ceil(words.length / 2);
-
-  const phrase1 = words.slice(0, splitIdx).join(" ");
-  const phrase2 = words.slice(splitIdx).join(" ");
-
-  useEffect(() => {
-    setP1("hidden"); setP2("hidden");
-    const ts = [
-      setTimeout(() => setP1("in"), 200),
-      setTimeout(() => setP1("exit-prep"), 830),  // instant anchor switch (no visual change)
-      setTimeout(() => setP1("exit"), 845),         // now animate size→0 from right anchor
-      setTimeout(() => setP2("in"), 1060),
-      setTimeout(() => setP2("exit-prep"), 1690),
-      setTimeout(() => setP2("exit"), 1705),
-    ];
-    return () => ts.forEach(clearTimeout);
-  }, [text]);
-
-  // Uses display:inline + background-image so the bar follows text wrapping per-line,
-  // not the inline-block box width (which overshoot on wrapped lines).
-  // The bar reads the same two spectrum slots as card 1 and card 2 — the sweep
-  // is the digest's own colour arriving, not a decoration with its own palette.
-  const phraseStyle = (phase: BarPhase, c1: string, c2: string): React.CSSProperties => {
-    const rightAnchor = phase === "exit-prep" || phase === "exit";
-    return {
-      display: "inline",
-      backgroundImage: `linear-gradient(90deg, ${c1} 0%, ${c2} 100%)`,
-      backgroundRepeat: "no-repeat",
-      backgroundPosition: rightAnchor ? "right bottom" : "left bottom",
-      backgroundSize: (phase === "in" || phase === "exit-prep") ? "100% 7px" : "0% 7px",
-      transition: phase === "in"   ? "background-size 0.52s ease-in-out"
-                : phase === "exit" ? "background-size 0.44s ease-in-out"
-                : "none",
-      paddingBottom: "8px",
-    };
-  };
-
-  const [a1, b1] = washSlots(0);
-  const [a2, b2] = washSlots(1);
-
   return (
-    <h1 style={{ ...DISPLAY_LG, margin: "0 0 28px" }}>
-      <span style={phraseStyle(p1, a1, b1)}>{phrase1}</span>
-      {" "}
-      <span style={phraseStyle(p2, a2, b2)}>{phrase2}</span>
-    </h1>
+    <>
+      <style>{`
+        @keyframes inkFill {
+          from { color: transparent; -webkit-text-stroke-width: 1px }
+          to   { color: ${INK};      -webkit-text-stroke-width: 0px }
+        }
+        .ink-word { display: inline-block; animation: inkFill 0.4s ease-out both; }
+        @media (prefers-reduced-motion: reduce) {
+          .ink-word { animation: none !important; color: ${INK} !important; -webkit-text-stroke-width: 0 !important }
+        }
+      `}</style>
+      <h1 key={text} style={{ ...DISPLAY_LG, WebkitTextStrokeColor: INK, margin: "0 0 28px" }}>
+        {words.map((w, i) => (
+          <React.Fragment key={i}>
+            {/* the space lives outside the animated box so it can't shift */}
+            <span className="ink-word" style={{ animationDelay: `${0.15 + i * 0.1}s` }}>{w}</span>
+            {i < words.length - 1 ? " " : ""}
+          </React.Fragment>
+        ))}
+      </h1>
+    </>
   );
 }
 
@@ -325,7 +294,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         setGenerateError(data.error || `Generation failed (${res.status}). Check your API key in settings.`);
       }
     } catch (err) {
-      setGenerateError("Network error — couldn't reach the server.");
+      setGenerateError("Network error. Couldn't reach the server.");
       console.error("Failed to generate digest:", err);
     } finally {
       setGenerating(false);
@@ -346,7 +315,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           Today&apos;s digest is brewing
         </h1>
         <p style={{ ...BODY_STYLE, color: DIM, textAlign: "center", maxWidth: 440 }}>
-          Check back soon — a fresh research digest is generated every day.
+          Check back soon. A fresh research digest is generated every day.
         </p>
         {session && generateError && (
           <p style={{ ...BODY_STYLE, color: ACID_PINK, maxWidth: 440, textAlign: "center" }}>{generateError}</p>
@@ -425,7 +394,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               )}
             </div>
 
-            <SweepTitle text={displayTheme} />
+            <InkTitle text={displayTheme} />
 
             <DigestHeader
               seedInterests={digest.seedInterests}

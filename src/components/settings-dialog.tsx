@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +13,8 @@ import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
 import {
-  ACID_GREEN, ActionButton, BODY_STYLE, BORDER, DIM, FIELD, HAIRLINE, INK, Label, MUTED,
-  NavTab, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE,
+  ACID_GREEN, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_SM, FIELD, HAIRLINE, INK,
+  Label, MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE,
 } from "@/components/design-system";
 
 export type SettingsTab = "interests" | "account";
@@ -48,6 +48,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = (v: boolean) => { isControlled ? onOpenChange?.(v) : setInternalOpen(v); };
   const [tab, setTab] = useState<SettingsTab>("interests");
+  const initialFocusRef = useRef<HTMLDivElement>(null);
   const { data: authSession } = useAuthSession();
 
   // Interests state
@@ -169,30 +170,64 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
         className="flex flex-col p-0 gap-0 w-screen h-[100dvh] max-w-none rounded-none md:w-full md:max-w-[880px] md:h-[90vh]"
         style={{ borderRadius: 0 }}
         showCloseButton={false}
+        // Focus the panel itself, not the first button in it — otherwise
+        // "Done" opens wearing a focus ring and reads as a bordered control.
+        initialFocus={initialFocusRef}
       >
-        {/* ── Top bar — tabs live here on desktop, under it on mobile ── */}
+        <div ref={initialFocusRef} tabIndex={-1} style={{ outline: "none", position: "absolute" }} aria-hidden />
+        {/* ── Top bar ── */}
         <SiteHeader style={{ flexShrink: 0 }} right={
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-4">
-              {navItems.map(n => (
-                <NavTab key={n.key} active={tab === n.key} onClick={() => setTab(n.key)}>{n.label}</NavTab>
-              ))}
-            </div>
-            <ActionButton variant="plain" onClick={() => setOpen(false)}>Done</ActionButton>
-          </div>
+          <ActionButton variant="plain" onClick={() => setOpen(false)}>Done</ActionButton>
         } />
 
-        {/* Mobile tab bar — full width, thumb-sized, so Account is never a
-            9px word tucked in the corner of the header. */}
-        <div className="md:hidden px-4 pt-3 pb-1" style={{ flexShrink: 0 }}>
-          <Segmented
-            value={tab}
-            onChange={setTab}
-            options={navItems.map(n => ({ key: n.key, label: n.label }))}
-          />
-        </div>
+        {/* The settings shape everyone already knows: a nav rail on the left,
+            the section on the right. Below md the rail becomes a tab strip
+            across the top, since a phone has no width to spare for it. */}
+        <div className="flex-1 flex overflow-hidden">
+          <nav
+            className="hidden md:block"
+            style={{ width: 190, flexShrink: 0, borderRight: `1px solid ${INK}`, padding: "16px 0" }}
+          >
+            {navItems.map(n => (
+              <button
+                key={n.key}
+                onClick={() => setTab(n.key)}
+                aria-current={tab === n.key ? "page" : undefined}
+                style={{
+                  ...DISPLAY_SM,
+                  display: "block", width: "100%", textAlign: "left",
+                  padding: "12px 20px", background: "none", border: "none",
+                  borderLeft: `2px solid ${tab === n.key ? INK : "transparent"}`,
+                  color: tab === n.key ? INK : MUTED,
+                  cursor: "pointer", transition: "color 140ms",
+                }}
+              >
+                {n.label}
+              </button>
+            ))}
+          </nav>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <div className="md:hidden flex" style={{ flexShrink: 0, borderBottom: `1px solid ${INK}` }}>
+              {navItems.map(n => (
+                <button
+                  key={n.key}
+                  onClick={() => setTab(n.key)}
+                  aria-current={tab === n.key ? "page" : undefined}
+                  style={{
+                    ...DISPLAY_SM,
+                    flex: 1, padding: "14px 8px", background: "none", border: "none",
+                    borderBottom: `2px solid ${tab === n.key ? INK : "transparent"}`,
+                    marginBottom: -1,
+                    color: tab === n.key ? INK : MUTED,
+                    cursor: "pointer",
+                  }}
+                >
+                  {n.label}
+                </button>
+              ))}
+            </div>
+
           {/* ── Interests tab ── */}
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -200,7 +235,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                 <Label style={{ marginBottom: 12 }}>Preferences / Interests</Label>
                 <PageTitle style={{ marginBottom: 12 }}>Curate your feed</PageTitle>
                 <p style={{ ...BODY_STYLE, color: DIM, maxWidth: 560, margin: 0 }}>
-                  Pick the topics your daily digest thinks with. Breadth beats depth — the algorithm samples across everything you choose.
+                  Pick the topics your daily digest thinks with. Breadth beats depth, so it samples across everything you choose.
                 </p>
               </div>
 
@@ -229,7 +264,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               {authSession?.user && (
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28, paddingBottom: 24, borderBottom: HAIRLINE }}>
                   {authSession.user.image && (
-                    <img src={authSession.user.image} alt="" style={{ width: 40, height: 40, border: `1px solid ${INK}` }} />
+                    <img src={authSession.user.image} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", border: "1.5px solid rgba(26,26,26,0.12)" }} />
                   )}
                   <div style={{ minWidth: 0 }}>
                     <div style={{ ...BODY_STYLE, fontWeight: 600 }}>{authSession.user.name}</div>
@@ -241,7 +276,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               {/* Delivery — moved off the Interests tab so picking topics on a
                   phone isn't two screens of preferences before the first chip. */}
               <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: HAIRLINE }}>
-                <SectionLabel style={{ marginBottom: 12 }}>How often</SectionLabel>
+                <SectionLabel style={{ marginBottom: "10px" }}>How often</SectionLabel>
                 <Segmented
                   value={cadence}
                   onChange={setCadence}
@@ -251,7 +286,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                   {CADENCE.find(c => c.key === cadence)?.desc}
                 </p>
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginTop: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginTop: 20 }}>
                   <div>
                     <SectionLabel>Email it to me</SectionLabel>
                     <div style={{ ...BODY_STYLE, color: MUTED, marginTop: 4 }}>Otherwise it waits for you on the site.</div>
@@ -262,16 +297,16 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                     aria-checked={!emailOptOut}
                     aria-label="Email digests"
                     style={{
-                      width: 46, height: 26, border: BORDER,
+                      width: 46, height: 26, border: `2px solid ${INK}`,
                       background: emailOptOut ? SURFACE : INK,
-                      position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 140ms",
+                      position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 0.15s",
                     }}
                   >
                     <span style={{
                       position: "absolute", top: 2, left: emailOptOut ? 2 : 20,
                       width: 18, height: 18,
                       background: emailOptOut ? INK : SURFACE,
-                      transition: "left 140ms",
+                      transition: "left 0.15s",
                     }} />
                   </button>
                 </div>
@@ -279,12 +314,12 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
 
               {isAdmin && (
                 <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: HAIRLINE }}>
-                  <SectionLabel style={{ marginBottom: 6 }}>Today&rsquo;s digest</SectionLabel>
+                  <SectionLabel style={{ marginBottom: "4px" }}>Today&rsquo;s digest</SectionLabel>
                   <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 14px" }}>
-                    Build it again from scratch — new question, new papers.
+                    Build it again from scratch. New question, new papers.
                   </p>
                   <ActionButton onClick={() => { onRegenerate?.(); setOpen(false); }} style={{ width: "100%", justifyContent: "center" }}>
-                    <RefreshCw className="size-3.5" />
+                    <RefreshCw size={15} />
                     Regenerate digest
                   </ActionButton>
                 </div>
@@ -298,20 +333,19 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                 }}
                 style={{ width: "100%", justifyContent: "center" }}
               >
-                <LogOut className="size-3.5" />
+                <LogOut size={15} />
                 Sign out
               </ActionButton>
             </div>
           )}
-        </main>
-
-        {/* ── One footer for both tabs — Save is never scrolled off ── */}
+        {/* ── One footer for both tabs — Save is never scrolled off. Its rule
+            is the header's rule: same 1px ink line top and bottom. ── */}
         <div
           className="px-4 md:px-10"
           style={{
             borderTop: HAIRLINE, background: SURFACE, flexShrink: 0,
-            paddingTop: 16, paddingBottom: "max(16px, env(safe-area-inset-bottom))",
-            display: "flex", alignItems: "center", gap: 16,
+            paddingTop: 12, paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+            display: "flex", alignItems: "center", gap: 10,
           }}
         >
           {saved ? (
@@ -324,13 +358,18 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
             </span>
           )}
           {tab === "interests" && selectedTopics.length > 0 && (
-            <ActionButton variant="plain" onClick={() => { setSelectedTopics([]); setCustomTopics({}); }} style={{ color: MUTED }}>
+            <button
+              onClick={() => { setSelectedTopics([]); setCustomTopics({}); }}
+              style={{ ...DISPLAY_SM, color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "8px 4px" }}
+            >
               Clear all
-            </ActionButton>
+            </button>
           )}
           <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
             {saving ? <Loader2 size={15} className="animate-spin" /> : tab === "interests" ? "Save interests" : "Save"}
           </ActionButton>
+            </div>
+          </main>
         </div>
       </DialogContent>
     </Dialog>

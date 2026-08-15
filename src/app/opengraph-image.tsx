@@ -9,9 +9,10 @@ export const contentType = "image/png";
 const INK = "#1a1a1a";
 const DIM = "#444444";
 
-/* The same two pairs the digest title sweeps with — spectrum slots 0+1 (card 1)
-   and 3+4 (card 2). Inlined rather than imported because this route runs in the
-   edge renderer and must not pull a client component. Keep in step with
+/* Card 1 and card 2's wash hues — spectrum slots 0+1 and 3+4 — and now the only
+   place the sweep bar survives, since the digest headline moved to InkTitle and
+   carries no colour. Inlined rather than imported because this route runs in
+   the edge renderer and must not pull a client component: keep in step with
    `washSlots` in design-system.tsx. */
 const SWEEP_1 = ["#fecaca", "#fed7aa"];
 const SWEEP_2 = ["#d9f99d", "#bbf7d0"];
@@ -20,9 +21,9 @@ const font = (file: string) =>
   readFile(path.join(process.cwd(), "public/fonts", file)).catch(() => null);
 
 /**
- * A phrase of the hero line with the gradient sweep bar under it — the same
- * device as `SweepTitle` on the digest, drawn as a sibling bar because Satori
- * has no inline background-size animation.
+ * A phrase of the hero line with the gradient sweep bar under it. A static
+ * image can't animate, so the card keeps the bars as its own device — the
+ * digest headline itself no longer draws them.
  */
 function Phrase({ text, colors, display }: { text: string; colors: string[]; display: string }) {
   return (

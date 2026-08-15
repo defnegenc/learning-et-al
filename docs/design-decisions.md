@@ -213,31 +213,37 @@ The payload was never the bottleneck on the public path; **JS and cold starts ar
 **The gist is back under the headline.** It was hidden during the dead-simple pass, but `flattenSynthesis` still drops the synthesis intro paragraph on the premise that "the gist already hooks the reader" — so with the gist off, the digest opened straight onto a source and the actual answer to the central question only arrived in the closing line. Putting it back restores the intended read: question → one-sentence answer → the sources that earn it. Behind `SHOW_GIST` in `digest-header.tsx` if it needs to come off again.
 ---
 
-## 2026-08-14: The interest picker shows one field at a time
+## 2026-08-14: The interest picker shows one field at a time, and nothing else
 
-Eighty topics under ten headings, rendered flat, is a wall — and it was the
-first thing a new user met at onboarding step 2. The fix wasn't a restyle:
+Eighty topics under ten headings, rendered flat, is a wall, and it was the first
+thing a new user met at onboarding step 2. The fix wasn't a restyle:
 
 - **Collapse the fields.** A field opens if it holds something you picked;
-  otherwise the first one opens so it doesn't read as ten locked drawers.
-  Collapsed rows preview their contents — your picks if you have any, otherwise
-  the first four topics — so closing something never hides what's inside it.
-- **The search box is also the adder.** It filters all ten fields at once, and a
-  phrase that matches nothing becomes "Nothing matches X. Add it to [field]".
-  The old design repeated a "+ Add" chip down every row: ten controls to offer
-  one action, and none of them findable by typing what you actually wanted.
-- **A filter, not a tray.** "Selected · N" filters the same list rather than
-  pinning a second copy of your chips to the top. Two places showing the same
-  chips is two places to keep in sync and one more thing to read.
-- **The meter answers the subtitle's question.** "N of 30 topics · across K
-  fields" over a bar segmented in field colours. The digest samples across
-  everything you pick, so *spread* is the number that changes your feed —
-  "how full is the box" isn't. No bar at zero.
+  otherwise the first one opens so it doesn't read as ten locked drawers. A
+  closed row previews its contents, so closing something never hides what's in
+  it.
+- **The row header's geometry is fixed.** Swatch, name and chevron share one
+  line of constant height. The first build let a per-field count and a preview
+  change that line's height, so opening a field made the swatch and the count
+  jump. On a phone that reads as a bug, not as an animation.
+- **Cut the search box, the All/Selected filter and the capacity meter.** All
+  three shipped in the first version and all three came out. The accordion is
+  browsable enough that a search box was one more thing to look past; the filter
+  duplicated what the row previews already say; and "21 of 30 topics · across 6
+  fields" was a number nobody was deciding anything with. The cap now speaks
+  only when it binds.
+- **"+ Add" went back to being per field**, at the end of its chips. The
+  objection to it originally was ten of them stacked down the page — but with
+  fields collapsed, only the open one shows a button.
 
 **Why chips stopped being mono uppercase:** at 11px with 1.2px tracking a chip
 is legible on its own and pure texture in bulk, and bulk is the only way this
 screen is ever seen. Sentence case in the body face, 0.85rem. They keep their
-6px radius — still the one rounded element in the product.
+6px radius, still the one rounded element in the product.
+
+**The general rule this leaves:** every control on a picker has to earn its
+place against the list itself. Search, filters and counters all look like
+features in a spec and like clutter on the screen.
 
 ## 2026-08-14: Settings is a full-screen sheet on a phone, and delivery lives with the account
 
@@ -256,6 +262,37 @@ of rethought:
 
 The rule that generalises: **a dialog below `md` is a full-screen sheet.** Not a
 90vh box inset by a rem, with its own scrollbar inside the page's scrollbar.
+
+---
+
+## 2026-08-14: The digest headline fills with ink
+
+Seven candidates went up at `/prototype/headline` — the existing sweep, three
+built from ideas about colour and tumbling cards, and three of mine. **Ink-fill
+won**: the question arrives as hollow outline type and floods with ink one word
+at a time. It's the poster language the rest of the site already uses, applied
+to the one line that earns it.
+
+**No colour.** The version that shipped drops the palette rule the prototype
+ended on. The headline is the only thing on the page with nothing competing
+against it, and every colour candidate — highlighter marks, tumbling card
+tiles, a gradient rule — spent that quiet to say nothing in particular. Colour
+on this product means *a source*: card washes, takeaway tiles, the loader. The
+question isn't a source.
+
+**The animation must leave nothing behind.** First cut kept a fixed 1.5px
+stroke so the outline had something to draw with, which made the resting
+headline permanently heavier than before. That's the wrong trade: you watch the
+animation for half a second and read the result for ten minutes. The stroke now
+animates to 0 as the fill arrives, so the headline you sit with is exactly the
+old one. Any future headline treatment should pass the same test — **what does
+this look like after it finishes?**
+
+**The share card is now the only place the sweep survives.** A static OG image
+has no animation to carry, and a white card with plain black type says nothing,
+so it keeps its gradient bars. The doc used to claim the card mirrors the
+digest headline; it doesn't any more, and that's a deliberate divergence rather
+than drift. Worth revisiting if the card gets another pass.
 
 ## 2026-08-14: The short menu — one design system across every surface
 
@@ -324,3 +361,25 @@ one import solves it.
 **One rule keeps it short:** no surface may invent a hex, a type size, a border
 width or a shadow offset. If you need one, it goes in Paper first, then
 `globals.css` and `design-system.tsx`, then the surface.
+
+### Where the menu met the day's other three changes
+
+The short menu and three main-line changes (the ink-fill headline, the picker
+cut back to ten rows, the settings nav rail) were built the same day against the
+same files. Reconciling them settled a rule worth keeping:
+
+**The design system governs style, not what's on screen.** The Paper board's
+interests panel draws a per-row count ("3 / 10"); the picker rebuild
+deliberately cut every counter, on the grounds that nobody was deciding anything
+with the number. The count stays cut. The board decides how a field row *looks* —
+swatch in the field's own slot, name at Display/SM, preview in Body/SM — and the
+product decision decides what the row *contains*. When a board and a later
+product decision disagree about information rather than about style, the product
+decision wins and the board should be redrawn.
+
+Two smaller reconciliations followed the same logic. InkTitle keeps its ink-fill
+but is set in Display/LG, and its stroke drops from 1.5px to 1px — the menu
+halved the headline, and 1.5px on 32px type is a heavier outline than the same
+value was on 64px. The em-dash rule reaches `paperByline`, which is exactly the
+separator change the now-deleted SourceCard had made.
+
