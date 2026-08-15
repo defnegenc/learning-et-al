@@ -82,7 +82,7 @@ export function RegenerateCta({ digestId, generating, onRegenerate }: {
             </ActionButton>
           </div>
           <p id="regenerate-reason-requirement" style={{ ...BODY_STYLE, fontSize: 13, color: MUTED, margin: 0, textAlign: "left" }}>
-            {hasEnoughWords ? "Thanks — that helps." : `Please enter at least ${MIN_REASON_WORDS} words.`}
+            {hasEnoughWords ? "Thanks, that helps." : `Please enter at least ${MIN_REASON_WORDS} words.`}
           </p>
         </div>
       )}

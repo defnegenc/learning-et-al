@@ -413,7 +413,12 @@ If the critique flagged a formulaic closing, rewrite the final sentence so it en
 // ─── Shared rule blocks ──────────────────────────────────────────────────────
 
 function METADATA_RULES(ctx?: DigestContext) {
-  return `CONNECTION TO THEME RULES:
+  return `PUNCTUATION (applies to EVERY string you return, not just the prose fields):
+- NO em dashes ("—") anywhere. Not in summaries, findings, claims, takeaways, method facts, concept definitions, names or questions.
+- Where you'd reach for one, use a period, a comma, "but", or "and". "Sleep prunes connections, and the pruners scored highest."
+- The same goes for the double-hyphen "--". Write the sentence out instead.
+
+CONNECTION TO THEME RULES:
 - Each item needs a "connectionToTheme" — a SHORT phrase (5-10 words) explaining why it's here
 - NO prefixes like "Directly answers..." or "A bit of a stretch..."
 - Just the reason: "shows what happens when you remove human teachers" or "the tech behind the trust problem"
