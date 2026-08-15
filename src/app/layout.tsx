@@ -30,24 +30,22 @@ export const metadata: Metadata = {
     template: "%s — Learning et al.",
   },
   description:
-    "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests. One provocative question a day.",
+    "A daily research digest that finds, synthesises, and contrasts papers around one provocative question.",
   applicationName: "Learning et al.",
   keywords: ["research digest", "AI", "papers", "synthesis", "daily reading"],
   openGraph: {
     type: "website",
     url: "https://learningetal.com",
     siteName: "Learning et al.",
-    /* Matches the line on the share card — iMessage prints this under the
-       image, so the two saying different things reads as a mismatch. */
-    title: "Learning et al. — Color me curious.",
+    title: "Learning et al.",
     description:
-      "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests. One provocative question a day.",
+      "A daily research digest that finds, synthesises, and contrasts papers around one provocative question.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Learning et al. — Color me curious.",
+    title: "Learning et al.",
     description:
-      "A daily research digest that finds, synthesizes, and contrasts academic papers and news based on your interests.",
+      "A daily research digest that finds, synthesises, and contrasts papers around one provocative question.",
   },
 };
 
