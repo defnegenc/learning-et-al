@@ -106,6 +106,19 @@ function startCap(text: string): string {
   return text.replace(/[A-Za-z]/, (letter) => letter.toUpperCase());
 }
 
+/**
+ * Drop the pipeline's `**bold**` without drawing it.
+ *
+ * The metadata call only asks for bold inside `findings`, but the model writes
+ * all of a paper's copy in one response and carries the convention across. The
+ * takeaway already has a mark — the hue highlight on its claim — so a second one
+ * would be noise; nothing strips the markers before the DB, so unrendered they
+ * would reach the card as literal asterisks.
+ */
+function unmark(text: string): string {
+  return text.replace(/\*\*(.+?)\*\*/g, "$1");
+}
+
 /** A column of the split: a Display/SM heading in ink over body at reading size. */
 function CardColumn({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
@@ -151,7 +164,7 @@ export interface PaperCardProps {
   compareMode?: boolean;
   isSelected?: boolean;
   onSelect?: (p: PaperItem) => void;
-  /** Digest only: a chip click in the prose bumps this to open + scroll here. */
+  /** Digest only: a chip click in the prose bumps this to scroll the card here. */
   expandTick?: number;
 }
 
@@ -188,10 +201,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
   const byline = paperByline(paper);
 
   const isNews = paper.source === "rss";
-  const claim = (paper.claim || paper.takeawayHook || "").trim();
+  const claim = unmark((paper.claim || paper.takeawayHook || "").trim());
   const findings = (paper.keyFindings ?? []).slice(0, 3);
   const findingsLabel = isNews ? "Key points" : "Findings";
-  const takeaway = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
+  const takeaway = unmark((paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim());
   // The claim wears the mark and the spoken line follows it plain — one
   // conclusion, with the highlight on the sentence that earns it.
   const lead = startCap(claim || takeaway);
