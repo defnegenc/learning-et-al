@@ -6,10 +6,46 @@ export const alt = "Learning et al. — The digest that thinks.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const INK = "#1a1a1a";
+
+/** Same two pairs the digest title sweeps with — SOURCE_PALETTES[0] and [1]. */
+const SWEEP_1 = ["#6EE9A8", "#D4F04A"];
+const SWEEP_2 = ["#FF85A8", "#FFD020"];
+
+const font = (file: string) =>
+  readFile(path.join(process.cwd(), "public/fonts", file)).catch(() => null);
+
+/**
+ * A phrase of the hero line with the gradient sweep bar under it — the same
+ * device as `SweepTitle` on the digest, drawn as a sibling bar because Satori
+ * has no inline background-size animation.
+ */
+function Phrase({ text, colors, display }: { text: string; colors: string[]; display: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignSelf: "flex-start" }}>
+      <div style={{ display: "flex", fontFamily: display, fontSize: 72, fontWeight: 700, letterSpacing: "-0.04em", color: INK }}>
+        {text}
+      </div>
+      <div style={{
+        display: "flex",
+        height: 11,
+        marginTop: -8,
+        background: `linear-gradient(90deg, ${colors[0]} 0%, ${colors[1]} 100%)`,
+      }} />
+    </div>
+  );
+}
+
 export default async function Image() {
-  const spaceGrotesk = await readFile(
-    path.join(process.cwd(), "public/fonts/SpaceGrotesk-Bold.ttf")
-  ).catch(() => null);
+  const [cabinet, spaceGrotesk, apercu] = await Promise.all([
+    font("CabinetGrotesk-Bold.ttf"),
+    font("SpaceGrotesk-Bold.ttf"),
+    font("apercu_regular_pro.otf"),
+  ]);
+
+  const display = cabinet ? "Cabinet Grotesk" : "sans-serif";
+  const logo = spaceGrotesk ? "Space Grotesk" : "sans-serif";
+  const body = apercu ? "Apercu Pro" : "sans-serif";
 
   return new ImageResponse(
     (
@@ -20,171 +56,54 @@ export default async function Image() {
           background: "#ffffff",
           display: "flex",
           flexDirection: "column",
-          position: "relative",
-          overflow: "hidden",
-          border: "6px solid #1a1a1a",
+          justifyContent: "space-between",
+          padding: "56px 64px 60px",
+          border: `6px solid ${INK}`,
         }}
       >
-        {/* Blob — top left, green */}
-        <div style={{
-          position: "absolute", top: -80, left: -80,
-          width: 480, height: 480,
-          background: "#6EE9A8", borderRadius: "50%",
-          filter: "blur(90px)", opacity: 0.45, display: "flex",
-        }} />
-        {/* Blob — bottom right, yellow */}
-        <div style={{
-          position: "absolute", bottom: -100, right: -60,
-          width: 440, height: 440,
-          background: "#D4F04A", borderRadius: "50%",
-          filter: "blur(90px)", opacity: 0.45, display: "flex",
-        }} />
-        {/* Blob — top right, pink */}
-        <div style={{
-          position: "absolute", top: -40, right: 200,
-          width: 300, height: 300,
-          background: "#FF85A8", borderRadius: "50%",
-          filter: "blur(80px)", opacity: 0.35, display: "flex",
-        }} />
-        {/* Blob — bottom left, purple */}
-        <div style={{
-          position: "absolute", bottom: 60, left: 300,
-          width: 260, height: 260,
-          background: "#A878E8", borderRadius: "50%",
-          filter: "blur(80px)", opacity: 0.30, display: "flex",
-        }} />
-
-        {/* Header bar */}
+        {/* Wordmark — the only uppercase on the card */}
         <div style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 52px",
-          height: 72,
-          borderBottom: "4px solid #1a1a1a",
-          position: "relative",
-          zIndex: 2,
-          background: "rgba(255,255,255,0.85)",
+          fontFamily: logo,
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: INK,
         }}>
-          <div style={{
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "#1a1a1a",
-            fontFamily: spaceGrotesk ? "SpaceGrotesk" : "sans-serif",
-            display: "flex",
-          }}>
-            LEARNING ET AL.
-          </div>
-          <div style={{
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "#888",
-            fontFamily: "monospace",
-            display: "flex",
-          }}>
-            learningetal.com
-          </div>
+          Learning et al.
         </div>
 
-        {/* Main content */}
-        <div style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: "52px 60px 52px",
-          position: "relative",
-          zIndex: 2,
-          gap: 28,
-        }}>
-          {/* Label */}
+        {/* Hero — the digest question, swept like it is on the site — and one plain line under it */}
+        <div style={{ display: "flex", flex: 1, flexDirection: "column", justifyContent: "center", gap: 36 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Phrase text="One question a day." colors={SWEEP_1} display={display} />
+            <Phrase text="Papers as tools to think with." colors={SWEEP_2} display={display} />
+          </div>
           <div style={{
             display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}>
-            <div style={{
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "#1a1a1a",
-              fontFamily: "monospace",
-              display: "flex",
-              padding: "5px 12px",
-              border: "2px solid #1a1a1a",
-              background: "white",
-            }}>
-              Daily Digest
-            </div>
-          </div>
-
-          {/* Big tagline */}
-          <div style={{
-            fontSize: 72,
-            fontWeight: 700,
-            lineHeight: 1.1,
-            letterSpacing: "-0.03em",
-            color: "#1a1a1a",
-            maxWidth: 960,
-            fontFamily: spaceGrotesk ? "SpaceGrotesk" : "sans-serif",
-            display: "flex",
-            flexWrap: "wrap",
-          }}>
-            One question a day. Papers as tools to think with.
-          </div>
-
-          {/* Sub line */}
-          <div style={{
+            fontFamily: body,
             fontSize: 26,
-            color: "#555",
-            lineHeight: 1.4,
-            fontFamily: "sans-serif",
-            display: "flex",
+            lineHeight: 1.5,
+            color: "#666",
+            maxWidth: 820,
           }}>
-            AI-curated research synthesis, personalized to your curiosity.
+            A daily research digest that finds, synthesizes and contrasts papers around one provocative question.
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "0 52px",
-          height: 52,
-          borderTop: "3px solid #1a1a1a",
-          background: "#1a1a1a",
-          position: "relative",
-          zIndex: 2,
-          gap: 24,
-        }}>
-          {["Research Synthesis", "Paper Discovery", "Daily Digest", "Ask Questions"].map((tag) => (
-            <div key={tag} style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              color: "#aaa",
-              fontFamily: "monospace",
-              display: "flex",
-            }}>
-              {tag}
-            </div>
-          ))}
+        <div style={{ display: "flex", fontFamily: body, fontSize: 22, color: INK }}>
+          learningetal.com
         </div>
       </div>
     ),
     {
       ...size,
-      fonts: spaceGrotesk ? [{
-        name: "SpaceGrotesk",
-        data: spaceGrotesk.buffer as ArrayBuffer,
-        weight: 700,
-      }] : [],
+      fonts: [
+        cabinet && { name: "Cabinet Grotesk", data: cabinet.buffer as ArrayBuffer, weight: 700 as const, style: "normal" as const },
+        spaceGrotesk && { name: "Space Grotesk", data: spaceGrotesk.buffer as ArrayBuffer, weight: 700 as const, style: "normal" as const },
+        apercu && { name: "Apercu Pro", data: apercu.buffer as ArrayBuffer, weight: 400 as const, style: "normal" as const },
+      ].filter(Boolean) as { name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" }[],
     }
   );
 }
