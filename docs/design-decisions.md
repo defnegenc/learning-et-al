@@ -48,14 +48,14 @@ Default is 33 (2 papers + 1 news, labeled "recommended"). This gives users contr
 
 ## 5. Theme Generation
 
-Central question generated BEFORE paper search. Max 8 words. Must sound like something a real person would wonder about.
+The pre-search model generates a working retrieval question. The displayed central question is generated AFTER the final sources are selected and ordered. Aim for 8 words, hard max 10. It must sound like something a real person would wonder about.
 
 **Good**: "Can we wear our gut health?"
 **Bad**: "Can bacteria become your stylist?"
 
 The difference: the good one is something you'd actually text a friend. The bad one sounds like a BuzzFeed headline.
 
-Cross-domain combos are encouraged but only if naturally connected. After papers are found, the theme is always revised to better thread them (we tried letting the AI decide whether to revise — it always said "no change needed", so now revision is mandatory).
+Cross-domain combos are encouraged but only if naturally connected. After sources are found, the editor derives their real shared thread, may remove generic adjacent filler, orders the remaining sources, and writes the displayed question from that evidence. The working question has no keep-by-default privilege.
 
 ---
 
@@ -69,7 +69,7 @@ Papers that the user has seen in the last 30 days are excluded (cross-digest ded
 
 ## 7. Synthesis Tone
 
-Conversational, like texting a group chat. Contractions, casual transitions. Not dumbed down — just human.
+Conversational means clear, specific, and comfortable to say aloud. It does not mean performing chatiness with repeated "So", "Turns out", "Here's the thing", or "It's kind of like" openers. Contractions are natural, not mandatory. Not dumbed down — just human.
 
 - Paper names **bold** + colored underline (clickable to open detail)
 - Paragraph breaks between papers
@@ -244,6 +244,90 @@ screen is ever seen. Sentence case in the body face, 0.85rem. They keep their
 **The general rule this leaves:** every control on a picker has to earn its
 place against the list itself. Search, filters and counters all look like
 features in a spec and like clutter on the screen.
+
+---
+
+## 2026-08-14: Questions start from a rotating research neighborhood
+
+The question generator used to receive five bare interest strings and invent all
+specificity itself. That made the papers reasonably relevant but made the daily
+question depend on the model's modal ideas of what sounds interesting. The source
+of variation is now the OpenAlex taxonomy: one real Topic, rotated before the
+hypothesis call, supplies a concrete research neighborhood and vocabulary.
+
+**Hierarchy depth follows the user's input.** A broad field such as Computer
+Science takes one extra sampled step through a subfield before choosing a topic;
+an HCI-sized subfield goes straight to its topics; a free-form idea such as
+microbiome searches topics by relevance. The app does not ask the model to invent
+subdomains, and it does not jump uniformly across the taxonomy.
+
+**The seed is a constraint, not copy.** The question should expose the human
+tension or consequence inside the topic, not turn an OpenAlex label into a title.
+Weak-search retries change the angle and literal query vocabulary while keeping
+the topic. Otherwise a hard interest such as philosophy would still drift back to
+an easier AI digest under pressure.
+
+**The preferred headline is direct, consequential, and open.** User-approved
+examples such as “Does AI help students learn or cheat?” matter more than generic
+prompt-writing folklore. A recognizable subject and a real unresolved tension are
+the bar; physical-object specificity is useful when the research provides it, but
+whimsy and fake paradox are not substitutes for stakes.
+
+---
+
+## 2026-08-15: The model writes queries; OpenAlex owns their scope
+
+`focusFields` looked structured but was still model-authored free text. A naming
+variation could silently miss an OpenAlex concept, and assigning separate fields
+to the three queries made their relationship to the day's actual research seed
+arbitrary. The hypothesis model now supplies words only: question, queries, news
+terms, and selected interests. Retrieval scope is copied from the sampled
+OpenAlex Topic.
+
+The widening order is deliberate. The core query starts at the seed as a paper's
+primary topic; the other two accept papers where it is any topic, which is the
+cross-domain lane. If either slice is thin, its good results are retained while
+the remainder is filled from the seed's primary subfield and then an unscoped
+search. This is a precision-to-recall ladder, not an all-or-nothing filter. Only
+if OpenAlex produces nothing does Semantic Scholar receive a field, and that
+field comes from the user's configured seed interest rather than the model.
+
+---
+
+## 2026-08-15: Search asks the first question; the papers earn the final one
+
+The question generated before search is now explicitly a working retrieval
+question. It is useful for finding and scoring papers, but it has no editorial
+right to become the page headline. The displayed question is written only after
+the final sources survive selection, fills, and re-ranking. That pass must state
+their shared thread and explain what each source contributes before its headline
+can ship.
+
+**Examples teach the voice; a format menu does not.** A menu of "definition plus
+consequence," "capability check," and similar forms would become a new
+monoculture. The prompt instead uses user-approved questions as taste examples:
+"Can a headset replace being in the room?", "Virtual classrooms feel real. Does
+that help?", and "We built the virtual classroom. Can students use it?" The
+vague "Does feeling present mean learning more?" is shown as a failure because
+it hides the virtual-classroom setting. The model is warned not to treat any
+example as a fill-in-the-blank template.
+
+**Two coherent sources beat three with filler.** The re-ranker now drops a weak
+adjacent source when no replacement exists and two good sources remain. The
+final editor gets a second coherence veto: it may exclude a source that belongs
+only under a generic umbrella, but not one that merely disagrees. This directly
+targets sets such as two dark-pattern papers plus an unrelated general review of
+pleasant financial-app design.
+
+**Order is part of the argument.** The editor returns a source permutation along
+with the thread. When valid, that order becomes the cards, metadata, synthesis,
+and stored source indices. Explanation can precede evidence, which can precede a
+complication or consequence, but there is no mandatory three-act template. The
+set decides. Foundational context stays additive at the end.
+
+**Eight words is a target, not damage we do to a sentence.** Hard maximum is now
+ten. Several approved questions naturally need nine or ten words; shortening
+them mechanically would optimize a counter instead of the reader.
 
 ## 2026-08-14: Settings is a full-screen sheet on a phone, and delivery lives with the account
 

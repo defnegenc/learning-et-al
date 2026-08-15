@@ -62,6 +62,7 @@ export const digests = sqliteTable("digests", {
   suggestedQuestions: text("suggested_questions"),
   suggestedAnswers: text("suggested_answers"),
   seedInterests: text("seed_interests"), // JSON [{keyword, field}] — interests that seeded this digest (drives header chips)
+  seedTopic: text("seed_topic"),          // JSON {id, name, interest, subfield, subfieldId} — OpenAlex topic seed + rotation memory
   gist: text("gist"),                     // one-line answer to the central question (zero-click hook)
   framing: text("framing"),               // legacy "I pulled N sources" line — no longer generated or shown (kept for old rows)
   homeworkTopic: text("homework_topic"),  // null = standing digest; set when a homework item seeds it (homework UI ships later)
