@@ -16,7 +16,7 @@ import { PaperCard } from "@/components/paper-card";
  */
 const SynthesisBanner = dynamic(() => import("./synthesis-banner").then(m => m.SynthesisBanner), { ssr: false });
 import {
-  ACID_GREEN, ACID_PINK, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_LG, INK, Label,
+  ACID_GREEN, ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_LG, INK, Label,
   MUTED, PageLoader, SHADOW, SURFACE,
 } from "@/components/design-system";
 import React from "react";
@@ -48,7 +48,7 @@ function InkTitle({ text }: { text: string }) {
           .ink-word { animation: none !important; color: ${INK} !important; -webkit-text-stroke-width: 0 !important }
         }
       `}</style>
-      <h1 key={text} style={{ ...DISPLAY_LG, WebkitTextStrokeColor: INK, margin: "0 0 28px" }}>
+      <h1 key={text} style={{ fontFamily: DISPLAY, fontSize: "clamp(2.75rem, 5vw, 4rem)", lineHeight: 1.25, fontWeight: 700, letterSpacing: "-0.055em", color: INK, WebkitTextStrokeColor: INK, margin: "0 0 28px" }}>
         {words.map((w, i) => (
           <React.Fragment key={i}>
             {/* the space lives outside the animated box so it can't shift */}
@@ -360,30 +360,29 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
                 <Label>Daily digest</Label>
                 {!session && publicDigestList.length > 1 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <button
-                      disabled={publicDigestIdx >= publicDigestList.length - 1}
-                      aria-label="Previous digest"
-                      onClick={() => {
-                        const next = publicDigestIdx + 1;
-                        setPublicDigestIdx(next);
-                        fetchDigest(publicDigestList[next].id);
-                      }}
-                      style={{ background: "none", border: `1px solid ${INK}`, cursor: publicDigestIdx >= publicDigestList.length - 1 ? "default" : "pointer", padding: "2px 8px", ...BODY_STYLE, fontSize: 13, lineHeight: "18px", opacity: publicDigestIdx >= publicDigestList.length - 1 ? 0.3 : 1 }}
-                    >←</button>
-                    <Label style={{ color: MUTED }}>
-                      {new Date(publicDigestList[publicDigestIdx]?.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </Label>
-                    <button
-                      disabled={publicDigestIdx <= 0}
-                      aria-label="Next digest"
-                      onClick={() => {
-                        const prev = publicDigestIdx - 1;
-                        setPublicDigestIdx(prev);
-                        fetchDigest(publicDigestList[prev].id);
-                      }}
-                      style={{ background: "none", border: `1px solid ${INK}`, cursor: publicDigestIdx <= 0 ? "default" : "pointer", padding: "2px 8px", ...BODY_STYLE, fontSize: 13, lineHeight: "18px", opacity: publicDigestIdx <= 0 ? 0.3 : 1 }}
-                    >→</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    {publicDigestIdx < publicDigestList.length - 1 && (
+                      <button
+                        aria-label="See yesterday's digest"
+                        onClick={() => {
+                          const next = publicDigestIdx + 1;
+                          setPublicDigestIdx(next);
+                          fetchDigest(publicDigestList[next].id);
+                        }}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
+                      >← see yesterday&apos;s digest</button>
+                    )}
+                    {publicDigestIdx > 0 && (
+                      <button
+                        aria-label="See newer digest"
+                        onClick={() => {
+                          const prev = publicDigestIdx - 1;
+                          setPublicDigestIdx(prev);
+                          fetchDigest(publicDigestList[prev].id);
+                        }}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
+                      >see newer digest →</button>
+                    )}
                   </div>
                 )}
               </div>
