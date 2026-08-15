@@ -518,3 +518,39 @@ halved the headline, and 1.5px on 32px type is a heavier outline than the same
 value was on 64px. The em-dash rule reaches `paperByline`, which is exactly the
 separator change the now-deleted SourceCard had made.
 
+
+## The card opens
+
+*2026-08-15.* The digest card lost its expand control and its tiles. It is now
+title, byline, hero, and then two columns behind one 2px rule: findings on the
+left, takeaway on the right, `Read paper` at the bottom right.
+
+The complaint that started it was that the findings and the takeaway were hard
+to read, and the diagnosis was structural rather than typographic. Both were
+Body/SM 13, set in a bordered tile inside the bordered card — three frames deep
+— under a mono grey eyebrow, with the takeaway on a full-strength spectrum fill.
+Ten candidates ran at `/prototype/cards` over three rounds. What survived:
+
+- **Reading size.** Both columns are Body 15 at a 26px line. This was most of
+  the fix on its own, and it is what made deleting the expand control possible:
+  "See more" was hiding two short lists and a button, and the reason to hide
+  them was that they were unpleasant to read.
+- **Headings in the display face.** Cabinet Grotesk at Display/SM in ink, not a
+  mono grey eyebrow. Mono is structure — a section heading inside a card names
+  a part of the card, and it should read as a heading, not as a caption for the
+  machinery.
+- **Two marks, two jobs.** Emphasis inside a finding is an ink underline;
+  weight was doing nothing, because half of every finding comes back bold and
+  emphasis that covers half a sentence stops marking anything. The takeaway's
+  claim wears a highlight in the card's own wash hue — the one place colour
+  lands on type. It follows the card, not a fixed colour: the mark is
+  wayfinding, and it should match the card it belongs to.
+- **Evidence left, conclusion right.** Reading left to right, the card argues
+  toward its conclusion rather than stating it and then showing its work.
+
+Rejected along the way, and why: the takeaway as a filled band (200px of solid
+colour to emphasise one sentence); the takeaway promoted to the hero (it reads
+well, but the title has to lead); `takeawayStat` as a display number (a figure
+with no sentence around it says nothing); findings as headline-and-deck (the
+qualification in each finding is the part worth keeping); a hero at Display/LG
+32 (five lines on a long summary, and the TL;DR eats the card).

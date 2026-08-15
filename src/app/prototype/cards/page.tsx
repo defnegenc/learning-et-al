@@ -323,27 +323,6 @@ function Split({ paper, index, hue, bullet }: CandidateProps) {
   );
 }
 
-/** H2 · Evidence first — the same rule, columns swapped. */
-function SplitFlipped({ paper, index, hue, bullet }: CandidateProps) {
-  const c = content(paper);
-  return (
-    <Shell index={index}>
-      <Head paper={paper} c={c} />
-      <div className="proto-split">
-        <section>
-          <Heading>{c.findingsLabel}</Heading>
-          <FindingList items={c.findings} bullet={bullet} hue={hue} />
-        </section>
-        <section>
-          <Heading>Takeaway</Heading>
-          <Takeaway c={c} hue={hue} />
-          <div style={{ marginTop: 18 }}><ReadPaper href={paper.sourceUrl} /></div>
-        </section>
-      </div>
-    </Shell>
-  );
-}
-
 /**
  * H3 · Rail, even. The height problem was the rail's width: at 290px each
  * finding wrapped to four or five lines, so the evidence column drove the
@@ -431,9 +410,9 @@ const CANDIDATES: Candidate[] = [
   },
   {
     key: "H2",
-    name: "Evidence first",
-    note: "The columns swapped, so the card argues toward its conclusion instead of stating it and then showing work. With a marker in the gutter the findings finally read as a list rather than three adjacent paragraphs.",
-    render: (p) => <SplitFlipped {...p} />,
+    name: "Evidence first — shipped",
+    note: "This is the real component now, not a mock: findings left, takeaway right behind one 2px rule, emphasis as an ink underline rather than weight, and Read paper at the card's bottom right. The Bullets control doesn't reach it — the shipped card is the dot.",
+    render: (p) => <PaperCard paper={p.paper} index={p.index} size="digest" />,
   },
   {
     key: "H3",
@@ -519,13 +498,6 @@ export default function CardPrototypes() {
           </Frame>
         ))}
 
-        <Frame
-          eyebrow="For reference"
-          name="What's in prod today"
-          note="The real component, unmodified — open it with its own See more."
-        >
-          <PaperCard paper={paper} index={sample} size="digest" />
-        </Frame>
       </div>
     </div>
   );
