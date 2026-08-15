@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { FIELD_HIERARCHY, type S2Field } from "@/lib/field-hierarchy";
-import { TopicChip, AddChip, INK, DISPLAY } from "@/components/design-system";
+import {
+  AddChip, BODY_STYLE, BODY_SM, DIM, DISPLAY_SM, HAIRLINE, INK, MUTED, SURFACE, TopicChip,
+} from "@/components/design-system";
 
 // Max interests a user can select. The digest samples 5 candidates/day from the
 // whole pool (see docs/algorithm.md Step 1), so this is only a UI guardrail, not
@@ -18,25 +20,10 @@ export interface SelectedTopic {
   color: string;
 }
 
-// Per-category 2-color gradient palettes — one distinct family per row,
-// so a panel of tags reads as a single family, not a rainbow.
-export const CATEGORY_PALETTES: Record<string, [string, string]> = {
-  "Computer Science":       ["#D0E3F7", "#C8F0D8"], // blue → mint
-  "Design & Art":           ["#FFD6E0", "#F7D9E8"], // pink → rose
-  "Biology":                ["#C8F0D8", "#FFE89A"], // mint → yellow
-  "Medicine":               ["#FFE89A", "#FFD6E0"], // yellow → pink
-  "Social Sciences":        ["#E2D6F7", "#D0E3F7"], // lavender → blue
-  "Physics & Engineering":  ["#D0E3F7", "#E2D6F7"], // blue → lavender
-  "Business & Finance":     ["#FFE89A", "#C8F0D8"], // yellow → mint
-  "Sustainability":         ["#C8F0D8", "#D0E3F7"], // mint → blue
-  "Philosophy & Ethics":    ["#F7D9E8", "#E2D6F7"], // rose → lavender
-  "Education":              ["#FFD6E0", "#FFE89A"], // pink → yellow
-};
-
 // Custom topics added by the user per category, keyed by FIELD_HIERARCHY key.
+// (The old per-category gradient table is gone: a field's colour is its one
+// fixed spectrum slot in FIELD_HIERARCHY, not a second table kept here.)
 export type CustomTopics = Record<string, string[]>;
-
-const HAIRLINE = "1px solid rgba(26,26,26,0.12)";
 
 /** "+ Add" at the end of an open field, expanding in place to a small input.
  *  Only ever one on screen — the field you have open. */
@@ -74,9 +61,8 @@ function RowAdder({ onAdd, disabled = false }: { onAdd: (topic: string) => void;
       placeholder="Your own topic…"
       aria-label="Add your own topic"
       style={{
-        border: `1.5px solid ${INK}`, borderRadius: 6, background: "#fff",
-        fontSize: "0.85rem", color: INK, padding: "7px 12px",
-        minHeight: 34, width: 180, outline: "none",
+        ...BODY_SM, border: `2px solid ${INK}`, background: SURFACE,
+        padding: "7px 13px", minHeight: 34, width: 180, outline: "none",
       }}
     />
   );
@@ -132,7 +118,7 @@ export function InterestLedger({
       {/* The only status line, and only when it applies: past the cap the chips
           stop responding, which needs saying. */}
       {atMax && (
-        <p style={{ fontSize: "0.85rem", color: "#666", margin: "0 0 4px", paddingTop: 4 }}>
+        <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 4px", paddingTop: 4 }}>
           You&rsquo;re at {maxSelected} topics. Remove one to add another.
         </p>
       )}
@@ -150,28 +136,27 @@ export function InterestLedger({
               onClick={() => setOpen(prev => ({ ...prev, [fieldKey]: !prev[fieldKey] }))}
               aria-expanded={isOpen}
               style={{
-                display: "block", width: "100%", padding: "16px 0",
+                display: "block", width: "100%", padding: "18px 0",
                 background: "none", border: "none", textAlign: "left", cursor: "pointer",
               }}
             >
               {/* One fixed-height line holds the swatch, the name and the
                   chevron — so none of them move when the field opens. */}
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 10, height: 10, background: fieldDef.color, border: `1px solid ${INK}`, flexShrink: 0 }} />
-                <span style={{ flex: 1, minWidth: 0, fontFamily: DISPLAY, fontSize: "1.05rem", fontWeight: 700, letterSpacing: "-0.01em", color: INK }}>
+                <span style={{ width: 12, height: 12, background: fieldDef.color, border: `1px solid ${INK}`, flexShrink: 0 }} />
+                <span style={{ ...DISPLAY_SM, flex: 1, minWidth: 0 }}>
                   {fieldKey}
                 </span>
                 <ChevronDown
                   size={16}
-                  style={{ color: "#999", flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+                  style={{ color: MUTED, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
                 />
               </span>
               {!isOpen && (
                 <span
                   style={{
-                    display: "block", marginTop: 3, paddingLeft: 20,
-                    fontSize: "0.85rem", lineHeight: 1.4,
-                    color: selectedHere.length > 0 ? "#444" : "#999",
+                    ...BODY_SM, display: "block", marginTop: 4, paddingLeft: 22,
+                    color: selectedHere.length > 0 ? DIM : MUTED,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}
                 >
@@ -181,7 +166,7 @@ export function InterestLedger({
             </button>
 
             {isOpen && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 18 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 20 }}>
                 {allTopics.map(topic => {
                   const isSelected = selectedSet.has(topic);
                   return (

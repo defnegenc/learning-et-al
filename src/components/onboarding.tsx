@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Loader2, ArrowRight } from "lucide-react";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { InterestLedger, useInterestLedger } from "@/components/interest-ledger";
+import {
+  ACID_PINK, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_LG, HAIRLINE, INK,
+  Label, MUTED, RULE, Segmented, SHADOW, SURFACE, TextInput,
+} from "@/components/design-system";
 
 type Provider = "openai" | "anthropic" | "gemini" | "other";
 
@@ -37,10 +41,10 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
   const [validatingCode, setValidatingCode] = useState(false);
 
   const providerDefaults: Record<Provider, { model: string; baseUrl: string; label: string }> = {
-    openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1", label: "OPENAI" },
-    anthropic: { model: "claude-sonnet-4-6", baseUrl: "https://api.anthropic.com", label: "ANTHROPIC" },
-    gemini: { model: "gemini-2.5-flash", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", label: "GEMINI" },
-    other: { model: "", baseUrl: "", label: "OTHER" },
+    openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1", label: "OpenAI" },
+    anthropic: { model: "claude-sonnet-4-6", baseUrl: "https://api.anthropic.com", label: "Anthropic" },
+    gemini: { model: "gemini-2.5-flash", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", label: "Gemini" },
+    other: { model: "", baseUrl: "", label: "Other" },
   };
 
   function handleProviderChange(p: Provider) {
@@ -104,72 +108,63 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-3 md:p-4" style={{ background: "white" }}>
+    <div className="relative flex min-h-screen items-center justify-center p-3 md:p-4" style={{ background: SURFACE }}>
       <NoiseOverlay />
       <div
         className="relative z-10 w-full flex flex-col"
         style={{
-          maxWidth: step === 2 ? "860px" : "480px",
+          maxWidth: step === 2 ? 860 : 480,
           maxHeight: "92vh",
-          border: "2px solid #1a1a1a",
-          background: "white",
-          boxShadow: "6px 6px 0 0 rgba(0,0,0,1)",
+          border: BORDER,
+          background: SURFACE,
+          boxShadow: SHADOW,
         }}
       >
-        <div style={{ padding: "28px 28px 20px", borderBottom: "2px solid #1a1a1a" }}>
-          <h2 style={{ fontSize: "1.6rem", fontWeight: 800, letterSpacing: "-0.02em", fontFamily: "var(--font-display), sans-serif", margin: "0 0 8px" }}>
+        <div style={{ padding: "28px 28px 22px", borderBottom: BORDER }}>
+          <Label style={{ marginBottom: 12 }}>{step === 1 ? "Setup / Provider" : "Setup / Interests"}</Label>
+          <h2 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>
             {step === 1 ? "Connect an AI provider" : "What are you curious about?"}
           </h2>
-          <p style={{ fontSize: "1rem", color: "#666", lineHeight: 1.6, margin: 0 }}>
+          <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>
             {step === 1 ? "We use an LLM to generate your daily digest." : "Pick at least 3 topics. We'll find papers and news that connect them."}
           </p>
         </div>
 
         {/* STEP 1 */}
         {step === 1 && (
-          <div style={{ padding: "20px 24px" }} className="space-y-4">
-            <div className="flex gap-0 flex-wrap">
-              {(["gemini", "anthropic", "openai", "other"] as Provider[]).map((p) => (
-                <button key={p} onClick={() => handleProviderChange(p)}
-                  className={`flex-1 px-2 py-2.5 text-[0.88rem] font-bold ${provider === p ? "bg-[#1a1a1a] text-white" : "text-[#1a1a1a] hover:bg-gray-50"}`}
-                  style={{ border: "2px solid #1a1a1a", marginRight: "-2px", fontFamily: "var(--font-display), sans-serif" }}>
-                  {providerDefaults[p].label}
-                </button>
-              ))}
-            </div>
-            <input type="password" placeholder="Paste your API key…" value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && apiKey.trim() && setStep(2)}
-              className="w-full bg-transparent px-4 py-3 text-[0.9rem] placeholder:text-[#bbb] focus:outline-none"
-              style={{ border: "2px solid #1a1a1a" }} />
+          <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <Segmented
+              value={provider}
+              onChange={handleProviderChange}
+              options={(["gemini", "anthropic", "openai", "other"] as Provider[]).map(p => ({ key: p, label: providerDefaults[p].label }))}
+            />
+            <TextInput type="password" placeholder="Paste your API key…" value={apiKey} onChange={setApiKey}
+              onKeyDown={(e) => { if (e.key === "Enter" && apiKey.trim()) setStep(2); }} />
             {provider === "other" && (
-              <div className="flex gap-3">
-                <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Model" className="flex-1 bg-transparent px-3 py-2 text-[0.85rem] placeholder:text-[#bbb] focus:outline-none" style={{ border: "2px solid #1a1a1a" }} />
-                <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="Base URL" className="flex-1 bg-transparent px-3 py-2 text-[0.85rem] placeholder:text-[#bbb] focus:outline-none" style={{ border: "2px solid #1a1a1a" }} />
+              <div style={{ display: "flex", gap: 12 }}>
+                <TextInput value={model} onChange={setModel} placeholder="Model" />
+                <TextInput value={baseUrl} onChange={setBaseUrl} placeholder="Base URL" />
               </div>
             )}
-            <button disabled={!apiKey.trim()} onClick={() => setStep(2)}
-              className="w-full bg-[#1a1a1a] text-white px-4 py-3 text-[0.9rem] font-bold hover:bg-[#333] disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ border: "2px solid #1a1a1a", fontFamily: "var(--font-display), sans-serif", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)" }}>
-              Continue <ArrowRight className="size-3.5" />
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ flex: 1, height: "1px", background: "rgba(26,26,26,0.12)" }} />
-              <span style={{ fontSize: "0.85rem", color: "#666" }}>or</span>
-              <div style={{ flex: 1, height: "1px", background: "rgba(26,26,26,0.12)" }} />
+            <ActionButton variant="primary" disabled={!apiKey.trim()} onClick={() => setStep(2)} style={{ width: "100%" }}>
+              Continue <ArrowRight size={15} />
+            </ActionButton>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1, height: 1, background: RULE }} />
+              <span style={{ ...BODY_STYLE, color: MUTED }}>or</span>
+              <div style={{ flex: 1, height: 1, background: RULE }} />
             </div>
             <div>
-              <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "8px" }}>Have an invite code?</p>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <input value={inviteCode} onChange={(e) => { setInviteCode(e.target.value); setCodeError(""); }}
-                  onKeyDown={(e) => e.key === "Enter" && inviteCode.trim() && handleCodeSubmit()}
-                  placeholder="Enter code…" style={{ flex: 1, padding: "10px 12px", border: "2px solid #1a1a1a", fontSize: "0.9rem", outline: "none" }} />
-                <button onClick={handleCodeSubmit} disabled={!inviteCode.trim() || validatingCode}
-                  style={{ padding: "10px 18px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.88rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer", opacity: !inviteCode.trim() || validatingCode ? 0.5 : 1 }}>
+              <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>Have an invite code?</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <TextInput value={inviteCode} onChange={(v) => { setInviteCode(v); setCodeError(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && inviteCode.trim()) handleCodeSubmit(); }}
+                  placeholder="Enter code…" />
+                <ActionButton variant="primary" shadow={false} onClick={handleCodeSubmit} disabled={!inviteCode.trim() || validatingCode}>
                   {validatingCode ? "…" : "Go"}
-                </button>
+                </ActionButton>
               </div>
-              {codeError && <p style={{ fontSize: "0.85rem", color: "#ff007f", marginTop: "6px" }}>{codeError}</p>}
+              {codeError && <p style={{ ...BODY_STYLE, color: ACID_PINK, margin: "8px 0 0" }}>{codeError}</p>}
             </div>
           </div>
         )}
@@ -188,23 +183,24 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
             </div>
 
             {/* Footer */}
-            <div style={{ borderTop: "2px solid #1a1a1a", padding: "14px 20px max(14px, env(safe-area-inset-bottom))", background: "#fff" }}>
-              {error && <p style={{ fontSize: "0.85rem", color: "#ff007f", marginBottom: "8px" }}>{error}</p>}
-              <div className="flex items-center gap-2">
+            <div style={{ borderTop: HAIRLINE, padding: "16px 20px max(16px, env(safe-area-inset-bottom))", background: SURFACE }}>
+              {error && <p style={{ ...BODY_STYLE, color: ACID_PINK, margin: "0 0 10px" }}>{error}</p>}
+              <div className="flex items-center gap-3">
                 {!skipApiKey && (
-                  <button onClick={() => setStep(1)} disabled={submitting} style={{ padding: "11px 18px", border: "2px solid #1a1a1a", background: "white", fontSize: "0.88rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer" }}>
-                    Back
-                  </button>
+                  <ActionButton onClick={() => setStep(1)} disabled={submitting} shadow={false}>Back</ActionButton>
                 )}
-                <button onClick={handleSubmit} disabled={selectedTopics.length < 3 || submitting}
-                  className="flex-1 flex items-center justify-center gap-2"
-                  style={{ padding: "12px", background: "#1a1a1a", color: "white", border: "2px solid #1a1a1a", fontSize: "0.9rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", cursor: "pointer", boxShadow: "4px 4px 0 0 rgba(0,0,0,1)", opacity: selectedTopics.length < 3 || submitting ? 0.5 : 1 }}>
+                <ActionButton
+                  variant="primary"
+                  onClick={handleSubmit}
+                  disabled={selectedTopics.length < 3 || submitting}
+                  style={{ flex: 1 }}
+                >
                   {submitting
-                    ? <><Loader2 className="size-3.5 animate-spin" /> Setting up…</>
+                    ? <><Loader2 size={15} className="animate-spin" /> Setting up…</>
                     : selectedTopics.length < 3
                       ? `Pick ${3 - selectedTopics.length} more topic${selectedTopics.length === 2 ? "" : "s"}`
                       : "Start exploring"}
-                </button>
+                </ActionButton>
               </div>
             </div>
           </>
