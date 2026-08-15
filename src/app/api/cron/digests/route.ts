@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCronAiConfig, processDigestJobBatch, utcDateString } from "@/lib/pipeline/digest-jobs";
+import { getCronAiConfig, processDigestJobBatch } from "@/lib/pipeline/digest-jobs";
 
 // Each invocation handles a small bounded batch. Vercel Hobby cron jobs can run
 // only once per day, so vercel.json schedules several daily slot paths that
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const url = new URL(req.url);
-    const date = url.searchParams.get("date") || utcDateString();
+    const date = url.searchParams.get("date") || undefined;
     const batchSizeParam = Number(url.searchParams.get("batchSize") || "");
     const batchSize = Number.isFinite(batchSizeParam) && batchSizeParam > 0
       ? Math.min(Math.floor(batchSizeParam), 5)

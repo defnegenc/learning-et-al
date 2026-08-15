@@ -174,20 +174,21 @@ async function postAdminDigestToX(user: UserRow, digestId: string) {
   return { status: result.ok ? "x_posted" : "x_failed", error: result.error };
 }
 
-export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFAULT_BATCH_SIZE, date = utcDateString()) {
+export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFAULT_BATCH_SIZE, date?: string) {
   if (!aiConfig.apiKey) {
     throw new Error("No CRON_AI_KEY configured");
   }
 
   const now = new Date();
   const retryBefore = new Date(now.getTime() - 30 * 60 * 1000);
+  const runnableJobFilter = and(
+    inArray(digestJobs.status, ["pending", "failed", "running"]),
+    lt(digestJobs.attempts, MAX_ATTEMPTS),
+  );
+  const jobFilter = date ? and(eq(digestJobs.date, date), runnableJobFilter) : runnableJobFilter;
   const jobs = await db.select().from(digestJobs)
-    .where(and(
-      eq(digestJobs.date, date),
-      inArray(digestJobs.status, ["pending", "failed", "running"]),
-      lt(digestJobs.attempts, MAX_ATTEMPTS),
-    ))
-    .orderBy(asc(digestJobs.updatedAt))
+    .where(jobFilter)
+    .orderBy(asc(digestJobs.date), asc(digestJobs.updatedAt))
     .limit(batchSize);
 
   const runnable = jobs.filter((job) => job.status !== "running" || !job.startedAt || job.startedAt < retryBefore);
@@ -280,14 +281,10 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
   }
 
   const remaining = await db.select({ id: digestJobs.id }).from(digestJobs)
-    .where(and(
-      eq(digestJobs.date, date),
-      inArray(digestJobs.status, ["pending", "failed", "running"]),
-      lt(digestJobs.attempts, MAX_ATTEMPTS),
-    ));
+    .where(jobFilter);
 
   return {
-    date,
+    date: date ?? "all",
     requested: batchSize,
     claimed: runnable.length,
     remaining: remaining.length,
