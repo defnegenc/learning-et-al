@@ -8,7 +8,8 @@ export const contentType = "image/png";
 
 const INK = "#1a1a1a";
 
-/** Same two pairs the digest title sweeps with — SOURCE_PALETTES[0] and [1]. */
+/** SOURCE_PALETTES[0] and [1] — the card's colour, and now the only place the
+ *  sweep bar survives: the digest headline moved to InkTitle (no colour). */
 const SWEEP_1 = ["#6EE9A8", "#D4F04A"];
 const SWEEP_2 = ["#FF85A8", "#FFD020"];
 
@@ -16,9 +17,9 @@ const font = (file: string) =>
   readFile(path.join(process.cwd(), "public/fonts", file)).catch(() => null);
 
 /**
- * A phrase of the hero line with the gradient sweep bar under it — the same
- * device as `SweepTitle` on the digest, drawn as a sibling bar because Satori
- * has no inline background-size animation.
+ * A phrase of the hero line with the gradient sweep bar under it. A static
+ * image can't animate, so the card keeps the bars as its own device — the
+ * digest headline itself no longer draws them.
  */
 function Phrase({ text, colors, display }: { text: string; colors: string[]; display: string }) {
   return (

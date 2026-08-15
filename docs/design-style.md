@@ -96,9 +96,10 @@ keeps its colour across the digest.
 | 3 | `#60AAE8` → `#A878E8` | blue → purple |
 | 4 | `#FFD020` → `#FF85A8` | yellow → pink |
 
-Used for: card blob washes (`dispersedWash`, ~0.42 alpha), the sweep bar under
-the digest title, takeaway tile fills, and the loader. Not for text, not for
-borders, not for backgrounds of whole pages.
+Used for: card blob washes (`dispersedWash`, ~0.42 alpha), the share card's
+sweep bars, takeaway tile fills, and the loader. Not for text, not for borders,
+not for backgrounds of whole pages. **Not on the digest headline** — that's
+ink-only (see Motion).
 
 ---
 
@@ -191,8 +192,13 @@ Twitter render. `twitter-image.tsx` re-exports it, so there is one card.
 It follows the page template, not a poster language: white field, ink frame,
 wordmark top-left, hero, one line at `#666`, the address. The hero is the
 **sweep** — two phrases in Cabinet Grotesk 700 `-0.04em`, each with the
-gradient bar from `SOURCE_PALETTES[0]` and `[1]` under it, exactly as
-`SweepTitle` draws it on the digest. Colour appears only in those two bars.
+gradient bar from `SOURCE_PALETTES[0]` and `[1]` under it. Colour appears only
+in those two bars.
+
+The digest headline used to draw the same device; it doesn't any more (it's
+`InkTitle` now, ink-only). The card keeps the bars because a static image has
+no animation to carry — so this is the one place the sweep still lives. If the
+card ever gets revisited, that's the thing to reconsider.
 
 Two constraints, both from Satori (the renderer behind `next/og`):
 
@@ -218,6 +224,12 @@ sibling `<div>` pulled up with a negative margin, and the phrase column needs
   loops.
 - Entrances rise 6px and fade (`briefRise`). Mechanical loops use
   `steps()`, not easing.
+- **The digest headline is `InkTitle`** (`today-page.tsx`): hollow outline type
+  filling with ink one word at a time, 0.4s per word on a 0.1s stagger. The
+  stroke animates to 0 as the fill lands, so the resting headline is plain ink
+  at normal weight — the animation leaves nothing behind. No colour: candidates
+  that ended on a palette rule were rejected. Alternatives live at
+  `/prototype/headline`.
 - Custom art arrives as **SVG** (square viewBox, strokes left as strokes, no
   masks or filters, named layers), inlined as a component and animated in CSS.
   Not GIF, not Lottie.
