@@ -210,8 +210,8 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
   // First click reveals the first source; later clicks advance through the rest.
   const anySourceRevealed = Object.keys(cardsAfter).some(k => Number(k) < n);
 
-  // Clicking a paper chip in the prose no longer opens an overlay — it expands
-  // that paper's card tiles and scrolls to it (each bump re-triggers the effect).
+  // Clicking a paper chip in the prose scrolls that paper's card into view (each
+  // bump re-triggers the effect). The card is always open — there are no tiles.
   const [expandTicks, setExpandTicks] = useState<Record<number, number>>({});
   const openCard = (paper: PaperItem) => {
     const i = papers.findIndex(p => p.id === paper.id);
