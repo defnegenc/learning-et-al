@@ -19,7 +19,7 @@ This means:
 
 ## Current Approach
 
-**System prompt**: "Translate jargon into plain English. Ground everything in real-world problems. Contractions and casual language."
+**System prompt**: Translate jargon into plain English and ground everything in real-world problems. Conversational means direct and specific, not repeated scripted openers such as "So", "Turns out", or "Here's the thing"; contractions are used when natural.
 
 **Structure**: Make an ARGUMENT, not a book report. Papers are evidence, not the subject. Each paper adds something unique to the argument.
 
