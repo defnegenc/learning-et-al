@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { Loader2, ArrowLeft } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { BriefDigest } from "@/components/today/brief-digest";
-import { PageLoader } from "@/components/design-system";
-
-const MONO = "var(--font-mono), monospace";
-const DISPLAY = "var(--font-display), sans-serif";
+import {
+  BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, INK, Label, MUTED, PageLoader, RULE, SURFACE,
+} from "@/components/design-system";
 
 interface DigestListItem {
   id: string;
@@ -83,15 +82,13 @@ export function DigestHistory() {
   if (list.length === 0) {
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
-        <span style={{ fontFamily: DISPLAY, fontSize: "1.1rem", fontWeight: 700, color: "#1a1a1a" }}>
-          No digests yet — generate your first from Today
-        </span>
+        <span style={DISPLAY_SM}>No digests yet — generate your first from Today</span>
       </div>
     );
   }
 
   const rail = (
-    <div style={{ border: "2px solid #1a1a1a", background: "white", overflowY: "auto", maxHeight: "calc(100vh - 180px)" }}>
+    <div style={{ border: BORDER, background: SURFACE, overflowY: "auto", maxHeight: "calc(100vh - 180px)" }}>
       {list.map((item, i) => {
         const isActive = activeId === item.id;
         return (
@@ -99,18 +96,15 @@ export function DigestHistory() {
             key={item.id}
             onClick={() => setActiveId(item.id)}
             style={{
-              display: "flex", flexDirection: "column", gap: "4px",
-              width: "100%", padding: "12px 16px", textAlign: "left",
-              background: isActive ? "#1a1a1a" : "transparent",
-              border: "none", borderBottom: i === list.length - 1 ? "none" : "1px solid rgba(26,26,26,0.08)",
-              color: isActive ? "white" : "#1a1a1a", cursor: "pointer", transition: "background 100ms",
+              display: "flex", flexDirection: "column", gap: 6,
+              width: "100%", padding: "14px 16px", textAlign: "left",
+              background: isActive ? INK : "transparent",
+              border: "none", borderBottom: i === list.length - 1 ? "none" : `1px solid ${isActive ? INK : RULE}`,
+              color: isActive ? SURFACE : INK, cursor: "pointer", transition: "background 140ms",
             }}
-            className={isActive ? "" : "hover:bg-[#f5f5f5]"}
           >
-            <span style={{ fontFamily: MONO, fontSize: "0.7rem", fontWeight: 500, color: isActive ? "rgba(255,255,255,0.65)" : "#888" }}>
-              {item.date}
-            </span>
-            <span style={{ fontFamily: DISPLAY, fontSize: "0.8rem", fontWeight: isActive ? 700 : 500, lineHeight: 1.3 }}>
+            <Label style={{ color: isActive ? RULE : MUTED }}>{item.date}</Label>
+            <span style={{ ...BODY_STYLE, fontWeight: isActive ? 600 : 400, color: "inherit" }}>
               {item.theme}
             </span>
           </button>
@@ -120,16 +114,14 @@ export function DigestHistory() {
   );
 
   const pane = loadingDigest || !digest ? (
-    <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}><Loader2 className="size-5 animate-spin" style={{ color: "#666" }} /></div>
+    <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}><Loader2 size={20} className="animate-spin" style={{ color: MUTED }} /></div>
   ) : (
     <div>
-      <div style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#888", marginBottom: 10 }}>
+      <Label style={{ marginBottom: 12 }}>
         {new Date(digest.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-      </div>
-      <h2 style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.6rem", lineHeight: 1.25, letterSpacing: "-0.03em", color: "#1a1a1a", margin: "0 0 8px" }}>
-        {displayTheme(digest)}
-      </h2>
-      {digest.gist && <p style={{ fontSize: "0.95rem", color: "#555", margin: "0 0 24px", lineHeight: 1.6 }}>{digest.gist}</p>}
+      </Label>
+      <h2 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{displayTheme(digest)}</h2>
+      {digest.gist && <p style={{ ...BODY_STYLE, fontWeight: 600, color: INK, margin: "0 0 28px" }}>{digest.gist}</p>}
       {digest.synthesisContent ? (
         <BriefDigest
           key={digest.id}
@@ -139,9 +131,10 @@ export function DigestHistory() {
           keyConcepts={digest.keyConcepts}
           papers={papers}
           digestId={digest.id}
+          loggedIn
         />
       ) : (
-        <p style={{ fontSize: "0.85rem", color: "#999", fontStyle: "italic" }}>This digest has no synthesis.</p>
+        <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic" }}>This digest has no synthesis.</p>
       )}
     </div>
   );
@@ -156,7 +149,7 @@ export function DigestHistory() {
       <div className="md:hidden">
         {activeId && digest ? (
           <div>
-            <button onClick={() => { setActiveId(null); setDigest(null); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: "0.9rem", background: "none", border: "none", cursor: "pointer", color: "#1a1a1a", padding: 0, marginBottom: 16 }}>
+            <button onClick={() => { setActiveId(null); setDigest(null); }} style={{ ...BODY_STYLE, display: "inline-flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: DIM, padding: 0, marginBottom: 20 }}>
               <ArrowLeft size={15} /> All digests
             </button>
             {pane}

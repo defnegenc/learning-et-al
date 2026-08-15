@@ -8,14 +8,14 @@ import { VaultPage } from "@/components/vault/vault-page";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import type { SettingsTab } from "@/components/settings-dialog";
-import { NavTab, SiteHeader } from "@/components/design-system";
+import { BORDER, DISPLAY_SM, HAIRLINE, INK, MUTED, NavTab, SiteHeader, SURFACE } from "@/components/design-system";
 
 interface Session {
   userId: string | null;
   isSetUp: boolean;
 }
 
-/** A row in the mobile slide-down menu — display face, sentence case, 48px tall. */
+/** A row in the mobile slide-down menu — Display/SM, 52px tall, thumb-sized. */
 function MenuItem({ label, active, onClick, last = false }: {
   label: string;
   active: boolean;
@@ -26,13 +26,12 @@ function MenuItem({ label, active, onClick, last = false }: {
     <button
       onClick={onClick}
       style={{
+        ...DISPLAY_SM,
         display: "block", width: "100%", textAlign: "left",
-        padding: "15px 20px", border: "none", background: "transparent",
-        borderBottom: last ? "none" : "1px solid rgba(26,26,26,0.12)",
-        borderLeft: `3px solid ${active ? "#1a1a1a" : "transparent"}`,
-        fontFamily: "var(--font-display), sans-serif",
-        fontSize: "1rem", fontWeight: 700,
-        color: active ? "#1a1a1a" : "#666",
+        padding: "16px 20px", border: "none", background: "transparent",
+        borderBottom: last ? "none" : HAIRLINE,
+        borderLeft: `2px solid ${active ? INK : "transparent"}`,
+        color: active ? INK : MUTED,
         cursor: "pointer",
       }}
     >
@@ -66,7 +65,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
+    <div className="relative min-h-screen flex flex-col" style={{ background: SURFACE }}>
       <NoiseOverlay />
 
       <SiteHeader right={
@@ -85,7 +84,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <button
             className="flex md:hidden items-center justify-center"
             onClick={() => setMenuOpen(v => !v)}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: MUTED }}
             aria-label="Menu"
           >
             {menuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -95,8 +94,8 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <button
             onClick={() => openSettings("account")}
             title="Settings"
-            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "#888" }}
-            className="hidden md:flex hover:text-[#1a1a1a] transition-colors"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: MUTED }}
+            className="hidden md:flex transition-colors"
           >
             <Settings size={16} />
           </button>
@@ -120,7 +119,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
           <div className="fixed inset-0 z-30 md:hidden" onClick={() => setMenuOpen(false)} />
           <div
             className="fixed md:hidden"
-            style={{ top: "52px", right: 0, left: 0, zIndex: 40, background: "white", borderBottom: "2px solid #1a1a1a" }}
+            style={{ top: 52, right: 0, left: 0, zIndex: 40, background: SURFACE, borderBottom: BORDER }}
           >
             {([
               { key: "today", label: "Today" },

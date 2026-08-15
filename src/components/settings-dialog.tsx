@@ -12,7 +12,10 @@ import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
-import { PageTitle, SectionLabel, ActionButton, SiteHeader, Segmented, INK, DISPLAY } from "@/components/design-system";
+import {
+  ACID_GREEN, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_SM, FIELD, HAIRLINE, INK,
+  Label, MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE,
+} from "@/components/design-system";
 
 export type SettingsTab = "interests" | "account";
 
@@ -79,7 +82,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           keyword: i.keyword,
           field: (i.field || "Computer Science") as S2Field,
           fieldLabel: fieldEntry ? fieldEntry[1].label : "CS",
-          color: fieldEntry ? fieldEntry[1].color : "#e5e7eb",
+          color: fieldEntry ? fieldEntry[1].color : FIELD,
         });
         if (fieldEntry && !fieldEntry[1].topics.includes(i.keyword)) {
           const key = fieldEntry[0];
@@ -174,13 +177,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
         <div ref={initialFocusRef} tabIndex={-1} style={{ outline: "none", position: "absolute" }} aria-hidden />
         {/* ── Top bar ── */}
         <SiteHeader style={{ flexShrink: 0 }} right={
-          <button
-            onClick={() => setOpen(false)}
-            className="text-[#888] hover:text-[#1a1a1a] transition-colors"
-            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 0 6px 6px", fontSize: "0.95rem", fontFamily: DISPLAY, fontWeight: 700 }}
-          >
-            Done
-          </button>
+          <ActionButton variant="plain" onClick={() => setOpen(false)}>Done</ActionButton>
         } />
 
         {/* The settings shape everyone already knows: a nav rail on the left,
@@ -197,12 +194,12 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                 onClick={() => setTab(n.key)}
                 aria-current={tab === n.key ? "page" : undefined}
                 style={{
+                  ...DISPLAY_SM,
                   display: "block", width: "100%", textAlign: "left",
-                  padding: "10px 20px", background: "none", border: "none",
-                  borderLeft: `3px solid ${tab === n.key ? INK : "transparent"}`,
-                  fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 700,
-                  color: tab === n.key ? INK : "#666",
-                  cursor: "pointer", transition: "color 120ms",
+                  padding: "12px 20px", background: "none", border: "none",
+                  borderLeft: `2px solid ${tab === n.key ? INK : "transparent"}`,
+                  color: tab === n.key ? INK : MUTED,
+                  cursor: "pointer", transition: "color 140ms",
                 }}
               >
                 {n.label}
@@ -218,11 +215,11 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                   onClick={() => setTab(n.key)}
                   aria-current={tab === n.key ? "page" : undefined}
                   style={{
-                    flex: 1, padding: "13px 8px", background: "none", border: "none",
+                    ...DISPLAY_SM,
+                    flex: 1, padding: "14px 8px", background: "none", border: "none",
                     borderBottom: `2px solid ${tab === n.key ? INK : "transparent"}`,
                     marginBottom: -1,
-                    fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 700,
-                    color: tab === n.key ? INK : "#888",
+                    color: tab === n.key ? INK : MUTED,
                     cursor: "pointer",
                   }}
                 >
@@ -235,15 +232,16 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="px-4 pt-5 pb-3 md:px-10 md:pt-8 md:pb-4" style={{ flexShrink: 0 }}>
-                <PageTitle size="lg" style={{ marginBottom: "6px" }}>Curate your feed</PageTitle>
-                <p style={{ fontSize: "0.95rem", color: "#666", lineHeight: 1.6, maxWidth: 560, margin: 0 }}>
-                  Pick the topics your digest thinks with. Breadth beats depth — it samples across everything you choose.
+                <Label style={{ marginBottom: 12 }}>Preferences / Interests</Label>
+                <PageTitle style={{ marginBottom: 12 }}>Curate your feed</PageTitle>
+                <p style={{ ...BODY_STYLE, color: DIM, maxWidth: 560, margin: 0 }}>
+                  Pick the topics your daily digest thinks with. Breadth beats depth, so it samples across everything you choose.
                 </p>
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 md:px-10">
                 {loadingInterests ? (
-                  <div className="flex items-center justify-center py-16"><Loader2 className="size-5 animate-spin text-[#888]" /></div>
+                  <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin" style={{ color: MUTED }} /></div>
                 ) : (
                   <InterestLedger
                     selected={selectedTopics}
@@ -260,37 +258,38 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {/* ── Account tab — who you are, when it arrives, and the two buttons ── */}
           {tab === "account" && (
             <div className="flex-1 overflow-y-auto px-4 py-5 md:px-10 md:py-8">
-              <PageTitle size="lg" style={{ marginBottom: "20px" }}>Account</PageTitle>
+              <Label style={{ marginBottom: 12 }}>Preferences / Account</Label>
+              <PageTitle style={{ marginBottom: 24 }}>Account</PageTitle>
 
               {authSession?.user && (
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28, paddingBottom: 24, borderBottom: HAIRLINE }}>
                   {authSession.user.image && (
                     <img src={authSession.user.image} alt="" style={{ width: "40px", height: "40px", borderRadius: "50%", border: "1.5px solid rgba(26,26,26,0.12)" }} />
                   )}
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{authSession.user.name}</div>
-                    <div style={{ fontSize: "0.85rem", color: "#666", overflow: "hidden", textOverflow: "ellipsis" }}>{authSession.user.email}</div>
+                    <div style={{ ...BODY_STYLE, fontWeight: 600 }}>{authSession.user.name}</div>
+                    <div style={{ ...BODY_STYLE, color: MUTED, overflow: "hidden", textOverflow: "ellipsis" }}>{authSession.user.email}</div>
                   </div>
                 </div>
               )}
 
               {/* Delivery — moved off the Interests tab so picking topics on a
                   phone isn't two screens of preferences before the first chip. */}
-              <div style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
+              <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: HAIRLINE }}>
                 <SectionLabel style={{ marginBottom: "10px" }}>How often</SectionLabel>
                 <Segmented
                   value={cadence}
                   onChange={setCadence}
                   options={CADENCE.map(c => ({ key: c.key, label: c.label }))}
                 />
-                <p style={{ fontSize: "0.85rem", color: "#666", margin: "8px 0 0" }}>
+                <p style={{ ...BODY_STYLE, color: MUTED, margin: "10px 0 0" }}>
                   {CADENCE.find(c => c.key === cadence)?.desc}
                 </p>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginTop: 20 }}>
                   <div>
                     <SectionLabel>Email it to me</SectionLabel>
-                    <div style={{ fontSize: "0.85rem", color: "#666", marginTop: "3px" }}>Otherwise it waits for you on the site.</div>
+                    <div style={{ ...BODY_STYLE, color: MUTED, marginTop: 4 }}>Otherwise it waits for you on the site.</div>
                   </div>
                   <button
                     onClick={() => setEmailOptOut(v => !v)}
@@ -299,14 +298,14 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                     aria-label="Email digests"
                     style={{
                       width: 46, height: 26, border: `2px solid ${INK}`,
-                      background: emailOptOut ? "#e5e7eb" : INK,
+                      background: emailOptOut ? SURFACE : INK,
                       position: "relative", cursor: "pointer", flexShrink: 0, transition: "background 0.15s",
                     }}
                   >
                     <span style={{
                       position: "absolute", top: 2, left: emailOptOut ? 2 : 20,
                       width: 18, height: 18,
-                      background: emailOptOut ? "#999" : "white",
+                      background: emailOptOut ? INK : SURFACE,
                       transition: "left 0.15s",
                     }} />
                   </button>
@@ -314,13 +313,13 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               </div>
 
               {isAdmin && (
-                <div style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
+                <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: HAIRLINE }}>
                   <SectionLabel style={{ marginBottom: "4px" }}>Today&rsquo;s digest</SectionLabel>
-                  <p style={{ fontSize: "0.85rem", color: "#666", margin: "0 0 12px" }}>
+                  <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 14px" }}>
                     Build it again from scratch. New question, new papers.
                   </p>
                   <ActionButton onClick={() => { onRegenerate?.(); setOpen(false); }} style={{ width: "100%", justifyContent: "center" }}>
-                    <RefreshCw className="size-3.5" />
+                    <RefreshCw size={15} />
                     Regenerate digest
                   </ActionButton>
                 </div>
@@ -334,7 +333,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                 }}
                 style={{ width: "100%", justifyContent: "center" }}
               >
-                <LogOut className="size-3.5" />
+                <LogOut size={15} />
                 Sign out
               </ActionButton>
             </div>
@@ -344,30 +343,30 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
         <div
           className="px-4 md:px-10"
           style={{
-            borderTop: `1px solid ${INK}`, background: "#fff", flexShrink: 0,
+            borderTop: HAIRLINE, background: SURFACE, flexShrink: 0,
             paddingTop: 12, paddingBottom: "max(12px, env(safe-area-inset-bottom))",
             display: "flex", alignItems: "center", gap: 10,
           }}
         >
           {saved ? (
-            <span className="flex items-center gap-1.5 text-[#38b000] text-[0.85rem] mr-auto">
-              <CheckCircle className="size-3.5" /> Saved
+            <span style={{ ...BODY_STYLE, fontWeight: 600, color: ACID_GREEN, display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>
+              <CheckCircle size={15} /> All changes saved
             </span>
           ) : (
-            <span style={{ fontSize: "0.85rem", color: "#666", marginRight: "auto" }}>
+            <span style={{ ...BODY_STYLE, color: MUTED, marginRight: "auto" }}>
               {tab === "interests" && selectedTopics.length < 3 ? "Pick at least 3 topics." : ""}
             </span>
           )}
           {tab === "interests" && selectedTopics.length > 0 && (
             <button
               onClick={() => { setSelectedTopics([]); setCustomTopics({}); }}
-              style={{ fontFamily: DISPLAY, fontSize: "0.88rem", fontWeight: 700, color: INK, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px", padding: "8px 4px" }}
+              style={{ ...DISPLAY_SM, color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "8px 4px" }}
             >
               Clear all
             </button>
           )}
           <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
-            {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+            {saving ? <Loader2 size={15} className="animate-spin" /> : tab === "interests" ? "Save interests" : "Save"}
           </ActionButton>
             </div>
           </main>

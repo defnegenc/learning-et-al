@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
+import { PaperCard } from "@/components/paper-card";
 
 /*
  * Brief is the default experience; classic (?classic=1) is the only alternate
@@ -14,46 +15,40 @@ import { DigestHeader } from "./digest-header";
  * the bundle every normal visitor downloads before the page can paint.
  */
 const SynthesisBanner = dynamic(() => import("./synthesis-banner").then(m => m.SynthesisBanner), { ssr: false });
-const SourceCard = dynamic(() => import("./source-card").then(m => m.SourceCard), { ssr: false });
-import { ActionButton, PageLoader } from "@/components/design-system";
+import {
+  ACID_GREEN, ACID_PINK, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_LG, INK, Label,
+  MUTED, PageLoader, SHADOW, SURFACE,
+} from "@/components/design-system";
 import React from "react";
 
 /* ── Types ── */
 
 /* ── Ink-fill title ── */
 // The question arrives as hollow outline type and fills with ink one word at a
-// time. Replaces the two-phase gradient sweep: same resting state (plain ink —
-// the sweep's bars wiped back out too), no colour, and because each word is its
-// own box it survives line wrapping without measuring anything.
+// time. Replaced the two-phase gradient sweep: same resting state, no colour,
+// and because each word is its own box it survives line wrapping without
+// measuring anything.
 //
 // The stroke goes to 0 as the fill arrives, so the headline you actually sit
-// and read is exactly the old one — same weight, no colour, nothing left over.
-// `key` on the h1 remounts it when the headline changes, restarting the fill.
+// and read is exactly Display/LG with nothing left over. The stroke is 1px, not
+// the prototype's 1.5px: the menu halved the headline, and 1.5px on 32px type
+// is a heavier outline than 1.5px on 64px was. `key` on the h1 remounts it when
+// the headline changes, restarting the fill.
 function InkTitle({ text }: { text: string }) {
   const words = text.split(" ");
   return (
     <>
       <style>{`
         @keyframes inkFill {
-          from { color: transparent; -webkit-text-stroke-width: 1.5px }
-          to   { color: #1a1a1a;     -webkit-text-stroke-width: 0px }
+          from { color: transparent; -webkit-text-stroke-width: 1px }
+          to   { color: ${INK};      -webkit-text-stroke-width: 0px }
         }
         .ink-word { display: inline-block; animation: inkFill 0.4s ease-out both; }
         @media (prefers-reduced-motion: reduce) {
-          .ink-word { animation: none !important; color: #1a1a1a !important; -webkit-text-stroke-width: 0 !important }
+          .ink-word { animation: none !important; color: ${INK} !important; -webkit-text-stroke-width: 0 !important }
         }
       `}</style>
-      <h1
-        key={text}
-        style={{
-          fontFamily: "var(--font-display), sans-serif",
-          fontSize: "clamp(2.75rem, 5vw, 4rem)",
-          lineHeight: 1.25, fontWeight: 700,
-          letterSpacing: "-0.055em", color: "#1a1a1a",
-          WebkitTextStrokeColor: "#1a1a1a",
-          margin: "0 0 28px",
-        }}
-      >
+      <h1 key={text} style={{ ...DISPLAY_LG, WebkitTextStrokeColor: INK, margin: "0 0 28px" }}>
         {words.map((w, i) => (
           <React.Fragment key={i}>
             {/* the space lives outside the animated box so it can't shift */}
@@ -80,45 +75,33 @@ function NotepadFloat({ notes, onChange, onSave }: { notes: string; onChange: (v
   return (
     <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 20, display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
       {open && (
-        <div style={{ width: 300, background: "#fff", border: "2px solid #1a1a1a", boxShadow: "4px 4px 0 #1a1a1a" }}>
-          <div style={{ borderBottom: "2px solid #1a1a1a", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.65rem", letterSpacing: "2px", fontWeight: 700, textTransform: "uppercase" }}>Notes</span>
-            <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1, color: "#666" }}>×</button>
+        <div style={{ width: 300, background: SURFACE, border: BORDER, boxShadow: SHADOW }}>
+          <div style={{ borderBottom: BORDER, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Label>Notes</Label>
+            <button onClick={() => setOpen(false)} aria-label="Close notes" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, color: MUTED }}>×</button>
           </div>
           <div style={{ padding: 14 }}>
             <textarea
               value={notes}
               onChange={e => { onChange(e.target.value); setSaved(false); }}
               onBlur={handleBlur}
-              placeholder="Jot down your thoughts..."
-              style={{ width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", resize: "vertical", fontSize: "0.875rem", lineHeight: 1.65, color: "#333", fontFamily: "inherit", boxSizing: "border-box" }}
+              placeholder="Jot down your thoughts…"
+              style={{ ...BODY_STYLE, width: "100%", minHeight: 120, background: "transparent", border: "none", outline: "none", resize: "vertical", boxSizing: "border-box" }}
             />
-            {saved && <span style={{ fontSize: "0.6rem", color: "#38b000", fontFamily: "var(--font-mono), monospace" }}>Saved</span>}
+            {saved && <span style={{ ...BODY_STYLE, fontSize: 13, color: ACID_GREEN }}>Saved</span>}
           </div>
         </div>
       )}
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{
-          padding: "10px 18px 10px 40px", position: "relative",
-          background: open ? "#FFF4B8" : "#fff",
-          border: "2px solid #1a1a1a", borderRadius: 999,
-          cursor: "pointer", fontFamily: "var(--font-display), sans-serif",
-          fontSize: "0.8rem", fontWeight: 700, letterSpacing: 0.5, color: "#1a1a1a",
-          textTransform: "uppercase", display: "inline-flex", alignItems: "center",
-          boxShadow: "3px 3px 0 #1a1a1a", transition: "transform 150ms, box-shadow 150ms",
-          whiteSpace: "nowrap",
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translate(-1px,-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "4px 4px 0 #1a1a1a"; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = "3px 3px 0 #1a1a1a"; }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          style={{ position: "absolute", left: 12, transform: open ? "rotate(-20deg)" : "none", transition: "transform 220ms" }}>
+      {/* Square, like everything else — the 999px pill was the last capsule in
+          the product and it read as a different product's button. */}
+      <ActionButton onClick={() => setOpen(v => !v)} style={{ paddingLeft: 18, paddingRight: 18 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? "rotate(-20deg)" : "none", transition: "transform 220ms" }}>
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
         </svg>
         {open ? "Close" : "Notes"}
-      </button>
+      </ActionButton>
     </div>
   );
 }
@@ -328,14 +311,14 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
   if (!digest) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
-        <h1 style={{ fontSize: "2.5rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif", letterSpacing: "-0.03em", textAlign: "center" }}>
+        <h1 style={{ ...DISPLAY_LG, textAlign: "center", margin: 0 }}>
           Today&apos;s digest is brewing
         </h1>
-        <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
+        <p style={{ ...BODY_STYLE, color: DIM, textAlign: "center", maxWidth: 440 }}>
           Check back soon. A fresh research digest is generated every day.
         </p>
         {session && generateError && (
-          <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">{generateError}</p>
+          <p style={{ ...BODY_STYLE, color: ACID_PINK, maxWidth: 440, textAlign: "center" }}>{generateError}</p>
         )}
         {session && (
           <ActionButton onClick={() => handleGenerate(true)} disabled={generating}>
@@ -373,44 +356,42 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         <main>
           {/* DigestTitleBlock — 28px below matches the tag→gist gap inside DigestHeader */}
           <div style={{ marginBottom: "28px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  Daily digest
-                </span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                <Label>Daily digest</Label>
                 {!session && publicDigestList.length > 1 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <button
                       disabled={publicDigestIdx >= publicDigestList.length - 1}
+                      aria-label="Previous digest"
                       onClick={() => {
                         const next = publicDigestIdx + 1;
                         setPublicDigestIdx(next);
                         fetchDigest(publicDigestList[next].id);
                       }}
-                      style={{ background: "none", border: "1px solid #ddd", cursor: publicDigestIdx >= publicDigestList.length - 1 ? "default" : "pointer", padding: "2px 8px", fontSize: "0.75rem", color: publicDigestIdx >= publicDigestList.length - 1 ? "#ccc" : "#555" }}
+                      style={{ background: "none", border: `1px solid ${INK}`, cursor: publicDigestIdx >= publicDigestList.length - 1 ? "default" : "pointer", padding: "2px 8px", ...BODY_STYLE, fontSize: 13, lineHeight: "18px", opacity: publicDigestIdx >= publicDigestList.length - 1 ? 0.3 : 1 }}
                     >←</button>
-                    <span style={{ fontSize: "0.6rem", fontFamily: "var(--font-mono), monospace", color: "#999", whiteSpace: "nowrap" }}>
+                    <Label style={{ color: MUTED }}>
                       {new Date(publicDigestList[publicDigestIdx]?.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </span>
+                    </Label>
                     <button
                       disabled={publicDigestIdx <= 0}
+                      aria-label="Next digest"
                       onClick={() => {
                         const prev = publicDigestIdx - 1;
                         setPublicDigestIdx(prev);
                         fetchDigest(publicDigestList[prev].id);
                       }}
-                      style={{ background: "none", border: "1px solid #ddd", cursor: publicDigestIdx <= 0 ? "default" : "pointer", padding: "2px 8px", fontSize: "0.75rem", color: publicDigestIdx <= 0 ? "#ccc" : "#555" }}
+                      style={{ background: "none", border: `1px solid ${INK}`, cursor: publicDigestIdx <= 0 ? "default" : "pointer", padding: "2px 8px", ...BODY_STYLE, fontSize: 13, lineHeight: "18px", opacity: publicDigestIdx <= 0 ? 0.3 : 1 }}
                     >→</button>
                   </div>
                 )}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                {generateError && (
-                  <span style={{ fontSize: "0.6rem", color: "#ff007f", fontFamily: "var(--font-mono), monospace", maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
-                    {generateError}
-                  </span>
-                )}
-              </div>
+              {generateError && (
+                <span style={{ ...BODY_STYLE, fontSize: 13, color: ACID_PINK, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
+                  {generateError}
+                </span>
+              )}
             </div>
 
             <InkTitle text={displayTheme} />
@@ -450,6 +431,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
               keyConcepts={digest.keyConcepts}
               papers={papers}
               digestId={digest.id}
+              loggedIn={!!session?.userId}
               interests={interestKeywords}
               seedField={digest.seedInterests?.[0]?.field}
               endSlot={session ? (
@@ -477,9 +459,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             />
           ) : (
             <div className="flex flex-col items-center gap-3 py-16">
-              <p className="text-[0.65rem] uppercase tracking-[2px] text-[#888]" style={{ fontFamily: "var(--font-mono), monospace" }}>
-                {(session && generateError) || "No digest found for today"}
-              </p>
+              <Label>{(session && generateError) || "No digest found for today"}</Label>
               {session && (
                 <ActionButton variant="primary" onClick={() => handleGenerate(true)} disabled={generating}>
                   {generating
@@ -497,12 +477,12 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         {/* ── Right: paper rail (focus modes reveal cards inline instead) ── */}
         {papers.length > 0 && !focusMode && (
           <aside>
-            <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "0.95rem", fontWeight: 500, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "16px" }}>
-              Referenced sources
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <Label style={{ marginBottom: 16 }}>Referenced sources</Label>
+            {/* The same card the digest renders, smaller. There is no rail-only
+                card component any more. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {papers.map((paper, idx) => (
-                <SourceCard key={paper.id} paper={paper} index={idx} loggedIn={!!session?.userId} initialBookmarked={bookmarkedIds.has(paper.id)} />
+                <PaperCard key={paper.id} paper={paper} index={idx} size="compact" loggedIn={!!session?.userId} initialBookmarked={bookmarkedIds.has(paper.id)} />
               ))}
             </div>
           </aside>

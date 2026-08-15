@@ -7,11 +7,15 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const INK = "#1a1a1a";
+const DIM = "#444444";
 
-/** SOURCE_PALETTES[0] and [1] — the card's colour, and now the only place the
- *  sweep bar survives: the digest headline moved to InkTitle (no colour). */
-const SWEEP_1 = ["#6EE9A8", "#D4F04A"];
-const SWEEP_2 = ["#FF85A8", "#FFD020"];
+/* Card 1 and card 2's wash hues — spectrum slots 0+1 and 3+4 — and now the only
+   place the sweep bar survives, since the digest headline moved to InkTitle and
+   carries no colour. Inlined rather than imported because this route runs in
+   the edge renderer and must not pull a client component: keep in step with
+   `washSlots` in design-system.tsx. */
+const SWEEP_1 = ["#fecaca", "#fed7aa"];
+const SWEEP_2 = ["#d9f99d", "#bbf7d0"];
 
 const font = (file: string) =>
   readFile(path.join(process.cwd(), "public/fonts", file)).catch(() => null);
@@ -38,14 +42,12 @@ function Phrase({ text, colors, display }: { text: string; colors: string[]; dis
 }
 
 export default async function Image() {
-  const [cabinet, spaceGrotesk, apercu] = await Promise.all([
+  const [cabinet, apercu] = await Promise.all([
     font("CabinetGrotesk-Bold.ttf"),
-    font("SpaceGrotesk-Bold.ttf"),
     font("apercu_regular_pro.otf"),
   ]);
 
   const display = cabinet ? "Cabinet Grotesk" : "sans-serif";
-  const logo = spaceGrotesk ? "Space Grotesk" : "sans-serif";
   const body = apercu ? "Apercu Pro" : "sans-serif";
 
   return new ImageResponse(
@@ -59,16 +61,17 @@ export default async function Image() {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "56px 64px 60px",
-          border: `6px solid ${INK}`,
+          border: `4px solid ${INK}`,
         }}
       >
-        {/* Wordmark — the only uppercase on the card */}
+        {/* Wordmark — Display/SM with the label's tracking, the same lockup the
+            site header draws. */}
         <div style={{
           display: "flex",
-          fontFamily: logo,
+          fontFamily: display,
           fontSize: 22,
           fontWeight: 700,
-          letterSpacing: "0.2em",
+          letterSpacing: "0.12em",
           textTransform: "uppercase",
           color: INK,
         }}>
@@ -86,7 +89,7 @@ export default async function Image() {
             fontFamily: body,
             fontSize: 26,
             lineHeight: 1.5,
-            color: "#666",
+            color: DIM,
             maxWidth: 820,
           }}>
             A daily research digest that finds, synthesizes and contrasts papers around one provocative question.
@@ -102,7 +105,6 @@ export default async function Image() {
       ...size,
       fonts: [
         cabinet && { name: "Cabinet Grotesk", data: cabinet.buffer as ArrayBuffer, weight: 700 as const, style: "normal" as const },
-        spaceGrotesk && { name: "Space Grotesk", data: spaceGrotesk.buffer as ArrayBuffer, weight: 700 as const, style: "normal" as const },
         apercu && { name: "Apercu Pro", data: apercu.buffer as ArrayBuffer, weight: 400 as const, style: "normal" as const },
       ].filter(Boolean) as { name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" }[],
     }

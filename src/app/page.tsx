@@ -7,7 +7,7 @@ import { Onboarding } from "@/components/onboarding";
 import { AppShell } from "@/components/app-shell";
 import { TodayPage } from "@/components/today/today-page";
 import { NoiseOverlay } from "@/components/noise-overlay";
-import { ActionButton, PageLoader, SiteHeader } from "@/components/design-system";
+import { ActionButton, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
 
 export default function Home() {
   const { session, updateSession, loaded } = useSession();
@@ -51,7 +51,7 @@ export default function Home() {
   // wait with one indicator rather than two spinners in a row.
   if (!loaded || authStatus === "loading") {
     return (
-      <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
+      <div className="relative min-h-screen flex flex-col" style={{ background: SURFACE }}>
         <NoiseOverlay />
         <SiteHeader />
         <main className="relative z-10 flex-1"><PageLoader /></main>
@@ -85,12 +85,12 @@ export default function Home() {
 
   // Not signed in — show same today page layout as logged-in users
   return (
-    <div className="relative min-h-screen flex flex-col" style={{ background: "white" }}>
+    <div className="relative min-h-screen flex flex-col" style={{ background: SURFACE }}>
       <NoiseOverlay />
 
       <SiteHeader
         right={
-          <ActionButton variant="primary" size="sm" onClick={() => signIn("google")}>
+          <ActionButton variant="primary" shadow={false} style={{ padding: "7px 14px" }} onClick={() => signIn("google")}>
             Sign in
           </ActionButton>
         }

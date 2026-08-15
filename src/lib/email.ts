@@ -29,164 +29,172 @@ type Cadence = "daily" | "biweekly" | "weekly";
 
 const SITE_URL = "https://learningetal.com";
 
+/*
+ * The short menu, inlined for email.
+ *
+ * Mail clients strip <style> and CSS variables, so these have to be literals —
+ * but they are the same literals as globals.css and must move with it. Two web
+ * fonts can't be loaded either, so the display face falls back to the system
+ * grotesque and the label face to a monospace stack; the geometry, the colour
+ * and the hierarchy are what carry the brand here.
+ */
+const INK = "#1a1a1a";
+const DIM = "#444444";
+const MUTED = "#888888";
+const RULE = "#dddddd";
+const FIELD_BG = "#e8e8e8";
+const SURFACE = "#ffffff";
+/** Spectrum slots 00–09, hue-ordered. Card i takes slot i×3 and the next. */
+const SPECTRUM = ["#fecaca", "#fed7aa", "#fde68a", "#d9f99d", "#bbf7d0", "#99f6e4", "#bfdbfe", "#ddd6fe", "#f5d0fe", "#fbcfe8"];
+const washHues = (i: number): [string, string] => [SPECTRUM[(i * 3) % 10], SPECTRUM[(i * 3 + 1) % 10]];
+
+const DISPLAY_FACE = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+const BODY_FACE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+const MONO_FACE = "ui-monospace,SFMono-Regular,Menlo,monospace";
+
+/** Display/SM — card titles and every button. */
+const DISPLAY_SM = `font-family:${DISPLAY_FACE};font-size:16px;font-weight:700;letter-spacing:-0.01em;line-height:20px;text-transform:uppercase;color:${INK};`;
+/** Display/LG — the digest's question. */
+const DISPLAY_LG = `font-family:${DISPLAY_FACE};font-size:32px;font-weight:700;letter-spacing:-0.02em;line-height:38px;color:${INK};`;
+/** Label — mono eyebrows only. */
+const LABEL = `font-family:${MONO_FACE};font-size:12px;font-weight:700;letter-spacing:0.12em;line-height:16px;text-transform:uppercase;color:${MUTED};`;
+const BODY = `font-family:${BODY_FACE};font-size:15px;line-height:24px;color:${INK};`;
+const BODY_SM = `font-family:${BODY_FACE};font-size:13px;line-height:20px;color:${INK};`;
+
+const label = (text: string, extra = "") =>
+  `<div style="${LABEL}${extra}">${text}</div>`;
+
+/** The one button: ink fill, 2px frame, one hard 5px shadow. */
+const cta = (href: string, text: string) =>
+  `<div style="text-align:center;margin:28px 0 4px;">
+     <a href="${href}" style="${DISPLAY_SM}display:inline-block;padding:12px 22px;background:${INK};color:${SURFACE};text-decoration:none;border:2px solid ${INK};box-shadow:5px 5px 0 0 ${INK};">${text}</a>
+   </div>`;
+
+/** The wordmark lockup — Display/SM with the label's tracking. */
+const masthead = (right: string) =>
+  `<div style="background:${INK};padding:14px 16px;">
+     <span style="${DISPLAY_SM}color:${SURFACE};letter-spacing:0.12em;">Learning et al.</span>
+     <span style="float:right;${LABEL}color:${RULE};line-height:20px;">${right}</span>
+   </div>`;
+
+const footer = () =>
+  `<div style="text-align:center;padding:16px 0;">
+     <p style="${BODY_SM}color:${MUTED};margin:0;">
+       <a href="${SITE_URL}" style="color:${MUTED};text-decoration:none;">learningetal.com</a> ·
+       <a href="${SITE_URL}" style="color:${MUTED};text-decoration:none;">manage preferences</a>
+     </p>
+   </div>`;
+
+/** Bold in the synthesis is a paper's name — an ink underline, as on the site. */
+const emphasise = (text: string) =>
+  text.replace(/\*\*(.*?)\*\*/g, `<strong style="font-weight:600;color:${INK};text-decoration:underline;">$1</strong>`);
+
+/**
+ * The compact paper card, in email. Same anatomy as the site's — title, byline,
+ * tags — and the same wash index (position in the digest, never the field).
+ * Mail clients drop radial-gradient, so the wash becomes a flat 6px band of the
+ * card's two hues across the top: the colour still tells you which card this is.
+ */
 function paperCard(p: PaperData, i: number): string {
-  const colors = ["#f9a8d4", "#93c5fd", "#c4b5fd"];
-  const tagBgs = [["#fce7f3", "#dcfce7"], ["#dbeafe", "#fef9c3"], ["#ede9fe", "#fee2e2"]];
-  const dot = colors[i % colors.length];
-  const yearStr = p.year ? ` · ${p.year}` : "";
-  const sourceLabel = p.source === "rss" ? "NEWS" : p.source === "arxiv" ? "ARXIV" : "PAPER";
-  const keywords = (p.keywords || []).slice(0, 2).map((kw, ki) =>
-    `<span style="display:inline-block;padding:2px 8px;font-size:10px;font-weight:700;text-transform:uppercase;font-family:monospace;background:${tagBgs[i % tagBgs.length][ki % 2]};border:1.5px solid #1a1a1a;margin-right:4px;">${kw}</span>`
+  const [h1, h2] = washHues(i);
+  const venue = p.source === "rss" ? "News" : p.source === "arxiv" ? "arXiv" : "Paper";
+  const byline = [venue, p.year ? String(p.year) : ""].filter(Boolean).join(", ");
+  const keywords = (p.keywords || []).slice(0, 2).map(kw =>
+    `<span style="${BODY_SM}font-weight:600;display:inline-block;padding:4px 10px;background:${SURFACE};border:1px solid ${INK};margin-right:6px;">${kw}</span>`
   ).join("");
 
   return `
-    <div style="border:2px solid #1a1a1a;padding:14px 16px;margin-bottom:10px;background:white;box-shadow:4px 4px 0px 0px rgba(0,0,0,1);">
-      <div style="margin-bottom:6px;">
-        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dot};vertical-align:middle;"></span>
-        <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#999;font-family:monospace;vertical-align:middle;margin-left:4px;">
-          ${sourceLabel}${yearStr}
-        </span>
+    <div style="border:2px solid ${INK};margin-bottom:16px;background:${SURFACE};box-shadow:5px 5px 0 0 ${INK};">
+      <div style="height:6px;background:${h1};border-bottom:2px solid ${INK};">
+        <div style="width:50%;height:6px;background:${h2};margin-left:50%;"></div>
       </div>
-      <a href="${p.sourceUrl || SITE_URL}" style="font-size:14px;font-weight:700;text-transform:uppercase;line-height:1.3;color:#1a1a1a;text-decoration:none;display:block;margin-bottom:6px;">
-        ${p.title}
-      </a>
-      ${p.summary ? `<p style="font-size:12px;color:#555;line-height:1.5;margin:0 0 8px 0;border-left:3px solid #e5e7eb;padding-left:8px;">${p.summary.length > 140 ? p.summary.slice(0, 137) + "..." : p.summary}</p>` : ""}
-      ${keywords ? `<div>${keywords}</div>` : ""}
+      <div style="padding:16px 18px;">
+        <a href="${p.sourceUrl || SITE_URL}" style="${DISPLAY_SM}text-decoration:none;display:block;margin-bottom:8px;">
+          ${p.title}
+        </a>
+        <p style="${BODY_SM}font-style:italic;color:${DIM};margin:0 0 12px 0;">${byline}</p>
+        ${p.summary ? `<p style="${BODY_SM}color:${DIM};margin:0 0 12px 0;">${p.summary.length > 140 ? p.summary.slice(0, 137) + "…" : p.summary}</p>` : ""}
+        ${keywords ? `<div>${keywords}</div>` : ""}
+      </div>
     </div>`;
 }
 
 function dailyEmail(data: DigestEmailData): string {
   const paperCards = data.papers.map((p, i) => paperCard(p, i)).join("");
-  const synthesisHtml = data.synthesis.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#111;font-weight:700;background:rgba(249,168,212,0.2);padding:1px 3px;">$1</strong>');
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:560px;margin:0 auto;padding:20px 12px;">
-    <!-- Header bar -->
-    <div style="background:#1a1a1a;padding:12px 16px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:white;font-family:monospace;">Learning et al.</span>
-      <span style="font-size:10px;color:#888;font-family:monospace;">DAILY DIGEST</span>
-    </div>
+<body style="margin:0;padding:0;background:${FIELD_BG};${BODY}">
+  <div style="max-width:600px;margin:0 auto;padding:24px 12px;">
+    ${masthead("Daily digest")}
 
     <!-- Main content -->
-    <div style="background:white;border:2px solid #1a1a1a;border-top:none;padding:24px 20px;">
-      <!-- Theme -->
-      <h1 style="font-size:24px;font-weight:800;line-height:1.15;color:#1a1a1a;margin:0 0 8px 0;letter-spacing:-0.02em;">
-        ${data.theme}
-      </h1>
+    <div style="background:${SURFACE};border:2px solid ${INK};border-top:none;padding:28px 24px;">
+      ${label(data.date, "margin-bottom:14px;")}
 
-      <p style="font-size:11px;color:#aaa;font-family:monospace;text-transform:uppercase;letter-spacing:1px;margin:0 0 20px 0;">
-        ${data.date}
-      </p>
+      <h1 style="${DISPLAY_LG}margin:0 0 24px 0;">${data.theme}</h1>
 
-      <!-- Synthesis -->
-      <div style="font-size:15px;line-height:1.85;color:#333;margin-bottom:24px;">
-        ${synthesisHtml}
-      </div>
+      <div style="${BODY}margin-bottom:32px;">${emphasise(data.synthesis)}</div>
 
-      <!-- Sources -->
       <div style="margin-bottom:20px;">
-        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#555;font-family:monospace;display:block;margin-bottom:10px;">
-          Referenced Sources
-        </span>
+        ${label("Referenced sources", "margin-bottom:14px;")}
         ${paperCards}
       </div>
 
-      <!-- CTA -->
-      <div style="text-align:center;margin:24px 0 8px;">
-        <a href="${SITE_URL}/digest/${data.digestId}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:white;text-decoration:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;font-family:monospace;border:2px solid #1a1a1a;box-shadow:4px 4px 0px 0px rgba(0,0,0,1);">
-          Dig Deeper →
-        </a>
-      </div>
+      ${cta(`${SITE_URL}/digest/${data.digestId}`, "Read the digest →")}
     </div>
 
-    <!-- Footer -->
-    <div style="text-align:center;padding:12px 0;">
-      <p style="font-size:10px;color:#aaa;font-family:monospace;margin:0;">
-        <a href="${SITE_URL}" style="color:#888;text-decoration:none;">learningetal.com</a> · <a href="${SITE_URL}" style="color:#888;text-decoration:none;">manage preferences</a>
-      </p>
-    </div>
+    ${footer()}
   </div>
 </body></html>`;
 }
 
 function bestOfEmail(digests: DigestSummary[], bestDigest: DigestEmailData, cadence: "biweekly" | "weekly"): string {
-  const label = cadence === "biweekly" ? "BI-WEEKLY" : "WEEKLY";
+  const periodLabel = cadence === "biweekly" ? "Bi-weekly" : "Weekly";
   const period = cadence === "biweekly" ? "this half-week" : "this week";
 
   const archiveList = digests.map(d => `
     <tr>
-      <td style="padding:6px 0;border-bottom:1px solid #eee;">
-        <a href="${SITE_URL}/digest/${d.digestId}" style="font-size:13px;font-weight:600;color:#1a1a1a;text-decoration:none;">
-          ${d.theme}
-        </a>
-        <span style="font-size:10px;color:#aaa;font-family:monospace;margin-left:6px;">${d.date}</span>
+      <td style="padding:12px 0;border-bottom:1px solid ${RULE};">
+        <a href="${SITE_URL}/digest/${d.digestId}" style="${DISPLAY_SM}text-decoration:none;">${d.theme}</a>
+        <div style="${BODY_SM}color:${MUTED};margin-top:4px;">${d.date}</div>
       </td>
     </tr>
   `).join("");
 
   const paperCards = bestDigest.papers.map((p, i) => paperCard(p, i)).join("");
-  const synthesisHtml = bestDigest.synthesis.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#111;font-weight:700;background:rgba(249,168,212,0.2);padding:1px 3px;">$1</strong>');
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:560px;margin:0 auto;padding:20px 12px;">
-    <!-- Header bar -->
-    <div style="background:#1a1a1a;padding:12px 16px;margin-bottom:0;">
-      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:white;font-family:monospace;">Learning et al.</span>
-      <span style="float:right;font-size:10px;color:#888;font-family:monospace;">${label} BEST OF</span>
-    </div>
+<body style="margin:0;padding:0;background:${FIELD_BG};${BODY}">
+  <div style="max-width:600px;margin:0 auto;padding:24px 12px;">
+    ${masthead(`${periodLabel} best of`)}
 
     <!-- Best digest -->
-    <div style="background:white;border:2px solid #1a1a1a;border-top:none;padding:24px 20px;">
-      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#888;font-family:monospace;display:block;margin-bottom:8px;">
-        ★ Best of ${period}
-      </span>
+    <div style="background:${SURFACE};border:2px solid ${INK};border-top:none;padding:28px 24px;">
+      ${label(`Best of ${period} · ${bestDigest.date}`, "margin-bottom:14px;")}
 
-      <h1 style="font-size:24px;font-weight:800;line-height:1.15;color:#1a1a1a;margin:0 0 8px 0;letter-spacing:-0.02em;">
-        ${bestDigest.theme}
-      </h1>
+      <h1 style="${DISPLAY_LG}margin:0 0 24px 0;">${bestDigest.theme}</h1>
 
-      <p style="font-size:11px;color:#aaa;font-family:monospace;text-transform:uppercase;letter-spacing:1px;margin:0 0 20px 0;">
-        ${bestDigest.date}
-      </p>
-
-      <div style="font-size:15px;line-height:1.85;color:#333;margin-bottom:24px;">
-        ${synthesisHtml}
-      </div>
+      <div style="${BODY}margin-bottom:32px;">${emphasise(bestDigest.synthesis)}</div>
 
       <div style="margin-bottom:20px;">
-        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#555;font-family:monospace;display:block;margin-bottom:10px;">
-          Referenced Sources
-        </span>
+        ${label("Referenced sources", "margin-bottom:14px;")}
         ${paperCards}
       </div>
 
-      <div style="text-align:center;margin:24px 0 8px;">
-        <a href="${SITE_URL}/digest/${bestDigest.digestId}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:white;text-decoration:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;font-family:monospace;border:2px solid #1a1a1a;box-shadow:4px 4px 0px 0px rgba(0,0,0,1);">
-          Dig Deeper →
-        </a>
-      </div>
+      ${cta(`${SITE_URL}/digest/${bestDigest.digestId}`, "Read the digest →")}
     </div>
 
     <!-- Archive: other digests from this period -->
     ${digests.length > 1 ? `
-    <div style="background:white;border:2px solid #1a1a1a;border-top:none;padding:16px 20px;">
-      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#555;font-family:monospace;display:block;margin-bottom:8px;">
-        Also from ${period}
-      </span>
+    <div style="background:${SURFACE};border:2px solid ${INK};border-top:none;padding:20px 24px;">
+      ${label(`Also from ${period}`, "margin-bottom:8px;")}
       <table style="width:100%;border-collapse:collapse;">
         ${archiveList}
       </table>
     </div>
     ` : ""}
 
-    <!-- Footer -->
-    <div style="text-align:center;padding:12px 0;">
-      <p style="font-size:10px;color:#aaa;font-family:monospace;margin:0;">
-        <a href="${SITE_URL}" style="color:#888;text-decoration:none;">learningetal.com</a> · <a href="${SITE_URL}" style="color:#888;text-decoration:none;">manage preferences</a>
-      </p>
-    </div>
+    ${footer()}
   </div>
 </body></html>`;
 }
@@ -216,7 +224,7 @@ export async function sendDigestEmail(
 
   const subject = cadence === "daily"
     ? bestDigest.theme
-    : `★ Best of ${cadence === "biweekly" ? "the half-week" : "the week"}: ${bestDigest.theme}`;
+    : `Best of ${cadence === "biweekly" ? "the half-week" : "the week"}: ${bestDigest.theme}`;
 
   try {
     await resend.emails.send({
