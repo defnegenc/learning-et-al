@@ -1,18 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bookmark, ArrowLeft } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { PaperCard } from "@/components/paper-card";
-import { ActionButton, BODY_STYLE, DISPLAY_SM, MUTED, PageHeader, PageLoader } from "@/components/design-system";
+import { BODY_STYLE, DISPLAY_SM, MUTED, NavTab, PageHeader, PageLoader } from "@/components/design-system";
 import { ReadingPaperDetail } from "./reading-paper-detail";
 import { DigestHistory } from "./digest-history";
 
 export function VaultPage() {
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
-  // Digest history is the vault's home; the reading list is a sub-view behind
-  // the top-right button.
+  // Two shelves, equal peers — not a page with a hidden sub-view.
   const [view, setView] = useState<"history" | "list">("history");
   const [detail, setDetail] = useState<PaperItem | null>(null);
 
@@ -20,7 +18,7 @@ export function VaultPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/vault");
-      if (!res.ok) throw new Error("Failed to fetch reading list");
+      if (!res.ok) throw new Error("Failed to fetch saved papers");
       const data = await res.json();
       setPapers(data.papers ?? []);
     } catch { setPapers([]); }
@@ -34,19 +32,14 @@ export function VaultPage() {
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
       <PageHeader
-        title={view === "history" ? "Digest history" : "Reading list"}
+        title="Vault"
         action={
-          <ActionButton onClick={() => setView(v => (v === "history" ? "list" : "history"))}>
-            {view === "history"
-              ? <><Bookmark size={15} />Reading list</>
-              : <><ArrowLeft size={15} />Back to history</>}
-          </ActionButton>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, paddingTop: 12 }}>
+            <NavTab active={view === "history"} onClick={() => setView("history")}>Digests</NavTab>
+            <NavTab active={view === "list"} onClick={() => setView("list")}>Saved papers</NavTab>
+          </div>
         }
-      >
-        {view === "history"
-          ? "Every digest you've been sent, newest first."
-          : "Papers you bookmarked. Open one to read the gist and what's happened since."}
-      </PageHeader>
+      />
 
       {view === "history" ? (
         <DigestHistory />
@@ -56,12 +49,10 @@ export function VaultPage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "80px 0" }}>
           <span style={DISPLAY_SM}>No saved papers yet</span>
           <span style={{ ...BODY_STYLE, color: MUTED }}>
-            Tap the bookmark on any paper card in your digest to save it here.
+            Hit &ldquo;Read later&rdquo; on any paper in a digest and it lands here.
           </span>
         </div>
       ) : (
-        /* The digest card at the compact size — the vault does not have a card
-           of its own. Wash index is the position in the list. */
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
           {papers.map((paper, idx) => (
             <PaperCard
