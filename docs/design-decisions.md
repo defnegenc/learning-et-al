@@ -256,3 +256,34 @@ of rethought:
 
 The rule that generalises: **a dialog below `md` is a full-screen sheet.** Not a
 90vh box inset by a rem, with its own scrollbar inside the page's scrollbar.
+
+---
+
+## 2026-08-14: The digest headline fills with ink
+
+Seven candidates went up at `/prototype/headline` — the existing sweep, three
+built from ideas about colour and tumbling cards, and three of mine. **Ink-fill
+won**: the question arrives as hollow outline type and floods with ink one word
+at a time. It's the poster language the rest of the site already uses, applied
+to the one line that earns it.
+
+**No colour.** The version that shipped drops the palette rule the prototype
+ended on. The headline is the only thing on the page with nothing competing
+against it, and every colour candidate — highlighter marks, tumbling card
+tiles, a gradient rule — spent that quiet to say nothing in particular. Colour
+on this product means *a source*: card washes, takeaway tiles, the loader. The
+question isn't a source.
+
+**The animation must leave nothing behind.** First cut kept a fixed 1.5px
+stroke so the outline had something to draw with, which made the resting
+headline permanently heavier than before. That's the wrong trade: you watch the
+animation for half a second and read the result for ten minutes. The stroke now
+animates to 0 as the fill arrives, so the headline you sit with is exactly the
+old one. Any future headline treatment should pass the same test — **what does
+this look like after it finishes?**
+
+**The share card is now the only place the sweep survives.** A static OG image
+has no animation to carry, and a white card with plain black type says nothing,
+so it keeps its gradient bars. The doc used to claim the card mirrors the
+digest headline; it doesn't any more, and that's a deliberate divergence rather
+than drift. Worth revisiting if the card gets another pass.
