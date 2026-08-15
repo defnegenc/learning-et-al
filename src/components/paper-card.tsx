@@ -5,8 +5,8 @@ import { Bookmark } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import {
-  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
-  InkTip, SHADOW, SHADOW_GOLD, SURFACE, Tag, foundationalWash, wash, washSlots,
+  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
+  InkTip, SHADOW, SHADOW_GOLD, SURFACE, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
 /*
@@ -110,13 +110,9 @@ function BriefTile({ heading, background = SURFACE, fullWidth = false, children 
   );
 }
 
-// The collapsed card names exactly the tiles it will open, so the one line under
-// the hero doubles as the expand affordance.
 function tileListLabel(labels: string[]): string {
-  const parts = labels.map(l => `the ${l}`);
-  if (parts.length === 1) return `See ${parts[0]}`;
-  if (parts.length === 2) return `See ${parts[0]} and ${parts[1]}`;
-  return `See ${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+  if (labels.length === 1) return `See the ${labels[0].toLowerCase()}`;
+  return "See more";
 }
 
 /* ── The card ────────────────────────────────────────────────────────────── */
@@ -150,7 +146,6 @@ export function PaperCard(props: PaperCardProps) {
  */
 function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: PaperCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [hover, setHover] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Expansion is adjusted during render (not in the effect) so the scroll effect
@@ -183,10 +178,8 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
   return (
     <div
       ref={ref}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
       style={{
-        ...(foundational ? foundationalWash(hover) : wash(index, hover)),
+        ...(foundational ? foundationalWash() : wash(index)),
         border: `2px solid ${foundational ? GOLD : INK}`,
         boxShadow: foundational ? SHADOW_GOLD : SHADOW,
         padding: "22px 24px",
@@ -194,7 +187,6 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         flexDirection: "column",
         gap: 12,
         overflow: "hidden",
-        transition: "background 320ms",
       }}
     >
       {foundational && <FoundationalMark reason={paper.foundationalReason} />}
@@ -214,13 +206,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: -6 }}>{byline}</div>
       )}
 
-      {hero && <p style={{ ...DISPLAY_LG, margin: "4px 0 0", lineHeight: "38px" }}>{hero}</p>}
-
-      {paper.keywords.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {paper.keywords.slice(0, 2).map(kw => <Tag key={kw} label={kw} variant="glass" />)}
-        </div>
-      )}
+      {hero && <p style={{ ...BODY_STYLE, fontWeight: 600, lineHeight: "26px", margin: "4px 0 0" }}>{hero}</p>}
 
       {(tileLabels.length > 0 || paper.sourceUrl) && (
         <div>
@@ -282,7 +268,6 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
  * Title, byline, tags. No hero, no tiles, no metadata rail.
  */
 function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsaved, compareMode, isSelected, onSelect }: PaperCardProps) {
-  const [hover, setHover] = useState(false);
   const foundational = paper.category === "foundational";
   const byline = paperByline(paper);
 
@@ -295,11 +280,8 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
   return (
     <div
       onClick={activate}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      className="ds-lift"
       style={{
-        ...(foundational ? foundationalWash(hover) : wash(index, hover)),
+        ...(foundational ? foundationalWash() : wash(index)),
         border: `2px solid ${foundational ? GOLD : INK}`,
         boxShadow: foundational ? SHADOW_GOLD : SHADOW,
         padding: "16px 18px",
@@ -309,7 +291,6 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
         height: "100%",
         cursor: "pointer",
         overflow: "hidden",
-        transition: "background 320ms, transform 140ms, box-shadow 140ms",
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
@@ -325,12 +306,6 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
       </div>
 
       {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM }}>{byline}</div>}
-
-      {paper.keywords.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: "auto", paddingTop: 4 }}>
-          {paper.keywords.slice(0, 2).map(kw => <Tag key={kw} label={kw} variant="glass" />)}
-        </div>
-      )}
     </div>
   );
 }
