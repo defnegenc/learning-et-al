@@ -256,3 +256,16 @@
   scrollbar-width: auto;
   scrollbar-color: #1a1a1a #f9fafb;
 }
+/* Topic chips (interest picker) — hover only sharpens the border, so the
+   selected/idle fill stays the only thing carrying state. */
+.ds-chip:not(:disabled):hover {
+  border-color: #1a1a1a;
+  border-style: solid;
+}
+.ds-chip:not(:disabled):not([data-selected]):hover {
+  background: #fafafa;
+}
+.ds-chip:focus-visible {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 2px;
+}

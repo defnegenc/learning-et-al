@@ -238,16 +238,59 @@ restyling their own. Added 2026-07-19.
 | `CardGrid` | `auto-fill minmax(260px, 1fr)`, gap 24 | Same |
 | `Wordmark` | "Learning et al." lockup — Space Grotesk 700, 0.2em tracking | App-shell header, Settings dialog header |
 | `NavTab` | Mono uppercase tab, active underline | App-shell nav (today/vault/admin), Settings tabs, Vault filter bar (By Digest / By Domain / Starred / Bookmarked / Compare) |
-| `SectionLabel` | Mono uppercase eyebrow, 2px tracking, #888 | Settings "Delivery cadence" / "Email digests", Vault drawer title |
-| `PageTitle` | Cabinet Grotesk heading, 700, -0.02em (sm/md/lg) | Settings "Curate your feed" / "Account", Vault "Vault" |
+| `SectionLabel` | Small section heading — display face, 0.95rem, 700, sentence case | Settings "How often" / "Email it to me" / "Today's digest", Vault drawer title |
+| `PageTitle` | Cabinet Grotesk heading, 700, -0.02em (sm/md/lg; `lg` is fluid `clamp(1.5rem, 6vw, 2rem)` so it steps down on a phone) | Settings "Curate your feed" / "Account", Vault "Vault" |
 | `ActionButton` | Brutalist button (2px ink border, hard shadow; primary = ink fill, outline = white; sm/md) | Settings Save / Regenerate / Sign out, Vault pagination + Compare CTA (same voice as Today's "Next source") |
-| `TopicChip` | Interest chip — idle: white + dashed grey border; selected: soft field tint (`chipTint`, pastel mixed 45% into white) + solid border; 6px radius (the only rounded element) | InterestLedger (Settings + Onboarding) |
-| `AddChip` | "+ Add" chip — dashed ink border, bold | InterestLedger row adder |
+| `Segmented` | "Pick exactly one" — cells share a 2px ink frame via -2px margins, active cell inverts to ink; sm/md (md = 42px, thumb-sized) | Settings tabs (mobile), delivery cadence, the ledger's All / Selected filter |
+| `TopicChip` | Interest chip — **sentence case in the body face, 0.85rem**; idle: white + dashed grey border; selected: soft field tint (`chipTint`, pastel mixed 45% into white) + solid ink border; 6px radius (the only rounded element); 34px min height | InterestLedger (Settings + Onboarding) |
+| `AddChip` | "+ Add" chip — dashed ink border, same geometry as `TopicChip` | Unused since the ledger moved to one search-box adder; keep for any new picker |
 | `SourceCard` (`today/source-card.tsx`) | The paper/news card: blob wash, mono venue line, display title, glass tags; optional compare-select mode | Today source grid, Vault grid (identical card in both) |
 
 Chip palette follows the 2026-07-19 reference mock (soft solid tints, not gradients).
 The old gradient `GlassTag` is gone; `CATEGORY_PALETTES` remains only for
 synthesis concept tags.
+
+---
+
+## The interest picker (`src/components/interest-ledger.tsx`)
+
+Ten fields, ~80 topics. Rendered flat it was a wall — 2000px of chips on a
+phone, and no way to find "protein folding" except to read everything. Rebuilt
+2026-08-14. Live and unauthenticated at `/prototype/interests`, including a
+375px phone frame; that page renders the shipping component, so it can't drift.
+
+- **Fields collapse.** A field opens if it holds something you picked, else the
+  first one opens so it doesn't read as ten locked drawers. Collapsed rows
+  preview their contents — your picks if you have any, otherwise the first four
+  topics — so the closed state still says what's inside.
+- **One search box, two jobs.** It filters every field at once (matching fields
+  force open), and a phrase that matches nothing becomes the custom-topic adder:
+  "Nothing matches X. Add it to [field] [Add]". That replaced a "+ Add" chip
+  repeated down all ten rows.
+- **All topics / Selected · N.** The filter, not a second copy of your chips
+  pinned to the top. Removing something you picked never means hunting for it.
+- **Capacity meter.** `N of 30 topics · across K fields` over a 10px bar whose
+  segments are the field colours, widths proportional to picks. It answers the
+  question the subtitle asks (am I spread out, or stacked in one corner?), not
+  just "how full". No bar at zero — an empty meter is a shape with nothing to
+  say. At the cap the line reads "full — remove one to add another"; the old
+  yellow warning box is gone.
+- **Chips are sentence case in the body face.** Mono uppercase at 11px with
+  1.2px tracking was legible one chip at a time and pure texture in bulk.
+- Every control clears 34px, the toolbar sticks to the top of its scroller
+  (so no scroller that renders the ledger may have top padding — content would
+  slide through the gap), and hover only sharpens the border, leaving the fill
+  to carry selected/idle alone.
+
+### Settings on a phone
+
+The dialog is a full-screen sheet (`w-screen h-[100dvh]`, no radius) below `md`.
+Tabs move out of the header into a full-width `Segmented` bar — Account used to
+be a 10px mono word in the corner, which is why "Regenerate digest" was hard to
+find. Delivery cadence and the email switch moved from Interests to Account, so
+picking topics on a phone doesn't start with two screens of preferences, and
+Save lives in one sticky footer shared by both tabs (with
+`env(safe-area-inset-bottom)`).
 
 ## Legacy component notes (some predate the white-background redesign)
 

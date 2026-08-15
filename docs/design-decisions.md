@@ -211,3 +211,48 @@ The payload was never the bottleneck on the public path; **JS and cold starts ar
 **The affordance names its contents.** "See more ↓" is a control that tells you nothing; "See the Claim, the Findings, and the Takeaway ↓" tells you the shape of what's behind it, which is exactly the decision a reader is making at that moment. It's built from the tiles that actually exist on that paper, so a source missing a claim doesn't promise one, and news reads "Key Points". Tile headings capitalise alike now — **The Claim**, **Findings**, **Takeaway** — because the expand line quotes them back and the mismatch was visible.
 
 **The gist is back under the headline.** It was hidden during the dead-simple pass, but `flattenSynthesis` still drops the synthesis intro paragraph on the premise that "the gist already hooks the reader" — so with the gist off, the digest opened straight onto a source and the actual answer to the central question only arrived in the closing line. Putting it back restores the intended read: question → one-sentence answer → the sources that earn it. Behind `SHOW_GIST` in `digest-header.tsx` if it needs to come off again.
+---
+
+## 2026-08-14: The interest picker shows one field at a time
+
+Eighty topics under ten headings, rendered flat, is a wall — and it was the
+first thing a new user met at onboarding step 2. The fix wasn't a restyle:
+
+- **Collapse the fields.** A field opens if it holds something you picked;
+  otherwise the first one opens so it doesn't read as ten locked drawers.
+  Collapsed rows preview their contents — your picks if you have any, otherwise
+  the first four topics — so closing something never hides what's inside it.
+- **The search box is also the adder.** It filters all ten fields at once, and a
+  phrase that matches nothing becomes "Nothing matches X. Add it to [field]".
+  The old design repeated a "+ Add" chip down every row: ten controls to offer
+  one action, and none of them findable by typing what you actually wanted.
+- **A filter, not a tray.** "Selected · N" filters the same list rather than
+  pinning a second copy of your chips to the top. Two places showing the same
+  chips is two places to keep in sync and one more thing to read.
+- **The meter answers the subtitle's question.** "N of 30 topics · across K
+  fields" over a bar segmented in field colours. The digest samples across
+  everything you pick, so *spread* is the number that changes your feed —
+  "how full is the box" isn't. No bar at zero.
+
+**Why chips stopped being mono uppercase:** at 11px with 1.2px tracking a chip
+is legible on its own and pure texture in bulk, and bulk is the only way this
+screen is ever seen. Sentence case in the body face, 0.85rem. They keep their
+6px radius — still the one rounded element in the product.
+
+## 2026-08-14: Settings is a full-screen sheet on a phone, and delivery lives with the account
+
+Two separate problems, one cause — the desktop layout was being shrunk instead
+of rethought:
+
+- Tabs sat in the header as 10px mono words. On a phone "Account" was a corner
+  of a corner, which is why **Regenerate digest** was effectively unfindable.
+  Tabs are now a full-width segmented bar under the header, and Regenerate has a
+  heading and a sentence saying what it does.
+- The Interests tab opened with delivery cadence and an email toggle, so
+  picking topics on a phone began with two screens of preferences. Cadence and
+  email moved to Account — which is what they are.
+- Save only appeared once you had a topic selected, and only on Interests. It's
+  now one sticky footer shared by both tabs, above the home indicator.
+
+The rule that generalises: **a dialog below `md` is a full-screen sheet.** Not a
+90vh box inset by a rem, with its own scrollbar inside the page's scrollbar.
