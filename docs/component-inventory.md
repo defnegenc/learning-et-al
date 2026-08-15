@@ -1,10 +1,15 @@
 # Component inventory
 
 Every component, what surface it serves, and whether it's on the design system.
-Audited 2026-08-14. Update the status column when you touch one.
+Rewritten 2026-08-14 when the short menu shipped across the product. Update the
+status column when you touch one.
 
 **Status key:** ✅ on-system · ⚠️ off-system, needs work · 💀 dead code ·
 📋 has a brief
+
+The menu itself lives in Paper (*Brilliant petal* → "Design system — the short
+menu"). `docs/design-style.md` is the reader's copy. Neither this file nor that
+one overrides Paper.
 
 ---
 
@@ -12,90 +17,125 @@ Audited 2026-08-14. Update the status column when you touch one.
 
 | Component | What it is | Status |
 |-----------|-----------|--------|
-| `PageLoader` | The stamp: 30px square turning in 90° steps, shadow cycling the four palette colours. The only page-level loader | ✅ |
-| `PageHeader` | Page title (Display 800 2rem) + one plain intro line + optional action | ✅ |
-| `Card` | The frame: 2px ink border, `6px 6px 0` hard shadow, optional flush media region | ✅ |
-| `CardGrid` | `auto-fill minmax(260px, 1fr)`, gap 24 | ✅ |
-| `SiteHeader` | The 52px top bar — wordmark left, caller's controls right. Used by the signed-out page, the loading state and the app shell | ✅ |
-| `Wordmark` | Space Grotesk lockup, the only logo treatment | ✅ |
-| `ActionButton` | Display 700, sentence case, hard shadow. primary = ink fill / outline = white | ✅ |
-| `PageTitle` | Display heading, sm/md/lg | ✅ |
-| `SectionLabel` | Small section heading, Display 0.95rem sentence case | ✅ |
-| `NavTab` | Mono uppercase tab with active underline — a sanctioned mono use | ✅ |
-| `TopicChip` / `AddChip` / `chipTint` | Interest picker units. Mono uppercase + 6px radius — the last rounded, last mono-uppercase surface | 📋 `docs/briefs/interests-panel.md` |
+| `SPECTRUM` / `wash` / `washSlots` / `wordSlot` | The ten slots and their three indexes — field (fixed), keyword (by hash), card (by position) | ✅ replaced 5 palette tables |
+| `PageLoader` | The stamp: 30px square turning in 90° steps, shadow walking spectrum 0/3/6/9. The only page-level loader | ✅ |
+| `SiteHeader` | The 52px bar — wordmark left, caller's controls right | ✅ |
+| `Wordmark` | Display/SM at 0.12em tracking. A lockup, not a type style | ✅ Space Grotesk retired with it |
+| `PageHeader` / `PageTitle` | Display/LG + one Body line | ✅ |
+| `Label` | The mono eyebrow — one of two sanctioned mono uses | ✅ new |
+| `SectionLabel` | Display/SM where a section needs a name | ✅ |
+| `NavTab` | The other sanctioned mono use | ✅ |
+| `ActionButton` | Display/SM upper. `primary` / `outline` / `plain` | ✅ folded Button/MD + Button/SM into one size |
+| `Card` / `CardGrid` | 2px frame + `5px 5px 0`; `auto-fill minmax(260px, 1fr)` | ✅ |
+| `Tag` | Body-face tag, `glass` (on a wash) \| `solid` (hashed slot on white) | ✅ new — replaced `GlassTag`, `KeywordTag`'s styling and the concept-tag lockup |
+| `TopicChip` / `AddChip` | Interest-picker units. 2px borders, no radius, body face | ✅ the last rounded corners are gone |
+| `Segmented` | The one "pick exactly one" shape | ✅ one size (md) |
+| `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye | ✅ new |
+| `TextInput` | The one input shape | ✅ new |
+
+## The one paper card — `src/components/paper-card.tsx`
+
+| Export | What it is | Status |
+|---|---|---|
+| `PaperCard` size `digest` | Title, byline, hero, tags, tiles behind one expand control | ✅ |
+| `PaperCard` size `compact` | The same card smaller — title, byline, tags | ✅ what the rail, the vault and the permalink render |
+| `FoundationalMark` (internal) | Gold frame, the label, the eye, the reason rule | ✅ |
+| `paperByline` | authors — venue, year. One line, everywhere | ✅ |
 
 ## Today — the default (brief) reading path
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ buttons now `ActionButton`; loader now `PageLoader` |
-| `today/brief-digest.tsx` | The digest itself — prose, paper cards, term chips | ✅ tile headings, card name, "See more", "Read paper" and "Next source" all de-slopped |
-| `today/digest-header.tsx` | Date + topic chips above the digest | ✅ keyword tags may stay mono uppercase (sanctioned); note it defines a **second local `TopicChip`** unrelated to the design-system one — rename |
-| `today/regenerate-cta.tsx` | End-of-digest "don't like this?" | ✅ button now Display sentence case |
-| `today/palettes.ts` | `SOURCE_PALETTES` (saturated), `CARD_PALETTES` (pastel), `hex2rgba`, `dispersedWash`, `washStyle` — the single source for card colour | ✅ |
-| `today/synthesis-text.ts` | Pure parsing helpers | ✅ |
+| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ sweep reads spectrum 0+1 / 3+4; notepad is square |
+| `today/brief-digest.tsx` | The prose, the paper chips, the term chips | ✅ card extracted to `paper-card.tsx`; highlights are ink underlines |
+| `today/digest-header.tsx` | The gist and the addable topic tags | ✅ its local `TopicChip` renamed `AddableTopic` and now uses `Tag` |
+| `today/regenerate-cta.tsx` | End-of-digest "don't like this?" | ✅ |
+| `today/palettes.ts` | Thin re-export of the design system's stride | ✅ four tables deleted |
+| `today/synthesis-text.ts` | Pure parsing helpers, no styling | ✅ |
 
 ## Vault
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `vault/vault-page.tsx` | Shell + reading-list grid | ✅ uses `PageHeader`, `PageLoader` |
-| `vault/digest-history.tsx` | Two-pane history | ✅ one loader, dates legible, back control matches the reading view |
-| `vault/reading-list-card.tsx` | Bookmarked paper card | ✅ title + attribution + bookmark, nothing else |
-| `vault/reading-paper-detail.tsx` | The reading view | ✅ full-screen, gist + what's happened since |
+| `vault/vault-page.tsx` | Shell + reading-list grid | ✅ renders `PaperCard` compact |
+| `vault/digest-history.tsx` | Two-pane history | ✅ |
+| `vault/reading-paper-detail.tsx` | The reading view | ✅ 680px, Display/LG title, `paperByline` |
+| ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 
 ## Shell, settings, onboarding
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `app-shell.tsx` | Signed-in chrome | ✅ uses the shared `SiteHeader` |
-| `providers.tsx` | SessionProvider with server-primed session | ✅ |
-| `noise-overlay.tsx` | Paper grain | ✅ |
-| `settings-dialog.tsx` | Full-screen settings | ✅ uses the shared `SiteHeader`; "Hide" / "Clear all" / cadence tiles now Display sentence case; every hairline is `rgba(26,26,26,0.12)` |
-| `onboarding.tsx` | Interests setup | ✅ frame down to 2px/6px shadow, title on the page scale, provider tabs and both footer buttons Display sentence case. Still hosts `InterestLedger` — see its brief |
-| `interest-ledger.tsx` | The interests panel | 📋 `docs/briefs/interests-panel.md` |
-| `keyword-tag.tsx` | Pastel keyword tag | ✅ tags are a sanctioned mono-uppercase use |
-| `admin-dashboard.tsx` | Admin only | ⚠️ low priority — not user-facing |
+| `app-shell.tsx` | Signed-in chrome | ✅ |
+| `providers.tsx` | SessionProvider with server-primed session | ✅ no styling |
+| `noise-overlay.tsx` | Paper grain | ✅ no colour of its own |
+| `settings-dialog.tsx` | Full-screen settings | ✅ Label eyebrow + Display/LG title, "All changes saved" in acid green, "Save interests" |
+| `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton` |
+| `interest-ledger.tsx` | The interests panel | ✅ matches the Paper board's vocabulary on the accordion |
+| `keyword-tag.tsx` | A keyword anywhere on white | ✅ wraps `Tag` + `InkTip` |
+| `admin-dashboard.tsx` | Admin only | ✅ on-system; event kinds take hashed slots rather than a colour table |
+
+## Pages
+
+| Route | Status |
+|---|---|
+| `app/page.tsx` | ✅ |
+| `app/digest/[id]` | ✅ `SiteHeader` + `PaperCard` compact; its own `PaperSourceTab` and two colour tables deleted |
+| `app/auth/error` | ✅ was raw monospace on a white page; now on the menu |
+| `app/prototype/{interests,loaders,headline}` | ✅ render the shipping components; palettes point at the stride |
+| `app/opengraph-image.tsx` (+ `twitter-image`) | ✅ Satori limits documented in design-style.md §7 |
+
+## Non-browser surfaces
+
+| File | Status |
+|---|---|
+| `lib/email.ts` | ✅ the menu inlined as literals, with the fallbacks named. Must move when `globals.css` moves |
 
 ## Classic mode — the one surviving alternate
 
-`?classic=1` → `synthesis-banner` → `source-card`, lazy-loaded. It stays because
+`?classic=1` → `synthesis-banner.tsx`, lazy-loaded. It stays because
 `/digest/[id]` (public permalinks) renders the same `SynthesisBanner`, so the
-code is on the critical path for shared links regardless. Both still carry the
-old mono-uppercase styling — ⚠️ if you ever restyle, do it for the permalink's
-sake, not for the flag.
+code is on the critical path for shared links regardless. ✅ now on-system: paper
+names are ink underlines, `[N]` citations take the cited card's wash slot,
+concept tags are `Tag`, and the "Insight" star is gone (`#FFD700` was never in
+the menu).
 
 `?papers=1` and `?papersog=1` were deleted 2026-08-14 along with `papers-mode`,
 `papers-mode-og`, `paper-detail`, `qa-thread` and `brief-threads`. Brief won.
 
-## Dead code — DELETED 2026-08-14
+## Dead code — deleted
 
-All of the below are gone; listed so the history is legible. `git show HEAD~1`
-recovers any of them.
+Listed so the history is legible. `git log -S<name>` recovers any of them.
 
-| File | Note |
-|------|------|
-| `public-digest.tsx` | Superseded by `app/digest/[id]/page.tsx`, which builds its own view |
-| `today/knowledge-graph.tsx` | The old node map, removed from the UI |
-| `today/synthesis-chat.tsx` | Superseded by the reading companion |
-| `today/paper-card.tsx` | The component was unused; `PaperItem` moved to `src/lib/types.ts` first, where the 14 importers now point |
-| `today/papers-mode, papers-mode-og, paper-detail, qa-thread, brief-threads` | The `?papers` / `?papersog` experiments |
-| `app/prototype/brief` | Superseded prototype |
-| `ui/badge, card, input, scroll-area, separator, sonner, tabs, textarea` | Unused shadcn scaffolding |
-| `api/thread`, `api/papers/[id]/blurb`, `api/papers/[id]/related`, `api/email-preview` | Served only the deleted views |
-| `lib/ai/agent.ts` | The thread engine behind `/api/thread` |
-| Dead exports | `digestPrompt`, `comparisonPrompt`, `getOpenAlexRelatedWorks`, `getS2Recommendations`, `institutionBoost`, `getActiveModel`, `topicColor` |
-| Schema | `threadCache`, `comparisons` — **tables still exist in prod**; a future `drizzle-kit push` would drop them |
-| Deps | `next-themes`, `node-cron`, `sonner`, `@types/node-cron`. **`shadcn` looks unused but is not** — `globals.css` imports `shadcn/tailwind.css` |
+| File | Deleted | Note |
+|------|---------|------|
+| `today/source-card.tsx` | menu | "The rail card is gone" — the digest card renders smaller instead |
+| `vault/reading-list-card.tsx` | menu | Same |
+| `PaperSourceTab` (in `digest/[id]`) | menu | A fourth card that nobody knew existed |
+| `today/palettes.ts` tables | menu | `SOURCE_PALETTES`, `CARD_PALETTES`, `dispersedWash`, `washStyle`, `hex2rgba` |
+| `CATEGORY_PALETTES` | menu | Ten gradient pairs for ten fields that now have one slot each |
+| `chipTint` | menu | Chips take the field's slot at full strength |
+| `public-digest.tsx`, `today/knowledge-graph.tsx`, `today/synthesis-chat.tsx`, `today/paper-card.tsx` | 2026-08-14 | |
+| `today/papers-mode, papers-mode-og, paper-detail, qa-thread, brief-threads` | 2026-08-14 | The `?papers` / `?papersog` experiments |
+| `app/prototype/brief` | 2026-08-14 | Superseded prototype |
+| `ui/badge, card, input, scroll-area, separator, sonner, tabs, textarea` | 2026-08-14 | Unused shadcn scaffolding |
+| `api/thread`, `api/papers/[id]/blurb`, `api/papers/[id]/related`, `api/email-preview` | 2026-08-14 | Served only the deleted views |
+| `lib/ai/agent.ts` | 2026-08-14 | The thread engine behind `/api/thread` |
+| Dead exports | 2026-08-14 | `digestPrompt`, `comparisonPrompt`, `getOpenAlexRelatedWorks`, `getS2Recommendations`, `institutionBoost`, `getActiveModel`, `topicColor` |
+| Schema | 2026-08-14 | `threadCache`, `comparisons` — **tables still exist in prod**; a future `drizzle-kit push` would drop them |
+| Deps | 2026-08-14 | `next-themes`, `node-cron`, `sonner`, `@types/node-cron`. **`shadcn` looks unused but is not** — `globals.css` imports `shadcn/tailwind.css` |
 
 ---
 
 ## Duplication worth fixing
 
-1. ~~Two wash implementations~~ — fixed. `CARD_PALETTES` + `washStyle` live in
-   `palettes.ts`; the vault card no longer reaches into a Today module.
-2. ~~Two `SiteHeader`s~~ — fixed. One primitive in `design-system.tsx`.
-3. **Two `TopicChip`s.** `design-system.tsx` (interest picker) and
-   `today/digest-header.tsx` (follow-this-topic). Different jobs, same name.
-4. **Font constants re-declared per file.** `const MONO = "var(--font-mono)…"`
-   appears in ~15 files. They're exported from `design-system.tsx` already.
+1. ~~Two wash implementations~~ — fixed, then deleted entirely. One stride.
+2. ~~Two `SiteHeader`s~~ — fixed. One primitive.
+3. ~~Two `TopicChip`s~~ — fixed. `today/digest-header.tsx`'s is now
+   `AddableTopic` and composes the shared `Tag`.
+4. ~~Font constants re-declared per file~~ — fixed. `const MONO = …` is gone from
+   every surface; they import from `design-system.tsx`.
+5. **Two copies of the spectrum outside the system.** `lib/email.ts` and
+   `opengraph-image.tsx` inline it, because neither can read a CSS variable.
+   Both are commented; both must move when `globals.css` moves. There is no way
+   to remove this one — it's a property of the renderers.

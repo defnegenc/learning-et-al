@@ -3,31 +3,183 @@
 import React from "react";
 
 /*
- * Learning et al. design system — the shared primitives every surface composes.
- * The Today page is the reference look; Vault, Settings, and Onboarding use
- * these instead of restyling their own. Component → usage map lives in
- * docs/design-style.md ("Shared components").
+ * Learning et al. — the short menu, in code.
+ *
+ * The Paper file "Design system — the short menu" is the source of truth; this
+ * file is its only implementation. Six neutrals, two acids, a ten-slot
+ * spectrum, one gold. Five type styles. Two borders, one shadow, no radius.
+ *
+ * Rules that keep it short:
+ *  - No surface may invent a hex, a type size, a border width or a shadow
+ *    offset. If you need one, it goes in the menu first.
+ *  - Mono is structure only — section eyebrows and nav tabs. Anything that
+ *    names a thing (tags, chips, the venue line) is set in the body face.
+ *  - The spectrum has ONE vocabulary read three ways: fields take a fixed slot,
+ *    keyword tags take a slot by hash of the word, card washes take a slot by
+ *    position in the digest. Never mix the indexes.
  */
 
-export const INK = "#1a1a1a";
-export const MONO = "var(--font-mono), monospace";
-export const DISPLAY = "var(--font-display), sans-serif";
-export const LOGO = "var(--font-logo), sans-serif";
+/* ────────────────────────────────────────────────────────────────────────────
+   Colour
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/** Neutrals — six, down from fourteen. */
+export const INK = "#1a1a1a";      // text, borders, fills
+export const DIM = "#444444";      // bylines, secondary copy
+export const MUTED = "#888888";    // every mono label
+export const RULE = "#dddddd";     // hairlines, idle borders
+export const FIELD = "#e8e8e8";    // the page behind cards
+export const SURFACE = "#ffffff";  // cards, panels
+
+/** Acid — two. Ink only, never a fill. The one place this product is loud. */
+export const ACID_GREEN = "#38b000"; // confirmation: saved, connected, done
+export const ACID_PINK = "#ff007f";  // anything that failed
+
+/** Gold — one. The foundational frame, and nothing else. */
+export const GOLD = "#c9a227";
+
+/**
+ * The spectrum — ten slots, ordered by hue. Index it three ways and never
+ * interchange them: `fieldSlot` (identity), `wordSlot` (keyword tags),
+ * `wash` (a card's position in the digest).
+ */
+export const SPECTRUM = [
+  "#fecaca", // 00 Medicine
+  "#fed7aa", // 01 Physics & Engineering
+  "#fde68a", // 02 Business & Finance
+  "#d9f99d", // 03 Education
+  "#bbf7d0", // 04 Biology
+  "#99f6e4", // 05 Sustainability
+  "#bfdbfe", // 06 Computer Science
+  "#ddd6fe", // 07 Social Sciences
+  "#f5d0fe", // 08 Philosophy & Ethics
+  "#fbcfe8", // 09 Design & Art
+] as const;
+
+/**
+ * A card's two hues. Card i takes slot i×3 and the one next to it: adjacent
+ * slots are analogous, so a card reads as one hue with variation, and stepping
+ * three slots per card puts the next card a third of the way round the wheel —
+ * no two cards on screen are ever close. Card 4, if it exists, lands on 9+0.
+ *
+ * This one stride replaces the old PALETTES / HOVER_PALETTES / CARD_PALETTES /
+ * SOURCE_PALETTES tables, which is why the wash index can no longer drift
+ * between two files.
+ */
+export function washSlots(index: number): [string, string] {
+  const i = ((index % SPECTRUM.length) + SPECTRUM.length) % SPECTRUM.length;
+  return [SPECTRUM[(i * 3) % SPECTRUM.length], SPECTRUM[(i * 3 + 1) % SPECTRUM.length]];
+}
+
+/** Hover darkens the same two hues rather than swapping in a second table. */
+const darken = (hex: string) => `color-mix(in oklab, ${hex} 86%, ${INK})`;
+
+/**
+ * The card wash — three soft corner blobs on white, sized in absolute pixels so
+ * a compact card and a full-width one carry the same weight of colour.
+ *
+ * The wash is wayfinding, not identity: it is what lets a highlighted paper
+ * name in the synthesis match its card. So it is stable per position and, above
+ * all, distinct between the cards on screen. If it were field-derived, two
+ * Biology papers in one digest would get the same wash and the highlights would
+ * stop resolving.
+ */
+export function wash(index: number, hover = false): React.CSSProperties {
+  const [a, b] = washSlots(index);
+  return washFromHues(hover ? darken(a) : a, hover ? darken(b) : b);
+}
+
+/** The foundational card sits at fixed slots 02 + 01 — it isn't competing for
+ *  wayfinding, because the gold frame already says which card it is. */
+export function foundationalWash(hover = false): React.CSSProperties {
+  const [a, b] = [SPECTRUM[2], SPECTRUM[1]];
+  return washFromHues(hover ? darken(a) : a, hover ? darken(b) : b);
+}
+
+function washFromHues(c1: string, c2: string): React.CSSProperties {
+  return {
+    background: [
+      `radial-gradient(circle 170px at 6px 6px, ${c1} 0%, transparent 42%)`,
+      `radial-gradient(circle 170px at calc(100% - 6px) 12px, ${c2} 0%, transparent 42%)`,
+      `radial-gradient(circle 156px at calc(100% - 12px) 100%, ${c1} 0%, transparent 42%)`,
+      SURFACE,
+    ].join(", "),
+  };
+}
+
+/**
+ * A keyword's slot — by hash of the word, so the same concept is the same
+ * colour everywhere it appears, in any digest, on any surface.
+ */
+export function wordSlot(word: string): string {
+  const s = word.toLowerCase().trim();
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 1000003;
+  return SPECTRUM[h % SPECTRUM.length];
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Type — five styles
+   ──────────────────────────────────────────────────────────────────────────── */
+
+export const DISPLAY = "var(--font-display)";
+export const BODY = "var(--font-body)";
+export const MONO = "var(--font-mono)";
+
+/** The digest's question, page titles, the hero line on a card. */
+export const DISPLAY_LG: React.CSSProperties = {
+  fontFamily: DISPLAY, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "40px", color: INK,
+};
+
+/** Card titles, lens labels and every button. Upper. */
+export const DISPLAY_SM: React.CSSProperties = {
+  fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: "20px",
+  textTransform: "uppercase", color: INK,
+};
+
+/**
+ * Section eyebrows and nav tabs — nothing else. If it names a thing rather than
+ * the machinery, it is not a Label.
+ */
+export const LABEL_STYLE: React.CSSProperties = {
+  fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", lineHeight: "16px",
+  textTransform: "uppercase", color: MUTED,
+};
+
+export const BODY_STYLE: React.CSSProperties = {
+  fontFamily: BODY, fontSize: 15, fontWeight: 400, lineHeight: "24px", color: INK,
+};
+
+/** Tags, chips, bylines. Weight 600 and italic are modifiers, not extra styles. */
+export const BODY_SM: React.CSSProperties = {
+  fontFamily: BODY, fontSize: 13, fontWeight: 400, lineHeight: "20px", color: INK,
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Geometry — two borders, one shadow, no radius
+   ──────────────────────────────────────────────────────────────────────────── */
+
+export const HAIRLINE = `1px solid ${RULE}`;        // rules between rows
+export const BORDER_HAIR = `1px solid ${INK}`;      // tags
+export const BORDER = `2px solid ${INK}`;           // everything structural
+export const SHADOW = `5px 5px 0 0 ${INK}`;         // anything that lifts
+export const SHADOW_GOLD = `5px 5px 0 0 ${GOLD}`;
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Primitives
+   ──────────────────────────────────────────────────────────────────────────── */
 
 /**
  * The ONE full-page loading indicator — "the stamp". A hard square turns in 90°
- * steps while its offset shadow cycles the four card palette colours, so the
- * wait carries the product's own rainbow rather than a generic spinner.
+ * steps while its offset shadow walks the spectrum, so the wait carries the
+ * product's own colour rather than a generic spinner.
  *
- * Every surface that waits on a first load (auth resolving, digest fetching,
- * vault opening) renders this, and each renders it as the sole page content —
- * so it pins to the viewport centre rather than to whatever height its parent
- * happens to have. Auth → digest then holds the stamp on the exact same pixel
- * across the handoff, and a short page no longer parks the wait up against the
- * header. Don't add another page-level loader shape, and don't animate it
- * toward a percentage — see docs/design-style.md.
+ * Every surface that waits on a first load renders this as its sole page
+ * content, so it pins to the viewport centre — auth → digest holds the stamp on
+ * the same pixel across the handoff. Don't add a second page-level loader
+ * shape, and don't animate it toward a percentage.
  */
-const STAMP_COLORS = ["#6EE9A8", "#FF85A8", "#60AAE8", "#FFD020"];
+const STAMP_SLOTS = [SPECTRUM[0], SPECTRUM[3], SPECTRUM[6], SPECTRUM[9]];
 
 export function PageLoader() {
   return (
@@ -38,33 +190,34 @@ export function PageLoader() {
     >
       <style>{`
         @keyframes dsStamp {
-          0%   { transform: rotate(0deg);   box-shadow: 5px 5px 0 0 ${STAMP_COLORS[0]} }
-          25%  { transform: rotate(90deg);  box-shadow: 5px 5px 0 0 ${STAMP_COLORS[1]} }
-          50%  { transform: rotate(180deg); box-shadow: 5px 5px 0 0 ${STAMP_COLORS[2]} }
-          75%  { transform: rotate(270deg); box-shadow: 5px 5px 0 0 ${STAMP_COLORS[3]} }
-          100% { transform: rotate(360deg); box-shadow: 5px 5px 0 0 ${STAMP_COLORS[0]} }
+          0%   { transform: rotate(0deg);   box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[0]} }
+          25%  { transform: rotate(90deg);  box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[1]} }
+          50%  { transform: rotate(180deg); box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[2]} }
+          75%  { transform: rotate(270deg); box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[3]} }
+          100% { transform: rotate(360deg); box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[0]} }
         }
         .ds-stamp { animation: dsStamp 1.8s steps(1, end) infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .ds-stamp { animation: none; box-shadow: 5px 5px 0 0 ${STAMP_COLORS[0]}; }
+          .ds-stamp { animation: none; box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[0]}; }
         }
       `}</style>
-      <div className="ds-stamp" style={{ width: 30, height: 30, border: `3px solid ${INK}`, background: "#fff" }} />
+      <div className="ds-stamp" style={{ width: 30, height: 30, border: BORDER, background: SURFACE }} />
     </div>
   );
 }
 
-/** Site logo lockup — Space Grotesk, wide tracking. Same everywhere it appears. */
+/**
+ * The wordmark. A lockup, not a type style — Display/SM with the label's
+ * tracking opened up. (The menu retired "Wordmark" as a style of its own,
+ * which is what took Space Grotesk out of the product entirely.)
+ */
 export function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
     <span
       style={{
-        fontSize: compact ? "0.95rem" : "1.25rem",
-        fontWeight: 700,
-        letterSpacing: compact ? "0.12em" : "0.2em",
-        textTransform: "uppercase",
-        color: INK,
-        fontFamily: LOGO,
+        ...DISPLAY_SM,
+        fontSize: compact ? 14 : 16,
+        letterSpacing: "0.12em",
         whiteSpace: "nowrap",
       }}
     >
@@ -73,7 +226,15 @@ export function Wordmark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/** Mono uppercase tab with an active underline — header nav, settings tabs, vault filters. */
+/**
+ * The mono eyebrow — one of the two sanctioned mono uses. Name the machinery
+ * (a section, a mode, a step), never the content.
+ */
+export function Label({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <div style={{ ...LABEL_STYLE, ...style }}>{children}</div>;
+}
+
+/** Nav tab — the other sanctioned mono use. Active gets an ink underline. */
 export function NavTab({ active, onClick, children }: {
   active: boolean;
   onClick: () => void;
@@ -83,18 +244,14 @@ export function NavTab({ active, onClick, children }: {
     <button
       onClick={onClick}
       style={{
+        ...LABEL_STYLE,
         padding: "4px 0",
-        fontSize: "0.625rem",
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.12em",
-        fontFamily: MONO,
         border: "none",
         background: "transparent",
-        color: active ? INK : "#999",
-        borderBottom: active ? `1.5px solid ${INK}` : "1.5px solid transparent",
+        color: active ? INK : MUTED,
+        borderBottom: `2px solid ${active ? INK : "transparent"}`,
         cursor: "pointer",
-        transition: "color 0.15s",
+        transition: "color 140ms",
         display: "flex",
         alignItems: "center",
         gap: 5,
@@ -105,86 +262,63 @@ export function NavTab({ active, onClick, children }: {
   );
 }
 
-/**
- * Small section heading — display face, sentence case. Replaced the mono
- * uppercase eyebrow (0.6rem, 2px tracking, #888): see the anti-patterns list in
- * docs/design-style.md. Use it where a section genuinely needs a name.
- */
+/** Small section heading — Display/SM. Use where a section genuinely needs a name. */
 export function SectionLabel({ children, style }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
 }) {
-  return (
-    <div
-      style={{
-        fontFamily: DISPLAY,
-        fontSize: "0.95rem",
-        fontWeight: 700,
-        letterSpacing: "-0.01em",
-        color: INK,
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div style={{ ...DISPLAY_SM, ...style }}>{children}</div>;
 }
 
-/** Display-face heading (Cabinet Grotesk) — same voice as the digest title. */
-export function PageTitle({ children, size = "md", style }: {
+/** Display heading. `lg` is the hero; `sm` is Display/SM, the card-title voice. */
+export function PageTitle({ children, size = "lg", style }: {
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "lg";
   style?: React.CSSProperties;
 }) {
-  // lg fluidly steps down on narrow screens — 2rem is a shout on a 375px phone.
-  const fs = size === "lg" ? "clamp(1.5rem, 6vw, 2rem)" : size === "md" ? "1.4rem" : "1.1rem";
   return (
-    <h2
-      style={{
-        fontFamily: DISPLAY,
-        fontSize: fs,
-        fontWeight: size === "sm" ? 800 : 700,
-        letterSpacing: "-0.02em",
-        color: INK,
-        margin: 0,
-        ...style,
-      }}
-    >
+    <h2 style={{ ...(size === "lg" ? DISPLAY_LG : DISPLAY_SM), margin: 0, ...style }}>
       {children}
     </h2>
   );
 }
 
-/** Brutalist button — same voice as Today's "NEXT SOURCE →" control. */
-export function ActionButton({ children, onClick, variant = "outline", size = "md", disabled = false, shadow = true, style }: {
+/**
+ * The button. Folded into Display/SM — one size, upper, no tracking of its own.
+ * `primary` fills with ink, `outline` stays white; `plain` drops the frame for
+ * the quiet third action ("Clear all", "Done") that shouldn't compete.
+ */
+export function ActionButton({ children, onClick, variant = "outline", disabled = false, shadow = true, style, type, title }: {
   children: React.ReactNode;
   onClick?: () => void;
-  variant?: "primary" | "outline";
-  size?: "sm" | "md";
+  variant?: "primary" | "outline" | "plain";
   disabled?: boolean;
   shadow?: boolean;
   style?: React.CSSProperties;
+  type?: "button" | "submit";
+  title?: string;
 }) {
+  const plain = variant === "plain";
   return (
     <button
+      type={type ?? "button"}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
+      title={title}
+      className={shadow && !plain && !disabled ? "ds-lift" : undefined}
       style={{
-        fontFamily: DISPLAY,
-        fontSize: size === "md" ? "0.9rem" : "0.78rem",
-        fontWeight: 700,
-        padding: size === "md" ? "10px 18px" : "6px 12px",
-        background: variant === "primary" ? INK : "#fff",
-        color: variant === "primary" ? "#fff" : INK,
-        border: `2px solid ${INK}`,
-        boxShadow: shadow ? (size === "md" ? "4px 4px 0 0 rgba(0,0,0,1)" : "2px 2px 0 0 rgba(0,0,0,1)") : "none",
+        ...DISPLAY_SM,
+        padding: plain ? "8px 4px" : "12px 22px",
+        background: variant === "primary" ? INK : plain ? "transparent" : SURFACE,
+        color: variant === "primary" ? SURFACE : INK,
+        border: plain ? "none" : BORDER,
+        boxShadow: shadow && !plain ? SHADOW : "none",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.4 : 1,
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        lineHeight: 1.1,
-        transition: "opacity 0.15s",
+        justifyContent: "center",
+        gap: 8,
         ...style,
       }}
     >
@@ -194,15 +328,15 @@ export function ActionButton({ children, onClick, variant = "outline", size = "m
 }
 
 /**
- * The top bar. One geometry — 52px, 1px ink rule, wordmark left — with whatever
- * controls the surface needs on the right. Signed-out (sign in), signed-in (nav
- * + settings) and the loading state all use this, so the bar never shifts.
+ * The top bar. One geometry — 52px, an ink hairline, wordmark left — with
+ * whatever controls the surface needs on the right, so the bar never shifts
+ * between signed-out, signed-in and loading.
  */
 export function SiteHeader({ right, style }: { right?: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <header
       className="sticky top-0 z-40 flex items-center justify-between px-4 md:px-8"
-      style={{ borderBottom: `1px solid ${INK}`, background: "white", height: "52px", ...style }}
+      style={{ borderBottom: `1px solid ${INK}`, background: SURFACE, height: 52, ...style }}
     >
       <h1 className="hidden md:block" style={{ margin: 0 }}><Wordmark /></h1>
       <span className="block md:hidden"><Wordmark compact /></span>
@@ -213,8 +347,7 @@ export function SiteHeader({ right, style }: { right?: React.ReactNode; style?: 
 
 /**
  * Page header — the title-and-one-sentence opening every full page uses.
- * Display 2rem, sentence case, with a single plain-language line under it at a
- * readable size. No mono eyebrow above the title, no rule under it.
+ * No mono eyebrow above the title, no rule under it: the whitespace separates.
  */
 export function PageHeader({ title, children, action }: {
   title: React.ReactNode;
@@ -222,13 +355,11 @@ export function PageHeader({ title, children, action }: {
   action?: React.ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, marginBottom: 40 }}>
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, marginBottom: 40, flexWrap: "wrap" }}>
       <div>
-        <h1 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "2rem", letterSpacing: "-0.03em", color: INK, margin: "0 0 8px" }}>
-          {title}
-        </h1>
+        <h1 style={{ ...DISPLAY_LG, margin: "0 0 8px" }}>{title}</h1>
         {children && (
-          <p style={{ fontSize: "1rem", color: "#666", margin: 0, maxWidth: 560, lineHeight: 1.6 }}>{children}</p>
+          <p style={{ ...BODY_STYLE, color: DIM, margin: 0, maxWidth: 560 }}>{children}</p>
         )}
       </div>
       {action}
@@ -237,9 +368,9 @@ export function PageHeader({ title, children, action }: {
 }
 
 /**
- * The frame. A hard 2px border and an unblurred offset shadow — the single
+ * The frame. A 2px ink border and one unblurred 5px offset — the single
  * container shape in the product. `media` renders a flush top region divided by
- * a border (how the loader cards show their subject); everything else is body.
+ * a border; everything else is body.
  */
 export function Card({ children, media, onClick, style }: {
   children?: React.ReactNode;
@@ -250,20 +381,21 @@ export function Card({ children, media, onClick, style }: {
   return (
     <div
       onClick={onClick}
+      className={onClick ? "ds-lift" : undefined}
       style={{
-        border: `2px solid ${INK}`,
-        background: "#fff",
-        boxShadow: "6px 6px 0 0 rgba(0,0,0,1)",
+        border: BORDER,
+        background: SURFACE,
+        boxShadow: SHADOW,
         cursor: onClick ? "pointer" : undefined,
         ...style,
       }}
     >
       {media && (
-        <div style={{ display: "grid", placeItems: "center", borderBottom: `2px solid ${INK}`, padding: 24 }}>
+        <div style={{ display: "grid", placeItems: "center", borderBottom: BORDER, padding: 24 }}>
           {media}
         </div>
       )}
-      {children && <div style={{ padding: "16px 18px" }}>{children}</div>}
+      {children && <div style={{ padding: "18px 20px" }}>{children}</div>}
     </div>
   );
 }
@@ -277,17 +409,49 @@ export function CardGrid({ children, min = 260 }: { children: React.ReactNode; m
   );
 }
 
-/** Soften a field pastel toward white — the chip fill from the 2026-07-19 reference mock. */
-export function chipTint(color?: string | null): string {
-  return color ? `color-mix(in srgb, ${color} 45%, white)` : "#fff";
+/**
+ * A tag. Body face, sentence case, 1px border, no radius, no shadow — the
+ * change that stopped each card shouting eleven small things.
+ *
+ * `glass` sits on a card wash and stays translucent white, because the wash is
+ * already carrying the colour. `solid` sits on white and takes its fill from
+ * the keyword's own spectrum slot, so the same concept is the same colour
+ * wherever it turns up.
+ */
+export function Tag({ label, variant = "solid", tint, onClick, title, trailing, style }: {
+  label: string;
+  variant?: "glass" | "solid";
+  /** Override the hash-derived fill (e.g. a field's fixed slot). */
+  tint?: string;
+  onClick?: () => void;
+  title?: string;
+  trailing?: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  const glass = variant === "glass";
+  const base: React.CSSProperties = {
+    ...BODY_SM,
+    fontWeight: 600,
+    background: glass ? "rgba(255,255,255,0.55)" : (tint ?? wordSlot(label)),
+    border: glass ? "1px solid rgba(26,26,26,0.35)" : BORDER_HAIR,
+    padding: "4px 10px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    whiteSpace: "nowrap",
+    cursor: onClick ? "pointer" : "default",
+    ...style,
+  };
+  if (!onClick) return <span style={base} title={title}>{label}{trailing}</span>;
+  return <button style={base} title={title} onClick={onClick}>{label}{trailing}</button>;
 }
 
 /**
  * Topic chip — the interest-picker unit. Sentence case in the body face, so a
- * panel of eighty of them reads as a vocabulary rather than as a control array
- * (mono uppercase at 11px was legible one chip at a time and a texture in bulk).
- * Idle = white with a dashed grey border; selected = soft field tint with a
- * solid ink border. The only place in the system with rounded corners.
+ * panel of eighty reads as a vocabulary rather than a control array. Idle is
+ * white with a dashed rule border; selected takes the field's own spectrum slot
+ * at full strength behind a solid ink border. No radius: the 6px on TopicChip
+ * and AddChip was the last rounded corner in the product.
  */
 export function TopicChip({ label, selected, tint, onClick, onRemove, disabled = false, title }: {
   label: string;
@@ -307,22 +471,19 @@ export function TopicChip({ label, selected, tint, onClick, onRemove, disabled =
       title={title}
       aria-pressed={onClick ? selected : undefined}
       style={{
-        background: selected ? chipTint(tint) : "#fff",
-        border: selected ? `1.5px solid ${INK}` : "1.5px dashed #d2d2d2",
-        borderRadius: 6,
-        fontSize: "0.85rem",
+        ...BODY_SM,
         fontWeight: selected ? 600 : 400,
-        letterSpacing: 0,
-        color: selected ? INK : "#555",
-        padding: "7px 12px",
+        background: selected ? (tint ?? SURFACE) : SURFACE,
+        border: selected ? BORDER : `2px dashed ${RULE}`,
+        color: INK,
+        padding: "7px 13px",
         minHeight: 34,
-        lineHeight: 1.2,
         textAlign: "left",
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
         cursor: disabled ? "not-allowed" : onClick ? "pointer" : "default",
-        transition: "background 120ms, border-color 120ms, color 120ms",
+        transition: "background 140ms, border-color 140ms",
         opacity: disabled ? 0.35 : 1,
       }}
     >
@@ -332,7 +493,7 @@ export function TopicChip({ label, selected, tint, onClick, onRemove, disabled =
           role="button"
           aria-label={`Remove ${label}`}
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          style={{ fontSize: 14, lineHeight: 1, opacity: 0.55, cursor: "pointer" }}
+          style={{ fontSize: 15, lineHeight: 1, opacity: 0.55, cursor: "pointer" }}
         >×</span>
       )}
     </button>
@@ -353,20 +514,18 @@ export function AddChip({ onClick, disabled = false, title, label = "+ Add" }: {
       disabled={disabled}
       title={title}
       style={{
-        background: "#fff",
-        border: `1.5px dashed ${INK}`,
-        borderRadius: 6,
-        fontSize: "0.85rem",
+        ...BODY_SM,
         fontWeight: 600,
+        background: SURFACE,
+        border: `2px dashed ${INK}`,
         color: INK,
-        padding: "7px 12px",
+        padding: "7px 13px",
         minHeight: 34,
-        lineHeight: 1.2,
         display: "inline-flex",
         alignItems: "center",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.35 : 1,
-        transition: "background 120ms",
+        transition: "background 140ms",
       }}
     >
       {label}
@@ -375,15 +534,14 @@ export function AddChip({ onClick, disabled = false, title, label = "+ Add" }: {
 }
 
 /**
- * Segmented control — the one "pick exactly one of these" shape. Buttons share
- * a 2px ink frame with -2px margins so the group reads as a single object; the
- * active cell inverts to ink. Settings tabs, delivery cadence, ledger filters.
+ * Segmented control — the one "pick exactly one of these" shape. Cells share a
+ * 2px ink frame via -2px margins so the group reads as a single object; the
+ * active cell inverts to ink.
  */
-export function Segmented<T extends string>({ options, value, onChange, size = "md", style }: {
+export function Segmented<T extends string>({ options, value, onChange, style }: {
   options: { key: T; label: React.ReactNode }[];
   value: T;
   onChange: (key: T) => void;
-  size?: "sm" | "md";
   style?: React.CSSProperties;
 }) {
   return (
@@ -396,19 +554,16 @@ export function Segmented<T extends string>({ options, value, onChange, size = "
             onClick={() => onChange(opt.key)}
             aria-pressed={active}
             style={{
+              ...DISPLAY_SM,
               flex: 1,
-              padding: size === "md" ? "9px 10px" : "6px 10px",
-              border: `2px solid ${INK}`,
+              padding: "10px 12px",
+              border: BORDER,
               marginRight: -2,
-              background: active ? INK : "#fff",
-              color: active ? "#fff" : INK,
-              fontFamily: DISPLAY,
-              fontSize: size === "md" ? "0.9rem" : "0.8rem",
-              fontWeight: 700,
-              lineHeight: 1.25,
+              background: active ? INK : SURFACE,
+              color: active ? SURFACE : INK,
               cursor: "pointer",
-              minHeight: size === "md" ? 42 : 34,
-              transition: "background 120ms, color 120ms",
+              minHeight: 42,
+              transition: "background 140ms, color 140ms",
             }}
           >
             {opt.label}
@@ -416,5 +571,72 @@ export function Segmented<T extends string>({ options, value, onChange, size = "
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The ink tooltip — one object for every "what does this mean" in the product:
+ * hard-word definitions in the synthesis, a paper's gist behind its name, and
+ * the foundational card's eye. Square, no radius, hard shadow.
+ */
+export function InkTip({ children, label, style }: {
+  children: React.ReactNode;
+  /** Optional mono line above the body — the venue, the term, the source. */
+  label?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      style={{
+        display: "block",
+        width: 280,
+        maxWidth: "80vw",
+        background: INK,
+        color: SURFACE,
+        padding: "10px 14px",
+        boxShadow: SHADOW,
+        ...BODY_SM,
+        ...style,
+      }}
+    >
+      {label && (
+        <span style={{ ...LABEL_STYLE, display: "block", color: RULE, marginBottom: 5 }}>{label}</span>
+      )}
+      {children}
+    </span>
+  );
+}
+
+/** Text input — an ink frame, body face. The one input shape. */
+export function TextInput({ value, onChange, onKeyDown, placeholder, ariaLabel, autoFocus, type = "text", style }: {
+  value: string;
+  onChange: (v: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  ariaLabel?: string;
+  autoFocus?: boolean;
+  type?: "text" | "password";
+  style?: React.CSSProperties;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      autoFocus={autoFocus}
+      style={{
+        ...BODY_STYLE,
+        width: "100%",
+        border: BORDER,
+        background: SURFACE,
+        padding: "10px 13px",
+        minHeight: 44,
+        outline: "none",
+        ...style,
+      }}
+    />
   );
 }

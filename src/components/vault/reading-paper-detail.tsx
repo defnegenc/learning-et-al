@@ -4,9 +4,10 @@ import React, { useEffect, useState } from "react";
 import { ArrowLeft, Bookmark, Loader2 } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
-import { journalName } from "@/lib/venue-name";
-
-const DISPLAY = "var(--font-display), sans-serif";
+import { paperByline, READING_BODY } from "@/components/paper-card";
+import {
+  BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, HAIRLINE, INK, MUTED, SHADOW, SURFACE,
+} from "@/components/design-system";
 
 type Jargon = { term: string; def: string };
 
@@ -79,28 +80,26 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
   ].filter(Boolean).join(" · ");
 
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "16px 0", borderTop: "1px solid rgba(26,26,26,0.12)" }}>
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 0", borderTop: HAIRLINE }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <a
           href={item.url || undefined}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1rem", lineHeight: 1.4, color: "#1a1a1a", textDecoration: item.url ? "underline" : "none", textUnderlineOffset: "3px" }}
+          style={{ ...DISPLAY_SM, textDecoration: item.url ? "underline" : "none", textUnderlineOffset: 4 }}
         >
           {item.title}
         </a>
-        <div style={{ fontSize: "0.78rem", color: "#888", marginTop: 6 }}>
-          {meta}
-        </div>
+        <div style={{ ...BODY_STYLE, color: MUTED, marginTop: 8 }}>{meta}</div>
       </div>
       <button
         onClick={save}
         title={saved ? "In your reading list" : "Save to reading list"}
-        style={{ background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: "#1a1a1a", marginTop: 3 }}
+        style={{ background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: INK, marginTop: 3 }}
       >
         {saving
           ? <Loader2 size={15} className="animate-spin" />
-          : <Bookmark size={15} fill={saved ? "#1a1a1a" : "none"} />}
+          : <Bookmark size={15} fill={saved ? INK : "none"} />}
       </button>
     </div>
   );
@@ -109,7 +108,7 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
 // Full-screen reading view: the gist, then what's happened since. Nothing else —
 // no card chrome, no metadata rail, no Q&A.
 export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClose: () => void }) {
-  const journal = journalName(paper.sourceUrl, paper.authors);
+  const byline = paperByline(paper);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [companionPending, setCompanionPending] = useState(true);
@@ -164,45 +163,35 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
   return (
     <div
       style={{
-        position: "fixed", inset: 0, zIndex: 80, background: "#fff",
+        position: "fixed", inset: 0, zIndex: 80, background: SURFACE,
         overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain",
       }}
     >
       <div style={{ maxWidth: 680, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
         <button
           onClick={onClose}
-          style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: "0.9rem", background: "none", border: "none", cursor: "pointer", color: "#1a1a1a", padding: 0, marginBottom: 28 }}
+          style={{ ...BODY_STYLE, display: "inline-flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: DIM, padding: 0, marginBottom: 28 }}
         >
           <ArrowLeft size={15} /> Back
         </button>
 
-        <h1 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.7rem", lineHeight: 1.2, letterSpacing: "-0.02em", color: "#1a1a1a", margin: "0 0 10px" }}>
-          {paper.title}
-        </h1>
-        {(paper.authors.length > 0 || journal) && (
-          <p style={{ fontSize: "0.88rem", color: "#666", margin: "0 0 28px" }}>
-            {paper.authors.slice(0, 6).join(", ")}
-            {paper.authors.length > 0 && journal ? " — " : ""}
-            {journal}
-          </p>
+        <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{paper.title}</h1>
+        {byline && (
+          <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "0 0 32px" }}>{byline}</p>
         )}
 
         {/* ── The gist ── */}
         {companionPending ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-            <Loader2 size={13} className="animate-spin" style={{ color: "#666" }} />
-            <span style={{ fontSize: "0.9rem", color: "#666" }}>
-              Reading the paper…
-            </span>
+            <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+            <span style={{ ...BODY_STYLE, color: MUTED }}>Reading the paper…</span>
           </div>
         ) : companion?.gist ? (
-          <p style={{ fontSize: "1.05rem", lineHeight: 1.75, color: "#1a1a1a", margin: 0 }}>
-            {annotateText(companion.gist, glossary)}
-          </p>
+          <p style={{ ...READING_BODY, margin: 0 }}>{annotateText(companion.gist, glossary)}</p>
         ) : paper.abstract ? (
-          <p style={{ fontSize: "1.05rem", lineHeight: 1.75, color: "#1a1a1a", margin: 0 }}>{paper.abstract}</p>
+          <p style={{ ...READING_BODY, margin: 0 }}>{paper.abstract}</p>
         ) : (
-          <p style={{ fontSize: "0.9rem", color: "#999", fontStyle: "italic", margin: 0 }}>No summary available.</p>
+          <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: 0 }}>No summary available.</p>
         )}
 
         {paper.sourceUrl && (
@@ -210,26 +199,25 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
             href={paper.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: DISPLAY, fontSize: "0.9rem", fontWeight: 700, background: "#1a1a1a", color: "#fff", padding: "11px 18px", textDecoration: "none", marginTop: 28 }}
+            className="ds-lift"
+            style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "12px 22px", textDecoration: "none", marginTop: 32 }}
           >
             Read the full paper ↗
           </a>
         )}
 
         {/* ── What's happened since ── */}
-        <h2 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#1a1a1a", margin: "52px 0 4px" }}>
-          What&apos;s happened since
-        </h2>
-        <p style={{ fontSize: "0.85rem", color: "#888", margin: "0 0 8px" }}>
+        <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
+        <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>
           Newer work that cites this paper.
         </p>
         {homework === null ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
-            <Loader2 size={12} className="animate-spin" style={{ color: "#666" }} />
-            <span style={{ fontSize: "0.78rem", color: "#888" }}>Looking for follow-up work…</span>
+            <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+            <span style={{ ...BODY_STYLE, color: MUTED }}>Looking for follow-up work…</span>
           </div>
         ) : homework.length === 0 ? (
-          <p style={{ fontSize: "0.82rem", color: "#999", fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
+          <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
         ) : (
           <div>
             {homework.map(item => (

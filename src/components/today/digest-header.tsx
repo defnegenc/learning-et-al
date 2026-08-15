@@ -2,25 +2,14 @@
 
 import { useState } from "react";
 import { fieldColor } from "@/lib/field-hierarchy";
+import { BODY_STYLE, INK, SURFACE, Tag } from "@/components/design-system";
 
-const MONO = "var(--font-mono), monospace";
-const BODY = "var(--font-inter), sans-serif";
-
-const CHIP: React.CSSProperties = {
-  fontFamily: MONO,
-  fontSize: "0.6rem",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  border: "1.5px solid #1a1a1a",
-  padding: "3px 9px",
-  color: "#1a1a1a",
-  whiteSpace: "nowrap",
-};
-
-// A digest topic that isn't one of your interests yet — click + to follow it.
-// Unselected = no color (white); adding it fills with the topic's field color.
-function TopicChip({ topic, field, isLoggedIn, onSignIn }: {
+/**
+ * A digest topic that isn't one of your interests yet — click + to follow it.
+ * Idle is white; adding it fills with the topic's own spectrum slot, which is
+ * the same fill the chip will have in the interest picker afterwards.
+ */
+function AddableTopic({ topic, field, isLoggedIn, onSignIn }: {
   topic: string;
   field: string;
   isLoggedIn: boolean;
@@ -45,29 +34,22 @@ function TopicChip({ topic, field, isLoggedIn, onSignIn }: {
   };
 
   return (
-    <button
-      onClick={add}
+    <Tag
+      label={topic}
+      tint={state === "added" ? fieldColor(field) : SURFACE}
+      onClick={state === "idle" ? add : undefined}
       title={state === "added" ? "Added to your interests" : "Add to your interests"}
-      style={{
-        ...CHIP,
-        background: state === "added" ? fieldColor(field) : "#fff",
-        cursor: state === "added" ? "default" : "pointer",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        opacity: state === "saving" ? 0.5 : 1,
-      }}
-    >
-      {topic}
-      <span style={{ fontWeight: 700, fontSize: "0.7rem", lineHeight: 1 }}>{state === "added" ? "✓" : "+"}</span>
-    </button>
+      trailing={<span aria-hidden style={{ fontWeight: 700 }}>{state === "added" ? "✓" : "+"}</span>}
+      style={{ opacity: state === "saving" ? 0.5 : 1 }}
+    />
   );
 }
 
 /**
- * The zero-click header under the central question: domain chips (interests that
- * seeded this digest), the digest's other topics (addable via +), and the gist
- * (the one-line answer). Renders nothing if the digest predates these fields.
+ * The zero-click header under the central question: domain chips (interests
+ * that seeded this digest), the digest's other topics (addable via +), and the
+ * gist — the one-line answer. Renders nothing if the digest predates these
+ * fields.
  */
 export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, onSignIn }: {
   seedInterests?: { keyword: string; field: string }[];
@@ -80,8 +62,8 @@ export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, 
   const extraTopics = topics || [];
   const defaultField = chips[0]?.field || "Computer Science";
   // Dead-simple digest: the tag row stays hidden (flip SHOW_TAGS to bring it
-  // back). The gist one-liner is back — it lands the digest's closing answer
-  // right under the question instead of making you read to the end for it.
+  // back). The gist one-liner lands the digest's closing answer right under the
+  // question instead of making you read to the end for it.
   const SHOW_TAGS = false;
   const SHOW_GIST = true;
   const showTags = SHOW_TAGS && (chips.length > 0 || extraTopics.length > 0);
@@ -93,19 +75,15 @@ export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, 
       {showTags && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: showGist ? 28 : 0 }}>
           {chips.map((c) => (
-            <span key={c.keyword} style={{ ...CHIP, background: fieldColor(c.field) }}>
-              {c.keyword}
-            </span>
+            <Tag key={c.keyword} label={c.keyword} tint={fieldColor(c.field)} />
           ))}
           {extraTopics.map((t) => (
-            <TopicChip key={t} topic={t} field={defaultField} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
+            <AddableTopic key={t} topic={t} field={defaultField} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
           ))}
         </div>
       )}
       {showGist && (
-        <p style={{ fontFamily: BODY, fontSize: "1.12rem", lineHeight: 1.5, color: "#1a1a1a", fontWeight: 700, margin: 0 }}>
-          {gist}
-        </p>
+        <p style={{ ...BODY_STYLE, fontWeight: 600, color: INK, margin: 0 }}>{gist}</p>
       )}
     </div>
   );

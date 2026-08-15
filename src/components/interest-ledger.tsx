@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { FIELD_HIERARCHY, type S2Field } from "@/lib/field-hierarchy";
-import { TopicChip, Segmented, INK, DISPLAY } from "@/components/design-system";
+import {
+  ActionButton, BODY_STYLE, BODY_SM, DIM, DISPLAY_SM, HAIRLINE, INK, LABEL_STYLE,
+  MUTED, Segmented, SURFACE, TopicChip,
+} from "@/components/design-system";
 
 // Max interests a user can select. The digest samples 5 candidates/day from the
 // whole pool (see docs/algorithm.md Step 1), so this is only a UI guardrail, not
@@ -19,25 +22,10 @@ export interface SelectedTopic {
   color: string;
 }
 
-// Per-category 2-color gradient palettes — one distinct family per row,
-// so a panel of tags reads as a single family, not a rainbow.
-export const CATEGORY_PALETTES: Record<string, [string, string]> = {
-  "Computer Science":       ["#D0E3F7", "#C8F0D8"], // blue → mint
-  "Design & Art":           ["#FFD6E0", "#F7D9E8"], // pink → rose
-  "Biology":                ["#C8F0D8", "#FFE89A"], // mint → yellow
-  "Medicine":               ["#FFE89A", "#FFD6E0"], // yellow → pink
-  "Social Sciences":        ["#E2D6F7", "#D0E3F7"], // lavender → blue
-  "Physics & Engineering":  ["#D0E3F7", "#E2D6F7"], // blue → lavender
-  "Business & Finance":     ["#FFE89A", "#C8F0D8"], // yellow → mint
-  "Sustainability":         ["#C8F0D8", "#D0E3F7"], // mint → blue
-  "Philosophy & Ethics":    ["#F7D9E8", "#E2D6F7"], // rose → lavender
-  "Education":              ["#FFD6E0", "#FFE89A"], // pink → yellow
-};
-
 // Custom topics added by the user per category, keyed by FIELD_HIERARCHY key.
+// (CATEGORY_PALETTES is gone: a field's colour is its one fixed spectrum slot
+// in FIELD_HIERARCHY, not a gradient pair kept in a second table here.)
 export type CustomTopics = Record<string, string[]>;
-
-const HAIRLINE = "1px solid rgba(26,26,26,0.12)";
 
 /**
  * How full the picker is, and how spread. The number is the graphic; the bar
@@ -55,7 +43,7 @@ function CapacityMeter({ selected, max, fieldCounts }: {
     <div style={{ padding: "16px 0 14px" }}>
       {/* No bar at zero — an empty meter is a shape with nothing to say. */}
       {selected > 0 && (
-        <div style={{ display: "flex", height: 10, border: `1.5px solid ${INK}`, background: "#fff", overflow: "hidden", marginBottom: 7 }}>
+        <div style={{ display: "flex", height: 10, border: `2px solid ${INK}`, background: SURFACE, overflow: "hidden", marginBottom: 8 }}>
           {fieldCounts.map((f, i) => (
             <div
               key={f.key}
@@ -70,9 +58,9 @@ function CapacityMeter({ selected, max, fieldCounts }: {
           ))}
         </div>
       )}
-      <p style={{ margin: 0, fontSize: "0.85rem", color: "#666", lineHeight: 1.5 }}>
+      <p style={{ ...BODY_STYLE, margin: 0, color: MUTED }}>
         <strong style={{ color: INK, fontWeight: 600 }}>{selected} of {max} topics</strong>
-        {fieldCounts.length > 0 && <> · across {fieldCounts.length} {fieldCounts.length === 1 ? "field" : "fields"}</>}
+        {fieldCounts.length > 0 && <> · across {fieldCounts.length} of 10 {fieldCounts.length === 1 ? "field" : "fields"}</>}
         {atMax && <> · <span style={{ color: INK, fontWeight: 600 }}>full — remove one to add another</span></>}
       </p>
     </div>
@@ -167,10 +155,10 @@ export function InterestLedger({
       {/* Toolbar — sticks to the top of whatever scroller renders the ledger. */}
       <div
         className="flex flex-col md:flex-row md:items-center gap-2 sticky top-0 z-10"
-        style={{ background: "#fff", paddingBottom: 10, borderBottom: HAIRLINE }}
+        style={{ background: SURFACE, paddingBottom: 10, borderBottom: HAIRLINE }}
       >
         <div style={{ position: "relative", flex: 1 }}>
-          <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#999", pointerEvents: "none" }} />
+          <Search size={16} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: MUTED, pointerEvents: "none" }} />
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -178,15 +166,13 @@ export function InterestLedger({
             placeholder="Search topics, or type your own…"
             aria-label="Search topics"
             style={{
-              width: "100%", border: `1.5px solid ${INK}`, background: "#fff",
-              padding: "10px 12px 10px 34px", fontSize: "0.9rem", color: INK,
-              outline: "none", minHeight: 42,
+              ...BODY_STYLE, width: "100%", border: `2px solid ${INK}`, background: SURFACE,
+              padding: "10px 13px 10px 38px", outline: "none", minHeight: 44,
             }}
           />
         </div>
-        <div className="w-full md:w-auto md:min-w-[240px]" style={{ flexShrink: 0 }}>
+        <div className="w-full md:w-auto md:min-w-[280px]" style={{ flexShrink: 0 }}>
           <Segmented
-            size="sm"
             value={view}
             onChange={setView}
             options={[
@@ -201,35 +187,26 @@ export function InterestLedger({
           phrase that isn't in any of the ten fields is the one you want to add. */}
       {rows.length === 0 && (
         <div style={{ padding: "22px 0" }}>
-          <p style={{ fontSize: "0.9rem", color: "#666", margin: 0 }}>
+          <p style={{ ...BODY_STYLE, color: MUTED, margin: 0 }}>
             {view === "selected"
               ? "Nothing picked yet — switch to all topics to start."
               : <>Nothing matches <strong style={{ color: INK, fontWeight: 600 }}>&ldquo;{query.trim()}&rdquo;</strong>.{atMax && " You're at the maximum — remove one to add your own."}</>}
           </p>
           {canAddCustom && (
             <div className="flex flex-wrap items-center gap-2" style={{ marginTop: 12 }}>
-              <span style={{ fontSize: "0.85rem", color: "#666" }}>Add it to</span>
+              <span style={{ ...BODY_STYLE, color: MUTED }}>Add it to</span>
               <select
                 value={addField}
                 onChange={e => setAddField(e.target.value)}
                 aria-label="Category for the new topic"
                 style={{
-                  border: `1.5px solid ${INK}`, background: "#fff", padding: "7px 10px",
-                  fontSize: "0.85rem", color: INK, outline: "none", minHeight: 36,
+                  ...BODY_STYLE, border: `2px solid ${INK}`, background: SURFACE,
+                  padding: "9px 12px", outline: "none", minHeight: 42,
                 }}
               >
                 {entries.map(([key]) => <option key={key} value={key}>{key}</option>)}
               </select>
-              <button
-                onClick={commitCustom}
-                style={{
-                  border: `2px solid ${INK}`, background: INK, color: "#fff",
-                  fontFamily: DISPLAY, fontSize: "0.85rem", fontWeight: 700,
-                  padding: "7px 16px", minHeight: 36, cursor: "pointer",
-                }}
-              >
-                Add
-              </button>
+              <ActionButton variant="primary" shadow={false} onClick={commitCustom}>Add</ActionButton>
             </div>
           )}
         </div>
@@ -241,25 +218,25 @@ export function InterestLedger({
 
         return (
           <div key={fieldKey} style={{ borderBottom: HAIRLINE }}>
+            {/* The field's own spectrum slot in the swatch, its name at
+                Display/SM, and the count as the row's one mono label. */}
             <button
               onClick={() => !forceOpen && setOpen(prev => ({ ...prev, [fieldKey]: !prev[fieldKey] }))}
               aria-expanded={isOpen}
               style={{
                 display: "flex", alignItems: "center", gap: 12, width: "100%",
-                background: "none", border: "none", padding: "16px 0", textAlign: "left",
+                background: "none", border: "none", padding: "18px 0", textAlign: "left",
                 cursor: forceOpen ? "default" : "pointer",
               }}
             >
-              <span style={{ width: 10, height: 10, background: fieldDef.color, border: `1px solid ${INK}`, flexShrink: 0 }} />
+              <span style={{ width: 12, height: 12, background: fieldDef.color, border: `1px solid ${INK}`, flexShrink: 0 }} />
               <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: "block", fontFamily: DISPLAY, fontSize: "1.05rem", fontWeight: 700, letterSpacing: "-0.01em", color: INK }}>
-                  {fieldKey}
-                </span>
+                <span style={{ ...DISPLAY_SM, display: "block" }}>{fieldKey}</span>
                 {!isOpen && (
                   <span
                     style={{
-                      display: "block", fontSize: "0.85rem", lineHeight: 1.4, marginTop: 3,
-                      color: selectedHere.length > 0 ? "#444" : "#999",
+                      ...BODY_SM, display: "block", marginTop: 4,
+                      color: selectedHere.length > 0 ? DIM : MUTED,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}
                   >
@@ -267,19 +244,19 @@ export function InterestLedger({
                   </span>
                 )}
               </span>
-              <span style={{ fontSize: "0.85rem", color: selectedHere.length ? INK : "#999", fontWeight: selectedHere.length ? 600 : 400, flexShrink: 0 }}>
-                {selectedHere.length ? `${selectedHere.length} of ${allTopics.length}` : `${allTopics.length} topics`}
+              <span style={{ ...LABEL_STYLE, color: selectedHere.length ? INK : MUTED, flexShrink: 0 }}>
+                {selectedHere.length} / {allTopics.length}
               </span>
               {!forceOpen && (
                 <ChevronDown
                   size={16}
-                  style={{ color: "#999", flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+                  style={{ color: MUTED, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
                 />
               )}
             </button>
 
             {isOpen && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 18 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingBottom: 20 }}>
                 {visible.map(topic => {
                   const isSelected = selectedSet.has(topic);
                   return (

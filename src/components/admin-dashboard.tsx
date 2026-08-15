@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import {
+  ACID_GREEN, ACID_PINK, BODY_STYLE, BODY_SM, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
+  HAIRLINE, INK, Label, LABEL_STYLE, MUTED, SHADOW, SURFACE, Tag, wordSlot,
+} from "@/components/design-system";
 
 interface UserStat {
   id: string;
@@ -79,12 +83,12 @@ export function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="size-5 animate-spin text-[#888]" /></div>;
-  if (error) return <div style={{ padding: "40px", color: "#ff007f", fontFamily: "var(--font-mono), monospace" }}>{error}</div>;
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={20} className="animate-spin" style={{ color: MUTED }} /></div>;
+  if (error) return <div style={{ padding: 40, ...BODY_STYLE, color: ACID_PINK }}>{error}</div>;
   if (!data) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto" style={{ padding: "24px 40px" }}>
+    <div className="flex-1 overflow-y-auto px-4 md:px-8" style={{ maxWidth: 1400, margin: "0 auto", paddingTop: 32, paddingBottom: 80 }}>
       {/* Stats row */}
       <div style={{ display: "flex", gap: "16px", marginBottom: "32px", flexWrap: "wrap" }}>
         {[
@@ -94,27 +98,26 @@ export function AdminDashboard() {
           { label: "Events", value: data.totals.events },
         ].map(s => (
           <div key={s.label} style={{
-            padding: "16px 24px", border: "3px solid #1a1a1a",
-            boxShadow: "4px 4px 0px 0px rgba(0,0,0,1)", background: "white", minWidth: "120px",
+            padding: "18px 24px", border: BORDER,
+            boxShadow: SHADOW, background: SURFACE, minWidth: 120,
           }}>
-            <p style={{ fontSize: "2rem", fontWeight: 800, fontFamily: "var(--font-display), sans-serif" }}>{s.value}</p>
-            <p style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#888", fontFamily: "var(--font-mono), monospace" }}>{s.label}</p>
+            <p style={{ ...DISPLAY_LG, margin: "0 0 4px" }}>{s.value}</p>
+            <Label>{s.label}</Label>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: "0", borderBottom: "3px solid #1a1a1a", marginBottom: "24px" }}>
+      <div style={{ display: "flex", gap: 0, borderBottom: `2px solid ${INK}`, marginBottom: 24 }}>
         {(["users", "activity", "themes"] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             style={{
-              padding: "10px 20px", fontSize: "0.75rem", fontWeight: 700,
-              textTransform: "uppercase", letterSpacing: "2px",
-              fontFamily: "var(--font-mono), monospace",
-              background: tab === t ? "#1a1a1a" : "transparent",
-              color: tab === t ? "white" : "#888",
+              ...LABEL_STYLE,
+              padding: "12px 20px",
+              background: tab === t ? INK : "transparent",
+              color: tab === t ? SURFACE : MUTED,
               border: "none", cursor: "pointer",
             }}
           >
@@ -127,18 +130,18 @@ export function AdminDashboard() {
       {tab === "users" && (
         <table className="w-full" style={{ borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ borderBottom: "2px solid #1a1a1a" }}>
-              {["User", "Auto-Digest", "Joined", "Last Active", "Digests", "Stars", "Questions", "Regens", "Interests"].map(h => (
-                <th key={h} style={{ textAlign: "left", padding: "8px 12px", fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", fontFamily: "var(--font-mono), monospace", color: "#888" }}>{h}</th>
+            <tr style={{ borderBottom: `2px solid ${INK}` }}>
+              {["User", "Auto-digest", "Joined", "Last active", "Digests", "Stars", "Questions", "Regens", "Interests"].map(h => (
+                <th key={h} style={{ ...LABEL_STYLE, textAlign: "left", padding: "10px 12px" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.users.map(u => (
-              <tr key={u.id} style={{ borderBottom: "1px solid #eee" }} className="hover:bg-gray-50">
-                <td style={{ padding: "10px 12px" }}>
-                  <p style={{ fontSize: "0.85rem", fontWeight: 700 }}>{u.name || "—"}</p>
-                  <p style={{ fontSize: "0.65rem", color: "#888" }}>{u.email || "—"}</p>
+              <tr key={u.id} style={{ borderBottom: HAIRLINE }}>
+                <td style={{ padding: "12px" }}>
+                  <p style={{ ...BODY_SM, fontWeight: 600, margin: 0 }}>{u.name || "—"}</p>
+                  <p style={{ ...BODY_SM, color: MUTED, margin: 0 }}>{u.email || "—"}</p>
                 </td>
                 <td style={{ padding: "10px 12px" }}>
                   <button
@@ -146,29 +149,26 @@ export function AdminDashboard() {
                     disabled={togglingId === u.id}
                     title={u.digestPaused ? "Resume automatic digest generation" : "Pause automatic digest generation"}
                     style={{
-                      fontSize: "0.55rem", fontWeight: 700, padding: "3px 8px",
-                      fontFamily: "var(--font-mono), monospace", textTransform: "uppercase",
-                      letterSpacing: "1px", whiteSpace: "nowrap",
-                      border: "1.5px solid #1a1a1a", cursor: "pointer",
-                      background: u.digestPaused ? "#f8d7da" : "#d4edda",
-                      color: "#1a1a1a", opacity: togglingId === u.id ? 0.5 : 1,
+                      ...BODY_SM, fontWeight: 600, padding: "4px 10px", whiteSpace: "nowrap",
+                      border: `1px solid ${INK}`, cursor: "pointer",
+                      background: SURFACE,
+                      color: u.digestPaused ? ACID_PINK : ACID_GREEN,
+                      opacity: togglingId === u.id ? 0.5 : 1,
                     }}
                   >
                     {u.digestPaused ? "Paused" : "On"}
                   </button>
                 </td>
-                <td style={{ padding: "10px 12px", fontSize: "0.75rem", color: "#666" }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
-                <td style={{ padding: "10px 12px", fontSize: "0.75rem", color: "#666" }}>{u.lastActive ? new Date(u.lastActive).toLocaleDateString() : "—"}</td>
-                <td style={{ padding: "10px 12px", fontSize: "0.85rem", fontWeight: 600 }}>{u.digestCount}</td>
-                <td style={{ padding: "10px 12px", fontSize: "0.85rem", fontWeight: 600, color: "#f59e0b" }}>{u.starredCount}</td>
-                <td style={{ padding: "10px 12px", fontSize: "0.85rem", fontWeight: 600 }}>{u.digDeepCount}</td>
-                <td style={{ padding: "10px 12px", fontSize: "0.85rem", fontWeight: 600 }}>{u.regenerateCount}</td>
-                <td style={{ padding: "10px 12px" }}>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "3px" }}>
-                    {u.interests.slice(0, 5).map(k => (
-                      <span key={k} style={{ fontSize: "0.55rem", padding: "2px 6px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontFamily: "var(--font-mono), monospace" }}>{k}</span>
-                    ))}
-                    {u.interests.length > 5 && <span style={{ fontSize: "0.55rem", color: "#888" }}>+{u.interests.length - 5}</span>}
+                <td style={{ padding: 12, ...BODY_SM, color: MUTED }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
+                <td style={{ padding: 12, ...BODY_SM, color: MUTED }}>{u.lastActive ? new Date(u.lastActive).toLocaleDateString() : "—"}</td>
+                <td style={{ padding: 12, ...BODY_SM, fontWeight: 600 }}>{u.digestCount}</td>
+                <td style={{ padding: 12, ...BODY_SM, fontWeight: 600 }}>{u.starredCount}</td>
+                <td style={{ padding: 12, ...BODY_SM, fontWeight: 600 }}>{u.digDeepCount}</td>
+                <td style={{ padding: 12, ...BODY_SM, fontWeight: 600 }}>{u.regenerateCount}</td>
+                <td style={{ padding: 12 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {u.interests.slice(0, 5).map(k => <Tag key={k} label={k} tint={wordSlot(k)} />)}
+                    {u.interests.length > 5 && <span style={{ ...BODY_SM, color: MUTED }}>+{u.interests.length - 5}</span>}
                   </div>
                 </td>
               </tr>
@@ -181,25 +181,21 @@ export function AdminDashboard() {
       {tab === "activity" && (
         <div className="space-y-2">
           {data.events.map(e => (
-            <div key={e.id} style={{ padding: "10px 14px", borderBottom: "1px solid #eee", display: "flex", gap: "12px", alignItems: "flex-start" }}>
-              <span style={{ fontSize: "0.6rem", color: "#aaa", fontFamily: "var(--font-mono), monospace", whiteSpace: "nowrap", minWidth: "80px" }}>
+            <div key={e.id} style={{ padding: "12px 0", borderBottom: HAIRLINE, display: "flex", gap: 14, alignItems: "flex-start" }}>
+              <span style={{ ...LABEL_STYLE, whiteSpace: "nowrap", minWidth: 110, flexShrink: 0 }}>
                 {e.createdAt ? new Date(e.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
               </span>
-              <span style={{
-                fontSize: "0.6rem", fontWeight: 700, padding: "2px 8px",
-                background: e.type === "dig_deeper" ? "#dbeafe" : e.type === "star_digest" ? "#fef9c3" : e.type === "digest_generate" ? "#dcfce7" : "#f3f4f6",
-                fontFamily: "var(--font-mono), monospace", textTransform: "uppercase", whiteSpace: "nowrap",
-              }}>
-                {e.type.replace(/_/g, " ")}
-              </span>
-              <div style={{ flex: 1 }}>
-                <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{e.userName}</span>
-                {e.digestTheme && <span style={{ fontSize: "0.75rem", color: "#666" }}> — {e.digestTheme}</span>}
-                {e.metadata && typeof e.metadata === "object" && "question" in e.metadata && <p style={{ fontSize: "0.75rem", color: "#888", marginTop: "2px" }}>{`"${String(e.metadata.question)}"`}</p>}
+              {/* Event kind takes its own hashed spectrum slot — same rule as
+                  every other tag, so no per-type colour table. */}
+              <Tag label={e.type.replace(/_/g, " ")} tint={wordSlot(e.type)} style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ ...BODY_SM, fontWeight: 600 }}>{e.userName}</span>
+                {e.digestTheme && <span style={{ ...BODY_SM, color: DIM }}> — {e.digestTheme}</span>}
+                {e.metadata && typeof e.metadata === "object" && "question" in e.metadata && <p style={{ ...BODY_SM, color: MUTED, margin: "4px 0 0" }}>{`"${String(e.metadata.question)}"`}</p>}
               </div>
             </div>
           ))}
-          {data.events.length === 0 && <p style={{ color: "#888", fontSize: "0.8rem" }}>No events yet</p>}
+          {data.events.length === 0 && <p style={{ ...BODY_STYLE, color: MUTED }}>No events yet</p>}
         </div>
       )}
 
@@ -207,14 +203,11 @@ export function AdminDashboard() {
       {tab === "themes" && (
         <div className="space-y-2">
           {data.themes.map(t => (
-            <div key={t.id} style={{ padding: "12px 14px", borderBottom: "1px solid #eee", display: "flex", gap: "12px", alignItems: "center" }}>
-              <span style={{ fontSize: "0.65rem", color: "#aaa", fontFamily: "var(--font-mono), monospace", whiteSpace: "nowrap", minWidth: "80px" }}>
-                {t.date}
-              </span>
-              {t.starred && <span style={{ color: "#f59e0b" }}>★</span>}
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: "0.9rem", fontWeight: 700, fontFamily: "var(--font-display), sans-serif" }}>{t.theme || "Untitled"}</p>
-                <p style={{ fontSize: "0.65rem", color: "#888" }}>{t.userName}</p>
+            <div key={t.id} style={{ padding: "14px 0", borderBottom: HAIRLINE, display: "flex", gap: 14, alignItems: "center" }}>
+              <span style={{ ...LABEL_STYLE, whiteSpace: "nowrap", minWidth: 110, flexShrink: 0 }}>{t.date}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ ...DISPLAY_SM, margin: 0 }}>{t.theme || "Untitled"}</p>
+                <p style={{ ...BODY_SM, color: MUTED, margin: "2px 0 0" }}>{t.userName}</p>
               </div>
             </div>
           ))}
