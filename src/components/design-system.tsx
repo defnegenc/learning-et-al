@@ -136,7 +136,8 @@ export function PageTitle({ children, size = "md", style }: {
   size?: "sm" | "md" | "lg";
   style?: React.CSSProperties;
 }) {
-  const fs = size === "lg" ? "2rem" : size === "md" ? "1.4rem" : "1.1rem";
+  // lg fluidly steps down on narrow screens — 2rem is a shout on a 375px phone.
+  const fs = size === "lg" ? "clamp(1.5rem, 6vw, 2rem)" : size === "md" ? "1.4rem" : "1.1rem";
   return (
     <h2
       style={{
@@ -282,9 +283,11 @@ export function chipTint(color?: string | null): string {
 }
 
 /**
- * Topic chip — the interest-picker unit (reference mock, 2026-07-19):
- * idle = white with dashed grey border; selected = soft field tint with solid border.
- * The only place in the system with rounded corners.
+ * Topic chip — the interest-picker unit. Sentence case in the body face, so a
+ * panel of eighty of them reads as a vocabulary rather than as a control array
+ * (mono uppercase at 11px was legible one chip at a time and a texture in bulk).
+ * Idle = white with a dashed grey border; selected = soft field tint with a
+ * solid ink border. The only place in the system with rounded corners.
  */
 export function TopicChip({ label, selected, tint, onClick, onRemove, disabled = false, title }: {
   label: string;
@@ -297,27 +300,29 @@ export function TopicChip({ label, selected, tint, onClick, onRemove, disabled =
 }) {
   return (
     <button
+      className="ds-chip"
+      data-selected={selected ? "" : undefined}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       title={title}
+      aria-pressed={onClick ? selected : undefined}
       style={{
         background: selected ? chipTint(tint) : "#fff",
-        border: selected ? "1.5px solid rgba(26,26,26,0.45)" : "1.5px dashed #c2c2c2",
+        border: selected ? `1.5px solid ${INK}` : "1.5px dashed #d2d2d2",
         borderRadius: 6,
-        fontFamily: MONO,
-        fontSize: 11,
-        fontWeight: selected ? 700 : 600,
-        letterSpacing: 1.2,
-        textTransform: "uppercase",
-        color: selected ? INK : "#444",
-        padding: "8px 14px",
-        lineHeight: 1,
+        fontSize: "0.85rem",
+        fontWeight: selected ? 600 : 400,
+        letterSpacing: 0,
+        color: selected ? INK : "#555",
+        padding: "7px 12px",
+        minHeight: 34,
+        lineHeight: 1.2,
+        textAlign: "left",
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
-        whiteSpace: "nowrap",
         cursor: disabled ? "not-allowed" : onClick ? "pointer" : "default",
-        transition: "all 120ms",
+        transition: "background 120ms, border-color 120ms, color 120ms",
         opacity: disabled ? 0.35 : 1,
       }}
     >
@@ -327,14 +332,14 @@ export function TopicChip({ label, selected, tint, onClick, onRemove, disabled =
           role="button"
           aria-label={`Remove ${label}`}
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          style={{ fontSize: 12, lineHeight: 1, opacity: 0.7, cursor: "pointer" }}
+          style={{ fontSize: 14, lineHeight: 1, opacity: 0.55, cursor: "pointer" }}
         >×</span>
       )}
     </button>
   );
 }
 
-/** The "+ ADD" chip — dashed ink border, bold, same geometry as TopicChip. */
+/** The "+ Add" chip — dashed ink border, same geometry as TopicChip. */
 export function AddChip({ onClick, disabled = false, title, label = "+ Add" }: {
   onClick: () => void;
   disabled?: boolean;
@@ -343,6 +348,7 @@ export function AddChip({ onClick, disabled = false, title, label = "+ Add" }: {
 }) {
   return (
     <button
+      className="ds-chip"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       title={title}
@@ -350,20 +356,65 @@ export function AddChip({ onClick, disabled = false, title, label = "+ Add" }: {
         background: "#fff",
         border: `1.5px dashed ${INK}`,
         borderRadius: 6,
-        fontFamily: MONO,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: 1.2,
-        textTransform: "uppercase",
+        fontSize: "0.85rem",
+        fontWeight: 600,
         color: INK,
-        padding: "8px 14px",
-        lineHeight: 1,
+        padding: "7px 12px",
+        minHeight: 34,
+        lineHeight: 1.2,
+        display: "inline-flex",
+        alignItems: "center",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.35 : 1,
-        transition: "all 120ms",
+        transition: "background 120ms",
       }}
     >
       {label}
     </button>
+  );
+}
+
+/**
+ * Segmented control — the one "pick exactly one of these" shape. Buttons share
+ * a 2px ink frame with -2px margins so the group reads as a single object; the
+ * active cell inverts to ink. Settings tabs, delivery cadence, ledger filters.
+ */
+export function Segmented<T extends string>({ options, value, onChange, size = "md", style }: {
+  options: { key: T; label: React.ReactNode }[];
+  value: T;
+  onChange: (key: T) => void;
+  size?: "sm" | "md";
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div style={{ display: "flex", ...style }}>
+      {options.map(opt => {
+        const active = opt.key === value;
+        return (
+          <button
+            key={opt.key}
+            onClick={() => onChange(opt.key)}
+            aria-pressed={active}
+            style={{
+              flex: 1,
+              padding: size === "md" ? "9px 10px" : "6px 10px",
+              border: `2px solid ${INK}`,
+              marginRight: -2,
+              background: active ? INK : "#fff",
+              color: active ? "#fff" : INK,
+              fontFamily: DISPLAY,
+              fontSize: size === "md" ? "0.9rem" : "0.8rem",
+              fontWeight: 700,
+              lineHeight: 1.25,
+              cursor: "pointer",
+              minHeight: size === "md" ? 42 : 34,
+              transition: "background 120ms, color 120ms",
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
