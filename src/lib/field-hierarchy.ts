@@ -15,11 +15,18 @@ export interface InterestEntry {
 
 export interface FieldDef {
   label: string;
+  /** The field's FIXED spectrum slot — see SPECTRUM in design-system.tsx. */
   color: string;
   s2Field: S2Field;
   topics: string[];
 }
 
+/**
+ * Ten fields on ten hue-ordered spectrum slots — one each, semantic, never
+ * moving. The old set gave ten fields five distinguishable colours: Biology and
+ * Sustainability were the identical hex, and Medicine, Business and Education
+ * were three versions of the same yellow.
+ */
 export const FIELD_HIERARCHY: Record<string, FieldDef> = {
   "Computer Science": {
     label: "CS",
@@ -50,7 +57,7 @@ export const FIELD_HIERARCHY: Record<string, FieldDef> = {
   },
   "Medicine": {
     label: "MED",
-    color: "#fef08a",
+    color: "#fecaca",
     s2Field: "Medicine",
     topics: [
       "clinical AI", "mental health", "public health", "precision medicine",
@@ -59,7 +66,7 @@ export const FIELD_HIERARCHY: Record<string, FieldDef> = {
   },
   "Social Sciences": {
     label: "SOCIAL",
-    color: "#e9d5ff",
+    color: "#ddd6fe",
     s2Field: "Sociology",
     topics: [
       "cognitive psychology", "behavioral economics", "social networks",
@@ -86,7 +93,7 @@ export const FIELD_HIERARCHY: Record<string, FieldDef> = {
   },
   "Sustainability": {
     label: "ENV",
-    color: "#bbf7d0",
+    color: "#99f6e4",
     s2Field: "Environmental Science",
     topics: [
       "climate change", "circular economy", "renewable energy",
@@ -95,7 +102,7 @@ export const FIELD_HIERARCHY: Record<string, FieldDef> = {
   },
   "Philosophy & Ethics": {
     label: "PHIL",
-    color: "#ede9fe",
+    color: "#f5d0fe",
     s2Field: "Philosophy",
     topics: [
       "AI ethics", "consciousness", "philosophy of mind",
@@ -104,7 +111,7 @@ export const FIELD_HIERARCHY: Record<string, FieldDef> = {
   },
   "Education": {
     label: "EDU",
-    color: "#fef9c3",
+    color: "#d9f99d",
     s2Field: "Computer Science",
     topics: [
       "educational AI", "online learning", "gamification",
@@ -116,10 +123,10 @@ export const FIELD_HIERARCHY: Record<string, FieldDef> = {
 // One color per field, same mapping the preferences interest picker uses.
 // Accepts either a hierarchy key ("Design & Art") or a stored S2Field ("Art").
 export function fieldColor(field?: string | null): string {
-  if (!field) return "#e5e7eb";
+  if (!field) return "#e8e8e8"; // the field neutral — no slot means no identity
   for (const def of Object.values(FIELD_HIERARCHY)) {
     if (def.s2Field === field) return def.color;
   }
-  return FIELD_HIERARCHY[field]?.color || "#e5e7eb";
+  return FIELD_HIERARCHY[field]?.color || "#e8e8e8";
 }
 

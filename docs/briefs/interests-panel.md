@@ -1,12 +1,17 @@
 # Brief — bring the interests panel onto the design system
 
 > **Resolved 2026-08-14.** Shipped as a rebuild rather than a restyle: the chip
-> decision went to **A** (body face, sentence case, `chipTint` fill) but kept the
-> 6px radius that `design-style.md` already sanctions, and the "optional and
+> decision went to **A** (body face, sentence case) and the "optional and
 > separate" layout question was answered by collapsing fields instead of a card
-> grid. The cap is 30, not 15. The live spec is **"The interest picker"** in
-> `docs/design-style.md`; what follows is the original brief, kept for the
-> reasoning.
+> grid. The cap is 30, not 15.
+>
+> **Superseded the same day** by the short menu. Three things this brief settled
+> have since changed: the 6px radius is gone (radius is 0 without exception),
+> `chipTint` is gone (a selected chip takes its field's spectrum slot at full
+> strength, not a 45% mix), and the ten field colours are now ten distinguishable
+> hue-ordered slots rather than five colours shared between ten fields. The live
+> spec is the Paper board and `docs/design-style.md` §6. What follows is the
+> original brief, kept for the reasoning.
 
 **File:** `src/components/interest-ledger.tsx` (258 lines)
 **Appears in:** Settings → "Curate your feed", and step 2 of Onboarding

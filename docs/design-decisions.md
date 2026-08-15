@@ -267,7 +267,8 @@ The rule that generalises: **a dialog below `md` is a full-screen sheet.** Not a
 
 ## 2026-08-14: The digest headline fills with ink
 
-Seven candidates went up at `/prototype/headline` — the existing sweep, three
+Seven candidates went up at `/prototype/headline` (since deleted — a candidate
+picker outlives its use the day the candidate lands) — the existing sweep, three
 built from ideas about colour and tumbling cards, and three of mine. **Ink-fill
 won**: the question arrives as hollow outline type and floods with ink one word
 at a time. It's the poster language the rest of the site already uses, applied
@@ -293,3 +294,93 @@ has no animation to carry, and a white card with plain black type says nothing,
 so it keeps its gradient bars. The doc used to claim the card mirrors the
 digest headline; it doesn't any more, and that's a deliberate divergence rather
 than drift. Worth revisiting if the card gets another pass.
+
+## 2026-08-14: The short menu — one design system across every surface
+
+Paper is now the source of truth for the design system (*Brilliant petal* →
+"Design system — the short menu"). `docs/design-style.md` was rewritten from it
+and is a reader's copy; the old version described the pre-menu product and is
+gone. Where the two ever disagree, Paper wins.
+
+**91 → 28.** 62 colours → 19, 16 type styles → 5, 4 borders → 2, 7 shadows → 1,
+2 radii → 1. The four decisions with the most consequence:
+
+- **Ten fields got ten colours.** The old set gave ten fields five
+  distinguishable hexes — Biology and Sustainability were the identical hex, and
+  Medicine, Business and Education were three versions of the same yellow. The
+  spectrum is ten hue-ordered slots, and it is now the *only* colour vocabulary:
+  fields read a fixed slot, keyword tags read a slot by hash of the word (so the
+  same concept is the same colour everywhere), and card washes read a slot by
+  position in the digest. Five palette tables collapsed into one stride,
+  `wash(i) = slots i×3 and i×3+1`.
+- **The rail card is gone.** `SourceCard`, `ReadingListCard` and the permalink's
+  `PaperSourceTab` are deleted, not restyled — "Referenced sources", the vault
+  and the permalink render the digest card at a compact size. That removed three
+  components, four palettes, a 1.5px border, a soft shadow and a glass-tag
+  variant in one move, and it is why the wash index can no longer drift between
+  two files.
+- **Content left the label tier.** Tags, chips and the venue line stopped being
+  mono uppercase and became body-face sentence case. Mono is now *structure
+  only* — section eyebrows and nav tabs. The rule that decides it: **if it names
+  a thing rather than the machinery, it is not a Label.** This is the largest
+  visual change in the set; a card used to shout eleven small things and now
+  shouts two.
+- **Buttons folded into Display/SM.** One button size, 16px upper, no tracking
+  of its own. Bigger and blunter, which suits the register.
+
+Three were flagged as *calls* rather than conclusions and confirmed the same
+day. They're on the Paper board "Shipping the menu":
+
+- **The digest's question dropped from 44–64px to a fixed 32px.** Display/LG is
+  32px and its sample text in the menu is literally "What the digest argues".
+  The old fluid clamp isn't in the retired list because Display/LG is what
+  replaced it. **Confirmed:** the hero shrinking is the price of keeping the
+  count at five, and that's the trade the menu is making everywhere else too.
+- **Space Grotesk left the product.** The menu retires *Wordmark* as a type
+  style; a lockup is a composition of an existing style, so the wordmark
+  rebuilds on Display/SM at the label's tracking. **Confirmed:** three faces.
+- **Where §4 and §1 disagree, the colour menu wins.** §4 gives the foundational
+  eye `#8C6D1F`, which §1 retires into the one gold; §4's mock draws a 3px gold
+  rule under the label, which §4's own prose retires and geometry forbids.
+  **Confirmed:** the eye is `#C9A227` at rest and ink on hover, and there is no
+  underline. The reason rule keeps gold at 2px, because that one is the payload.
+
+**Still open:** the empty foundational case. §4 names it — most days the lane
+returns nothing, so the common layout is three cards and the rare one is four,
+which changes the whole page rhythm on the days it fires. Shipped as-is (the
+lane simply doesn't render) because inventing a slot shape would put a component
+in the menu that the menu didn't order. Worth designing rather than deciding.
+
+**Where a design system can't reach.** Two surfaces render outside the browser
+and can't read a token: the share card (Satori — no `filter: blur()`, no woff2)
+and the digest email (no web fonts, no CSS variables, no `radial-gradient`).
+Both inline the menu as literals with the fallbacks named in a comment, and both
+have to be edited when `globals.css` is. That duplication isn't fixable; it's a
+property of the renderers, so the honest move is to name it rather than pretend
+one import solves it.
+
+**One rule keeps it short:** no surface may invent a hex, a type size, a border
+width or a shadow offset. If you need one, it goes in Paper first, then
+`globals.css` and `design-system.tsx`, then the surface.
+
+### Where the menu met the day's other three changes
+
+The short menu and three main-line changes (the ink-fill headline, the picker
+cut back to ten rows, the settings nav rail) were built the same day against the
+same files. Reconciling them settled a rule worth keeping:
+
+**The design system governs style, not what's on screen.** The Paper board's
+interests panel draws a per-row count ("3 / 10"); the picker rebuild
+deliberately cut every counter, on the grounds that nobody was deciding anything
+with the number. The count stays cut. The board decides how a field row *looks* —
+swatch in the field's own slot, name at Display/SM, preview in Body/SM — and the
+product decision decides what the row *contains*. When a board and a later
+product decision disagree about information rather than about style, the product
+decision wins and the board should be redrawn.
+
+Two smaller reconciliations followed the same logic. InkTitle keeps its ink-fill
+but is set in Display/LG, and its stroke drops from 1.5px to 1px — the menu
+halved the headline, and 1.5px on 32px type is a heavier outline than the same
+value was on 64px. The em-dash rule reaches `paperByline`, which is exactly the
+separator change the now-deleted SourceCard had made.
+

@@ -65,15 +65,30 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 **ALWAYS read `docs/algorithm.md` before modifying the digest pipeline.** It has the full spec, thresholds, and examples.
 
 ## Design Principles
+- **THE DESIGN SYSTEM LIVES IN PAPER.** File *Brilliant petal* → board "Design
+  system — the short menu" is the source of truth. `docs/design-style.md` is a
+  reader's copy; if the two disagree, Paper wins. **Read the board (or the doc)
+  before touching any UI.** Open questions and calls made are on the sibling
+  board "Shipping the menu".
 - **Act as a UX expert** when designing flows — intuitive, minimal friction, delightful interactions
-- **Brutalist research archive aesthetic**: hard borders, box shadows, uppercase mono labels, crosshair cursor, accent colors only in tags. See `docs/design-style.md` for full component specs.
-- **Paper cards**: white bg with subtle colored blob pairs (pink+green, blue+yellow, purple+red)
-- **Paper names in synthesis**: bold, underlined in blob colors, clickable to open detail
-- **Keyword tags**: solid pastel rectangles with black borders (brutalist style)
-- **Synthesis concept tags**: same brutalist style, display-only (no click action)
-- **Paper detail**: opens inline in canvas (replaces synthesis area), modal on mobile
+- **No surface may invent a hex, a type size, a border width or a shadow
+  offset.** If you need one, it goes in Paper first, then `globals.css` and
+  `design-system.tsx`, then the surface. The whole point is that the menu is short.
+- **Brutalist research archive aesthetic**: hard borders, one hard shadow, no
+  radius, crosshair cursor. Six neutrals, two acids, one ten-slot spectrum, one gold.
+- **Mono is structure only** — section eyebrows and nav tabs. If it names a thing
+  rather than the machinery, it is not a Label: tags, chips and the venue line
+  are body-face sentence case.
+- **One paper card** (`src/components/paper-card.tsx`), two sizes. Today, the
+  vault, the rail and the permalink all render it. Don't add a second card.
+- **The spectrum has three indexes and they never mix**: fields take a fixed
+  slot, keyword tags take a slot by hash of the word, card washes take a slot by
+  position in the digest (`wash(i)`).
+- **Paper names in synthesis**: ink underline, clickable to open the card. Not a
+  coloured highlight — the card's wash already makes the match.
 - **Synthesis must go deep, not just describe.** Find the tension between papers. See `docs/synthesis.md` for synthesis rules + prompt architecture.
-- **Hard word hover definitions**: jargon in synthesis shows definitions on hover.
+- **Hard word hover definitions**: jargon in synthesis shows definitions in the
+  one ink tooltip (`InkTip`), same object as a paper's gist and the foundational eye.
 - **Use the best method, not the fastest to implement.** If a proper solution exists (e.g. embedding similarity instead of keyword counting), implement it. Inform the user of costs and trade-offs, but don't default to subpar approaches to save implementation time.
 - **Never include news that isn't genuinely related to the research topic.** Better to have 2 good items than 3 with one garbage article. Fall back to a third paper if news search fails.
 - MVP first, iterate fast
@@ -82,7 +97,10 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - Paper source: OpenAlex (primary) → Semantic Scholar → arXiv (fallback chain). News via Serper (Google) / DuckDuckGo web search, with RSS as fallback.
 - Tech stack: Next.js 16, Turso (libsql) for prod DB, local SQLite for dev, Drizzle ORM, Tailwind + shadcn/ui
 - **Relevance scoring: embedding + LLM hybrid** (`@xenova/transformers` all-MiniLM-L6-v2 for recall, LLM re-ranking for precision). Embeddings find candidates, LLM scores "tool to think with" quality. Do NOT revert to keyword counting.
-- **Typography**: Apercu Pro for body text, Space Grotesk for display, IBM Plex Mono for labels
+- **Typography**: three faces — Cabinet Grotesk (display, 700 only), Apercu Pro
+  (body), Geist Mono (labels). Five type styles total: Display/LG 32, Display/SM
+  16 upper, Label 12 mono, Body 15, Body/SM 13. Space Grotesk and IBM Plex Mono
+  are out of the product.
 - Daily digest: Vercel Cron at 4am UTC (`vercel.json`), generates for all users + emails based on cadence (daily/biweekly/weekly). Manual "Generate" button for admin.
 - Email: Resend integration, cadence-aware (daily = every digest, biweekly = best-of Tue+Fri, weekly = best-of Sunday). "Best" = most recent digest of the period (digest starring was removed).
 - Feedback: Users can dislike a paper with optional reason, no control over recommendations. Digest-level feedback via the end-of-digest "Don't like this digest? Regenerate." CTA (reason → hide → force-regenerate).
@@ -101,6 +119,14 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **When adding a new option** (provider, feature flag, etc.), grep for ALL places it needs to appear — config, UI, types.
 - **`pdf-parse` is broken with Turbopack** — use `unpdf` instead.
 - **Synthesis must use `[Source N]` prefix in bold paper names** — e.g. `**[Source 1] the polyphenols study**`. The frontend relies on this prefix to map highlights to the correct paper. If a pipeline step (especially revision) drops the prefix, highlights break on the site. The coverage gate enforces this.
+- **The spectrum is duplicated in two files that can't read a CSS variable** —
+  `src/lib/email.ts` (mail clients strip variables and web fonts) and
+  `src/app/opengraph-image.tsx` (Satori). Both are commented; both must be
+  edited when `globals.css` is. There is no fix — it's a property of the renderers.
+- **Font custom properties go on `<html>`, not `<body>`.** `globals.css` composes
+  `--font-body` and `--font-mono` at `:root`, and a property declared on `:root`
+  can only substitute other properties on the same element. On `<body>` the chain
+  resolves to invalid and every mono label silently falls back.
 - **`drizzle-kit push` fails on SQLite schema changes involving primary keys** — SQLite can't ALTER TABLE to drop/recreate PKs. For simple column additions, run `sqlite3 paper-processor.db "ALTER TABLE X ADD COLUMN Y TEXT;"` manually, then push schema to Turso prod separately.
 - **Digest-level Q&A was removed (July 2026)** — questions live on reading-list papers instead (reading companion + "Ask this paper" via `/api/papers/[id]/companion` and `/api/papers/[id]/qa`). `suggestedQuestions` are still stored for legacy rows; `suggestedAnswers` are no longer generated.
 - **Reading prep is bookmark-triggered** — starring a paper fires background POSTs to `/api/papers/[id]/companion` (full-text walkthrough, cached on `papers.companion`) and `/api/papers/[id]/homework` (OpenAlex citing works, cached on `papers.homework`). The vault detail view falls back to generating on open if the cache is empty.
@@ -112,7 +138,9 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 | `docs/algorithm.md` | Before modifying the digest pipeline | After any pipeline change |
 | `docs/synthesis.md` | Before changing synthesis prompts or tone | After prompt/tone changes |
 | `docs/design-decisions.md` | Before making UX/product decisions | After any UX decision |
-| `docs/design-style.md` | Before building/modifying UI components | After visual changes |
+| **Paper → "Design system — the short menu"** | **Before building/modifying ANY UI** | The system changes here first, then in code |
+| `docs/design-style.md` | Alongside the Paper board — it adds what only code can say | After visual changes, to keep it in step with Paper |
+| `docs/component-inventory.md` | Before adding a component — check one doesn't exist | After adding/deleting a component |
 | `docs/features-todo.md` | When user asks "what's next" or during downtime | When features are added/completed |
 | `docs/algo-audit.md` | Before working on algorithm improvements | After fixing audited issues |
 | `docs/synthesis-review.md` | Before working on synthesis quality | After synthesis improvements |

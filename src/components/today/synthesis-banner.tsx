@@ -4,15 +4,16 @@ import React, { useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { BookOpen, Loader2, MessageCircle, Star, PenLine, Check } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
-import { CATEGORY_PALETTES } from "@/components/interest-ledger";
+import {
+  ACID_GREEN, ActionButton, BODY_STYLE, BODY_SM, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
+  HAIRLINE, INK, InkTip, Label, LABEL_STYLE, MUTED, SURFACE, Tag, TextInput, wash, washSlots, wordSlot,
+} from "@/components/design-system";
 
-const CONCEPT_GRADIENTS = Object.values(CATEGORY_PALETTES);
-
-
-
-// Paper name highlight with hover tooltip showing summary
-function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
-  bg: string; bgHover: string; summary: string | null; onClick: () => void; children: React.ReactNode;
+// A paper's name in the prose. An ink underline, not a coloured highlight:
+// the card's wash already carries the colour that makes the match, so a second
+// colour on the word was saying the same thing twice.
+function PaperHighlight({ summary, onClick, children }: {
+  summary: string | null; onClick: () => void; children: React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
   const [tapped, setTapped] = useState(false);
@@ -53,10 +54,11 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
       ref={ref}
       style={{
         position: "relative",
-        color: "#111", fontSize: "1.1em", fontWeight: 700,
-        background: showTooltip ? bgHover : bg,
-        padding: "1px 4px", margin: "0 -2px",
-        cursor: "pointer", transition: "background 0.15s", borderRadius: "2px",
+        color: INK, fontWeight: 600,
+        textDecoration: "underline",
+        textDecorationThickness: showTooltip ? "3px" : "2px",
+        textUnderlineOffset: "3px",
+        cursor: "pointer", transition: "text-decoration-thickness 140ms",
         WebkitBoxDecorationBreak: "clone",
         boxDecorationBreak: "clone" as React.CSSProperties["boxDecorationBreak"],
       }}
@@ -77,15 +79,10 @@ function PaperHighlight({ bg, bgHover, summary, onClick, children }: {
     >
       {children}
       {showTooltip && summary && (
-        <span style={{
-          ...tooltipStyle,
-          background: "#1a1a1a", color: "white",
-          fontSize: "0.75rem", fontWeight: 400, lineHeight: 1.5,
-          padding: "10px 14px", whiteSpace: "normal",
-          boxShadow: "4px 4px 0px 0px rgba(0,0,0,0.3)",
-          pointerEvents: "none",
-        }}>
-          {summary.length > 150 ? summary.slice(0, 147) + "..." : summary}
+        <span style={{ ...tooltipStyle, pointerEvents: "none" }}>
+          <InkTip style={{ width: "100%" }}>
+            {summary.length > 150 ? summary.slice(0, 147) + "…" : summary}
+          </InkTip>
         </span>
       )}
     </span>
@@ -120,7 +117,7 @@ function DefinitionTooltip({ term, definition, children }: { term: string; defin
       ref={ref}
       role="button"
       tabIndex={0}
-      style={{ position: "relative", borderBottom: "1.5px dotted #999", cursor: "help" }}
+      style={{ position: "relative", borderBottom: `2px dotted ${MUTED}`, cursor: "help" }}
       onMouseEnter={() => { setShow(true); updateTooltip(); }}
       onMouseLeave={() => setShow(false)}
       onClick={() => { setShow(v => !v); updateTooltip(); }}
@@ -128,16 +125,8 @@ function DefinitionTooltip({ term, definition, children }: { term: string; defin
     >
       {children}
       {show && (
-        <span style={{
-          ...tooltipStyle,
-          background: "#1a1a1a", color: "white", fontSize: "0.78rem", fontWeight: 400,
-          lineHeight: 1.5, padding: "8px 12px", whiteSpace: "normal",
-          pointerEvents: "none", boxShadow: "3px 3px 0px 0px rgba(0,0,0,0.3)",
-        }}>
-          <strong style={{ display: "block", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "3px", color: "#999" }}>
-            {term}
-          </strong>
-          {definition}
+        <span style={{ ...tooltipStyle, pointerEvents: "none" }}>
+          <InkTip label={term} style={{ width: "100%" }}>{definition}</InkTip>
         </span>
       )}
     </span>
@@ -177,24 +166,6 @@ function annotateText(children: React.ReactNode, defs: Record<string, string>): 
   });
 }
 
-const SOURCE_PALETTES: [string, string][] = [
-  ["#C8F0D8", "#F0F5A8"],
-  ["#FFD6E0", "#FFE89A"],
-  ["#D0E3F7", "#E2D6F7"],
-  ["#FFE89A", "#FFD6E0"],
-];
-const HIGHLIGHT_GRADIENTS: [string, string][] = [
-  ["#C8F0D8", "#F0F5A8"],
-  ["#FFD6E0", "#FFE89A"],
-  ["#D0E3F7", "#E2D6F7"],
-  ["#FFE89A", "#FFD6E0"],
-];
-const HIGHLIGHT_HOVER_GRADIENTS: [string, string][] = [
-  ["#A4E0BC", "#DCF060"],
-  ["#FFB0C8", "#FFD870"],
-  ["#B0CCF0", "#C8B4F0"],
-  ["#FFD870", "#FFB0C8"],
-];
 
 import { splitSynthesisTheme, resolvePaperFromBold, flattenSynthesis } from "./synthesis-text";
 
@@ -243,28 +214,25 @@ export function GuestDigDeeper({ questions, answers, onSignIn }: {
                 style={{
                   textAlign: "left", cursor: "pointer", background: "transparent", border: "none",
                   padding: "14px 4px", width: "100%", display: "flex", gap: "12px", alignItems: "flex-start",
-                  borderBottom: expanded === i ? "none" : "1px solid #1a1a1a",
+                  borderBottom: expanded === i ? "none" : `1px solid ${INK}`,
                 }}
               >
-                <div style={{ width: 4, alignSelf: "stretch", flexShrink: 0, borderRadius: 2, background: `linear-gradient(to bottom, ${HIGHLIGHT_GRADIENTS[i % HIGHLIGHT_GRADIENTS.length][0]} 0%, ${HIGHLIGHT_GRADIENTS[i % HIGHLIGHT_GRADIENTS.length][1]} 100%)`, border: "1px solid rgba(26,26,26,0.12)" }} />
-                <div style={{ fontFamily: "var(--font-display), sans-serif", fontSize: "1rem", fontWeight: 600, letterSpacing: -0.2, lineHeight: 1.4, color: "#1a1a1a", flex: 1 }}>
+                <div style={{ width: 4, alignSelf: "stretch", flexShrink: 0, background: washSlots(i)[0], border: `1px solid ${INK}` }} />
+                <div style={{ ...DISPLAY_SM, flex: 1 }}>
                   {q.replace(/\*\*/g, "")}
                 </div>
-                <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "0.6rem", letterSpacing: "1.5px", color: "#888", marginTop: 3, flexShrink: 0 }}>
+                <span style={{ ...LABEL_STYLE, marginTop: 3, flexShrink: 0 }}>
                   {expanded === i ? "▲" : "Ask →"}
                 </span>
               </button>
               {expanded === i && (
-                <div style={{ borderBottom: "1px solid #1a1a1a", paddingBottom: "14px", paddingLeft: "16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px", margin: "10px 0 6px" }}>
-                    <Star size={11} style={{ fill: "#FFD700", stroke: "#FFD700", flexShrink: 0 }} />
-                    <span style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace", color: "#1a1a1a" }}>Insight</span>
-                  </div>
-                  <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#333", borderLeft: "2px solid #e5e7eb", paddingLeft: "12px" }}>
+                <div style={{ borderBottom: `1px solid ${INK}`, paddingBottom: 16, paddingLeft: 16 }}>
+                  <Label style={{ margin: "12px 0 8px" }}>Insight</Label>
+                  <div style={{ ...BODY_STYLE, color: DIM, borderLeft: `2px solid ${INK}`, paddingLeft: 14 }}>
                     <ReactMarkdown
                       components={{
                         p: ({ children }) => <p style={{ marginBottom: "0.5em" }}>{children}</p>,
-                        strong: ({ children }) => <strong style={{ fontWeight: 700, color: "#111" }}>{children}</strong>,
+                        strong: ({ children }) => <strong style={{ fontWeight: 600, color: INK }}>{children}</strong>,
                       }}
                     >
                       {a}
@@ -278,27 +246,10 @@ export function GuestDigDeeper({ questions, answers, onSignIn }: {
       )}
 
       {/* Sign-in CTA */}
-      <button
-        onClick={onSignIn}
-        style={{
-          display: "flex", gap: "10px", alignItems: "center", width: "100%",
-          border: "2px solid #1a1a1a", padding: "12px 14px", background: "white",
-          cursor: "pointer",
-          marginTop: pairs.length > 0 ? "16px" : "0",
-        }}
-        className="hover:bg-[#fafafa] transition-colors"
-      >
-        <span style={{ flex: 1, fontSize: "0.85rem", color: "#888", textAlign: "left" }}>
-          Sign in to ask your own questions...
-        </span>
-        <span style={{
-          padding: "6px 14px", background: "#1a1a1a", color: "white",
-          fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-          letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace",
-        }}>
-          Sign In
-        </span>
-      </button>
+      <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginTop: pairs.length > 0 ? 20 : 0 }}>
+        <span style={{ ...BODY_STYLE, color: MUTED }}>Sign in to ask your own questions.</span>
+        <ActionButton variant="primary" onClick={onSignIn}>Sign in</ActionButton>
+      </div>
     </div>
   );
 }
@@ -312,22 +263,19 @@ export function CitedAnswer({ text, paperLinks }: { text: string; paperLinks?: {
     <>
       {segments.map((seg, i) => {
         if (seg.startsWith("**") && seg.endsWith("**")) {
-          return <strong key={i} style={{ fontWeight: 700, color: "#111" }}>{seg.slice(2, -2)}</strong>;
+          return <strong key={i} style={{ fontWeight: 600, color: INK }}>{seg.slice(2, -2)}</strong>;
         }
         const citMatch = seg.match(/^\[(\d+)\]$/);
         if (citMatch && paperLinks && paperLinks.length > 0) {
           const n = parseInt(citMatch[1], 10);
           const paper = paperLinks[n - 1];
           if (paper) {
-            const [ha, hb] = HIGHLIGHT_GRADIENTS[(n - 1) % HIGHLIGHT_GRADIENTS.length];
             const citStyle: React.CSSProperties = {
-              background: `linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`,
-              padding: "1px 5px",
-              fontSize: "0.75em",
-              fontWeight: 700,
-              fontFamily: "var(--font-mono), monospace",
-              letterSpacing: "0.5px",
-              borderRadius: "2px",
+              background: washSlots(n - 1)[0],
+              border: `1px solid ${INK}`,
+              padding: "0 5px",
+              fontSize: "0.85em",
+              fontWeight: 600,
             };
             return paper.sourceUrl ? (
               <a key={i} href={paper.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
@@ -381,20 +329,12 @@ function AnswerEntry({
 
   return (
     <div style={{ marginBottom: showDivider ? "20px" : "0" }}>
-      <p style={{ fontSize: "0.8rem", fontWeight: 500, color: "#1a1a1a", marginBottom: "10px", fontFamily: "var(--font-mono), monospace" }}>
-        {entry.q}
-      </p>
+      <p style={{ ...DISPLAY_SM, margin: "0 0 12px" }}>{entry.q}</p>
 
-      {/* Insight label */}
-      <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "8px" }}>
-        <Star size={11} style={{ fill: "#FFD700", stroke: "#FFD700", flexShrink: 0 }} />
-        <span style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", fontFamily: "var(--font-mono), monospace", color: "#1a1a1a" }}>
-          Insight
-        </span>
-      </div>
+      <Label style={{ marginBottom: 8 }}>Insight</Label>
 
       {/* Answer — one sentence per line for scannability */}
-      <div style={{ fontSize: "0.92rem", lineHeight: 1.7, color: "#333", borderLeft: "2px solid #e5e7eb", paddingLeft: "12px", marginBottom: "10px" }}>
+      <div style={{ ...BODY_STYLE, color: DIM, borderLeft: `2px solid ${INK}`, paddingLeft: 14, marginBottom: 12 }}>
         {sentences.length > 1 ? (
           sentences.map((s, i) => (
             <p key={i} style={{ margin: i < sentences.length - 1 ? "0 0 0.5em 0" : "0" }}>
@@ -410,19 +350,18 @@ function AnswerEntry({
       <button
         onClick={addToNotes}
         style={{
-          display: "inline-flex", alignItems: "center", gap: "5px",
+          ...LABEL_STYLE,
+          display: "inline-flex", alignItems: "center", gap: 6,
           background: "none", border: "none", cursor: "pointer", padding: 0,
-          fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase",
-          letterSpacing: "1px", fontFamily: "var(--font-mono), monospace",
-          color: added ? "#38b000" : "#888",
-          transition: "color 0.15s",
+          color: added ? ACID_GREEN : MUTED,
+          transition: "color 140ms",
         }}
       >
-        {added ? <Check size={10} /> : <PenLine size={10} />}
+        {added ? <Check size={12} /> : <PenLine size={12} />}
         {added ? "Added" : "Add to notes"}
       </button>
 
-      {showDivider && <div style={{ borderBottom: "1px solid #e5e7eb", marginTop: "16px" }} />}
+      {showDivider && <div style={{ borderBottom: HAIRLINE, marginTop: 20 }} />}
     </div>
   );
 }
@@ -547,37 +486,11 @@ export function SynthesisBanner({
     <div className="space-y-5">
       {/* Theme — big, bold, Space Grotesk */}
       {!hideHeader && displayTheme && (
-        <h1
-          style={{
-            fontSize: "clamp(2.5rem, 5.5vw, 3.75rem)",
-            fontWeight: 800,
-            lineHeight: 1.1,
-            color: "#111",
-            fontFamily: "var(--font-display), sans-serif",
-            letterSpacing: "-0.025em",
-            maxWidth: "840px",
-          }}
-        >
-          {displayTheme}
-        </h1>
+        <h1 style={{ ...DISPLAY_LG, maxWidth: 840, margin: 0 }}>{displayTheme}</h1>
       )}
 
-      {/* Date + feedback inline */}
-      {!hideHeader && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
-          <span
-            style={{
-              fontSize: "0.75rem",
-              color: "#aaa",
-              fontFamily: "var(--font-mono), monospace",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-            }}
-          >
-            {today}
-          </span>
-        </div>
-      )}
+      {/* Date */}
+      {!hideHeader && <Label>{today}</Label>}
 
       {/* Synthesis body — numbered timeline layout */}
       {(() => {
@@ -599,24 +512,17 @@ export function SynthesisBanner({
               const paperIdx = matchedIdx;
               // Don't highlight the same paper twice in one block (fuzzy collisions)
               if (seenPaperIndices.has(paperIdx)) {
-                return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
+                return <strong style={{ color: INK, fontWeight: 600 }}>{displayText}</strong>;
               }
               seenPaperIndices.add(paperIdx);
-              const [ha, hb] = HIGHLIGHT_GRADIENTS[paperIdx % HIGHLIGHT_GRADIENTS.length];
-              const [hha, hhb] = HIGHLIGHT_HOVER_GRADIENTS[paperIdx % HIGHLIGHT_HOVER_GRADIENTS.length];
               const capitalised = displayText.charAt(0).toUpperCase() + displayText.slice(1);
               return (
-                <PaperHighlight
-                  bg={`linear-gradient(135deg, ${ha} 0%, ${hb} 100%)`}
-                  bgHover={`linear-gradient(135deg, ${hha} 0%, ${hhb} 100%)`}
-                  summary={matchedPaper.summary}
-                  onClick={() => onSelectPaper(matchedPaper!)}
-                >
+                <PaperHighlight summary={matchedPaper.summary} onClick={() => onSelectPaper(matchedPaper!)}>
                   {capitalised}
                 </PaperHighlight>
               );
             }
-            return <strong style={{ color: "#111", fontWeight: 700 }}>{displayText}</strong>;
+            return <strong style={{ color: INK, fontWeight: 600 }}>{displayText}</strong>;
           };
 
         // Single readable synthesis: render every section as flowing prose.
@@ -627,9 +533,9 @@ export function SynthesisBanner({
         const paragraphs = flattenSynthesis(bodyText);
 
         return (
-          <div className="text-[0.97rem] md:text-[1.08rem]" style={{ lineHeight: "1.8", fontFamily: "inherit", color: "#1a1a1a" }}>
+          <div style={{ ...BODY_STYLE, lineHeight: "26px" }}>
             {paragraphs.map((text, i) => (
-              <p key={i} style={{ margin: "0 0 0.95em 0", lineHeight: 1.8 }}>
+              <p key={i} style={{ margin: "0 0 1em 0" }}>
                 <ReactMarkdown components={{ p: ({ children }) => <>{annotateText(children, conceptDefs)}</>, strong: proseRenderer }}>
                   {text}
                 </ReactMarkdown>
@@ -643,57 +549,22 @@ export function SynthesisBanner({
       {keyConcepts.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2">
           {keyConcepts.map((concept, idx) => {
-            const [a, b] = CONCEPT_GRADIENTS[idx % CONCEPT_GRADIENTS.length];
+            const term = concept.includes(": ") ? concept.split(": ")[0] : concept;
             return (
-              <span
+              <Tag
                 key={concept}
+                label={term}
+                tint={wordSlot(term)}
                 title={concept.includes(": ") ? concept.split(": ").slice(1).join(": ") : undefined}
-                style={{
-                  display: "inline-flex", alignItems: "stretch",
-                  background: "white",
-                  border: "1.5px solid #1a1a1a",
-                  borderRadius: 0,
-                  overflow: "hidden",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span style={{ width: 3, flexShrink: 0, background: `linear-gradient(to bottom, ${a} 0%, ${b} 100%)` }} />
-                <span style={{
-                  padding: "5px 9px",
-                  color: "#111",
-                  fontSize: "0.625rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "1.2px",
-                  fontFamily: "var(--font-mono), monospace",
-                  lineHeight: 1,
-                }}
-              >
-                  {concept.includes(": ") ? concept.split(": ")[0] : concept}
-                </span>
-              </span>
+              />
             );
           })}
         </div>
       )}
 
       {!hideInteractionUI && isLoggedIn && papers.length > 0 && (
-        <div style={{
-          marginTop: "22px",
-          borderTop: "1px solid #e5e5e5",
-          paddingTop: "18px",
-        }}>
-          <div style={{
-            fontFamily: "var(--font-mono), monospace",
-            fontSize: "0.62rem",
-            fontWeight: 800,
-            letterSpacing: "1.8px",
-            textTransform: "uppercase",
-            color: "#888",
-            marginBottom: "10px",
-          }}>
-            Pick a source
-          </div>
+        <div style={{ marginTop: 24, borderTop: HAIRLINE, paddingTop: 20 }}>
+          <Label style={{ marginBottom: 12 }}>Pick a source</Label>
           <div style={{ display: "grid", gap: "8px" }}>
             {papers.map((paper, index) => (
               <div
@@ -703,9 +574,9 @@ export function SynthesisBanner({
                   gridTemplateColumns: "1fr auto",
                   gap: "10px",
                   alignItems: "center",
-                  border: "1.5px solid #1a1a1a",
-                  background: "white",
-                  padding: "10px 12px",
+                  border: BORDER,
+                  background: SURFACE,
+                  padding: "12px 14px",
                 }}
               >
                 <button
@@ -717,30 +588,13 @@ export function SynthesisBanner({
                     padding: 0,
                     cursor: onSelectPaper ? "pointer" : "default",
                     textAlign: "left",
-                    color: "#111",
+                    color: INK,
                   }}
                 >
-                  <span style={{
-                    display: "block",
-                    fontFamily: "var(--font-mono), monospace",
-                    fontSize: "0.58rem",
-                    fontWeight: 800,
-                    letterSpacing: "1.2px",
-                    textTransform: "uppercase",
-                    color: "#999",
-                    marginBottom: "3px",
-                  }}>
+                  <span style={{ ...LABEL_STYLE, display: "block", marginBottom: 4 }}>
                     Source {index + 1}
                   </span>
-                  <span style={{
-                    display: "block",
-                    fontSize: "0.82rem",
-                    fontWeight: 700,
-                    lineHeight: 1.35,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
+                  <span style={{ ...DISPLAY_SM, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {paper.title}
                   </span>
                 </button>
@@ -750,13 +604,13 @@ export function SynthesisBanner({
                     disabled={digDeeperLoading}
                     title="Summarize this source"
                     style={{
-                      width: 32,
-                      height: 32,
+                      width: 38,
+                      height: 38,
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      border: "1.5px solid #1a1a1a",
-                      background: "white",
+                      border: BORDER,
+                      background: SURFACE,
                       cursor: digDeeperLoading ? "wait" : "pointer",
                     }}
                   >
@@ -767,13 +621,13 @@ export function SynthesisBanner({
                     disabled={digDeeperLoading}
                     title="Dig deeper into this source"
                     style={{
-                      width: 32,
-                      height: 32,
+                      width: 38,
+                      height: 38,
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      border: "1.5px solid #1a1a1a",
-                      background: "white",
+                      border: BORDER,
+                      background: SURFACE,
                       cursor: digDeeperLoading ? "wait" : "pointer",
                     }}
                   >
@@ -805,10 +659,8 @@ export function SynthesisBanner({
                   onClick={() => { handleDigDeeper(prompt); setShowQuestions(false); }}
                   className="hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all"
                   style={{
-                    padding: "8px 14px", border: "2px solid #1a1a1a", background: "white",
-                    fontSize: "0.8rem", fontWeight: 500,
-                    color: "#1a1a1a", textAlign: "left", cursor: "pointer",
-                    lineHeight: 1.4,
+                    ...BODY_STYLE, padding: "10px 14px", border: BORDER, background: SURFACE,
+                    textAlign: "left", cursor: "pointer",
                   }}
                 >
                   {prompt.replace(/\*\*/g, "")}
@@ -833,16 +685,16 @@ export function SynthesisBanner({
 
           {/* Loading indicator */}
           {digDeeperLoading && (
-            <div className="flex items-center gap-2 text-[#888]" style={{ marginBottom: "12px" }}>
-              <Loader2 className="size-3.5 animate-spin" />
-              <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono), monospace" }}>Thinking...</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: MUTED, marginBottom: 14 }}>
+              <Loader2 size={15} className="animate-spin" />
+              <Label>Thinking…</Label>
             </div>
           )}
 
           {/* Text input bar */}
           <div style={{
-            display: "flex", gap: "10px", alignItems: "center",
-            border: "2px solid #1a1a1a", padding: "10px 14px", background: "white",
+            display: "flex", gap: 10, alignItems: "center",
+            border: BORDER, padding: "10px 14px", background: SURFACE,
           }}>
             <input
               value={customQuestion}
@@ -855,18 +707,19 @@ export function SynthesisBanner({
               }}
               placeholder="Ask anything about these papers..."
               style={{
-                flex: 1, border: "none", outline: "none", fontSize: "0.9rem",
-                color: "#1a1a1a", background: "transparent",
+                ...BODY_STYLE, flex: 1, border: "none", outline: "none", background: "transparent",
               }}
             />
             <button
               onClick={() => { if (customQuestion.trim()) { handleDigDeeper(customQuestion); setCustomQuestion(""); } }}
               disabled={!customQuestion.trim() || digDeeperLoading}
+              aria-label="Ask"
               style={{
-                padding: "8px", border: "none",
-                background: customQuestion.trim() && !digDeeperLoading ? "#1a1a1a" : "#d1d5db",
+                padding: 9, border: "none",
+                background: INK,
+                opacity: customQuestion.trim() && !digDeeperLoading ? 1 : 0.4,
                 cursor: customQuestion.trim() && !digDeeperLoading ? "pointer" : "not-allowed",
-                display: "flex", alignItems: "center", transition: "background 0.15s",
+                display: "flex", alignItems: "center", transition: "opacity 140ms",
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
