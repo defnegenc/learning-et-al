@@ -4,7 +4,7 @@
 
 ## Core Philosophy
 
-Every digest is built around a **central question with wow factor** (max 8 words), not around a "best paper."
+Every digest is built around a **central question with wow factor** (aim for 8 words, hard max 10), not around a "best paper."
 
 The question comes first. Papers are found to inform that question — not to answer it. A paper on AI bias can inform "Can AI be fashionable?" even if it doesn't mention fashion once. The synthesis frames everything as different lenses on the same question.
 
@@ -26,22 +26,33 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - **Weighted random sampling** without replacement to pick 5 candidates.
 - **Coverage floor** (audit 7.3): with ≥10 digests, an interest absent from the last 10 digests' `seed_interests` is forced into the candidate 5 (highest-weight starved one), and the hypothesis prompt gets a "strongly prefer featuring it" line. Counters the Step-1 LLM's bias toward interests that make catchy questions.
 
-**Central question generation** (AI call 1, lines ~250-310):
-- Trending headlines fetched via web search and injected as optional temporal context.
-- **Query memory**: the last ~12 search queries (from `digests.search_queries`, last 5 digests) are shown to the LLM with "do not reuse" — prevents near-identical queries hitting the same OpenAlex window day after day.
-- LLM picks 1-3 interests, generates theme (max 8 words), 3 search queries, news query, and `focusFields[]` (array for cross-domain).
-- **Theme validation**: if >8 words, a retry call (AI call 2, conditional) requests shorter version.
-- **Theme novelty**: word-overlap check vs last 5 themes (≥2 shared non-stop words = too similar). If too similar, a fresh-angle call (AI call 3, conditional) generates a completely different theme. (Note: this is a word check, not embedding similarity — see Part 5.2 of algo-audit.md.)
-- Fallback: if LLM fails, top interest keyword is used as theme.
+**OpenAlex topic seed** (added 2026-08-14):
+- Choose the starved interest when the coverage floor fired; otherwise use slot 0 from the weighted sample. Slot 0 is itself weight-proportional, so this does not turn list order into a hidden preference.
+- Resolve that interest against the live OpenAlex taxonomy. An exact **field** such as Computer Science walks field → sampled subfield → sampled topic; an exact **subfield** such as Human-Computer Interaction walks directly to its topics; a free-form interest such as microbiome uses OpenAlex's relevance-ranked topic search.
+- Exclude topic IDs used in the last 8 digests before sampling. For broad-field walks, also exclude recently used subfield IDs. When a finite pool is exhausted, reset it instead of failing generation.
+- Require ≥3,000 works so a beautifully named but paper-thin topic is unlikely to strand the 2-year recent-paper search.
+- Sampling inside the vetted pool uses a square-root rank discount (`1 / sqrt(rank + 1)`). Front-ranked/relevant topics remain more likely, but lower-ranked topics retain meaningful probability. This is **structured exploration**: novelty is bounded by a real research neighborhood rather than uniform randomness.
+- Pass the topic name, description, subfield, and first 10 keywords into the hypothesis call as grounding. The prompt must find the human tension inside the topic, not copy its academic label. Search retries keep the topic and reformulate the angle/queries rather than abandoning it for generic AI.
+- Persist `digests.seed_topic` as `{id, name, interest, subfield, subfieldId}`. This is rotation memory and makes the choice auditable; it is not currently rendered.
 
-**Theme retry loop** (up to 2 retries): If the theme produces too few qualifying papers, the pipeline generates a fresh theme and re-searches. Each retry is an additional AI call.
+**Central question generation** (AI call 1, lines ~250-310):
+- **Query memory**: the last ~12 search queries (from `digests.search_queries`, last 5 digests) are shown to the LLM with "do not reuse" — prevents near-identical queries hitting the same OpenAlex window day after day.
+- LLM builds around the topic-seeded interest, may add up to 2 naturally connected candidate interests, and generates a **working retrieval question** (aim for 8 words, hard max 10), 3 search queries, news query, and selected interests. It does **not** choose OpenAlex fields or taxonomy filters. `selectedInterests` is canonicalized against real user interests and the seed interest is forced into slot 0 so rotation memory cannot drift from the actual grounding.
+- Headline taste is calibrated to user-approved examples: recognizable subject + consequential tension + plain spoken English (for example, "Does AI help students learn or cheat?"). A bare capability question is not enough, and interrogative shape should vary across days.
+- **Theme validation**: if >10 words, a retry call (AI call 2, conditional) requests a shorter version without sacrificing the specific noun. The former 8-word hard edge rejected user-approved natural questions; 8 is now the target, not the guillotine.
+- **Theme novelty**: word-overlap check vs last 5 themes (≥2 shared non-stop words = too similar). If too similar, a fresh-angle call (AI call 3, conditional) generates a different question/tension within today's already-rotated topic. (Note: this is a word check, not embedding similarity — see Part 5.2 of algo-audit.md.)
+- Fallback: if LLM fails, the OpenAlex topic name is used as the theme (or the seeded interest when topic lookup failed).
+
+**Theme retry loop** (up to 2 retries): If the theme produces too few qualifying papers, the pipeline changes the researchable angle and queries while keeping the OpenAlex topic, then re-searches. Each retry is an additional AI call.
 
 ### Step 2: Paper Search (lines ~370-400)
 
 3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv** (in practice OpenAlex nearly always answers, so it's effectively the sole source — audit 6.1).
 
 - **Relevance-ranked recency**: OpenAlex "recent" mode sorts by `relevance_score:desc` within a 2-year `publication_year` window. (Was `publication_year:desc`, which discarded relevance and returned the newest works mentioning the query words anywhere — audit 6.2.)
-- **Cross-domain field distribution**: queries distributed across `focusFields[]` (query 1 → field 1, query 2 → field 2, etc.)
+- **Deterministic taxonomy routing**: query 1 starts with `primary_topic.id:{seedTopic}` for precision. Queries 2-3 start with `topics.id:{seedTopic}`, which also admits cross-domain papers where the seed is a secondary topic.
+- **Precision → recall widening**: if a scoped query returns fewer than its 10-candidate allotment, keep those papers and fill the remainder from `primary_topic.subfield.id:{seedSubfield}`, then unscoped OpenAlex. Widening is per query and stops as soon as the allotment is full.
+- If every OpenAlex scope returns zero, Semantic Scholar receives the deterministic field stored on the seeded user interest; arXiv remains the final fallback. No LLM-generated label controls retrieval.
 - Each result is tagged with its **originating query** for scoring (see Step 3).
 - For beginner interests: `"introduction overview applications"` appended.
 - All results deduplicated by **normalized title** (lowercase, alphanumerics only).
@@ -111,7 +122,7 @@ After all items are assembled, papers are scored on two dimensions:
 - **Relevance** (1-3): does the paper directly address the theme question?
 - **Insight** (1-3): does it offer a surprising or useful lens?
 
-Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** a genuinely off-topic paper (relevance=1) is now DROPPED when ≥2 sources remain — 2 good sources beat 3 where the synthesis has to narrate one as irrelevant ("doesn't weigh in on the question at all"). A weak-but-relevant paper (or when dropping would leave <2 sources) is still kept and the synthesis gives it one honest sentence. Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
+Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** off-topic and weak-adjacent papers are dropped when ≥2 sources remain — 2 coherent sources beat 3 where the headline and synthesis have to stretch around filler. The rubric explicitly rejects generic neighboring work (for example, a general trustworthy-financial-app review does not belong in a dark-pattern digest merely because both mention UX and trust). Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
 
 ### Step 4c: Foundational Lane (1-2 OpenAlex calls + AI gate, conditional)
 
@@ -143,29 +154,32 @@ most days — scarcity is what keeps the gold treatment meaningful (~1-2 per wee
 Note: `category: "foundational"` used to be slapped on wide-pool slot 0 (just the top MMR
 pick) — that mislabel is fixed; the category is now exclusive to this lane.
 
-### Step 5: Theme Revision (AI call 6, lines ~900-925)
+### Step 5: Final-Source Editorial Pass (AI call 6, conditional repair call)
 
-LLM sees actual papers (600 chars of abstract each) and conditionally revises the central question.
-- **Keep** the original theme if all papers genuinely fit it — prevents the theme from being warped to accommodate a loosely-related paper that should have been cut.
-- **Revise** if the papers collectively suggest a different, better-fitting angle.
-- Max 8 words, punchy magazine-cover energy.
-- **PART 2 optimises for SPECIFICITY, not surprise** (changed 2026-08-14). The old prompt literally asked for a theme that made a reader think "wait, tell me more" rather than "I know what this is about" — an instruction to be non-self-explanatory, which produced parseable-but-empty headlines like *"Can technology read your mind without touching it?"* (the papers were about cheap EEG headsets). The coherence guard didn't catch it because that guard tests whether a theme *parses*, not whether it *says anything*. Step 5 is the only step holding the actual papers, so it now has to mine them: **NAME A THING** — at least one concrete noun or number lifted from these papers — with a blocklist of placeholder subjects (technology, systems, machines, models, tools, devices, science, data, algorithms, innovation, the future, our minds, humans). The rule "must connect ALL papers at their CORE, not their surface topic" was removed: the surface topic is where the concrete nouns live, and requiring one 8-word string to cover 3 papers across 2 fields made the abstract common denominator the only safe answer.
-- **PART 3 requires PLAIN SPOKEN ENGLISH** (added 2026-08-14). Step 1 had the NO-JARGON and DINNER-TABLE rules; Step 5, which always overwrites Step 1's theme, had **no register rule at all** — only the coherence guard, which is about fake twists. So the readable theme Step 1 produced could be rewritten into something nobody can parse. The specific pathology, and the most common way these headlines fail: **de-jargoning into a paraphrase.** Told to strip a technical term, the model describes the term's abstract *property* instead of naming the thing — "non-invasive" comes out as *"without touching it"*, which reads worse than the jargon did, because the reader has to decode the phrase before they can tell what's being asked. The rule now in **both** prompts: when you strip a technical term, replace it with the physical thing a reader can picture ("a headband"), never with a description of what it does or lacks. Negative constructions are the tell.
-- **Readability gate** (deterministic, AI call conditional): `themeProblems()` returns the theme's failures, empty = ships. Two independent modes, because a headline can be perfectly readable and say nothing ("Can machines understand emotion?") or name a real thing and still be unreadable.
-  - (a) *Vague* — `themeNamesAThing()`. A placeholder noun in **subject position** (first 3 words, `SUBJECT_WINDOW`) fails outright: "Can TECHNOLOGY read your mind?" is sunk by its subject, while the same word later is harmless ("Old traditions, new machines"). Otherwise passes on a digit, or a word >3 chars grounded in the papers' own **titles** that is neither a stop word nor a placeholder. `PLACEHOLDER_NOUNS` covers generic subjects *and* abstract topic nouns (emotion, behavior, performance, states, patterns…) — the latter matter because they genuinely appear in titles, so without them "Can machines understand emotion?" counts as grounded and ships, having borrowed a real word from a real title while naming nothing you can picture.
+The working question is retrieval scaffolding, not the displayed headline. Once selection, fills, re-ranking, and the optional foundational lane are finished, the editor sees up to 900 abstract characters from each **final main source** and works evidence-outward:
+- State the one real editorial thread the sources reveal together and provide a connection for every kept source.
+- Exclude a source when it only fits by climbing to a generic umbrella; never exclude merely because it disagrees. At least 2 main sources are retained.
+- Return an explicit reading order. The order should make understanding cumulative — explanation/background before the study that tests it, then complication/application/consequence when that is what the particular set supports. A validated exact permutation becomes card order, metadata order, synthesis order, and stored `source_index`. Foundational context remains additive at the end.
+- Draft 3 candidates and choose one. There is **no menu of headline formulas**. Few-shot examples communicate the desired clarity, stakes, and voice; they are explicitly not templates. The rejected example *"Does feeling present mean learning more?"* documents the self-containedness failure: without "virtual classrooms" or "headset," the reader cannot know what it means.
+- Aim for 8 words; hard max 10. The user-approved *"We built the virtual classroom. Can students use it?"* is nine words and should not be damaged by an arbitrary eight-word cutoff.
+- The original retrieval question has no keep-by-default privilege. It survives only if it is genuinely the strongest evidence-led headline.
+- A scarce foundational card is excluded from the headline constraint so an old context paper cannot contort the main three-source question.
+- **Specificity remains required.** The title must name the recognizable subject, object, group, or setting from source titles **or abstracts**, with a blocklist of vague placeholders. This expands grounding beyond academic titles, which often omit the plain noun a reader needs.
+- **Plain spoken English remains required.** De-jargoning must name the thing ("headset"), not paraphrase a technical property into a riddle ("without touching it").
+- **Editorial gate** (deterministic, AI call conditional): `themeProblems()` enforces word count, grounding, and paraphrased-jargon checks. The structured response is also rejected when it lacks the shared thread or a connection for any kept source.
+  - (a) *Vague* — `themeNamesAThing()`. A placeholder noun in **subject position** (first 3 words, `SUBJECT_WINDOW`) fails outright: "Can TECHNOLOGY read your mind?" is sunk by its subject, while the same word later is harmless ("Old traditions, new machines"). Otherwise it passes on a digit, or a non-placeholder word >3 chars grounded in source **titles or abstracts**. `PLACEHOLDER_NOUNS` includes generic subjects and abstract topic nouns (emotion, behavior, presence, learning, performance, states, patterns…), so borrowing a real but vague word from a paper cannot masquerade as self-containedness.
   - (b) *Hard to read* — `PARAPHRASED_JARGON` regexes catch the negative constructions that signal a paraphrased property. The key one keys on **nominalisation, not the word "without"**: `without …<word>ing|ion|ment|ness|ity` flags "without touching it" and "without any central planning" while leaving "without soil" and "without a teacher" alone, since those name real things.
-  - On failure, ONE rewrite call is passed the specific problems found; it's accepted only if it clears the gate itself, so the fallback is always the pre-gate theme. Same shape as Step 1's word-count gate — a prompt can *ask*, only a check *enforces*. Matters doubly because `theme` is also the email subject line (`email.ts`).
-  - Known limitation: a verb shared with a paper title can ground a theme ("strains **shape** flavour" grounds "How do systems **shape** our health?"). The subject-position check is what catches those in practice. A real fix needs POS tagging or a concreteness lexicon.
-  - `.context/theme-gate-check.mjs` (gitignored, `node .context/theme-gate-check.mjs`) exercises the gate across 4 paper sets + the readability rules in isolation, 31 cases. It **extracts the real function source out of `digest.ts` and evals it** rather than re-implementing the logic, so the harness can't drift from what ships. It caught two genuine defects during development: abstract title words counting as grounding, and 4-letter concrete nouns ("curb") being excluded by a >4 length threshold.
+  - On failure, ONE rewrite call receives the exact problems, kept sources, and evidence-backed thread; it is accepted only if it clears the deterministic gate. Matters doubly because `theme` is also the email subject line (`email.ts`).
+  - Known limitation: lexical grounding is not full grammatical understanding. The source-connection audit is the semantic backstop; a future upgrade could use POS tagging or a concreteness lexicon.
 - The **coherence guard** stays a hard rule in both the hypothesis and revise prompts: the theme must make literal sense to someone who hasn't read the papers. Comprehension beats cleverness; a specific plain question beats a vague clever one. (User feedback, July 2026 + Aug 2026.)
-- The >8-word shortener in Step 1 now forbids swapping a specific noun for a generic one — the specific noun is usually the longest token, so a rule-free "shorten this" cut it first and undid the specificity work at the last mile.
-- Returns `kept_original: true|false` for logging.
+- The >10-word shortener in Step 1 forbids swapping a specific noun for a generic one — the specific noun is usually the longest token, so a rule-free "shorten this" cut it first and undid the specificity work at the last mile.
+- Returns `thread`, per-source connections, optional exclusions, source order, ordering rationale, 3 candidates, and the selected theme for logging and enforcement.
 
 ### Step 6: Multi-Stage Synthesis (AI calls 7-13)
 
 Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
 
-**Stage A: Metadata** (AI call 7) — per-paper summaries, keywords, findings, connectionToTheme, **plainName** (plain-language paper name shown on cards above the academic title), **takeaway** (`hook` = the one surprise, `stat` = concrete anchor or null, `line` = "say it like this" casual repeatable sentence — powers Conversational Papers; the card leads with the hook, the detail overlay shows hook→stat→line), **methodType/methodFacts/claim** (what the source IS — "Field study", "Opinion piece", "News feature" — plus 2-3 short how-they-did-it facts and the one-sentence central claim; these fill the card's themed See-more tiles), keyConcepts, suggestedQuestions. Uses `metadataPrompt`. keyConcepts now aggressively captures jargon a non-expert trips on — model/system names (RoBERTa, DistilBERT), technical methods (subword tokenization, self-attention), and acronyms (EEG, NLP) — so the synthesis hover-definitions actually fire on scary words.
+**Stage A: Metadata** (AI call 7) — per-paper summaries, keywords, findings, connectionToTheme, **plainName** (plain-language paper name shown on cards above the academic title), **takeaway** (`hook` = the one surprise, `stat` = concrete anchor or null, `line` = a distinct conversational implication — powers Conversational Papers; hook/stat/line may not paraphrase one another), **methodType/methodFacts/claim** (what the source IS — "Field study", "Opinion piece", "News feature" — plus 2-3 short how-they-did-it facts and the one-sentence central claim; these fill the card's themed See-more tiles), keyConcepts, suggestedQuestions. `plainName` must distinguish the source rather than restate the digest headline or takeaway. Scripted-casual filler ("So you'd think", "Turns out", "It's kind of like", "which sounds obvious") is explicitly banned; clarity and evidence supply the voice. Uses `metadataPrompt`. keyConcepts now aggressively captures jargon a non-expert trips on — model/system names (RoBERTa, DistilBERT), technical methods (subword tokenization, self-attention), and acronyms (EEG, NLP) — so the synthesis hover-definitions actually fire on scary words.
 
 **Stage B: Argument Skeleton** (AI call 8) — cross-document relations (agrees/contradicts/extends/alternative_mechanism/unrelated), paper roles, core tension, argument arc. Uses `skeletonPrompt`.
 
@@ -187,9 +201,10 @@ Powers the zero-click header rendered under the central question (`DigestHeader`
 was generated here until July 2026, but was removed as too distracting. The DB column
 remains for old rows; nothing renders it.)
 
-Also persisted: **seed_interests** (`[{keyword, field}]`, the interests the Step-1 LLM
-selected) — free, no AI call — which drives the header's domain chips (colored via
-`field-hierarchy.ts`).
+Also persisted: **seed_interests** (`[{keyword, field}]`, the canonical user interests
+used by Step 1) — free, no AI call — which drives the header's domain chips (colored via
+`field-hierarchy.ts`), and **seed_topic** (the OpenAlex topic + subfield that grounded the
+question) for topic-level rotation and debugging.
 
 (Digest-level Q&A was removed in July 2026 — suggested questions are still stored for
 legacy rows but answers are no longer pre-generated. Questions now live on reading-list
@@ -201,7 +216,7 @@ picturable noun, so titles are graspable, not just punchy.
 
 ### Step 7: Storage
 
-- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, search_queries (query memory), gist, starred flag.
+- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, seed_topic (topic rotation memory), search_queries (query memory), gist, starred flag.
 - Papers saved with: summaries, keywords, key findings, connectionReason, plainName, openAlexId (dedup identity), foundationalReason (foundational lane only).
 - All linked to user and dated.
 
@@ -212,12 +227,12 @@ picturable noun, so titles are graspable, not just punchy.
 | # | Call | Step | When | Input tokens (approx) | Output (approx) |
 |---|------|------|------|-----------------------|-----------------|
 | 1 | Hypothesis generation | 1 | Always | ~800 | ~100 |
-| 2 | Theme shortening | 1 | If >8 words | ~100 | ~30 |
+| 2 | Working-question shortening | 1 | If >10 words | ~100 | ~30 |
 | 3 | Theme novelty retry | 1 | If sim >0.5 to recent | ~400 | ~100 |
 | 4 | Theme retry (bad papers) | 1 | Up to 2x if <2 papers | ~800 | ~100 |
 | 5 | Complementarity selection | 3b | If wide pool > target | ~2000 | ~200 |
 | 6 | LLM re-ranking | 4b | If ≥2 papers | ~600 | ~100 |
-| 7 | Theme revision | 5 | Always | ~3000 | ~50 |
+| 7 | Final-source editorial pass | 5 | Always | ~4000 | ~500 |
 | 8 | Metadata (Stage A) | 6 | Always | ~6000 | ~600 |
 | 9 | Skeleton (Stage B) | 6 | Always | ~4000 | ~300 |
 | 10 | Synthesis draft (Stage C) | 6 | Always | ~5000 | ~400 |
@@ -244,7 +259,7 @@ picturable noun, so titles are graspable, not just punchy.
 | Academic domain | hostname check (20+ domains) | Step 4 web results |
 | Paywall detection | 2+ paywall signals | Step 4 article fetch |
 | Theme novelty | ≥2 shared non-stop words vs recent themes | Step 1 |
-| Theme word count | ≤ 8 words | Step 1 |
+| Theme word count | ≤ 10 words (8 target) | Steps 1 and 5 |
 | LLM re-rank | score > 2 to keep | Step 4b |
 | Cross-digest dedup | all past digests, openAlexId + normalized title | Step 2 |
 | Citation floor | cited_by_count > 1 | Step 2 OpenAlex |
@@ -302,7 +317,7 @@ Feedback events also store contextual features (paper category, source, year, ke
 - **Bold coverage gate** catches papers dropped during revisions
 - **Theme revision step** catches bad themes
 - **Interest rotation** prevents same-topic digests
-- **"Max 8 words" enforced** makes themes punchy
+- **Eight-word target / ten-word ceiling** keeps themes punchy without breaking natural speech
 - **Banning specific AI-speak words** dramatically improves output
 - **LLM re-ranking** catches topically related but uninformative papers
 - **Theme novelty scoring** prevents repetitive theme patterns
@@ -323,7 +338,7 @@ Feedback events also store contextual features (paper category, source, year, ke
 - **Per-item sequential synthesis**: chain, not lenses
 - **Theme word matching for recency penalty**: imprecise
 - **Returning 0.3 for unknown embeddings**: bypassed all gates
-- **Single focusField for cross-domain**: secondary domain never found
+- **LLM-generated focus fields**: brittle labels silently missed OpenAlex concepts and gave the model control over retrieval scope. Replaced by IDs copied from the sampled OpenAlex topic and a deterministic widening ladder.
 - **Counter-query for tension**: replaced by LLM complementarity selection
 - **No jargon ban in themes**: generated "Can better architecture solve computational bottlenecks?" Fixed.
 - **No redundancy guard in selection**: two papers making the same point. Fixed.
@@ -338,8 +353,8 @@ Feedback events also store contextual features (paper category, source, year, ke
 ## Top 3 Ideas to Improve (rolling)
 
 Theme monoculture — see `algo-audit.md` Part 5 for the full audit (2026-07-19):
-1. **Structure-aware theme novelty, enforced after Step 5**: track recent themes' question SHAPES (who/can/do/statement), constrain both the hypothesis and revise prompts with them, and add a deterministic re-roll if the leading word repeats.
-2. **Rotating exemplar bank**: ~15 theme examples across mechanism/scale/paradox/how-it-works forms, sample 3-4 per run, so the "villain/trust" register stops anchoring every question.
-3. **Collapse the rewrite chain**: 3 candidate themes in one call, programmatic pick, keep only the fit-to-papers revision (saves 2-3 AI calls and reduces drift to the modal phrasing).
+1. **Structure-aware theme novelty, enforced after Step 5**: recent final headlines now enter the editorial prompt and it drafts 3 candidates, but a deterministic leading-shape re-roll is still open.
+2. **Measure topic-seed quality**: log which taxonomy path fired (field/subfield/free-form), candidate-pool size, and regenerate/save outcomes by seed. Tune the rank discount and 3,000-work floor from behavior rather than intuition.
+3. **Digest archetypes, starting with frontier + debate**: let the returned evidence choose a format, then give each format its own selection and voice rules. Do not force foundational-first or news-first every day.
 
 (Displaced but still valid: consolidate complementarity+skeleton; apply `isNewsRelevant` to primary news path; digest rating feedback loop.)

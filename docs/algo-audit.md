@@ -85,13 +85,15 @@ The research community solved this with readability algorithms (Mozilla Readabil
 
 Design decisions that limit the algorithm's ceiling.
 
-### 3.1 Single `focusField` undermines cross-domain search
+### 3.1 Single `focusField` undermines cross-domain search (historical)
 
 The LLM returns one `focusField` string for all 3 search queries. When the theme combines "AI + fashion," all OpenAlex queries filter by whichever field the LLM picked (probably Computer Science). Fashion-tech papers, textile engineering, consumer behavior research — anything in the secondary domain — gets filtered out at the API level.
 
 **Research context:** Cross-domain recommendation is a known hard problem. The CORD framework ([Zhu et al., 2021](https://arxiv.org/abs/2108.09563)) shows that effective cross-domain retrieval requires querying each domain separately and merging results. The current single-field approach structurally prevents the cross-domain discovery that the algorithm's philosophy promises.
 
-**Fix:** Return `focusFields: ["Computer Science", "Art"]` from the LLM and split queries across fields.
+**Original fix:** Return `focusFields: ["Computer Science", "Art"]` from the LLM and split queries across fields.
+
+**Superseded 2026-08-15:** The LLM no longer emits fields at all. Search routing now uses the sampled OpenAlex Topic's stable IDs: query 1 starts at `primary_topic.id`, queries 2-3 at `topics.id`, and thin result sets widen through `primary_topic.subfield.id` to unscoped search. This preserves cross-domain recall without trusting a free-form model label.
 
 ### 3.2 No quality gate on LLM theme output
 
@@ -214,7 +216,7 @@ The hypothesis prompt gives the LLM no information about what's happening in the
 | 2.4 | DDG HTML scraping fragility | M | M | Reliability | **FIXED** — User-Agent rotation, 10s timeout, structured logging when regex breaks |
 | 2.5 | Hardcoded US tech RSS feeds | S | M | Coverage | **FIXED** — field-specific feeds + Google News RSS by topic |
 | 2.6 | Imprecise recency penalty | S | S | Quality | **Partially fixed** — paper keywords are primary signal, but theme words still merged as secondary |
-| 3.1 | Single focusField blocks cross-domain | M | H | Architecture | **FIXED** — `focusFields[]` array, queries distributed across fields |
+| 3.1 | Single focusField blocks cross-domain | M | H | Architecture | **FIXED, THEN SUPERSEDED** — deterministic OpenAlex topic/subfield IDs now route every query; the LLM emits no fields |
 | 3.2 | No quality gate on LLM theme | M | H | Quality | **FIXED** — word count enforcement + retry |
 | 3.3 | Revision sees truncated abstracts | XS | M | Quality | **FIXED** — 600 chars (was 300) |
 | 3.4 | No diversity in paper selection (MMR) | M | H | Algorithm | **FIXED** — MMR with λ=0.6 |
@@ -271,6 +273,20 @@ The recent-themes constraint runs in Step 1 only. The Step-5 revise-to-fit-paper
 1. **Structure-aware novelty, enforced at the end.** Derive each recent theme's shape (leading-word class + question/statement), feed the last 7 themes + shapes into BOTH the hypothesis and Step-5 prompts ("don't reuse a shape used in the last 3 days"), and add a deterministic post-Step-5 guard: if the leading word matches ≥2 of the last 5 themes, one re-roll demanding a different shape.
 2. **Rotate an exemplar bank.** Replace the fixed examples with ~15 spanning mechanism ("Why sarcasm breaks emotion-reading AI"), scale/statement ("Concrete from mine waste, minus 90% emissions"), paradox, and how-it-works forms; sample 3-4 per run so no single register anchors generation. Fix the gist example too.
 3. **Collapse the rewrite chain.** One call generates 3 candidate themes (required different shapes); code picks the winner (novelty + length), keeping only the fit-to-papers revision. Fewer rewrites = less regression to the mode, and it saves 2-3 AI calls.
+
+### Partial implementation (2026-08-14)
+
+The largest upstream cause of monoculture is now addressed: Step 1 no longer has to
+invent specificity from five bare strings. A rotating OpenAlex Topic supplies a real
+research neighborhood, description, and vocabulary before the question call. Search
+failure and novelty retries keep that topic instead of drifting to an easier generic
+theme. The fixed exemplar bank was also replaced with user-approved direct,
+consequential questions and an explicit instruction to vary question shape.
+
+2026-08-15 follow-up: the final-source editorial pass now sees recent headlines, drafts
+3 candidates, and is explicitly calibrated by user-approved few shots without a fixed
+format menu. Structural novelty still is not deterministically enforced, but the old
+one-candidate Step-5 rewrite and its keep-original bias are gone.
 
 ---
 
@@ -384,14 +400,14 @@ The weighted sampler + rotation penalty (digest.ts:233-254) is sound. The cluste
 1. **The LLM is the real selector and it has taste.** Sampling picks 5 candidates; the hypothesis LLM picks 1-3 of them — and it's instructed to prefer interests that make catchy, dinner-table, naturally-connecting questions (digest.ts:316-321). AI/fonts/venture are simply easier to write a punchy 8-word headline about than consciousness. Nothing counteracts this preference: `seed_interests` (which interests the LLM actually chose) is persisted per digest but **never fed back into rotation** — the penalty instead uses noisy word-overlap between interest keywords and theme/paper words (2.6, still true).
 2. **Rich-get-richer via engagement.** Stars add +0.1 to the best-matching interest, and you can only star what you're shown. Interests that never get picked earn no boosts while decaying ×0.95/day, so their sampling odds shrink over time. The learning loop amplifies the LLM's selection bias instead of correcting it.
 3. **Theme-retry drift toward well-published fields.** When a consciousness-flavored theme finds few papers (thin OpenAlex abstract coverage + the 2-year window hits humanities/philosophy hardest), the retry prompt demands "a concrete, researchable angle" (digest.ts:444) — which in practice means drifting back to CS/AI. So venue availability is real, but the pipeline *converts* it into interest bias rather than compensating.
-4. **Field mapping gaps.** `OA_CONCEPT_MAP` (open-alex.ts:11-29) has no HCI, Design, Neuroscience, or Cognitive Science entries. An unmapped `focusField` falls through to `display_name:{lowercased}`, which can silently match zero OpenAlex concepts (OpenAlex's is "Human–computer interaction", en dash) → field-filtered queries return nothing → the no-field retry returns CS-dominant results.
+4. **Field mapping gaps (historical).** `OA_CONCEPT_MAP` once lacked HCI, Design, Neuroscience, and Cognitive Science. That map was filled in, then removed from the digest's primary OpenAlex path entirely on 2026-08-15: routing now uses IDs from the sampled OpenAlex Topic. The map remains only for older/other callers that still pass a free-form field.
 
 **Verdict on concern (c):** it's both — venues do carry more AI/design material, but three pipeline layers (LLM selection with no fairness memory, engagement rich-get-richer, retry drift) each push the same direction, so the clustering is stronger than the venue base rate.
 
 **Fix direction (priority order):**
 1. **Exact-match rotation on `seed_interests`**: load the last ~7 digests' `seed_interests`, apply the -0.5/use penalty to those exact interests (replacing the word-overlap heuristic for this purpose). Cheap, data already stored.
 2. **Coverage floor**: if an interest hasn't appeared in `seed_interests` for K digests (e.g. 10), force-include it in the candidate 5 and add one prompt line: "Interest X hasn't been featured in a while — strongly prefer it if it can carry a good question."
-3. **Fill `OA_CONCEPT_MAP` gaps** for the user-facing field list (HCI, Design, Neuroscience, Cognitive Science, Media Studies) and log when a concept filter returns 0 so silent fallthrough becomes visible.
+3. **Replace LLM field labels with taxonomy IDs** so punctuation, naming, and mapping gaps cannot affect the digest search path. Keep zero-result logging and deterministic widening for observability and recall.
 4. **Measure before further tuning** — prod query: `SELECT json_extract(value,'$.keyword') kw, count(*) FROM digests, json_each(digests.seed_interests) WHERE date > date('now','-30 day') GROUP BY kw ORDER BY 2 DESC;` vs the interests table. If clustering persists after fixes 1-2, it's genuinely venue availability.
 
 ### Part 7 implementation status (2026-07-25)
@@ -402,6 +418,7 @@ Shipped:
 - **7.3 fix 1 — exact-match rotation**: the -0.5/use penalty now counts exact appearances in the last 5 digests' `seed_interests` (word-overlap heuristic kept only as fallback for pre-seed rows).
 - **7.3 fix 2 — coverage floor**: with ≥10 digests, an interest absent from the last 10 digests' seeds is forced into the candidate 5 (highest-weight starved one) plus a "strongly prefer featuring it" prompt line.
 - **7.3 fix 3 — OA_CONCEPT_MAP gaps**: added HCI (en-dash variant), Design, Neuroscience, Cognitive Science, Media Studies; searches log when a concept filter returns 0 results.
+- **7.3 follow-up — deterministic taxonomy routing (2026-08-15)**: removed `focusField(s)` from the hypothesis contract. The main digest path now scopes with the sampled Topic/subfield IDs and widens strict → broad while retaining results. `OA_CONCEPT_MAP` is no longer on this path.
 
 NOT done: 7.1.1 query↔theme alignment validation (LLM re-rank remains the backstop), 7.1.2 degraded-mode flag on digest rows, 7.2.4 arXiv fallback year fabrication (near-dead path).
 

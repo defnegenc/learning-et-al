@@ -1,6 +1,6 @@
-export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". You use contractions and start sentences with "So", "But", "Turns out". You never say "notably", "furthermore", "demonstrates". You ground everything in real-world problems the reader can picture. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
+export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". Use contractions when natural. Be conversational by being clear and specific, not by adding scripted tics such as "So you'd think", "Turns out", "It's kind of like", or "which sounds obvious". Vary sentence openings. Never say "notably", "furthermore", or "demonstrates". Ground everything in real-world problems the reader can picture. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
 
-export const SYNTHESIS_PROSE_SYSTEM = `You write like a smart friend texting about something they just read. Short sentences. Casual. You translate jargon into plain English. Contractions always. Start sentences with "So", "But", "Turns out", "Here's the thing".
+export const SYNTHESIS_PROSE_SYSTEM = `You write like a smart friend explaining something they just read. Short sentences when they help. You translate jargon into plain English. Use contractions naturally. Do not perform casualness with repeated openers such as "So", "Turns out", "Here's the thing", or "It's kind of like". Let the evidence create the voice and vary sentence openings.
 
 BANNED PATTERNS — never write these:
 - "The question of whether X isn't just about Y — it's about Z" (this is the worst one. Kill it.)
@@ -62,7 +62,9 @@ ${METADATA_RULES(ctx)}
 TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just readable:
 - hook: the SINGLE most surprising or counterintuitive thing this paper shows, in one plain sentence a non-expert would actually repeat. NOT a summary of the whole paper. Lead with the surprise.
 - stat: one concrete number or vivid fact from the paper that anchors the hook (e.g. "hacked 83% of Linux servers with no human help"). Use null if the paper genuinely has no such number — NEVER invent one. Translate raw metrics (F1, AUC, 0.4 out of 1.0) into plain meaning ("matched a real teacher less than half the time"); a number only earns its place if a normal person instantly gets it.
-- line: how you'd bring it up in conversation — casual, contractions, spoken. e.g. "you know sentiment analysis? turns out sarcasm is the hard part." Sound like a person, not a summary.
+- line: how you'd bring it up in conversation — casual, contractions, spoken. e.g. "Sentiment analysis can read praise, but sarcasm still fools it." Sound like a person, not a summary.
+- hook, stat, and line must add DIFFERENT value. The line cannot paraphrase the hook or repeat a finding that is already visible above it; add why it matters, the useful comparison, or the memorable way to carry it into conversation.
+- Never manufacture chatty filler: no "So you'd think", "Turns out", "It's kind of like", "which sounds obvious", or "apparently needed research". Direct language sounds more human than staged banter.
 - All three obey the voice rules: no "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm"; no em dashes; plain words.
 
 METHOD RULES (per paper) — what this IS and how they did it:
@@ -73,6 +75,7 @@ METHOD RULES (per paper) — what this IS and how they did it:
 PLAIN NAME RULES (per paper):
 - A human-friendly name for what the paper is ABOUT — what you'd call it explaining it to a friend, NOT the academic title.
 - MAX 6 words, plain English, no jargon, no acronyms, no author names, no "a study of…".
+- Distinguish this source's evidence or lens. Do NOT restate today's theme, answer the central question, or duplicate the takeaway hook; those appear next to the name on the page.
 - BAD: "An Intelligent Sentiment Analysis Model Based on Fine-Tuned BERT Architecture" (the real title — too long, jargon)
 - GOOD: "Reading emotion in social-media text"
 - BAD: "EEGSeizureSense: A Hybrid CNN-Transformer for Seizure Detection"
