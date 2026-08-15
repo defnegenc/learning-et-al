@@ -80,13 +80,23 @@ function BookmarkToggle({ paper, initial, onUnsaved }: {
   );
 }
 
-/* ── The tiles behind the expand control ─────────────────────────────────── */
+/* ── The two columns ─────────────────────────────────────────────────────── */
 
-// Render the pipeline's **bold** emphasis without changing the tile's type.
+/**
+ * The pipeline's `**bold**`, drawn as an ink underline.
+ *
+ * Weight was doing two jobs at once: half of every finding came back bold, so
+ * the emphasis stopped marking anything and just made the column heavier. An
+ * underline marks the same words without changing the colour of the line.
+ */
 function emphasize(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     !part ? null : i % 2 === 1
-      ? <strong key={i} style={{ fontWeight: 600 }}>{part}</strong>
+      ? (
+        <span key={i} style={{ textDecoration: "underline", textDecorationThickness: 2, textUnderlineOffset: 3 }}>
+          {part}
+        </span>
+      )
       : <span key={i}>{part}</span>
   );
 }
@@ -96,23 +106,33 @@ function startCap(text: string): string {
   return text.replace(/[A-Za-z]/, (letter) => letter.toUpperCase());
 }
 
-function BriefTile({ heading, background = SURFACE, fullWidth = false, children }: {
-  heading: string;
-  background?: string;
-  fullWidth?: boolean;
-  children: React.ReactNode;
-}) {
+/** A column of the split: a Display/SM heading in ink over body at reading size. */
+function CardColumn({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
-    <section style={{ background, border: BORDER, padding: "16px 18px", gridColumn: fullWidth ? "1 / -1" : undefined }}>
+    <section>
       <h3 style={{ ...DISPLAY_SM, margin: "0 0 10px" }}>{heading}</h3>
-      <div style={BODY_SM}>{children}</div>
+      {children}
     </section>
   );
 }
 
-function tileListLabel(labels: string[]): string {
-  if (labels.length === 1) return `See the ${labels[0].toLowerCase()}`;
-  return "See more";
+/**
+ * Findings as a list, not as three adjacent paragraphs: a 5px dot in an 18px
+ * gutter with the text hanging beside it.
+ */
+function FindingList({ items }: { items: string[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {items.map((f, i) => (
+        <div key={i} style={{ display: "flex" }}>
+          <span aria-hidden style={{ width: 18, flexShrink: 0, display: "flex" }}>
+            <span style={{ width: 5, height: 5, marginTop: 10, background: INK, borderRadius: "50%" }} />
+          </span>
+          <p style={{ ...READING_BODY, margin: 0 }}>{emphasize(startCap(f))}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /* ── The card ────────────────────────────────────────────────────────────── */
@@ -140,29 +160,28 @@ export function PaperCard(props: PaperCardProps) {
 }
 
 /**
- * The full card. Hero is the summary's first sentence at Display/LG; everything
- * else about the source lives behind one expand line, so the resting card is a
- * title, a byline and one idea.
+ * The full card, as one open page rather than a lid: title, byline, the hero
+ * line, then the evidence and the point side by side behind one 2px rule.
+ *
+ * There is no expand control. "See more" was hiding two short lists and a
+ * button, and the reason for hiding them — that they were 13px inside two
+ * nested boxes and unpleasant to read — is gone: both columns are Body 15 with
+ * no box at all. `expandTick` still scrolls the card into view when a paper
+ * name in the synthesis is clicked; there is just nothing left to expand.
+ *
+ * Findings read left because the card argues toward its conclusion. The
+ * takeaway's claim is the only place colour lands on type, marked in the same
+ * hue as the card's own wash so the mark is wayfinding, not decoration.
  */
 function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: PaperCardProps) {
-  const [expanded, setExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Expansion is adjusted during render (not in the effect) so the scroll effect
-  // fires after the tiles have laid out.
-  const [seenTick, setSeenTick] = useState(0);
-  if (expandTick && expandTick !== seenTick) {
-    setSeenTick(expandTick);
-    setExpanded(true);
-  }
   useEffect(() => {
     if (expandTick) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [expandTick]);
 
   const foundational = paper.category === "foundational";
-  // The Takeaway tile fills solid with the card's first hue — the one place the
-  // wash stops being a wash and becomes a fill.
-  const takeawayFill = foundational ? GOLD : washSlots(index)[0];
+  const mark = foundational ? GOLD : washSlots(index)[0];
 
   const body = (paper.summary || paper.abstract || "").trim();
   const hero = body.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || body;
@@ -173,9 +192,12 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
   const findings = (paper.keyFindings ?? []).slice(0, 3);
   const findingsLabel = isNews ? "Key points" : "Findings";
   const takeaway = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
-  // Claim folds into the takeaway — one punchy conclusion tile instead of two.
-  const combinedTakeaway = [claim, takeaway !== claim ? takeaway : ""].filter(Boolean).join(" ");
-  const tileLabels = [findings.length > 0 ? findingsLabel : "", combinedTakeaway ? "Takeaway" : ""].filter(Boolean);
+  // The claim wears the mark and the spoken line follows it plain — one
+  // conclusion, with the highlight on the sentence that earns it.
+  const lead = startCap(claim || takeaway);
+  const rest = claim && takeaway && takeaway !== claim ? takeaway : "";
+
+  const hasSplit = findings.length > 0 && !!lead;
 
   return (
     <div
@@ -187,71 +209,62 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         padding: "22px 24px",
         display: "flex",
         flexDirection: "column",
-        gap: 12,
+        gap: 18,
         overflow: "hidden",
       }}
     >
       {foundational && <FoundationalMark reason={paper.foundationalReason} />}
 
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
-        <button
-          onClick={() => setExpanded(v => !v)}
-          style={{ ...DISPLAY_SM, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", flex: 1 }}
-        >
-          {paper.plainName || paper.title}
-        </button>
-        {loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} />}
+      <div>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
+          <h3 style={{ ...DISPLAY_SM, margin: 0, flex: 1 }}>{paper.plainName || paper.title}</h3>
+          {loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} />}
+        </div>
+        {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
+        {hero && <p style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "28px", color: INK, margin: "4px 0 0" }}>{hero}</p>}
       </div>
 
-      {byline && (
-        <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: -6 }}>{byline}</div>
-      )}
-
-      {hero && <p style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "28px", color: INK, margin: "4px 0 0" }}>{hero}</p>}
-
-      {(tileLabels.length > 0 || paper.sourceUrl) && (
-        <div>
-          <button
-            onClick={() => setExpanded(v => !v)}
-            style={{ ...DISPLAY_SM, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 4 }}
-          >
-            {expanded ? "See less ↑" : tileLabels.length > 0 ? `${tileListLabel(tileLabels)} ↓` : "Read paper ↓"}
-          </button>
-
-          {expanded && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
-              {findings.length > 0 && (
-                <BriefTile heading={findingsLabel} fullWidth>
-                  <ul className="paper-tile-list">
-                    {findings.map((f, i) => <li key={i}>{emphasize(startCap(f))}</li>)}
-                  </ul>
-                </BriefTile>
-              )}
-              {combinedTakeaway && (
-                <BriefTile heading="Takeaway" background={takeawayFill} fullWidth>
-                  {emphasize(startCap(combinedTakeaway))}
-                </BriefTile>
-              )}
-              {paper.sourceUrl && (
-                <a
-                  href={paper.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ds-lift"
-                  style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "12px 22px", textDecoration: "none", alignSelf: "flex-start" }}
-                >
-                  Read paper ↗
-                </a>
-              )}
-            </div>
+      {(findings.length > 0 || lead) && (
+        <div className={hasSplit ? "paper-card-split" : undefined}>
+          {findings.length > 0 && (
+            <CardColumn heading={findingsLabel}>
+              <FindingList items={findings} />
+            </CardColumn>
+          )}
+          {lead && (
+            <CardColumn heading="Takeaway">
+              <p style={{ ...READING_BODY, margin: 0 }}>
+                <span style={{ background: mark, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px" }}>
+                  {lead}
+                </span>
+                {rest ? ` ${rest}` : ""}
+              </p>
+            </CardColumn>
           )}
         </div>
       )}
 
+      {paper.sourceUrl && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <a
+            href={paper.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ds-lift"
+            style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "9px 16px", textDecoration: "none" }}
+          >
+            Read paper ↗
+          </a>
+        </div>
+      )}
+
       <style>{`
-        .paper-tile-list { margin: 0; padding-left: 1rem; display: grid; gap: 10px; list-style: disc outside; text-align: left; }
-        .paper-tile-list li { display: list-item; padding-left: 0; }
-        .paper-tile-list li::marker { font-size: 0.8em; color: ${INK}; }
+        .paper-card-split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
+        .paper-card-split > section + section { border-left: ${BORDER}; padding-left: 24px; }
+        @media (max-width: 720px) {
+          .paper-card-split { grid-template-columns: 1fr; gap: 20px; }
+          .paper-card-split > section + section { border-left: none; border-top: ${BORDER}; padding-left: 0; padding-top: 20px; }
+        }
       `}</style>
     </div>
   );

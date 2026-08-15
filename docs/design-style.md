@@ -165,7 +165,11 @@ The font variables are set on `<html>`, not `<body>`: `globals.css` composes
   (fill = the keyword's hashed spectrum slot).
 
 `PaperCard` in `src/components/paper-card.tsx` is the **only** paper card, in two
-sizes. `digest` adds the hero line and the tiles behind one expand control;
+sizes. `digest` adds the hero line and then splits: findings on the left,
+takeaway on the right, one 2px rule between them, `Read paper` at the bottom
+right. There is no expand control and there are no tiles — emphasis inside a
+finding is an ink underline, not weight, and the takeaway's claim wears a mark
+in the card's own wash hue. Both columns are Body 15 and stack below 720px;
 `compact` is the same card smaller and is what "Referenced sources", the vault
 and the permalink render. `SourceCard`, `ReadingListCard` and the permalink's
 `PaperSourceTab` are deleted, not restyled — that removed three components, four
