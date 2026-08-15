@@ -266,43 +266,49 @@ synthesis concept tags.
 
 ## The interest picker (`src/components/interest-ledger.tsx`)
 
-Ten fields, ~80 topics. Rendered flat it was a wall — 2000px of chips on a
-phone, and no way to find "protein folding" except to read everything. Rebuilt
-2026-08-14. Live and unauthenticated at `/prototype/interests`, including a
-375px phone frame; that page renders the shipping component, so it can't drift.
+Ten fields, ~80 topics. Rendered flat it was a wall: 2000px of chips on a phone.
+Rebuilt 2026-08-14. Live and unauthenticated at `/prototype/interests`,
+including a 375px phone frame. That page renders the shipping component, so it
+can't drift.
 
-- **Fields collapse.** A field opens if it holds something you picked, else the
-  first one opens so it doesn't read as ten locked drawers. Collapsed rows
-  preview their contents — your picks if you have any, otherwise the first four
-  topics — so the closed state still says what's inside.
-- **One search box, two jobs.** It filters every field at once (matching fields
-  force open), and a phrase that matches nothing becomes the custom-topic adder:
-  "Nothing matches X. Add it to [field] [Add]". That replaced a "+ Add" chip
-  repeated down all ten rows.
-- **All topics / Selected · N.** The filter, not a second copy of your chips
-  pinned to the top. Removing something you picked never means hunting for it.
-- **Capacity meter.** `N of 30 topics · across K fields` over a 10px bar whose
-  segments are the field colours, widths proportional to picks. It answers the
-  question the subtitle asks (am I spread out, or stacked in one corner?), not
-  just "how full". No bar at zero — an empty meter is a shape with nothing to
-  say. At the cap the line reads "full — remove one to add another"; the old
-  yellow warning box is gone.
+**Ten collapsing rows and nothing else.** A field opens if it holds something
+you picked, otherwise the first one opens so it doesn't read as ten locked
+drawers. A closed row previews its contents: your picks if you have any, else
+the first four topics.
+
+- **The header line never moves.** Swatch, field name and chevron sit in one
+  flex line whose height is fixed; the preview hangs below it. Opening a field
+  used to reshuffle the swatch and the count, which read as a glitch. Keep it
+  that way: nothing whose position depends on `isOpen` belongs on that line.
+- **No search, no filter, no counter.** All three were built and then cut. The
+  accordion is browsable enough that a search box was one more control to look
+  past, the All/Selected filter duplicated what the row previews already say,
+  and a running "N of 30 · across K fields" meter put a number on screen that
+  nobody was deciding anything with. The cap only speaks when it binds: at 30 a
+  single line says so, and the chips dim.
+- **"+ Add" is per field, at the end of its chips**, expanding in place to a
+  small input. Ten of them stacked was noise, but only the open field shows one,
+  so at most one is ever on screen.
 - **Chips are sentence case in the body face.** Mono uppercase at 11px with
   1.2px tracking was legible one chip at a time and pure texture in bulk.
-- Every control clears 34px, the toolbar sticks to the top of its scroller
-  (so no scroller that renders the ledger may have top padding — content would
-  slide through the gap), and hover only sharpens the border, leaving the fill
-  to carry selected/idle alone.
+- Every control clears 34px, and hover only sharpens the border, leaving the
+  fill to carry selected/idle alone.
 
-### Settings on a phone
+### Settings
 
-The dialog is a full-screen sheet (`w-screen h-[100dvh]`, no radius) below `md`.
-Tabs move out of the header into a full-width `Segmented` bar — Account used to
-be a 10px mono word in the corner, which is why "Regenerate digest" was hard to
-find. Delivery cadence and the email switch moved from Interests to Account, so
-picking topics on a phone doesn't start with two screens of preferences, and
-Save lives in one sticky footer shared by both tabs (with
-`env(safe-area-inset-bottom)`).
+The shape everyone already knows: **a nav rail on the left, the section on the
+right.** 190px rail, 1px ink divider, active row marked by a 3px ink left bar.
+Below `md` the dialog is a full-screen sheet (`w-screen h-[100dvh]`, no radius)
+and the rail becomes a full-width tab strip under the header, active tab
+underlined 2px. (A segmented control was tried here first. It looked fine and
+read as a toggle, not as settings navigation.)
+
+Delivery cadence and the email switch live on Account, not Interests, so picking
+topics on a phone doesn't start with two screens of preferences, and
+"Regenerate digest" sits under its own heading with a line saying what it does.
+Save is in one sticky footer shared by both tabs, with
+`env(safe-area-inset-bottom)`. **The footer rule is the header rule** — 1px ink,
+top and bottom, same as every other page.
 
 ## Legacy component notes (some predate the white-background redesign)
 

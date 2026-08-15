@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { useSession as useAuthSession } from "next-auth/react";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
-import { NavTab, PageTitle, SectionLabel, ActionButton, SiteHeader, Segmented, INK, DISPLAY } from "@/components/design-system";
+import { PageTitle, SectionLabel, ActionButton, SiteHeader, Segmented, INK, DISPLAY } from "@/components/design-system";
 
 export type SettingsTab = "interests" | "account";
 
@@ -45,6 +45,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = (v: boolean) => { isControlled ? onOpenChange?.(v) : setInternalOpen(v); };
   const [tab, setTab] = useState<SettingsTab>("interests");
+  const initialFocusRef = useRef<HTMLDivElement>(null);
   const { data: authSession } = useAuthSession();
 
   // Interests state
@@ -166,36 +167,70 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
         className="flex flex-col p-0 gap-0 w-screen h-[100dvh] max-w-none rounded-none md:w-full md:max-w-[880px] md:h-[90vh]"
         style={{ borderRadius: 0 }}
         showCloseButton={false}
+        // Focus the panel itself, not the first button in it — otherwise
+        // "Done" opens wearing a focus ring and reads as a bordered control.
+        initialFocus={initialFocusRef}
       >
-        {/* ── Top bar — tabs live here on desktop, under it on mobile ── */}
+        <div ref={initialFocusRef} tabIndex={-1} style={{ outline: "none", position: "absolute" }} aria-hidden />
+        {/* ── Top bar ── */}
         <SiteHeader style={{ flexShrink: 0 }} right={
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-4">
-              {navItems.map(n => (
-                <NavTab key={n.key} active={tab === n.key} onClick={() => setTab(n.key)}>{n.label}</NavTab>
-              ))}
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-[#888] hover:text-[#1a1a1a] transition-colors"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 0 6px 6px", fontSize: "0.95rem", fontFamily: DISPLAY, fontWeight: 700 }}
-            >
-              Done
-            </button>
-          </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="text-[#888] hover:text-[#1a1a1a] transition-colors"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "6px 0 6px 6px", fontSize: "0.95rem", fontFamily: DISPLAY, fontWeight: 700 }}
+          >
+            Done
+          </button>
         } />
 
-        {/* Mobile tab bar — full width, thumb-sized, so Account is never a
-            9px word tucked in the corner of the header. */}
-        <div className="md:hidden px-4 pt-3 pb-1" style={{ flexShrink: 0 }}>
-          <Segmented
-            value={tab}
-            onChange={setTab}
-            options={navItems.map(n => ({ key: n.key, label: n.label }))}
-          />
-        </div>
+        {/* The settings shape everyone already knows: a nav rail on the left,
+            the section on the right. Below md the rail becomes a tab strip
+            across the top, since a phone has no width to spare for it. */}
+        <div className="flex-1 flex overflow-hidden">
+          <nav
+            className="hidden md:block"
+            style={{ width: 190, flexShrink: 0, borderRight: `1px solid ${INK}`, padding: "16px 0" }}
+          >
+            {navItems.map(n => (
+              <button
+                key={n.key}
+                onClick={() => setTab(n.key)}
+                aria-current={tab === n.key ? "page" : undefined}
+                style={{
+                  display: "block", width: "100%", textAlign: "left",
+                  padding: "10px 20px", background: "none", border: "none",
+                  borderLeft: `3px solid ${tab === n.key ? INK : "transparent"}`,
+                  fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 700,
+                  color: tab === n.key ? INK : "#666",
+                  cursor: "pointer", transition: "color 120ms",
+                }}
+              >
+                {n.label}
+              </button>
+            ))}
+          </nav>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <div className="md:hidden flex" style={{ flexShrink: 0, borderBottom: `1px solid ${INK}` }}>
+              {navItems.map(n => (
+                <button
+                  key={n.key}
+                  onClick={() => setTab(n.key)}
+                  aria-current={tab === n.key ? "page" : undefined}
+                  style={{
+                    flex: 1, padding: "13px 8px", background: "none", border: "none",
+                    borderBottom: `2px solid ${tab === n.key ? INK : "transparent"}`,
+                    marginBottom: -1,
+                    fontFamily: DISPLAY, fontSize: "0.95rem", fontWeight: 700,
+                    color: tab === n.key ? INK : "#888",
+                    cursor: "pointer",
+                  }}
+                >
+                  {n.label}
+                </button>
+              ))}
+            </div>
+
           {/* ── Interests tab ── */}
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -282,7 +317,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
                 <div style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid rgba(26,26,26,0.12)" }}>
                   <SectionLabel style={{ marginBottom: "4px" }}>Today&rsquo;s digest</SectionLabel>
                   <p style={{ fontSize: "0.85rem", color: "#666", margin: "0 0 12px" }}>
-                    Build it again from scratch — new question, new papers.
+                    Build it again from scratch. New question, new papers.
                   </p>
                   <ActionButton onClick={() => { onRegenerate?.(); setOpen(false); }} style={{ width: "100%", justifyContent: "center" }}>
                     <RefreshCw className="size-3.5" />
@@ -304,13 +339,12 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               </ActionButton>
             </div>
           )}
-        </main>
-
-        {/* ── One footer for both tabs — Save is never scrolled off ── */}
+        {/* ── One footer for both tabs — Save is never scrolled off. Its rule
+            is the header's rule: same 1px ink line top and bottom. ── */}
         <div
           className="px-4 md:px-10"
           style={{
-            borderTop: `2px solid ${INK}`, background: "#fff", flexShrink: 0,
+            borderTop: `1px solid ${INK}`, background: "#fff", flexShrink: 0,
             paddingTop: 12, paddingBottom: "max(12px, env(safe-area-inset-bottom))",
             display: "flex", alignItems: "center", gap: 10,
           }}
@@ -335,6 +369,8 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
           </ActionButton>
+            </div>
+          </main>
         </div>
       </DialogContent>
     </Dialog>

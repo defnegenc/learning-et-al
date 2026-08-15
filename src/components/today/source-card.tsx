@@ -135,7 +135,7 @@ export function SourceCard({ paper, index, loggedIn, initialBookmarked, compareM
           {paper.authors.length > 0 && (
             paper.authors.length <= 2 ? paper.authors.join(" & ") : `${paper.authors[0]}${paper.authors[1] ? `, ${paper.authors[1]}` : ""} et al.`
           )}
-          {paper.authors.length > 0 && journal ? " — " : ""}
+          {paper.authors.length > 0 && journal ? " · " : ""}
           {journal && <em>{journal}</em>}
         </div>
       )}
