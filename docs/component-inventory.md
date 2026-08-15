@@ -46,7 +46,7 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ sweep reads spectrum 0+1 / 3+4; notepad is square |
+| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ `InkTitle` at Display/LG (1px stroke), notepad is square, rail renders `PaperCard` compact |
 | `today/brief-digest.tsx` | The prose, the paper chips, the term chips | ✅ card extracted to `paper-card.tsx`; highlights are ink underlines |
 | `today/digest-header.tsx` | The gist and the addable topic tags | ✅ its local `TopicChip` renamed `AddableTopic` and now uses `Tag` |
 | `today/regenerate-cta.tsx` | End-of-digest "don't like this?" | ✅ |
@@ -82,7 +82,7 @@ one overrides Paper.
 | `app/page.tsx` | ✅ |
 | `app/digest/[id]` | ✅ `SiteHeader` + `PaperCard` compact; its own `PaperSourceTab` and two colour tables deleted |
 | `app/auth/error` | ✅ was raw monospace on a white page; now on the menu |
-| `app/prototype/{interests,loaders,headline}` | ✅ render the shipping components; palettes point at the stride |
+| `app/prototype/interests` | ✅ the only prototype left — a live harness for the shipping `InterestLedger`, so it can't drift. The two candidate pickers were deleted once their decisions landed |
 | `app/opengraph-image.tsx` (+ `twitter-image`) | ✅ Satori limits documented in design-style.md §7 |
 
 ## Non-browser surfaces
@@ -118,6 +118,8 @@ Listed so the history is legible. `git log -S<name>` recovers any of them.
 | `public-digest.tsx`, `today/knowledge-graph.tsx`, `today/synthesis-chat.tsx`, `today/paper-card.tsx` | 2026-08-14 | |
 | `today/papers-mode, papers-mode-og, paper-detail, qa-thread, brief-threads` | 2026-08-14 | The `?papers` / `?papersog` experiments |
 | `app/prototype/brief` | 2026-08-14 | Superseded prototype |
+| `app/prototype/headline` | menu | Ink-fill won and shipped. A candidate picker outlives its use the day the candidate lands |
+| `app/prototype/loaders` | menu | The stamp won and is `PageLoader`. Same reason |
 | `ui/badge, card, input, scroll-area, separator, sonner, tabs, textarea` | 2026-08-14 | Unused shadcn scaffolding |
 | `api/thread`, `api/papers/[id]/blurb`, `api/papers/[id]/related`, `api/email-preview` | 2026-08-14 | Served only the deleted views |
 | `lib/ai/agent.ts` | 2026-08-14 | The thread engine behind `/api/thread` |
