@@ -79,10 +79,11 @@ export function DigestHeader({ seedInterests, gist, topics, isLoggedIn = false, 
   const chips = (seedInterests || []).filter((c) => c.keyword);
   const extraTopics = topics || [];
   const defaultField = chips[0]?.field || "Computer Science";
-  // Dead-simple digest: the tag row and gist one-liner are hidden for now (flip
-  // SHOW_TAGS / SHOW_GIST to bring them back). Fields kept in the pipeline/DB.
+  // Dead-simple digest: the tag row stays hidden (flip SHOW_TAGS to bring it
+  // back). The gist one-liner is back — it lands the digest's closing answer
+  // right under the question instead of making you read to the end for it.
   const SHOW_TAGS = false;
-  const SHOW_GIST = false;
+  const SHOW_GIST = true;
   const showTags = SHOW_TAGS && (chips.length > 0 || extraTopics.length > 0);
   const showGist = SHOW_GIST && !!gist;
   if (!showTags && !showGist) return null;
