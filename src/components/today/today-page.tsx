@@ -8,6 +8,7 @@ import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
 import { PaperCard } from "@/components/paper-card";
+import { fieldColor } from "@/lib/field-hierarchy";
 
 /*
  * Brief is the default experience; classic (?classic=1) is the only alternate
@@ -17,7 +18,7 @@ import { PaperCard } from "@/components/paper-card";
 const SynthesisBanner = dynamic(() => import("./synthesis-banner").then(m => m.SynthesisBanner), { ssr: false });
 import {
   ACID_GREEN, ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_LG, INK, Label,
-  MUTED, PageLoader, SHADOW, SURFACE,
+  MUTED, PageLoader, SHADOW, SURFACE, Tag,
 } from "@/components/design-system";
 import React from "react";
 
@@ -134,7 +135,7 @@ interface TodayPageProps {
   onSignIn?: () => void;
 }
 
-export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignIn }: TodayPageProps) {
+export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [interestKeywords, setInterestKeywords] = useState<{ keyword: string; field: string }[]>([]);
@@ -345,7 +346,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
     return sentenceEnd ? sentenceEnd[1] : first;
   })();
 
-  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const digestFields = [...new Set(
+    (digest.seedInterests || []).map(interest => interest.field).filter(Boolean)
+  )];
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
@@ -358,7 +361,9 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           <div style={{ marginBottom: "28px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: "24px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                <Label>Daily digest</Label>
+                <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
+                  Daily digest
+                </div>
                 {!session && publicDigestList.length > 1 && (
                   <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
                     {publicDigestIdx < publicDigestList.length - 1 && (
@@ -386,11 +391,16 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
                   </div>
                 )}
               </div>
-              {generateError && (
-                <span style={{ ...BODY_STYLE, fontSize: 13, color: ACID_PINK, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
-                  {generateError}
-                </span>
-              )}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 6 }}>
+                {digestFields.map(field => (
+                  <Tag key={field} label={field} tint={fieldColor(field)} style={{ padding: "3px 9px" }} />
+                ))}
+                {generateError && (
+                  <span style={{ ...BODY_STYLE, fontSize: 13, color: ACID_PINK, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
+                    {generateError}
+                  </span>
+                )}
+              </div>
             </div>
 
             <InkTitle text={displayTheme} />
@@ -398,6 +408,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
             <DigestHeader
               seedInterests={digest.seedInterests}
               gist={digest.gist}
+              keyConcepts={digest.keyConcepts}
               topics={(() => {
                 // Digest topics beyond your interests: paper keywords first (the
                 // pipeline's topic labels), then key-concept terms, deduped and

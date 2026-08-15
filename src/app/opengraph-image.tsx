@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "fs/promises";
 import path from "path";
 
-export const alt = "Learning et al. — Color me curious.";
+export const alt = "Learning et al.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -115,8 +115,13 @@ export default async function Image() {
           </div>
         </div>
 
-        <div style={{ display: "flex", fontFamily: body, fontSize: 38, color: DIM }}>
-          Color me curious.
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", fontFamily: body, fontSize: 38, color: DIM }}>
+            Color me curious.
+          </div>
+          <div style={{ display: "flex", fontFamily: body, fontSize: 22, color: "#999999", letterSpacing: "0.01em" }}>
+            learningetal.com
+          </div>
         </div>
       </div>
     ),
