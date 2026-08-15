@@ -4,11 +4,101 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   The short menu — the design system, as tokens.
+
+   19 colours · 5 type styles · 2 borders · 1 shadow · 1 radius. Every value
+   below is in the Paper file ("Design system — the short menu"); nothing here
+   is invented, and nothing outside here is a system value. If a component
+   hardcodes a hex, a size or an offset that isn't one of these, it's off-system.
+
+   `static` so the whole menu is emitted even where only the TS side reads it —
+   the point of a design system is that you can open devtools and see all of it,
+   not just the parts a Tailwind utility happened to reference.
+   ───────────────────────────────────────────────────────────────────────────── */
+@theme static {
+  /* ── Neutrals — six, down from fourteen ──
+     Retired: #333 · #555 → #444 · #666 · #999 · #aaa → #888 · #c2c2c2 ·
+     #cbd5e1 · #eee → #ddd · #f9fafb → #fff */
+  --color-ink: #1a1a1a;        /* text, borders, fills */
+  --color-dim: #444444;        /* bylines, secondary copy */
+  --color-muted: #888888;      /* every mono label */
+  --color-rule: #dddddd;       /* hairlines, idle borders */
+  --color-field: #e8e8e8;      /* the page behind cards */
+  --color-surface: #ffffff;    /* cards, panels */
+
+  /* ── Acid — two. Ink only, never a fill. ──
+     Retired: #7700ff purple, #ffcc00 yellow, #ff5500 orange. */
+  --color-acid-green: #38b000; /* confirmation — saved, connected, done */
+  --color-acid-pink: #ff007f;  /* anything that failed */
+
+  /* ── Spectrum — ten slots, ordered by hue. One vocabulary, three indexes:
+     FIELD identity (fixed slot per domain) · KEYWORD tags (slot by hash of the
+     word) · CARD washes (slot by position in the digest). ── */
+  --color-spectrum-00: #fecaca; /* Medicine */
+  --color-spectrum-01: #fed7aa; /* Physics & Engineering */
+  --color-spectrum-02: #fde68a; /* Business & Finance */
+  --color-spectrum-03: #d9f99d; /* Education */
+  --color-spectrum-04: #bbf7d0; /* Biology */
+  --color-spectrum-05: #99f6e4; /* Sustainability */
+  --color-spectrum-06: #bfdbfe; /* Computer Science */
+  --color-spectrum-07: #ddd6fe; /* Social Sciences */
+  --color-spectrum-08: #f5d0fe; /* Philosophy & Ethics */
+  --color-spectrum-09: #fbcfe8; /* Design & Art */
+
+  /* ── Gold — one. The foundational frame, and nothing else. ──
+     Retired: #F7E38F, #8C6D1F, #E6C34A, #F5D547 (the metallic border-image). */
+  --color-gold: #c9a227;
+
+  /* ── Faces — three. Mono is structure only. ── */
+  --font-display: "Cabinet Grotesk", system-ui, sans-serif;
+  --font-body: "Apercu Pro", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* ── Type — five styles. Anything that names a thing is set in the body
+     face; mono is reserved for section eyebrows and nav tabs. ── */
+  --text-display-lg: 32px;   /* the digest's question, page titles, card heroes */
+  --text-display-sm: 16px;   /* card titles, lens labels, every button */
+  --text-label: 12px;        /* mono eyebrows and nav tabs — nothing else */
+  --text-body: 15px;
+  --text-body-sm: 13px;      /* tags, chips, bylines */
+
+  --font-weight-display: 700;
+  --font-weight-emphasis: 600; /* tags, chips — a modifier, not a style */
+  --font-weight-body: 400;
+
+  --tracking-display-lg: -0.02em;
+  --tracking-display-sm: -0.01em;
+  --tracking-label: 0.12em;
+  --tracking-body: 0em;        /* never positive tracking on body text */
+
+  --leading-display-lg: 40px;
+  --leading-display-sm: 20px;
+  --leading-label: 16px;
+  --leading-body: 24px;
+  --leading-body-sm: 20px;
+
+  /* ── Geometry — two borders, one shadow, no radius. ── */
+  --border-width-hairline: 1px;   /* rules, tags */
+  --border-width-structural: 2px; /* everything structural */
+  --shadow-hard: 5px 5px 0 0 var(--color-ink);
+  --shadow-gold: 5px 5px 0 0 var(--color-gold);
+
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+
+  --container-reading: 680px; /* one paper, read start to finish */
+  --container-digest: 760px;  /* the digest column */
+  --container-page: 880px;    /* card pages, settings */
+  --container-grid: 1400px;   /* dense grids */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -38,11 +128,6 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --color-acid-green: #38b000;
-  --color-acid-pink: #ff007f;
-  --color-acid-yellow: #ffcc00;
-  --color-acid-orange: #ff5500;
-  --color-acid-purple: #7700ff;
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -52,74 +137,45 @@
   --radius-4xl: 0px;
 }
 
-:root {
-  --font-display: 'Cabinet Grotesk', sans-serif;
-  --background: #ffffff;
-  --foreground: #1a1a1a;
-  --card: #ffffff;
-  --card-foreground: #1a1a1a;
-  --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #1a1a1a;
-  --primary-foreground: #ffffff;
-  --secondary: #f9fafb;
-  --secondary-foreground: #1a1a1a;
-  --muted: #f9fafb;
-  --muted-foreground: #555555;
-  --accent: #f9fafb;
-  --accent-foreground: #1a1a1a;
-  --destructive: #ff007f;
-  --border: #1a1a1a;
-  --input: #1a1a1a;
-  --ring: #1a1a1a;
-  --chart-1: #38b000;
-  --chart-2: #ff007f;
-  --chart-3: #ffcc00;
-  --chart-4: #ff5500;
-  --chart-5: #7700ff;
-  --radius: 0px;
-  --sidebar: #f9fafb;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #1a1a1a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f9fafb;
-  --sidebar-accent-foreground: #1a1a1a;
-  --sidebar-border: #1a1a1a;
-  --sidebar-ring: #1a1a1a;
-}
-
+/* shadcn's surface aliases, pointed at the six neutrals and the two acids.
+   The chart ramp used to be the five acid values; cutting to two acids left it
+   short, so it reads spectrum slots 00/02/04/06/08 — hue-ordered, which is a
+   better ramp than the acids ever were. Light and dark resolve identically:
+   this product has one mode. */
+:root,
 .dark {
-  --background: #ffffff;
-  --foreground: #1a1a1a;
-  --card: #ffffff;
-  --card-foreground: #1a1a1a;
-  --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #1a1a1a;
-  --primary-foreground: #ffffff;
-  --secondary: #f9fafb;
-  --secondary-foreground: #1a1a1a;
-  --muted: #f9fafb;
-  --muted-foreground: #555555;
-  --accent: #f9fafb;
-  --accent-foreground: #1a1a1a;
-  --destructive: #ff007f;
-  --border: #1a1a1a;
-  --input: #1a1a1a;
-  --ring: #1a1a1a;
-  --chart-1: #38b000;
-  --chart-2: #ff007f;
-  --chart-3: #ffcc00;
-  --chart-4: #ff5500;
-  --chart-5: #7700ff;
-  --sidebar: #f9fafb;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #1a1a1a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f9fafb;
-  --sidebar-accent-foreground: #1a1a1a;
-  --sidebar-border: #1a1a1a;
-  --sidebar-ring: #1a1a1a;
+  --background: var(--color-surface);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-ink);
+  --popover-foreground: var(--color-surface);
+  --primary: var(--color-ink);
+  --primary-foreground: var(--color-surface);
+  --secondary: var(--color-surface);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-field);
+  --muted-foreground: var(--color-muted);
+  --accent: var(--color-field);
+  --accent-foreground: var(--color-ink);
+  --destructive: var(--color-acid-pink);
+  --border: var(--color-ink);
+  --input: var(--color-ink);
+  --ring: var(--color-ink);
+  --chart-1: var(--color-spectrum-00);
+  --chart-2: var(--color-spectrum-02);
+  --chart-3: var(--color-spectrum-04);
+  --chart-4: var(--color-spectrum-06);
+  --chart-5: var(--color-spectrum-08);
+  --radius: 0px;
+  --sidebar: var(--color-surface);
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-ink);
+  --sidebar-primary-foreground: var(--color-surface);
+  --sidebar-accent: var(--color-field);
+  --sidebar-accent-foreground: var(--color-ink);
+  --sidebar-border: var(--color-ink);
+  --sidebar-ring: var(--color-ink);
 }
 
 @font-face {
@@ -136,17 +192,20 @@
   font-style: italic;
   font-display: swap;
 }
+/* Medium covers 500–600. The menu's tag/chip modifier is weight 600 and Apercu
+   ships no 600 — without this range the browser rounds 600 up to Bold, which is
+   a shout where a nudge was specified. */
 @font-face {
   font-family: "Apercu Pro";
   src: url("/fonts/apercu_medium_pro.otf") format("opentype");
-  font-weight: 500;
+  font-weight: 500 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Apercu Pro";
   src: url("/fonts/apercu_medium_italic_pro.otf") format("opentype");
-  font-weight: 500;
+  font-weight: 500 600;
   font-style: italic;
   font-display: swap;
 }
@@ -167,32 +226,12 @@
 
 /* Cabinet Grotesk — self-hosted so the display font never falls back to a
    system sans while fontshare's CDN loads (headings looked "wrong" until it
-   arrived). Same faces fontshare served: 400/500/700/800. */
-@font-face {
-  font-family: "Cabinet Grotesk";
-  src: url("/fonts/CabinetGrotesk-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Cabinet Grotesk";
-  src: url("/fonts/CabinetGrotesk-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
+   arrived). Bold is the only weight left: both display styles are 700, so
+   400/500/800 were three faces nothing referenced. */
 @font-face {
   font-family: "Cabinet Grotesk";
   src: url("/fonts/CabinetGrotesk-Bold.woff2") format("woff2");
   font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Cabinet Grotesk";
-  src: url("/fonts/CabinetGrotesk-Extrabold.woff2") format("woff2");
-  font-weight: 800;
   font-style: normal;
   font-display: swap;
 }
@@ -204,11 +243,12 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Apercu Pro", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-size: 0.95rem;
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
   }
   html {
-    font-family: "Apercu Pro", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: var(--font-body);
   }
   input, textarea, button, a {
     cursor: crosshair;
@@ -224,15 +264,8 @@
 
 /* Selection styles */
 ::selection {
-  background: #1a1a1a;
-  color: #ffffff;
-}
-
-/* Neo-underline utility */
-.neo-underline {
-  text-decoration: underline;
-  text-decoration-thickness: 3px;
-  text-underline-offset: 4px;
+  background: var(--color-ink);
+  color: var(--color-surface);
 }
 
 /* Custom scrollbar — brutal style */
@@ -242,30 +275,42 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f9fafb;
-  border-left: 2px solid #1a1a1a;
+  background: var(--color-surface);
+  border-left: var(--border-width-structural) solid var(--color-ink);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1a1a1a;
+  background: var(--color-ink);
   border-radius: 0;
-  border: 2px solid #1a1a1a;
+  border: var(--border-width-structural) solid var(--color-ink);
 }
 
 * {
   scrollbar-width: auto;
-  scrollbar-color: #1a1a1a #f9fafb;
+  scrollbar-color: var(--color-ink) var(--color-surface);
 }
+
 /* Topic chips (interest picker) — hover only sharpens the border, so the
    selected/idle fill stays the only thing carrying state. */
 .ds-chip:not(:disabled):hover {
-  border-color: #1a1a1a;
+  border-color: var(--color-ink);
   border-style: solid;
 }
-.ds-chip:not(:disabled):not([data-selected]):hover {
-  background: #fafafa;
-}
 .ds-chip:focus-visible {
-  outline: 2px solid #1a1a1a;
+  outline: var(--border-width-structural) solid var(--color-ink);
   outline-offset: 2px;
+}
+
+/* Anything that lifts: one shadow, one motion. Hover slides the object 1px
+   into its own shadow rather than growing a second, larger one. */
+.ds-lift {
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.ds-lift:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 0 var(--color-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ds-lift { transition: none; }
+  .ds-lift:hover { transform: none; }
 }

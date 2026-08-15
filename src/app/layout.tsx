@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Providers } from "@/components/providers";
@@ -12,17 +12,13 @@ const inter = Inter({
   display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
+// Three faces, not five. Geist Mono replaces IBM Plex Mono (the menu names it
+// as the label face); Space Grotesk left with the Wordmark *style* — the
+// wordmark is a lockup built from Display/SM, not a face of its own.
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-mono",
-  display: "swap",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["700"],
-  variable: "--font-logo",
+  weight: ["400", "700"],
+  variable: "--font-geist-mono",
   display: "swap",
 });
 
@@ -64,14 +60,19 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en">
+    /* The font variables go on <html>, not <body>: globals.css builds
+       --font-body and --font-mono out of them at :root, and a custom property
+       declared on :root can only see other properties declared on the same
+       element. On <body> the whole chain resolved to invalid and every mono
+       label fell back to the browser default. */
+    <html lang="en" className={`${inter.variable} ${geistMono.variable}`}>
       <head>
         {/* Cabinet Grotesk is self-hosted in globals.css (see @font-face) — no
             runtime fontshare CDN dependency, so the display font never flashes
-            a fallback sans. */}
-        <link rel="preload" href="/fonts/CabinetGrotesk-Extrabold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+            a fallback sans. Bold is the only weight the menu uses. */}
+        <link rel="preload" href="/fonts/CabinetGrotesk-Bold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
-      <body className={`${inter.variable} ${plexMono.variable} ${spaceGrotesk.variable} antialiased`}>
+      <body className="antialiased">
         <Providers session={session}>{children}</Providers>
         <Analytics />
         <SpeedInsights />

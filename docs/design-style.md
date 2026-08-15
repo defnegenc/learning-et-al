@@ -1,366 +1,262 @@
-# Learning et al. — Design System
+# Design system — the short menu
 
-> The canonical spec. `src/components/design-system.tsx` is the code half; this
-> is the decision half. If the two disagree, fix the code.
+> **Paper is the source of truth.** The file is *Brilliant petal* → board
+> **"Design system — the short menu"**, with **"The foundational lane"** and
+> **"Interests panel — on the new system"** beside it, and **"Shipping the menu"**
+> recording what was ambiguous and how it was resolved.
+>
+> This page is a reader's copy of the menu plus the things only code can say
+> (which file holds what, which surfaces exist). If it disagrees with Paper,
+> **Paper wins** — fix this page and the code, in that order.
+>
+> Everything in this file was rewritten from the Paper board on 2026-08-14. The
+> previous version described the pre-menu product (four gradient palettes,
+> 16 type styles, 7 shadows) and is gone.
 
-## Philosophy
-Brutalist research archive. Information-dense, no decoration for decoration's
-sake. Personality comes from typography, hard edges and colour — never from
-chrome, labels, or busywork around the content.
+## The menu, in one line
 
-**The test for any element: would removing it lose information the reader
-wants?** If not, remove it.
+One card, one spectrum, one shadow. Mono is reserved for structure — eyebrows
+and nav — and everything that names a thing goes back to the body face. Colour
+is the thing worth keeping; everything structural gets cut.
+
+**91 → 28.** 62 colours → 19 · 16 type styles → 5 · 4 borders → 2 · 7 shadows →
+1 · 2 radii → 1.
 
 ---
 
-## Fonts
+## 1 · Colour
 
-Four faces, each with one job. Reference them through the CSS variables, never
-by name.
+Values live in `@theme static` in `src/app/globals.css` and, for the TS side, at
+the top of `src/components/design-system.tsx`. The two lists must match.
 
-| Role | Variable | Face | Where |
-|------|----------|------|-------|
-| Body | (default, set on `body`) | **Apercu Pro** (self-hosted; Inter fallback) | All prose, bylines, list text, buttons' inner text |
-| Display | `var(--font-display)` | **Cabinet Grotesk** (self-hosted, 400/500/700/800) | Headings, card titles, the big TLDR line, buttons |
-| Logo | `var(--font-logo)` | **Space Grotesk** 700 | The wordmark only |
-| Mono | `var(--font-mono)` | **IBM Plex Mono** | Rare. See "Where mono is allowed" below |
+### Neutrals — six
 
-### Type scale
+| Token | Value | Where |
+|---|---|---|
+| `--color-ink` | `#1a1a1a` | text, borders, fills |
+| `--color-dim` | `#444444` | bylines, secondary copy |
+| `--color-muted` | `#888888` | every mono label |
+| `--color-rule` | `#dddddd` | hairlines, idle borders |
+| `--color-field` | `#e8e8e8` | the page behind cards |
+| `--color-surface` | `#ffffff` | cards, panels |
 
-| Use | Font | Size | Weight | Case | Colour |
-|-----|------|------|--------|------|--------|
-| Page title | Display | 2rem | 800 | Sentence | `#1a1a1a` |
-| Section heading | Display | 1.25rem | 800 | Sentence | `#1a1a1a` |
-| Card title | Display | 1.15rem | 700 | Sentence | `#1a1a1a` |
-| Hero / TLDR line | Display | 1.5rem | 700 | Sentence | `#1a1a1a` |
-| Reading prose | Body | 1.05rem / 1.75 | 400 | Sentence | `#1a1a1a` |
-| Body prose | Body | 0.95rem / 1.7 | 400 | Sentence | `#333` |
-| Secondary (byline, meta) | Body | 0.8–0.88rem | 400 | Sentence | `#666` |
-| Button | Display | 0.85–0.9rem | 700 | Sentence | ink or white |
+Retired: `#333` · `#555` → `#444` · `#666` · `#999` · `#aaa` → `#888` ·
+`#c2c2c2` · `#cbd5e1` · `#eee` → `#ddd` · `#f9fafb` → `#fff`.
 
-Letter-spacing: `-0.02em` on display headings, `-0.03em` at 2rem+. Zero on body.
+### Acid — two, ink only, never a fill
+
+`--color-acid-green` `#38b000` — confirmation that something stuck (the bookmark
+fill, the tag check, "All changes saved").
+`--color-acid-pink` `#ff007f` — anything that failed. It is also `--destructive`.
+
+Retired: `#7700ff` purple (link hover became an ink underline), `#ffcc00`,
+`#ff5500`. The chart ramp was the five acids; it now reads spectrum slots
+00/02/04/06/08, which is hue-ordered and a better ramp.
+
+### Spectrum — ten slots, ordered by hue
+
+`--color-spectrum-00` … `-09`: `#fecaca` `#fed7aa` `#fde68a` `#d9f99d` `#bbf7d0`
+`#99f6e4` `#bfdbfe` `#ddd6fe` `#f5d0fe` `#fbcfe8`.
+
+**One vocabulary, three indexes. Never interchange them.**
+
+| Index | Rule | Code |
+|---|---|---|
+| **Field identity** | one FIXED slot per domain, never moves | `FIELD_HIERARCHY[key].color`, `fieldColor()` |
+| **Keyword tags** | slot by hash of the word, so the same concept is the same colour everywhere | `wordSlot(word)` |
+| **Card washes** | slot by POSITION in the digest | `wash(index)` |
+
+Field → slot: Medicine 00 · Physics & Engineering 01 · Business & Finance 02 ·
+Education 03 · Biology 04 · Sustainability 05 · Computer Science 06 ·
+Social Sciences 07 · Philosophy & Ethics 08 · Design & Art 09.
+
+**The wash stride.** Card *i* takes slot `i×3` and the one next to it. Two
+adjacent slots are analogous, so a card reads as one hue with variation;
+stepping three puts the next card a third of the way round the wheel, so no two
+cards on screen are close. Card 4 lands on 9+0. Hover darkens the same two hues
+(`color-mix` 14% ink) — there is no second table.
+
+The wash is **wayfinding, not identity**: it is what lets a highlighted paper
+name in the synthesis match its card. Field-derived washes would give two
+Biology papers in one digest the same wash and the highlights would stop
+resolving. This one stride replaced `PALETTES`, `HOVER_PALETTES`,
+`CARD_PALETTES`, `SOURCE_PALETTES` and `CATEGORY_PALETTES`.
+
+### Gold — one
+
+`--color-gold` `#c9a227`. The foundational frame and its reason rule, nothing
+else. Outside the spectrum on purpose: the one card per digest that is not from
+this decade should not look like it drew a slot. Retired: `#F7E38F`, `#8C6D1F`,
+`#E6C34A`, `#F5D547` — a flat 2px gold border reads as gold at every size the
+five-stop gradient did.
+
+---
+
+## 2 · Type — five styles, three faces
+
+| Style | Face | Size | Weight | Tracking | Case | Where |
+|---|---|---|---|---|---|---|
+| Display/LG | Cabinet Grotesk | 32 / 40 | 700 | −0.02em | sentence | the digest's question, page titles, a card's hero |
+| Display/SM | Cabinet Grotesk | 16 / 20 | 700 | −0.01em | **upper** | card titles, lens labels, **every button** |
+| Label | Geist Mono | 12 / 16 | 700 | 0.12em | upper | section eyebrows and nav tabs — nothing else |
+| Body | Apercu Pro | 15 / 24 | 400 | 0 | sentence | prose |
+| Body/SM | Apercu Pro | 13 / 20 | 400 | 0 | sentence | tags, chips, bylines |
+
+Weight 600 (tags, chips) and italic (bylines) are **modifiers, not extra
+styles**. Apercu ships no 600, so `@font-face` gives Medium the range `500 600`
+— otherwise the browser rounds up to Bold.
+
 **Never positive tracking on body text.**
 
-### Where mono is allowed
+**If it names a thing rather than the machinery, it is not a Label.** That single
+rule is what moved tags, chips and the venue line out of mono uppercase and into
+body-face sentence case — the largest visual change in the set. The product used
+to shout eleven small things per card; it shouts two.
 
-Mono uppercase is a *structural* signal, not a decorative one. Allowed in:
-nav tabs, the digest date line, and code-ish values.
+Three faces: Cabinet Grotesk (700 only), Apercu Pro, Geist Mono. Geist Mono
+replaced IBM Plex Mono. Space Grotesk left with the retired *Wordmark* style —
+the wordmark is a **lockup**, Display/SM with the label's 0.12em tracking.
 
-**Not allowed:** as an eyebrow above content, as a card's meta rail, as a label
-on a section that already has a heading, or anywhere at `<0.7rem` in grey.
-
----
-
-## Anti-patterns — the "AI slop" list
-
-These are the things that make a UI look generated. None of them are allowed.
-
-1. **Tiny faint uppercase labels.** `0.55–0.62rem`, `letter-spacing: 1–2px`,
-   `color: #888/#999`, `text-transform: uppercase`, sitting above real content.
-   They read as a template, they're hard to read, and they almost always label
-   something that's obvious from the content underneath. If a section needs a
-   name, give it a **display-font heading at a readable size**.
-2. **Metadata rails on cards.** "Paper · 2024 · From 'theme' (date)" strips,
-   source-type chips, "From: {digest}" attributions. A card is a title, who made
-   it, and one action.
-3. **Labelling the obvious.** Don't put "Abstract" over an abstract or "Title"
-   over a title. Don't caption a list of citing papers as "Homework —
-   what's happened since?" *and* head the section with the same words.
-4. **Stacked wrappers.** A card inside a modal inside a dimmed backdrop. Pick
-   one container. Full-screen beats a card for anything you actually read.
-5. **Sections that exist because the data exists.** The reading view had did /
-   found / caveats / remember / glossary / questions / homework because the
-   model produced them, not because anyone read that far.
-6. **Fake progress.** No bar that fills toward a percentage the code can't know.
-7. **More than one loading indicator per wait.** See "Loading".
+The font variables are set on `<html>`, not `<body>`: `globals.css` composes
+`--font-body` and `--font-mono` out of them at `:root`, and a custom property on
+`:root` can only see other properties on the same element.
 
 ---
 
-## Colour
+## 3 · Geometry — two borders, one shadow, no radius
 
-- **Background:** `#fff`
-- **Ink:** `#1a1a1a` — all borders, all body text, button fills
-- **Greys:** `#666` secondary text · `#888` tertiary · `rgba(26,26,26,0.12)` hairline rules
-- **Never** pure black `#000` or a grey outside that set.
-
-### The palette (the "rainbow")
-
-Four ordered pairs, cycled by index — `SOURCE_PALETTES` in
-`src/components/today/palettes.ts`. Source 1 always gets pair 1, so a paper
-keeps its colour across the digest.
-
-| # | Pair | Reads as |
-|---|------|----------|
-| 1 | `#6EE9A8` → `#D4F04A` | green → lime |
-| 2 | `#FF85A8` → `#FFD020` | pink → yellow |
-| 3 | `#60AAE8` → `#A878E8` | blue → purple |
-| 4 | `#FFD020` → `#FF85A8` | yellow → pink |
-
-Used for: card blob washes (`dispersedWash`, ~0.42 alpha), the sweep bar under
-the digest title, takeaway tile fills, and the loader. Not for text, not for
-borders, not for backgrounds of whole pages.
+- **1px** — rules, tags. **2px** — everything structural. Retired: 1.5px, 3px.
+- **`5px 5px 0`** — anything that lifts. Retired: 2px/3px/4px/8px offsets, the
+  soft `0 1px 4px` card lift, the 12px gold glow.
+- **Radius 0, without exception.** The 6px on `TopicChip` and `AddChip` was the
+  last rounded corner in the product; the notepad's 999px pill went with it.
+- **Hover** can't grow a second shadow, so `.ds-lift` slides the object 2px into
+  its own shadow and the shadow reaches 7px. Honour `prefers-reduced-motion`.
 
 ---
 
-## Borders, shadows, spacing
+## 4 · What a card is
 
-- **Card border:** `2px solid #1a1a1a`. **Hairline rule:** `1px solid rgba(26,26,26,0.12)`.
-- **No rounded corners** anywhere except `TopicChip` (6px — the one exception).
-- **Hard shadows only**, no blur: `6px 6px 0 0 #1a1a1a` cards · `4px 4px` buttons ·
-  `3px 3px` small/nested. Hover lifts by `translate(-2px,-2px)` and grows the shadow 2px.
-- **Padding:** 26–28px in cards, 14–18px in small tiles.
-- **Reading column:** max-width 680px. **Digest column:** 760px. **Grid page:** 1400px.
-- **Cursor:** crosshair everywhere.
+**Title, byline, tags.** In that order, with nothing above the title.
 
-### What a card is
+- **Title** — Display/SM, upper. The first thing read.
+- **Byline** — Body/SM italic `--color-dim`: authors, venue and year on one line.
+  "Paper · 2026" was never information anyone needed as a heading; the year
+  belongs with the journal and the source type is carried by the venue name.
+- **Tags** — `Tag` in the body face, sentence case, 1px, no shadow.
+  `glass` on a wash (the wash already carries the colour), `solid` on white
+  (fill = the keyword's hashed spectrum slot).
 
-A card may contain, in this order: **title** (display 700), **one line of
-attribution** (authors · journal · year, body 0.8rem `#666`), **one primary
-action**. Everything else belongs in the view the card opens.
+`PaperCard` in `src/components/paper-card.tsx` is the **only** paper card, in two
+sizes. `digest` adds the hero line and the tiles behind one expand control;
+`compact` is the same card smaller and is what "Referenced sources", the vault
+and the permalink render. `SourceCard`, `ReadingListCard` and the permalink's
+`PaperSourceTab` are deleted, not restyled — that removed three components, four
+palettes, a 1.5px border, a soft shadow and a glass-tag variant, and it is why
+the wash index can no longer drift between two files.
 
-### Foundational card frame (the one exception to black borders)
+### The foundational card
 
-A paper with `category: "foundational"` keeps its normal pastel wash but the FRAME goes gold:
-- Border: 3px, shiny gradient via `border-image: linear-gradient(135deg, #F7E38F, #C9A227, #8C6D1F, #E6C34A, #F7E38F) 1` (light→deep gold reads as metallic sheen)
-- Shadow: hard gold offset (`3px 3px 0 0 #C9A227`) + soft glow (`0 0 10px rgba(201,162,39,0.45)`)
-- Badge: small ★ FOUNDATIONAL chip — mono uppercase, `#F5D547` background, 1px black border (the one sanctioned mono uppercase micro-label, because it's a rare award, not a section eyebrow)
-- Below the citation line: the one-sentence `foundationalReason` in italic with a 3px gold left bar
+`category: "foundational"` — at most one per digest, most days none.
 
-Max one per digest, rare by design — the gold means something because most digests don't have it.
-
----
-
-## The page template
-
-`/prototype/loaders` is the reference page. Every full page should read like it:
-a big sentence-case title, one plain line of explanation, then bordered cards on
-a white field. Nothing else. Use the primitives — `PageHeader`, `Card`,
-`CardGrid` in `design-system.tsx` — rather than rebuilding the geometry.
-
-| Element | Spec |
-|---------|------|
-| Page padding | `48px 24px 80px` |
-| Page width | 880px for card pages · 680px reading · 760px digest · 1400px dense grids |
-| Title | Display 800, `2rem`, `-0.03em`, sentence case, `0 0 8px` |
-| Intro line | Body `1rem`, `#666`, `line-height 1.6`, `max-width 560px` |
-| Title → content gap | 40px |
-| Card grid | `repeat(auto-fill, minmax(260px, 1fr))`, gap 24px |
-| Card frame | `2px solid #1a1a1a`, `box-shadow: 6px 6px 0 0 #1a1a1a`, white |
-| Card media region | flush, `borderBottom: 2px solid`, contents centred |
-| Card body | padding `16px 18px` — title Display 700 `1.05rem`, note body `0.85rem` `#666` |
-
-What makes it work, and what to preserve when applying it elsewhere:
-
-- **No rule under the page title.** The whitespace separates; a border adds noise.
-- **Sentence case everywhere**, including buttons and card titles.
-- **Exactly two type sizes per card** — the title and the note. No third tier.
-- **One colour of secondary text** (`#666`). Not `#888` *and* `#999` *and* `#aaa`.
-- **Colour appears in the content, not the chrome.** The frame is always black on
-  white; the palette lives inside the card.
-- **Generous vertical rhythm** — 24px between cards, 40px under the header. The
-  density belongs in the digest, not in the surfaces around it.
-
-## Loading
-
-One primitive: `PageLoader` in `design-system.tsx`. Rules:
-
-1. **At most one loading indicator per wait.** If two things load in sequence,
-   the first must render the page chrome and hand off to the second *in the same
-   position*, so it reads as one wait. (Fixed 2026-08-14: auth showed a spinning
-   square on a blank screen, then the digest fetch showed a circle somewhere
-   else.)
-2. **Never move the indicator** between phases, and never change its shape. It
-   is `fixed inset-0` and centred in the *viewport*, not padded down from the
-   top of whatever container renders it — every caller renders it as the sole
-   page content, so viewport centring is what keeps rule 1 true across a
-   handoff regardless of how tall each page is. (Fixed 2026-08-14: `py-20`
-   parked the stamp just under the header on tall screens.)
-3. **No fake progress.**
-4. Inline spinners inside buttons are fine and separate from this.
-5. Honour `prefers-reduced-motion` — animation off, mark still visible.
-
-Candidates for a custom loader live at `/prototype/loaders`.
+- **Frame:** 2px `#C9A227` with a `5px 5px 0` gold shadow. One gold moment.
+- **Wash:** fixed at slots 02 + 01 rather than taking a position stride — it
+  isn't competing for wayfinding, the gold already says which card it is.
+- **Order:** label, title, byline, reason. The reason closes the card behind a
+  2px gold rule.
+- **The eye:** 15px, gold at rest, ink on hover, opening the same ink tooltip
+  used for hard-word definitions. The label stays constant so the lane is
+  recognisable the third time; the eye carries the explanation the first.
 
 ---
 
-## The share card (OG image)
+## 5 · Shared components — `src/components/design-system.tsx`
 
-`src/app/opengraph-image.tsx` — the 1200×630 thumbnail iMessage, Slack and
-Twitter render. `twitter-image.tsx` re-exports it, so there is one card.
+| Component | What it is |
+|---|---|
+| `PageLoader` | The stamp — the ONE page-level loader. Shadow walks spectrum 0/3/6/9 |
+| `SiteHeader` | The 52px bar: wordmark left, caller's controls right |
+| `Wordmark` | Display/SM at 0.12em tracking. A lockup, not a style |
+| `PageHeader` / `PageTitle` | Display/LG title + one Body line. No eyebrow above, no rule under |
+| `Label` | The mono eyebrow. Name the machinery, never the content |
+| `SectionLabel` | Display/SM — where a section genuinely needs a name |
+| `NavTab` | The other sanctioned mono use; active gets a 2px ink underline |
+| `ActionButton` | Display/SM upper. `primary` ink fill · `outline` white · `plain` frameless for the quiet third action |
+| `Card` / `CardGrid` | The frame (2px + `5px 5px 0`) and the standard shelf |
+| `Tag` | Body-face tag, `glass` \| `solid` |
+| `TopicChip` / `AddChip` | Interest-picker units. Idle white + 2px dashed rule; selected = the field's slot behind a solid ink border |
+| `Segmented` | The one "pick exactly one" shape |
+| `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye |
+| `TextInput` | The one input shape |
+| `wash` / `washSlots` / `wordSlot` / `SPECTRUM` | The three spectrum indexes |
 
-It follows the page template, not a poster language: white field, ink frame,
-wordmark top-left, hero, one line at `#666`, the address. The hero is the
-**sweep** — two phrases in Cabinet Grotesk 700 `-0.04em`, each with the
-gradient bar from `SOURCE_PALETTES[0]` and `[1]` under it, exactly as
-`SweepTitle` draws it on the digest. Colour appears only in those two bars.
-
-Two constraints, both from Satori (the renderer behind `next/og`):
-
-- **No `filter: blur()`.** It rasterises as hard-edged rectangles, not soft
-  blobs. Washes must be `linear-gradient` / `radial-gradient`.
-- **No woff2.** Only ttf/otf/woff. Cabinet Grotesk ships as woff2, so a
-  decompressed `CabinetGrotesk-Bold.ttf` lives in `public/fonts` purely for
-  this route (`fonttools`: open the woff2, clear `flavor`, save as `.ttf`).
-  Apercu is already `.otf` and Space Grotesk already `.ttf`.
-
-Satori has no inline layout — a background under a run of text has to be a
-sibling `<div>` pulled up with a negative margin, and the phrase column needs
-`alignSelf: flex-start` or the bar stretches the full width.
-
----
-
-## Motion
-
-- **No animation library.** Framer Motion (~120 KB) and Lottie (~250 KB) both
-  cost more than the thing they animate. CSS `@keyframes`, declared in a
-  `<style>` block in the component that uses them.
-- Durations: 120–150ms for hover/state, 400–520ms for entrances, 1.5–2s for
-  loops.
-- Entrances rise 6px and fade (`briefRise`). Mechanical loops use
-  `steps()`, not easing.
-- Custom art arrives as **SVG** (square viewBox, strokes left as strokes, no
-  masks or filters, named layers), inlined as a component and animated in CSS.
-  Not GIF, not Lottie.
+Loading rules are unchanged and still binding: **at most one indicator per
+wait**, never move it between phases, no fake progress, inline button spinners
+are separate, honour `prefers-reduced-motion`.
 
 ---
 
-## Shared components (`src/components/design-system.tsx`)
+## 6 · Surfaces
 
-One file exports the primitives every surface composes. The Today page is the
-reference look; Vault, Settings, and Onboarding must use these instead of
-restyling their own. Added 2026-07-19.
+| Surface | Notes |
+|---|---|
+| Today (`today/`) | Digest column 760px. Question at Display/LG with the sweep (spectrum 0+1 and 3+4, 7px bar). `PaperCard` size `digest` |
+| Classic (`?classic=1`) | `synthesis-banner.tsx`. Paper names are ink underlines, not coloured highlights; `[N]` citations take the cited card's wash slot |
+| Vault | Digest history (rail + pane) and the reading list — `PaperCard` size `compact` |
+| Reading detail | 680px column. Title, byline, gist, then what's happened since |
+| Settings / Onboarding | Full-screen sheet below `md`. `InterestLedger` for both |
+| `/prototype/*` | `interests`, `loaders`, `headline`. Live, unauthenticated, rendering the shipping components |
+| Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards |
+| Share card | `opengraph-image.tsx`. No `filter: blur()` and no woff2 — Satori limits. See §7 |
+| Email | `src/lib/email.ts`. See §7 |
 
-| Component | What it is | Used in |
-|-----------|-----------|---------|
-| `PageLoader` | The stamp — the ONE page-level loader | Home (auth), Today (digest fetch), Vault, Digest history |
-| `PageHeader` | Page title + one intro line + optional action | Vault; the template for every full page |
-| `Card` | The frame — 2px border, hard shadow, optional media region | Loader prototype; use for any new card surface |
-| `CardGrid` | `auto-fill minmax(260px, 1fr)`, gap 24 | Same |
-| `Wordmark` | "Learning et al." lockup — Space Grotesk 700, 0.2em tracking | App-shell header, Settings dialog header |
-| `NavTab` | Mono uppercase tab, active underline | App-shell nav (today/vault/admin), Settings tabs, Vault filter bar (By Digest / By Domain / Starred / Bookmarked / Compare) |
-| `SectionLabel` | Small section heading — display face, 0.95rem, 700, sentence case | Settings "How often" / "Email it to me" / "Today's digest", Vault drawer title |
-| `PageTitle` | Cabinet Grotesk heading, 700, -0.02em (sm/md/lg; `lg` is fluid `clamp(1.5rem, 6vw, 2rem)` so it steps down on a phone) | Settings "Curate your feed" / "Account", Vault "Vault" |
-| `ActionButton` | Brutalist button (2px ink border, hard shadow; primary = ink fill, outline = white; sm/md) | Settings Save / Regenerate / Sign out, Vault pagination + Compare CTA (same voice as Today's "Next source") |
-| `Segmented` | "Pick exactly one" — cells share a 2px ink frame via -2px margins, active cell inverts to ink; sm/md (md = 42px, thumb-sized) | Settings tabs (mobile), delivery cadence, the ledger's All / Selected filter |
-| `TopicChip` | Interest chip — **sentence case in the body face, 0.85rem**; idle: white + dashed grey border; selected: soft field tint (`chipTint`, pastel mixed 45% into white) + solid ink border; 6px radius (the only rounded element); 34px min height | InterestLedger (Settings + Onboarding) |
-| `AddChip` | "+ Add" chip — dashed ink border, same geometry as `TopicChip` | Unused since the ledger moved to one search-box adder; keep for any new picker |
-| `SourceCard` (`today/source-card.tsx`) | The paper/news card: blob wash, mono venue line, display title, glass tags; optional compare-select mode | Today source grid, Vault grid (identical card in both) |
+### The interest picker
 
-Chip palette follows the 2026-07-19 reference mock (soft solid tints, not gradients).
-The old gradient `GlassTag` is gone; `CATEGORY_PALETTES` remains only for
-synthesis concept tags.
+Ten fields, ~80 topics. Fields collapse: a field opens if it holds something you
+picked, else the first opens so it doesn't read as ten locked drawers. Collapsed
+rows preview their contents. One search box does two jobs — filter everything at
+once, and a phrase that matches nothing becomes the custom-topic adder. The
+capacity meter is `N of 30 topics · across K of 10 fields` over a 10px bar whose
+segments are the field slots; no bar at zero.
+
+Row vocabulary comes from the Paper board: swatch (the field's fixed slot),
+field name at Display/SM, count as the row's one mono Label. The board draws all
+ten fields open in a 1280px panel; the accordion stays because the settings
+sheet is 880px and a phone is 375px.
 
 ---
 
-## The interest picker (`src/components/interest-ledger.tsx`)
+## 7 · The two surfaces that can't load the system
 
-Ten fields, ~80 topics. Rendered flat it was a wall — 2000px of chips on a
-phone, and no way to find "protein folding" except to read everything. Rebuilt
-2026-08-14. Live and unauthenticated at `/prototype/interests`, including a
-375px phone frame; that page renders the shipping component, so it can't drift.
+**The share card** (`opengraph-image.tsx`) renders through Satori: no
+`filter: blur()` (it rasterises as hard rectangles) and no woff2. Cabinet
+Grotesk ships as woff2, so a decompressed `CabinetGrotesk-Bold.ttf` lives in
+`public/fonts` purely for this route. Satori has no inline layout — a background
+under a run of text has to be a sibling `<div>` pulled up with a negative margin.
+The sweep hues are inlined and must move when `washSlots` moves.
 
-- **Fields collapse.** A field opens if it holds something you picked, else the
-  first one opens so it doesn't read as ten locked drawers. Collapsed rows
-  preview their contents — your picks if you have any, otherwise the first four
-  topics — so the closed state still says what's inside.
-- **One search box, two jobs.** It filters every field at once (matching fields
-  force open), and a phrase that matches nothing becomes the custom-topic adder:
-  "Nothing matches X. Add it to [field] [Add]". That replaced a "+ Add" chip
-  repeated down all ten rows.
-- **All topics / Selected · N.** The filter, not a second copy of your chips
-  pinned to the top. Removing something you picked never means hunting for it.
-- **Capacity meter.** `N of 30 topics · across K fields` over a 10px bar whose
-  segments are the field colours, widths proportional to picks. It answers the
-  question the subtitle asks (am I spread out, or stacked in one corner?), not
-  just "how full". No bar at zero — an empty meter is a shape with nothing to
-  say. At the cap the line reads "full — remove one to add another"; the old
-  yellow warning box is gone.
-- **Chips are sentence case in the body face.** Mono uppercase at 11px with
-  1.2px tracking was legible one chip at a time and pure texture in bulk.
-- Every control clears 34px, the toolbar sticks to the top of its scroller
-  (so no scroller that renders the ledger may have top padding — content would
-  slide through the gap), and hover only sharpens the border, leaving the fill
-  to carry selected/idle alone.
+**Email** (`src/lib/email.ts`) can't load web fonts, CSS variables or
+`radial-gradient`. The display face falls back to the system grotesque and the
+label face to a monospace stack; the card's wash becomes a flat 6px band of its
+two hues across the top. Every other value is a literal at the top of the file
+and must move when `globals.css` moves.
 
-### Settings on a phone
+---
 
-The dialog is a full-screen sheet (`w-screen h-[100dvh]`, no radius) below `md`.
-Tabs move out of the header into a full-width `Segmented` bar — Account used to
-be a 10px mono word in the corner, which is why "Regenerate digest" was hard to
-find. Delivery cadence and the email switch moved from Interests to Account, so
-picking topics on a phone doesn't start with two screens of preferences, and
-Save lives in one sticky footer shared by both tabs (with
-`env(safe-area-inset-bottom)`).
+## 8 · Motion
 
-## Legacy component notes (some predate the white-background redesign)
+No animation library. CSS `@keyframes` in the component that uses them.
+Durations: 120–150ms hover/state, 400–520ms entrances, 1.5–2s loops. Entrances
+rise 6px and fade (`briefRise`); mechanical loops use `steps()`, not easing.
+Custom art arrives as SVG (square viewBox, strokes left as strokes, no masks or
+filters, named layers), inlined and animated in CSS — not GIF, not Lottie.
 
-### Header
-- Horizontal line with centered bordered title box: "LEARNING ET AL."
-- Tab buttons below: TODAY / VAULT
-- Settings gear icon right-aligned
+---
 
-### Paper Card (sidebar)
-- **Purpose:** Show a paper at a glance. Title, source, summary, tags.
-- **Appearance:** 1.5px bordered box, #e8e8e8 bg
-- **Content:** Source label (mono, small), title (uppercase bold), authors (italic small), abstract (line-clamp-3), keyword tags (pastel colored boxes with black text and 1px black border)
-- **Hover:** translateY(-2px), bg lightens to #f0f0f0
-- **Interactions:** Click to open detail. Star/dislike appear on hover.
+## 9 · The test
 
-### Synthesis Panel (top of canvas area)
-- **Purpose:** Brief the user on today's digest. Theme + conversational summary.
-- **Appearance:** Clean text area, 40px padding, max-width 700px
-- **Content:** Header with pulsing green dot + "DAILY_SYNTHESIS_SUMMARY", then synthesis text at 1.1rem
-- **Tags:** Concept tags below synthesis, pastel colored boxes
-- **NO blobs, NO decorative elements.** Just text.
+**Would removing it lose information the reader wants?** If not, remove it.
 
-### Knowledge Graph / Node Map (bottom of canvas area)
-- **Purpose:** Quick visual showing how today's topics connect. User glances at it to see relationships. NOT a feature — a minimap.
-- **Appearance:** Small bordered container (320x240px), positioned bottom-right of visual workspace, with subtle box-shadow
-- **Content:**
-  - Keyword nodes: small bordered labels (0.55rem, uppercase, letter-spacing 1px, bg #e8e8e8, 1px solid border)
-  - Connection lines: solid 1.5px lines between related nodes, opacity 0.8
-  - That's it. No circles, no dots, no blobs inside the container.
-- **Blobs:** 2-3 large blurred accent-colored circles in the VISUAL WORKSPACE (parent area), NOT inside the node container. They provide ambient color to the workspace background.
-- **Behavior:** Clicking a node highlights related papers in the sidebar.
-
-### Paper Detail View
-- **Purpose:** Full view of a paper with AI summary and Q&A.
-- **Back button:** "← BACK" mono uppercase, no chrome
-- **Layout:** Source label, title, authors, keyword tags, separator, AI summary, separator, Q&A thread
-- **Style:** Same borders/typography as everything else
-
-### Q&A Thread
-- **Purpose:** Ask questions about a paper, see saved Q&A history.
-- **Appearance:** Each QA pair is a bordered box. Question bold, answer below. Click to expand/collapse.
-- **Input:** Plain bordered textarea + "ASK" button
-
-### Vault Page (archive grid)
-- **Purpose:** Browse all past papers/articles.
-- **Layout:** Grid of square (1:1) cards + right sidebar with timeline
-- **Cards:** aspect-ratio 1/1, small accent aura blob in top-right, REP_XXX number, category tag, title
-- **Grid:** repeat(auto-fill, minmax(240px, 1fr))
-- **Hover:** translateY(-2px), bg goes white
-- **Compare mode:** Select 2-3, acid-pink border on selected
-
-### Onboarding
-- **Purpose:** Get API key + interests with field/level.
-- **Step 1:** Provider selector + API key input
-- **Step 2:** Interest cards (keyword + field + level) + content mix slider
-- **Style:** Centered bordered card, same brutalist treatment
-
-### Settings Dialog
-- **Purpose:** Change API key/provider anytime.
-- **Style:** Same brutalist inputs and buttons. Test connection button.
-
-### Tags/Badges (universal)
-- Pastel background (from palette above), assigned by index % 5
-- Black text (#1a1a1a)
-- 1px solid #1a1a1a border
-- No rounded corners
-- Padding: 2px 8px
-- Font: 0.6rem, uppercase
-
-### Noise Overlay
-- Fixed, full-screen, pointer-events none
-- SVG fractalNoise texture at 0.08 opacity
-- Always present for texture
+And the one that keeps the menu short: **no surface may invent a hex, a type
+size, a border width or a shadow offset.** If you need one, it goes in Paper
+first, then `globals.css` and `design-system.tsx`, then the surface.

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { SOURCE_PALETTES } from "@/components/today/palettes";
+import { washSlots } from "@/components/today/palettes";
+import { BODY_STYLE, DISPLAY, DISPLAY_LG, DISPLAY_SM, INK, MUTED, SHADOW, SURFACE } from "@/components/design-system";
 
 /*
  * Loader candidates — pick one and it becomes PageLoader in design-system.tsx.
@@ -9,20 +10,19 @@ import { SOURCE_PALETTES } from "@/components/today/palettes";
  * Rules every candidate follows:
  *  - No dependencies. CSS keyframes only; a loader must never cost bundle.
  *  - No fake progress. Nothing fills toward a percentage it can't know.
- *  - Palette comes from SOURCE_PALETTES, the same four pairs the cards use, so
- *    the rainbow reads as the product's and not as decoration.
+ *  - Palette comes from the spectrum, read the same way the cards read it, so
+ *    the colour is the product's and not decoration.
  *  - Hard edges, no rounded corners, no easing that feels soft.
  */
 
-const DISPLAY = "var(--font-display), sans-serif";
-const INK = "#1a1a1a";
-const FLAT = SOURCE_PALETTES.map(([a]) => a); // one flat colour per pair
+
+const FLAT = [0, 1, 2, 3].map(i => washSlots(i)[0]); // card 1-4's first hue
 
 /* ── 1. Scanline ──────────────────────────────────────────────────────────
    A rainbow bar sweeps down a bordered sheet, like a page being copied. */
 function Scanline() {
   return (
-    <div style={{ position: "relative", width: 132, height: 92, border: `2px solid ${INK}`, background: "#fff", overflow: "hidden" }}>
+    <div style={{ position: "relative", width: 132, height: 92, border: `2px solid ${INK}`, background: SURFACE, overflow: "hidden" }}>
       {[0, 1, 2, 3].map(i => (
         <div key={i} style={{ position: "absolute", left: 14, right: 14, top: 16 + i * 18, height: 6, background: "rgba(26,26,26,0.10)" }} />
       ))}
@@ -44,7 +44,7 @@ function PunchCard() {
   return (
     <div style={{ display: "flex", gap: 8 }}>
       {[0, 1, 2, 3, 4].map(i => (
-        <div key={i} style={{ position: "relative", width: 20, height: 20, border: `2px solid ${INK}`, background: "#fff" }}>
+        <div key={i} style={{ position: "relative", width: 20, height: 20, border: `2px solid ${INK}`, background: SURFACE }}>
           <div
             className="ld-punch"
             style={{ position: "absolute", inset: 0, background: FLAT[i % FLAT.length], animationDelay: `${i * 0.16}s` }}
@@ -60,7 +60,7 @@ function PunchCard() {
 function Stamp() {
   return (
     <div style={{ width: 64, height: 64, display: "grid", placeItems: "center" }}>
-      <div className="ld-stamp" style={{ width: 34, height: 34, border: `3px solid ${INK}`, background: "#fff" }} />
+      <div className="ld-stamp" style={{ width: 34, height: 34, border: `3px solid ${INK}`, background: SURFACE }} />
     </div>
   );
 }
@@ -72,7 +72,7 @@ function DrawOn() {
     <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
       <defs>
         <linearGradient id="ldGrad" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
-          {FLAT.map((c, i) => <stop key={i} offset={i / (FLAT.length - 1)} stopColor={c} />)}
+          {FLAT.map((c: string, i: number) => <stop key={i} offset={i / (FLAT.length - 1)} stopColor={c} />)}
         </linearGradient>
       </defs>
       <rect x="6" y="6" width="48" height="48" stroke="rgba(26,26,26,0.12)" strokeWidth="4" />
@@ -85,7 +85,7 @@ function DrawOn() {
    The digest title's own sweep, reused: a word with a bar wiping under it. */
 function Sweep() {
   return (
-    <span className="ld-sweep" style={{ fontFamily: DISPLAY, fontSize: "1.5rem", fontWeight: 700, color: INK, display: "inline", paddingBottom: 8 }}>
+    <span className="ld-sweep" style={{ ...DISPLAY_LG, display: "inline", paddingBottom: 8 }}>
       Reading
     </span>
   );
@@ -103,7 +103,7 @@ export default function LoadersPrototype() {
   const [dark, setDark] = useState(false);
 
   return (
-    <div style={{ minHeight: "100vh", background: dark ? "#1a1a1a" : "#fff", color: dark ? "#fff" : INK }}>
+    <div style={{ minHeight: "100vh", background: dark ? INK : SURFACE, color: dark ? SURFACE : INK }}>
       <style>{`
         @keyframes ldScan { 0% { top: -10px } 100% { top: 92px } }
         .ld-scan { animation: ldScan 1.5s linear infinite; }
@@ -146,29 +146,29 @@ export default function LoadersPrototype() {
       `}</style>
 
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "48px 24px 80px" }}>
-        <h1 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "2rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
+        <h1 style={{ ...DISPLAY_LG, color: "inherit", margin: "0 0 10px" }}>
           Loader candidates
         </h1>
-        <p style={{ fontSize: "1rem", color: dark ? "#aaa" : "#666", margin: "0 0 8px", maxWidth: 560, lineHeight: 1.6 }}>
+        <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 8px", maxWidth: 560 }}>
           Pick one and it replaces <code>PageLoader</code> everywhere. All CSS, no library,
-          no fake progress bar. Palette is the four card pairs.
+          no fake progress bar. Colour is the spectrum, read by card position.
         </p>
         <button
           onClick={() => setDark(d => !d)}
-          style={{ fontFamily: DISPLAY, fontSize: "0.85rem", fontWeight: 700, background: dark ? "#fff" : INK, color: dark ? INK : "#fff", border: `2px solid ${dark ? "#fff" : INK}`, padding: "8px 14px", cursor: "pointer", margin: "12px 0 40px" }}
+          style={{ ...DISPLAY_SM, background: dark ? SURFACE : INK, color: dark ? INK : SURFACE, border: `2px solid ${dark ? SURFACE : INK}`, padding: "12px 22px", cursor: "pointer", margin: "12px 0 40px" }}
         >
           {dark ? "Light background" : "Dark background"}
         </button>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
           {CANDIDATES.map(c => (
-            <div key={c.key} style={{ border: `2px solid ${dark ? "#fff" : INK}`, background: dark ? "#1a1a1a" : "#fff", boxShadow: `6px 6px 0 0 ${dark ? "#fff" : INK}` }}>
-              <div style={{ height: 150, display: "grid", placeItems: "center", borderBottom: `2px solid ${dark ? "#fff" : INK}` }}>
+            <div key={c.key} style={{ border: `2px solid ${dark ? SURFACE : INK}`, background: dark ? INK : SURFACE, boxShadow: `5px 5px 0 0 ${dark ? SURFACE : INK}` }}>
+              <div style={{ height: 150, display: "grid", placeItems: "center", borderBottom: `2px solid ${dark ? SURFACE : INK}` }}>
                 {c.el}
               </div>
               <div style={{ padding: "14px 16px" }}>
-                <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.05rem", marginBottom: 4 }}>{c.name}</div>
-                <p style={{ fontSize: "0.85rem", lineHeight: 1.5, color: dark ? "#aaa" : "#666", margin: 0 }}>{c.note}</p>
+                <div style={{ ...DISPLAY_SM, color: "inherit", marginBottom: 6 }}>{c.name}</div>
+                <p style={{ ...BODY_STYLE, color: MUTED, margin: 0 }}>{c.note}</p>
               </div>
             </div>
           ))}

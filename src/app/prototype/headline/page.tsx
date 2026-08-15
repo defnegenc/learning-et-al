@@ -1,7 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { SOURCE_PALETTES, hex2rgba } from "@/components/today/palettes";
+import { washSlots } from "@/components/today/palettes";
+import { BODY_STYLE, DISPLAY, DISPLAY_LG, DISPLAY_SM, INK, MUTED, SHADOW, SURFACE } from "@/components/design-system";
+
+// The four card washes' hue pairs — the same values the digest cards carry, so
+// a candidate judged here is judged in the product's own colour.
+const SOURCE_PALETTES: [string, string][] = [0, 1, 2, 3].map(i => washSlots(i)) as [string, string][];
+
+/** Spectrum hues at an alpha — the pastels are already light, so this is only
+ *  used where a bar sits over text. */
+function hex2rgba(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
 
 /*
  * Headline animation candidates — pick one and it replaces SweepTitle in
@@ -9,7 +21,7 @@ import { SOURCE_PALETTES, hex2rgba } from "@/components/today/palettes";
  *
  * Same rules the loader candidates followed:
  *  - No dependencies. CSS @keyframes only.
- *  - Palette is SOURCE_PALETTES, the four card pairs.
+ *  - Palette is the spectrum, read by card position — the four card pairs.
  *  - Hard edges. Mechanical where it can be.
  *  - prefers-reduced-motion gets the resting state, not a frozen first frame.
  *
@@ -21,8 +33,7 @@ import { SOURCE_PALETTES, hex2rgba } from "@/components/today/palettes";
  * you look at for the next ten minutes.
  */
 
-const DISPLAY = "var(--font-display), sans-serif";
-const INK = "#1a1a1a";
+
 
 // The real headline type, copied from SweepTitle so judgements transfer.
 const H1: React.CSSProperties = {
@@ -336,13 +347,13 @@ export default function HeadlinePrototype() {
   const [run, setRun] = useState(0); // bump to remount and restart every animation
 
   const btn = (active: boolean): React.CSSProperties => ({
-    fontFamily: DISPLAY, fontSize: "0.85rem", fontWeight: 700,
-    background: active ? INK : "#fff", color: active ? "#fff" : INK,
+    ...DISPLAY_SM,
+    background: active ? INK : SURFACE, color: active ? SURFACE : INK,
     border: `2px solid ${INK}`, padding: "8px 14px", cursor: "pointer",
   });
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fff", color: INK, ["--spd" as string]: slow ? 2.4 : 1 }}>
+    <div style={{ minHeight: "100vh", background: SURFACE, color: INK, ["--spd" as string]: slow ? 2.4 : 1 }}>
       <style>{`
         /* 1 · Sweep — the anchor flip at 100% size is invisible, which is what
            lets one keyframe do both the wipe in and the wipe back out. */
@@ -413,10 +424,10 @@ export default function HeadlinePrototype() {
       `}</style>
 
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "48px 24px 96px" }}>
-        <h1 style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "2rem", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
+        <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>
           Headline animation candidates
         </h1>
-        <p style={{ fontSize: "1rem", color: "#666", margin: "0 0 20px", maxWidth: 620, lineHeight: 1.6 }}>
+        <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 20px", maxWidth: 620 }}>
           Pick one and it replaces <code>SweepTitle</code> on the digest. All CSS, no library.
           Rendered at the real headline size in a 760px column, so what you see is what ships.
           Try the long theme — it wraps, which is where most of these break.
@@ -436,7 +447,7 @@ export default function HeadlinePrototype() {
 
         <div style={{ display: "grid", gap: 40 }}>
           {CANDIDATES.map(c => (
-            <div key={c.key} style={{ border: `2px solid ${INK}`, background: "#fff", boxShadow: `6px 6px 0 0 ${INK}` }}>
+            <div key={c.key} style={{ border: `2px solid ${INK}`, background: SURFACE, boxShadow: SHADOW }}>
               <div
                 onClick={() => setRun(r => r + 1)}
                 title="Click to replay"
@@ -445,8 +456,8 @@ export default function HeadlinePrototype() {
                 <div key={`${run}-${theme}`}>{c.el(theme)}</div>
               </div>
               <div style={{ padding: "16px 20px 18px" }}>
-                <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "1.05rem", marginBottom: 5 }}>{c.name}</div>
-                <p style={{ fontSize: "0.88rem", lineHeight: 1.55, color: "#666", margin: 0 }}>{c.note}</p>
+                <div style={{ ...DISPLAY_SM, marginBottom: 6 }}>{c.name}</div>
+                <p style={{ ...BODY_STYLE, color: MUTED, margin: 0 }}>{c.note}</p>
               </div>
             </div>
           ))}

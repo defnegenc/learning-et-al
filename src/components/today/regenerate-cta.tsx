@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
+import { ActionButton, BODY_STYLE, DIM, DISPLAY_SM, Label, MUTED, TextInput } from "@/components/design-system";
 
-const MONO = "var(--font-mono), monospace";
-const DISPLAY = "var(--font-display), sans-serif";
 const MIN_REASON_WORDS = 3;
 
 function wordCount(value: string) {
@@ -45,8 +44,9 @@ export function RegenerateCta({ digestId, generating, onRegenerate }: {
 
   if (submitted && generating) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "36px 0", color: "#888", fontFamily: MONO, fontSize: "0.75rem" }}>
-        <Loader2 size={14} className="animate-spin" /> Generating a new digest…
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "36px 0", color: MUTED }}>
+        <Loader2 size={14} className="animate-spin" />
+        <Label>Generating a new digest…</Label>
       </div>
     );
   }
@@ -56,39 +56,32 @@ export function RegenerateCta({ digestId, generating, onRegenerate }: {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", color: "#555" }}
+          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", color: DIM }}
           className="hover:opacity-70"
         >
-          <X size={28} strokeWidth={2.5} style={{ color: "#555" }} />
-          <span style={{ fontFamily: DISPLAY, fontSize: "1.05rem", fontWeight: 700, color: "#555", letterSpacing: "-0.01em" }}>
+          <X size={28} strokeWidth={2.5} style={{ color: DIM }} />
+          <span style={{ ...DISPLAY_SM, color: DIM }}>
             Don&apos;t like this digest? Regenerate.
           </span>
         </button>
       ) : (
         <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 10 }}>
-          <p style={{ fontSize: "0.8rem", color: "#555", fontFamily: MONO, margin: 0 }}>
+          <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>
             Tell us why and we&apos;ll regenerate.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
-            <input
+            <TextInput
               value={reason}
-              onChange={e => setReason(e.target.value)}
+              onChange={setReason}
               onKeyDown={e => { if (e.key === "Enter" && hasEnoughWords) submit(); }}
               placeholder="e.g. too technical, already know this topic…"
               autoFocus
-              aria-describedby="regenerate-reason-requirement"
-              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #1a1a1a", fontSize: "0.8rem", outline: "none", fontFamily: "var(--font-inter), sans-serif" }}
             />
-            <button
-              onClick={submit}
-              disabled={!hasEnoughWords || generating}
-              className="hover:bg-[#333] disabled:opacity-40"
-              style={{ padding: "9px 16px", background: "#1a1a1a", color: "white", border: "none", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700, fontFamily: DISPLAY }}
-            >
-              {generating ? <Loader2 size={12} className="animate-spin" /> : "Regenerate"}
-            </button>
+            <ActionButton variant="primary" onClick={submit} disabled={!hasEnoughWords || generating} shadow={false}>
+              {generating ? <Loader2 size={14} className="animate-spin" /> : "Regenerate"}
+            </ActionButton>
           </div>
-          <p id="regenerate-reason-requirement" style={{ fontSize: "0.68rem", color: "#888", fontFamily: MONO, margin: 0, textAlign: "left" }}>
+          <p id="regenerate-reason-requirement" style={{ ...BODY_STYLE, fontSize: 13, color: MUTED, margin: 0, textAlign: "left" }}>
             {hasEnoughWords ? "Thanks — that helps." : `Please enter at least ${MIN_REASON_WORDS} words.`}
           </p>
         </div>
