@@ -5,12 +5,12 @@
 The digest pipeline runs in 8+ steps, producing 1-3 items (dynamic: adapts paper:news ratio to candidate quality) with a unifying synthesis.
 
 1. **Interest Selection**: Fetch user interests, decay by 5% (once/day), apply recency penalty using actual paper keywords from last 5 digests. Sample 5 candidates via weighted random.
-2. **Central Question**: LLM generates a "wow factor" theme (max 8 words, enforced with retry). Trending headlines injected for temporal awareness. Theme novelty checked against recent themes (>0.7 similarity triggers re-generation).
-3. **Paper Search**: Queries distributed across `focusFields[]` (cross-domain support) via OpenAlex → Semantic Scholar → arXiv. Papers deduplicated, seen-in-last-30-days excluded. Citation floor >=2.
+2. **Working Question**: LLM generates a topic-seeded retrieval question (aim 8 words, hard max 10) plus search queries. This question guides sourcing but is not privileged as the displayed headline.
+3. **Paper Search**: Queries use deterministic IDs from the sampled OpenAlex Topic: primary-topic precision for query 1, topic-membership recall for queries 2-3, then subfield and unscoped widening when thin. Semantic Scholar and arXiv remain fallbacks. Papers are deduplicated and citation floor >=2.
 4. **Hybrid Scoring**: BM25 + embedding (all-MiniLM-L6-v2) fused via Reciprocal Rank Fusion + quality boosts. Hard floor at 0.12 raw theme similarity. MMR diversity selection (λ=0.6) prevents redundant papers.
 4b. **Counter-Query**: LLM generates a counter-query to find papers contradicting/complicating paper 1. Tension hints passed to synthesis.
 4c. **LLM Re-Ranking**: Papers scored 1-5 on "tool to think with" quality. Low-scorers can be swapped.
-5. **Theme Revision**: LLM revises the central question with 600 chars of abstract context per paper.
+5. **Final Editorial Pass**: LLM reads the kept sources, identifies and audits their shared thread, can drop generic adjacent filler, chooses a cumulative reading order, drafts 3 evidence-led headlines, and selects one. A deterministic gate checks grounding, length, and readability.
 6. **Multi-Stage Synthesis**: 4 LLM calls — (A) metadata extraction, (B) skeleton/argument structure, (C) prose draft from skeleton, (D) self-critique and revision.
 
 ---

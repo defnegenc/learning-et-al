@@ -12,6 +12,7 @@ const client = createClient({
 // start: the ALTER fails silently once the column exists. Remove entries once
 // they're known to have run in prod.
 const MICRO_MIGRATIONS = [
+  "ALTER TABLE digests ADD COLUMN seed_topic TEXT",
   "ALTER TABLE users ADD COLUMN digest_paused INTEGER DEFAULT 0",
   "ALTER TABLE papers ADD COLUMN companion TEXT",
   "ALTER TABLE papers ADD COLUMN homework TEXT",
