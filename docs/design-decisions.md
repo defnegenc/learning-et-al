@@ -213,31 +213,37 @@ The payload was never the bottleneck on the public path; **JS and cold starts ar
 **The gist is back under the headline.** It was hidden during the dead-simple pass, but `flattenSynthesis` still drops the synthesis intro paragraph on the premise that "the gist already hooks the reader" — so with the gist off, the digest opened straight onto a source and the actual answer to the central question only arrived in the closing line. Putting it back restores the intended read: question → one-sentence answer → the sources that earn it. Behind `SHOW_GIST` in `digest-header.tsx` if it needs to come off again.
 ---
 
-## 2026-08-14: The interest picker shows one field at a time
+## 2026-08-14: The interest picker shows one field at a time, and nothing else
 
-Eighty topics under ten headings, rendered flat, is a wall — and it was the
-first thing a new user met at onboarding step 2. The fix wasn't a restyle:
+Eighty topics under ten headings, rendered flat, is a wall, and it was the first
+thing a new user met at onboarding step 2. The fix wasn't a restyle:
 
 - **Collapse the fields.** A field opens if it holds something you picked;
-  otherwise the first one opens so it doesn't read as ten locked drawers.
-  Collapsed rows preview their contents — your picks if you have any, otherwise
-  the first four topics — so closing something never hides what's inside it.
-- **The search box is also the adder.** It filters all ten fields at once, and a
-  phrase that matches nothing becomes "Nothing matches X. Add it to [field]".
-  The old design repeated a "+ Add" chip down every row: ten controls to offer
-  one action, and none of them findable by typing what you actually wanted.
-- **A filter, not a tray.** "Selected · N" filters the same list rather than
-  pinning a second copy of your chips to the top. Two places showing the same
-  chips is two places to keep in sync and one more thing to read.
-- **The meter answers the subtitle's question.** "N of 30 topics · across K
-  fields" over a bar segmented in field colours. The digest samples across
-  everything you pick, so *spread* is the number that changes your feed —
-  "how full is the box" isn't. No bar at zero.
+  otherwise the first one opens so it doesn't read as ten locked drawers. A
+  closed row previews its contents, so closing something never hides what's in
+  it.
+- **The row header's geometry is fixed.** Swatch, name and chevron share one
+  line of constant height. The first build let a per-field count and a preview
+  change that line's height, so opening a field made the swatch and the count
+  jump. On a phone that reads as a bug, not as an animation.
+- **Cut the search box, the All/Selected filter and the capacity meter.** All
+  three shipped in the first version and all three came out. The accordion is
+  browsable enough that a search box was one more thing to look past; the filter
+  duplicated what the row previews already say; and "21 of 30 topics · across 6
+  fields" was a number nobody was deciding anything with. The cap now speaks
+  only when it binds.
+- **"+ Add" went back to being per field**, at the end of its chips. The
+  objection to it originally was ten of them stacked down the page — but with
+  fields collapsed, only the open one shows a button.
 
 **Why chips stopped being mono uppercase:** at 11px with 1.2px tracking a chip
 is legible on its own and pure texture in bulk, and bulk is the only way this
 screen is ever seen. Sentence case in the body face, 0.85rem. They keep their
-6px radius — still the one rounded element in the product.
+6px radius, still the one rounded element in the product.
+
+**The general rule this leaves:** every control on a picker has to earn its
+place against the list itself. Search, filters and counters all look like
+features in a spec and like clutter on the screen.
 
 ## 2026-08-14: Settings is a full-screen sheet on a phone, and delivery lives with the account
 

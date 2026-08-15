@@ -311,7 +311,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
         setGenerateError(data.error || `Generation failed (${res.status}). Check your API key in settings.`);
       }
     } catch (err) {
-      setGenerateError("Network error — couldn't reach the server.");
+      setGenerateError("Network error. Couldn't reach the server.");
       console.error("Failed to generate digest:", err);
     } finally {
       setGenerating(false);
@@ -332,7 +332,7 @@ export function TodayPage({ session, isAdmin = false, onRegisterRefresh, onSignI
           Today&apos;s digest is brewing
         </h1>
         <p style={{ fontSize: "1rem", color: "#999", textAlign: "center", maxWidth: "440px" }}>
-          Check back soon — a fresh research digest is generated every day.
+          Check back soon. A fresh research digest is generated every day.
         </p>
         {session && generateError && (
           <p className="text-[0.75rem] text-[#ff007f] max-w-md text-center">{generateError}</p>
