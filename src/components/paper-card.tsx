@@ -5,7 +5,7 @@ import { Bookmark } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import {
-  BODY, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
+  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
   InkTip, SHADOW, SHADOW_GOLD, SURFACE, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
@@ -193,14 +193,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
     >
       {foundational && <FoundationalMark reason={paper.foundationalReason} />}
 
-      {/* Hero is the TL;DR — reads first at display weight. Title and byline
-          are supporting metadata underneath in the body face. */}
-      {hero && <p style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "28px", color: INK, margin: 0 }}>{hero}</p>}
-
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
         <button
           onClick={() => setExpanded(v => !v)}
-          style={{ fontFamily: BODY, fontSize: 13, fontWeight: 600, lineHeight: "18px", textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", flex: 1, color: INK }}
+          style={{ ...DISPLAY_SM, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", flex: 1 }}
         >
           {paper.plainName || paper.title}
         </button>
@@ -208,8 +204,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
       </div>
 
       {byline && (
-        <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: -4 }}>{byline}</div>
+        <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: -6 }}>{byline}</div>
       )}
+
+      {hero && <p style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "28px", color: INK, margin: "4px 0 0" }}>{hero}</p>}
 
       {(tileLabels.length > 0 || paper.sourceUrl) && (
         <div>
