@@ -230,41 +230,22 @@ function BriefTile({
   );
 }
 
-// Compose the card's second line from pipeline facts: "This was a 2026
-// interview study: they interviewed ten founders about valuation." Older
-// digests can lack methodType/methodFacts, so fall back to the summary's
-// remaining sentences after the TLDR took the first one.
-function studyContext(paper: PaperItem, restOfSummary: string): string {
-  const kind = (paper.methodType || "").trim().replace(/[.!?]+$/, "");
-  const noun = kind
-    ? kind.charAt(0).toLowerCase() + kind.slice(1)
-    : paper.source === "rss" ? "news article" : "study";
-  const year = paper.year ? `${paper.year} ` : "";
-  const article = !year && /^[aeiou]/i.test(noun) ? "an" : "a";
-  const lead = `This was ${article} ${year}${noun}`;
-  const facts = (paper.methodFacts ?? [])
-    .map(f => f.trim())
-    .filter(Boolean)
-    .map(f => (/[.!?]$/.test(f) ? f : f + "."));
-  if (facts.length > 0) {
-    // Fold the first fact into the lead ("...study: they interviewed...") but
-    // keep an initial proper noun or acronym capitalized.
-    const first = /^[A-Z][a-z]/.test(facts[0]) && !facts[0].startsWith("I ")
-      ? facts[0].charAt(0).toLowerCase() + facts[0].slice(1)
-      : facts[0];
-    return [`${lead}: ${first}`, ...facts.slice(1)].join(" ");
-  }
-  if (!kind && !paper.year) return restOfSummary;
-  return restOfSummary ? `${lead}. ${restOfSummary}` : `${lead}.`;
+// The collapsed card names exactly the tiles it will open, so the one line of
+// copy under the TLDR doubles as the expand affordance ("See the Claim, the
+// Findings, and the Takeaway ↓"). Only tiles that exist are listed.
+function tileListLabel(labels: string[]): string {
+  const parts = labels.map(l => `the ${l}`);
+  if (parts.length === 1) return `See ${parts[0]}`;
+  if (parts.length === 2) return `See ${parts[0]} and ${parts[1]}`;
+  return `See ${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
 }
 
 function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; paperIdx: number; expandTick?: number }) {
   // Card anatomy: paper name + faint authors · year top-left; the summary's FIRST
-  // sentence as the big bold TLDR; a factual study-context line composed from
-  // methodType/methodFacts/year (not the synthesis prose); then "See more"
-  // reveals THE CLAIM + FINDINGS side by side and a solid-palette full-width
-  // TAKEAWAY — plus a "Read paper ↗" button. No detail overlay:
-  // everything about a source lives on its card.
+  // sentence as the big bold TLDR; then one expand line that names the tiles it
+  // reveals — THE CLAIM + FINDINGS side by side and a solid-palette full-width
+  // TAKEAWAY — plus a "Read paper ↗" button. No detail overlay and no
+  // study-context line: everything about a source lives on its card.
   const [expanded, setExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   // A paper-chip click in the prose bumps expandTick → open the tiles and scroll
@@ -282,7 +263,6 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
   const body = (paper.summary || paper.abstract || "").trim();
   const sentences = body.match(/[^.!?]+[.!?]+["')\]]?/g)?.map(s => s.trim()) ?? (body ? [body] : []);
   const hero = sentences[0] || "";
-  const context = studyContext(paper, sentences.slice(1).join(" "));
 
   const authors = paper.authors.length > 0
     ? paper.authors.length <= 3 ? paper.authors.join(", ") : `${paper.authors.slice(0, 3).join(", ")} et al.`
@@ -297,8 +277,14 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
   const isNews = paper.source === "rss";
   const claim = (paper.claim || paper.takeawayHook || "").trim();
   const findings = (paper.keyFindings ?? []).slice(0, 3);
+  const findingsLabel = isNews ? "Key Points" : "Findings";
   const takeaway = (paper.takeawayLine || paper.takeawayHook || paper.takeawayStat || "").trim();
-  const tileCount = [!!claim, findings.length > 0, !!takeaway].filter(Boolean).length;
+  const tileLabels = [
+    claim ? "Claim" : "",
+    findings.length > 0 ? findingsLabel : "",
+    takeaway ? "Takeaway" : "",
+  ].filter(Boolean);
+  const tileCount = tileLabels.length;
 
   return (
     <div ref={ref} style={{ ...washStyle(paperIdx), border: "2px solid #1a1a1a", boxShadow: "6px 6px 0 0 rgba(0,0,0,1)", padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -322,19 +308,14 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
         </p>
       )}
 
-      {/* What this study IS and how it was done — composed from pipeline facts */}
-      {context && (
-        <p style={{ fontSize: "0.95rem", lineHeight: 1.7, color: "#333", margin: 0 }}>{context}</p>
-      )}
-
-      {/* See more → claim + findings, takeaway, and Read paper */}
+      {/* The one line under the TLDR: names the tiles, opens them */}
       {(tileCount > 0 || paper.sourceUrl) && (
         <div>
           <button
             onClick={() => setExpanded(v => !v)}
             style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: DISPLAY, fontSize: "0.88rem", fontWeight: 700, color: "#1a1a1a", textDecoration: "underline", textUnderlineOffset: "3px" }}
           >
-            {expanded ? "See less ↑" : "See more ↓"}
+            {expanded ? "See less ↑" : tileCount > 0 ? `${tileListLabel(tileLabels)} ↓` : "Read paper ↓"}
           </button>
           {expanded && (
             <div style={{ marginTop: 12 }}>
@@ -342,13 +323,13 @@ function PaperBlobCard({ paper, paperIdx, expandTick }: { paper: PaperItem; pape
                 <div className="brief-tiles" style={{ marginBottom: 14 }}>
                   {/* THE CLAIM — top-left, presented as plain text */}
                   {claim && (
-                    <BriefTile heading="The claim" background={`${c1}99`}>
+                    <BriefTile heading="The Claim" background={`${c1}99`}>
                       {emphasize(startCap(claim))}
                     </BriefTile>
                   )}
                   {/* FINDINGS — top-right, aligned with the claim */}
                   {findings.length > 0 && (
-                    <BriefTile heading={isNews ? "Key points" : "Findings"}>
+                    <BriefTile heading={findingsLabel}>
                       <ul className="brief-tile-list">
                         {findings.map((finding, i) => (
                           <li key={i}>{emphasize(startCap(finding))}</li>

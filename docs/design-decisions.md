@@ -201,3 +201,13 @@ The payload was never the bottleneck on the public path; **JS and cold starts ar
 - **Public endpoints get CDN cache headers.** The logged-out digest is identical for everyone; served from the edge it skips the cold function entirely. Per-user endpoints get a short `private` cache, and any request that's polling for or confirming new data passes `cache: "no-store"`.
 
 **Still open:** server-rendering the initial digest. It's the only thing that removes "download and hydrate the bundle before the first fetch leaves" from the critical path, and it's worth the most to logged-out first-time visitors — who also happen to be the ones search engines and social previews see.
+
+---
+
+## 2026-08-14: One line under the TLDR, and the answer moves to the top
+
+**A card gets one hero line, then one affordance.** The digest paper card was saying the same thing twice: a big bold TLDR ("Researchers ran a two-week trial…"), then a smaller composed sentence right under it ("This was a 2026 lab experiment: they…"). Both answer *what is this study*, so the second one just added weight the eye has to travel through before reaching the expand control. The study-context line is gone. `methodType` / `methodFacts` stay in the pipeline and the DB — nothing about the algorithm changed, they're simply not rendered.
+
+**The affordance names its contents.** "See more ↓" is a control that tells you nothing; "See the Claim, the Findings, and the Takeaway ↓" tells you the shape of what's behind it, which is exactly the decision a reader is making at that moment. It's built from the tiles that actually exist on that paper, so a source missing a claim doesn't promise one, and news reads "Key Points". Tile headings capitalise alike now — **The Claim**, **Findings**, **Takeaway** — because the expand line quotes them back and the mismatch was visible.
+
+**The gist is back under the headline.** It was hidden during the dead-simple pass, but `flattenSynthesis` still drops the synthesis intro paragraph on the premise that "the gist already hooks the reader" — so with the gist off, the digest opened straight onto a source and the actual answer to the central question only arrived in the closing line. Putting it back restores the intended read: question → one-sentence answer → the sources that earn it. Behind `SHOW_GIST` in `digest-header.tsx` if it needs to come off again.
