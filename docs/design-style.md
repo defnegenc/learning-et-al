@@ -205,7 +205,7 @@ are separate, honour `prefers-reduced-motion`.
 | Vault | Digest history (rail + pane) and the reading list — `PaperCard` size `compact` |
 | Reading detail | 680px column. Title, byline, gist, then what's happened since |
 | Settings / Onboarding | Full-screen sheet below `md`, nav rail above it. `InterestLedger` for both |
-| `/prototype/*` | `interests`, `loaders`, `headline`. Live, unauthenticated, rendering the shipping components |
+| `/prototype/interests` | Live, unauthenticated, rendering the shipping `InterestLedger` at full width and in a 375px phone frame, so it can't drift from what ships. A harness, not a candidate picker — it stays |
 | Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards |
 | Share card | `opengraph-image.tsx`. No `filter: blur()` and no woff2 — Satori limits. See §7 |
 | Email | `src/lib/email.ts`. See §7 |
@@ -283,9 +283,10 @@ plain Display/LG — the animation leaves nothing behind, which is the test any
 future headline treatment has to pass: *what does this look like after it
 finishes?* No colour; every candidate that ended on a palette rule was rejected,
 because colour on this product means **a source** and the question isn't one.
-The stroke is 1px, not the prototype's 1.5px — the menu halved the headline, and
-1.5px on 32px type is a heavier outline than the same value was on 64px.
-Alternatives live at `/prototype/headline`.
+The stroke is 1px, not the 1.5px the prototype ended on — the menu halved the
+headline, and 1.5px on 32px type is a heavier outline than the same value was on
+64px. The seven candidates it was chosen from are in the history, not on a
+route: `/prototype/headline` was deleted once the decision was made.
 
 ---
 

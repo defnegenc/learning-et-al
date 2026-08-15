@@ -267,7 +267,8 @@ The rule that generalises: **a dialog below `md` is a full-screen sheet.** Not a
 
 ## 2026-08-14: The digest headline fills with ink
 
-Seven candidates went up at `/prototype/headline` — the existing sweep, three
+Seven candidates went up at `/prototype/headline` (since deleted — a candidate
+picker outlives its use the day the candidate lands) — the existing sweep, three
 built from ideas about colour and tumbling cards, and three of mine. **Ink-fill
 won**: the question arrives as hollow outline type and floods with ink one word
 at a time. It's the poster language the rest of the site already uses, applied
