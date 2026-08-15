@@ -7,11 +7,11 @@ import { INK, DISPLAY, Segmented } from "@/components/design-system";
 /*
  * The interest picker, live and unauthenticated — the same component settings
  * and onboarding render, so what you poke at here is what ships. Nothing is
- * saved; reload and it's empty again.
+ * saved. Reload and it's empty again.
  *
- * "Phone" pins it to a 375px scroller with a fixed height so the sticky
- * toolbar, the accordion and the tap targets behave exactly as they do inside
- * the settings sheet, without needing a device.
+ * "Phone" pins it to a 375px scroller with a fixed height, so the accordion and
+ * the tap targets behave exactly as they do inside the settings sheet without
+ * needing a device.
  */
 export default function InterestsPrototype() {
   const { selected, custom, toggle, addCustom, removeCustom } = useInterestLedger();
@@ -34,9 +34,8 @@ export default function InterestsPrototype() {
           Interest picker
         </h1>
         <p style={{ fontSize: "1rem", color: "#666", margin: "0 0 20px", maxWidth: 560, lineHeight: 1.6 }}>
-          Ten fields, eighty topics. Fields open when they hold something you picked;
-          the search box reaches all of them at once, and typing a phrase that doesn&rsquo;t
-          exist turns it into the custom-topic adder. Nothing here saves.
+          Ten fields, eighty topics, one open at a time. A closed field previews what&rsquo;s
+          inside it. Nothing here saves.
         </p>
 
         <Segmented
