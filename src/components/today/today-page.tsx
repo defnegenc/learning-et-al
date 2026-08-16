@@ -44,7 +44,24 @@ function InkTitle({ text }: { text: string }) {
           from { color: transparent; -webkit-text-stroke-width: 1px }
           to   { color: ${INK};      -webkit-text-stroke-width: 0px }
         }
-        .ink-word { display: inline-block; animation: inkFill 0.4s ease-out both; }
+        @keyframes inkFade {
+          from { opacity: 0 }
+          to   { opacity: 1 }
+        }
+        /* Desktop: word-by-word stroke fill; delay driven by CSS custom property set inline */
+        .ink-word {
+          display: inline-block;
+          animation: inkFill 0.4s ease-out both;
+          animation-delay: var(--ink-word-delay, 0s);
+        }
+        /* Mobile: word-by-word stroke fights line-wrapping and is not GPU-composited.
+           A single opacity fade is smooth, clean, and works across any number of lines. */
+        @media (max-width: 640px) {
+          .ink-word {
+            animation: inkFade 0.45s ease-out both;
+            animation-delay: 0.1s;
+          }
+        }
         @media (prefers-reduced-motion: reduce) {
           .ink-word { animation: none !important; color: ${INK} !important; -webkit-text-stroke-width: 0 !important }
         }
@@ -52,8 +69,10 @@ function InkTitle({ text }: { text: string }) {
       <h1 key={text} style={{ fontFamily: DISPLAY, fontSize: "clamp(2.75rem, 5vw, 4rem)", lineHeight: 1.25, fontWeight: 700, letterSpacing: "-0.055em", color: INK, WebkitTextStrokeColor: INK, margin: "0 0 28px" }}>
         {words.map((w, i) => (
           <React.Fragment key={i}>
-            {/* the space lives outside the animated box so it can't shift */}
-            <span className="ink-word" style={{ animationDelay: `${0.15 + i * 0.1}s` }}>{w}</span>
+            <span
+              className="ink-word"
+              style={{ "--ink-word-delay": `${0.15 + i * 0.1}s` } as React.CSSProperties}
+            >{w}</span>
             {i < words.length - 1 ? " " : ""}
           </React.Fragment>
         ))}
