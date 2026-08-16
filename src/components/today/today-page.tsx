@@ -8,7 +8,7 @@ import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
 import { PaperCard } from "@/components/paper-card";
-import { fieldColor } from "@/lib/field-hierarchy";
+
 
 /*
  * Brief is the default experience; classic (?classic=1) is the only alternate
@@ -18,7 +18,7 @@ import { fieldColor } from "@/lib/field-hierarchy";
 const SynthesisBanner = dynamic(() => import("./synthesis-banner").then(m => m.SynthesisBanner), { ssr: false });
 import {
   ACID_GREEN, ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_LG, INK, Label,
-  MUTED, PageLoader, SHADOW, SURFACE, Tag,
+  MUTED, PageLoader, SHADOW, SURFACE,
 } from "@/components/design-system";
 import React from "react";
 
@@ -346,9 +346,6 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
     return sentenceEnd ? sentenceEnd[1] : first;
   })();
 
-  const digestFields = [...new Set(
-    (digest.seedInterests || []).map(interest => interest.field).filter(Boolean)
-  )];
 
   /* ── Main render — two-column: synthesis | paper rail ── */
   return (
@@ -359,48 +356,42 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
         <main>
           {/* DigestTitleBlock — 28px below matches the tag→gist gap inside DigestHeader */}
           <div style={{ marginBottom: "28px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: "24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
-                  Daily digest
+            <div style={{ marginBottom: "24px" }}>
+              {/* Archive nav — above the label when browsing public digest history */}
+              {!session && publicDigestList.length > 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: 8 }}>
+                  {publicDigestIdx < publicDigestList.length - 1 && (
+                    <button
+                      aria-label="See yesterday's digest"
+                      onClick={() => {
+                        const next = publicDigestIdx + 1;
+                        setPublicDigestIdx(next);
+                        fetchDigest(publicDigestList[next].id);
+                      }}
+                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
+                    >← see yesterday&apos;s digest</button>
+                  )}
+                  {publicDigestIdx > 0 && (
+                    <button
+                      aria-label="See newer digest"
+                      onClick={() => {
+                        const prev = publicDigestIdx - 1;
+                        setPublicDigestIdx(prev);
+                        fetchDigest(publicDigestList[prev].id);
+                      }}
+                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
+                    >see newer digest →</button>
+                  )}
                 </div>
-                {!session && publicDigestList.length > 1 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                    {publicDigestIdx < publicDigestList.length - 1 && (
-                      <button
-                        aria-label="See yesterday's digest"
-                        onClick={() => {
-                          const next = publicDigestIdx + 1;
-                          setPublicDigestIdx(next);
-                          fetchDigest(publicDigestList[next].id);
-                        }}
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
-                      >← see yesterday&apos;s digest</button>
-                    )}
-                    {publicDigestIdx > 0 && (
-                      <button
-                        aria-label="See newer digest"
-                        onClick={() => {
-                          const prev = publicDigestIdx - 1;
-                          setPublicDigestIdx(prev);
-                          fetchDigest(publicDigestList[prev].id);
-                        }}
-                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
-                      >see newer digest →</button>
-                    )}
-                  </div>
-                )}
+              )}
+              <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
+                Daily digest
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 6 }}>
-                {digestFields.map(field => (
-                  <Tag key={field} label={field} tint={fieldColor(field)} style={{ padding: "3px 9px" }} />
-                ))}
-                {generateError && (
-                  <span style={{ ...BODY_STYLE, fontSize: 13, color: ACID_PINK, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={generateError}>
-                    {generateError}
-                  </span>
-                )}
-              </div>
+              {generateError && (
+                <span style={{ ...BODY_SM, color: ACID_PINK, display: "block", marginTop: 4 }} title={generateError}>
+                  {generateError}
+                </span>
+              )}
             </div>
 
             <InkTitle text={displayTheme} />

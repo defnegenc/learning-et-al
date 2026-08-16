@@ -5,8 +5,8 @@ import { Bookmark } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import {
-  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
-  InkTip, SHADOW, SHADOW_GOLD, SURFACE, foundationalWash, wash, washSlots,
+  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_LG, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
+  InkTip, SHADOW, SURFACE, wash, washSlots,
 } from "@/components/design-system";
 
 /*
@@ -82,18 +82,12 @@ function BookmarkToggle({ paper, initial, onUnsaved }: {
 
 /* ── The two columns ─────────────────────────────────────────────────────── */
 
-/**
- * The pipeline's `**bold**`, drawn as an ink underline.
- *
- * Weight was doing two jobs at once: half of every finding came back bold, so
- * the emphasis stopped marking anything and just made the column heavier. An
- * underline marks the same words without changing the colour of the line.
- */
-function emphasize(text: string): React.ReactNode[] {
+/** The pipeline's `**bold**`, highlighted with the card's wash mark — same system as the takeaway. */
+function emphasize(text: string, mark: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     !part ? null : i % 2 === 1
       ? (
-        <span key={i} style={{ textDecoration: "underline", textDecorationThickness: 2, textUnderlineOffset: 3 }}>
+        <span key={i} style={{ background: mark, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px" }}>
           {part}
         </span>
       )
@@ -120,7 +114,7 @@ function CardColumn({ heading, children }: { heading: string; children: React.Re
  * Findings as a list, not as three adjacent paragraphs: a 5px dot in an 18px
  * gutter with the text hanging beside it.
  */
-function FindingList({ items }: { items: string[] }) {
+function FindingList({ items, mark }: { items: string[]; mark: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {items.map((f, i) => (
@@ -128,7 +122,7 @@ function FindingList({ items }: { items: string[] }) {
           <span aria-hidden style={{ width: 18, flexShrink: 0, display: "flex" }}>
             <span style={{ width: 5, height: 5, marginTop: 10, background: INK, borderRadius: "50%" }} />
           </span>
-          <p style={{ ...READING_BODY, margin: 0 }}>{emphasize(startCap(f))}</p>
+          <p style={{ ...READING_BODY, margin: 0 }}>{emphasize(startCap(f), mark)}</p>
         </div>
       ))}
     </div>
@@ -203,9 +197,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
     <div
       ref={ref}
       style={{
-        ...(foundational ? foundationalWash() : wash(index)),
+        ...(foundational ? { background: SURFACE } : wash(index)),
         border: `2px solid ${foundational ? GOLD : INK}`,
-        boxShadow: foundational ? SHADOW_GOLD : SHADOW,
+        boxShadow: SHADOW,
         padding: "22px 24px",
         display: "flex",
         flexDirection: "column",
@@ -213,22 +207,36 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         overflow: "hidden",
       }}
     >
-      {foundational && <FoundationalMark reason={paper.foundationalReason} />}
+      {/* Foundational eyebrow — label + eye only; sits above the title */}
+      {foundational && <FoundationalMark />}
 
       <div>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
-          <h3 style={{ ...DISPLAY_SM, margin: 0, flex: 1 }}>{paper.plainName || paper.title}</h3>
+          {/* Foundational leads with a large title (Display/LG); regular cards use Display/SM (uppercase) */}
+          <h3 style={{ ...(foundational ? DISPLAY_LG : DISPLAY_SM), margin: 0, flex: 1 }}>
+            {paper.plainName || paper.title}
+          </h3>
           {loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} />}
         </div>
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
-        {hero && <p style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "28px", color: INK, margin: "4px 0 0" }}>{hero}</p>}
+        {/* Hero only for non-foundational — the large title + reason block serve that role */}
+        {!foundational && hero && <p style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "26px", color: INK, margin: "14px 0 0" }}>{hero}</p>}
       </div>
 
-      {(findings.length > 0 || lead) && (
+      {/* Reason — 3px gold rule + body text, below title+byline, foundational only */}
+      {foundational && paper.foundationalReason && (
+        <div style={{ display: "flex", gap: 12 }}>
+          <span style={{ width: 3, flexShrink: 0, background: GOLD }} />
+          <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{paper.foundationalReason}</p>
+        </div>
+      )}
+
+      {/* Findings + takeaway only for non-foundational papers */}
+      {!foundational && (findings.length > 0 || lead) && (
         <div className={hasSplit ? "paper-card-split" : undefined}>
           {findings.length > 0 && (
             <CardColumn heading={findingsLabel}>
-              <FindingList items={findings} />
+              <FindingList items={findings} mark={mark} />
             </CardColumn>
           )}
           {lead && (
@@ -288,9 +296,9 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
     <div
       onClick={activate}
       style={{
-        ...(foundational ? foundationalWash() : wash(index)),
+        ...(foundational ? { background: SURFACE } : wash(index)),
         border: `2px solid ${foundational ? GOLD : INK}`,
-        boxShadow: foundational ? SHADOW_GOLD : SHADOW,
+        boxShadow: SHADOW,
         padding: "16px 18px",
         display: "flex",
         flexDirection: "column",
@@ -317,45 +325,37 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
   );
 }
 
+// Eye icon at rest reads as part of the gold lockup; goes to ink on hover.
+const GOLD_EYE = "#8C6D1F";
+
 /**
- * The foundational lockup — the label, the eye, and the reason.
- *
- * The label stays constant so the lane is recognisable the third time you meet
- * it; the eye carries the explanation for the first. One gold moment: the frame
- * and the reason's rule. The border-image gradient, the glow and the gold
- * underline under the label are all retired.
+ * The foundational eyebrow — label + eye only.
+ * One gold moment: the 2px frame. No gold shadow, no gradient, no gold underline.
+ * The reason block lives below the title, not inside this lockup.
  */
-function FoundationalMark({ reason }: { reason?: string | null }) {
+function FoundationalMark() {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start", position: "relative" }}>
-        <span style={{ ...LABEL_STYLE, color: INK }}>Foundational text</span>
-        <button
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
-          onClick={() => setOpen(v => !v)}
-          aria-label="What is a foundational text?"
-          style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "flex", lineHeight: 1 }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={open ? INK : GOLD} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-        {open && (
-          <span style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, pointerEvents: "none" }}>
-            <InkTip>
-              Some days you&rsquo;ll get a foundational text — the paper that shaped how this field or this question came to be thought about at all.
-            </InkTip>
-          </span>
-        )}
-      </div>
-      {reason && (
-        <div style={{ display: "flex", gap: 10 }}>
-          <span style={{ width: 2, flexShrink: 0, background: GOLD }} />
-          <p style={{ ...BODY_SM, color: DIM, margin: 0 }}>{reason}</p>
-        </div>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start", position: "relative" }}>
+      <span style={{ ...LABEL_STYLE, color: INK }}>Foundational text</span>
+      <button
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onClick={() => setOpen(v => !v)}
+        aria-label="What is a foundational text?"
+        style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "flex", lineHeight: 1 }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={open ? INK : GOLD_EYE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+      {open && (
+        <span style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, pointerEvents: "none" }}>
+          <InkTip>
+            Some days you&rsquo;ll get a foundational text — the paper that shaped how this field or this question came to be thought about at all.
+          </InkTip>
+        </span>
       )}
     </div>
   );
