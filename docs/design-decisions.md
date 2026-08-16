@@ -582,3 +582,50 @@ rendered into the document body and positioned against the viewport. It is not
 owned by the line or card containing the term, because those containers may clip
 overflow; at an edge it flips or shifts, and a long definition scrolls inside the
 viewport instead of disappearing beyond it.
+
+---
+
+## 2026-08-16: The reading list is a reading list, not a list of titles
+
+The saved-papers shelf was a grid of titles and bylines, and the reading view
+behind it showed a gist and a list of citing work. Both were thinner than the
+data we already had: the companion generated at bookmark time has always
+returned five parts — the gist, what they did, what they found, where it's
+shaky, and the one line worth remembering a month from now — plus a glossary and
+three questions a curious reader would want answered. Four of those seven fields
+were generated, stored, paid for, and never rendered.
+
+**A shelf card carries the "remember" line.** Not the abstract and not the gist:
+the one sentence the companion picked as the thing worth keeping. It is the only
+line that tells you whether tonight is the night for this paper. `/api/vault`
+parses the companion server-side and ships that one string — the blob itself
+stays out of list payloads, which is the whole point of `LIST_COLUMNS`. Below it,
+the digest question the paper was saved from, so the shelf keeps its provenance.
+
+**Prep resolves in place.** Bookmarking fires companion and homework generation
+in the background and it takes a while, so a freshly saved paper has no line yet.
+Rather than showing an empty card until the next navigation, it says "Reading it
+for you…" and the page polls every 10 seconds until every card has its line, then
+stops. The list fills in while you're looking at it.
+
+**The reading view is one continuous walkthrough, not five boxes.** Gist, then
+three hairline-separated beats. Hard words are chipped at first use with one
+shared "already defined" set across the whole page — a term explained in the gist
+is not explained again in the caveats, because it is one read. The glossary at
+the foot is a collapsed reference for the terms the companion flagged but never
+used in its own copy.
+
+**"Remember this" gets the page's biggest voice.** Display/LG inside the one
+framed shape in the product. No new token: it is a hero line, and Display/LG is
+what a hero line is set in. The alternative — a spectrum highlight like the
+digest card's takeaway — was wrong here, because the wash index is by position in
+a digest and this page has no position.
+
+**The three suggested questions are live.** They were being generated and thrown
+away. They now render as rows in the same idiom as the citing work — one thing
+per hairline-separated row, click to get it — and post to `/api/papers/[id]/qa`,
+which reads the full text rather than the abstract. The thread persists per user,
+so a paper you come back to still has what you asked it. A free-text box sits
+underneath for the question the companion didn't think of. This is the answer to
+"can I get the companion without reading the paper": you get the walkthrough, and
+then you can interrogate it.
