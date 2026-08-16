@@ -38,7 +38,7 @@ one overrides Paper.
 | Export | What it is | Status |
 |---|---|---|
 | `PaperCard` size `digest` | Title, byline, hero, then findings and takeaway side by side behind one 2px rule; `Read paper` bottom right. No expand control, no tiles | ✅ |
-| `PaperCard` size `compact` | The same card smaller — title, byline, tags | ✅ what the rail, the vault and the permalink render |
+| `PaperCard` size `compact` | The same card smaller — title, byline, and optionally `preview` (one line of substance, clamped to 3) and `footnote` | ✅ what the rail, the vault and the permalink render; the vault passes the companion's "remember" as `preview` |
 | `FoundationalMark` (internal) | Gold frame, the label, the eye, the reason rule | ✅ |
 | `paperByline` | authors — venue, year. One line, everywhere | ✅ |
 
@@ -57,9 +57,10 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `vault/vault-page.tsx` | Shell + reading-list grid | ✅ renders `PaperCard` compact |
+| `vault/vault-page.tsx` | Shell + reading-list grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running |
 | `vault/digest-history.tsx` | Two-pane history | ✅ |
-| `vault/reading-paper-detail.tsx` | The reading view | ✅ 680px, Display/LG title, `paperByline` |
+| `vault/reading-paper-detail.tsx` | The reading view | ✅ 680px, Display/LG title, `paperByline`. Renders all five companion beats, the `Remember this` frame, `Glossary`, `AskThread`, then the citing work |
+| `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — companion starters as rows, free-text input, persisted per user | ✅ the only Q&A surface; digest-level Q&A is gone |
 | ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 
 ## Shell, settings, onboarding

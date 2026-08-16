@@ -166,6 +166,14 @@ export interface PaperCardProps {
   onSelect?: (p: PaperItem) => void;
   /** Digest only: a chip click in the prose bumps this to scroll the card here. */
   expandTick?: number;
+  /**
+   * Compact only: one line of substance under the byline — the reading list
+   * passes the companion's "remember". Absent, the card is title and byline as
+   * before, which is what "Referenced sources" still wants.
+   */
+  preview?: string | null;
+  /** Compact only: the quiet line at the foot — where the paper came from. */
+  footnote?: React.ReactNode;
 }
 
 export function PaperCard(props: PaperCardProps) {
@@ -285,9 +293,15 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
 
 /**
  * The same card, smaller — what "Referenced sources" and the vault render.
- * Title, byline, tags. No hero, no tiles, no metadata rail.
+ * Title, byline, and optionally one line of substance. No hero, no tiles, no
+ * metadata rail.
+ *
+ * The reading list passes `preview` (the companion's "remember") and a
+ * `footnote`, because a shelf of titles alone tells you nothing about why any
+ * of them is worth an evening. The preview is clamped to three lines so a grid
+ * row stays even; the card lifts on hover like every other clickable frame.
  */
-function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsaved, compareMode, isSelected, onSelect }: PaperCardProps) {
+function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsaved, compareMode, isSelected, onSelect, preview, footnote }: PaperCardProps) {
   const foundational = paper.category === "foundational";
   const byline = paperByline(paper);
 
@@ -300,6 +314,7 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
   return (
     <div
       onClick={activate}
+      className="ds-lift"
       style={{
         ...(foundational ? foundationalWash() : wash(index)),
         border: `2px solid ${foundational ? GOLD : INK}`,
@@ -326,6 +341,23 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
       </div>
 
       {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM }}>{byline}</div>}
+
+      {preview && (
+        <p
+          style={{
+            ...BODY_STYLE,
+            margin: "2px 0 0",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {preview}
+        </p>
+      )}
+
+      {footnote && <div style={{ marginTop: "auto", paddingTop: 4 }}>{footnote}</div>}
     </div>
   );
 }
