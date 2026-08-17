@@ -301,16 +301,31 @@
   outline-offset: 2px;
 }
 
-/* Anything that lifts: one shadow, one motion. Hover slides the object 1px
-   into its own shadow rather than growing a second, larger one. */
+/* Anything that lifts: one shadow, one motion — and the motion is transform
+   only.
+   The `box-shadow: 7px` that used to sit on :hover here was dead code and had
+   been since the menu shipped: every lifting object (Card, ActionButton, the
+   paper card, the source link) sets `boxShadow` as an inline style, and an
+   inline declaration beats a stylesheet rule at any specificity. The rule never
+   applied. It was also a second shadow offset, which the menu does not have —
+   so it is gone rather than fixed, and the object moves against a shadow that
+   holds still.
+   Away from the shadow on hover, into it on press. A touch screen has no hover
+   at all, so the press is the only state a phone can show — without it every
+   card on mobile is inert, which is exactly how it felt. */
 .ds-lift {
-  transition: transform 140ms ease, box-shadow 140ms ease;
+  transition: transform 140ms ease;
+  /* Otherwise Safari paints its own grey flash over the press. */
+  -webkit-tap-highlight-color: transparent;
 }
 .ds-lift:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0 0 var(--color-ink);
+}
+.ds-lift:active {
+  transform: translate(2px, 2px);
 }
 @media (prefers-reduced-motion: reduce) {
   .ds-lift { transition: none; }
-  .ds-lift:hover { transform: none; }
+  .ds-lift:hover,
+  .ds-lift:active { transform: none; }
 }

@@ -3,10 +3,14 @@ import { db } from "@/lib/db";
 import { papers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { aiComplete, type AIConfig } from "@/lib/ai/provider";
-import { downloadAndParsePdf } from "@/lib/fetchers/pdf";
+import { downloadAndParsePdf, textForPrompt, FULL_TEXT_CAP } from "@/lib/fetchers/pdf";
 import { getAuthUser } from "@/lib/get-user";
 
-export const maxDuration = 60;
+// The whole paper now reaches the model rather than its first 30k characters,
+// so a long one is a much larger prompt. 300 is what the digest routes already
+// use; at 60 a review-length paper would have timed out mid-generation and the
+// row would have cached nothing.
+export const maxDuration = 300;
 
 // The reading companion: a structured, plain-language walkthrough of the paper
 // generated from its FULL TEXT (not just the abstract), created once when the
@@ -52,7 +56,10 @@ async function getFullText(paper: typeof papers.$inferSelect): Promise<string> {
   const abstractText = paper.abstract || "";
   const hasRichFullText = fullText.length > abstractText.length + 100;
   if (!hasRichFullText && paper.pdfUrl) {
-    const pdfText = await downloadAndParsePdf(paper.pdfUrl);
+    // Capped on the way into the row, not just on the way into a prompt: a
+    // mis-parsed PDF can come back as megabytes of ligature soup, and there is
+    // no reason for that to live in Turso forever.
+    const pdfText = (await downloadAndParsePdf(paper.pdfUrl)).slice(0, FULL_TEXT_CAP);
     if (pdfText && pdfText.length > abstractText.length) {
       fullText = pdfText;
       await db.update(papers).set({ fullText: pdfText }).where(eq(papers.id, paper.id)).catch(() => {});
@@ -109,7 +116,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const config = cronConfig();
     if (!config) return NextResponse.json({ companion: null });
 
-    const text = (await getFullText(paper)).slice(0, 30000);
+    // The whole paper, minus the bibliography. Not a head slice: the beat that
+    // asks where this is shaky needs the discussion and the limitations, and
+    // those are the last thing a front-truncation keeps.
+    const text = textForPrompt(await getFullText(paper));
     if (!text.trim()) return NextResponse.json({ companion: null });
 
     const raw = await aiComplete(config, COMPANION_SYSTEM, `${paper.title}\n\n${text}`).catch(() => "");

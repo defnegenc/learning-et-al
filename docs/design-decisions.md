@@ -582,3 +582,156 @@ rendered into the document body and positioned against the viewport. It is not
 owned by the line or card containing the term, because those containers may clip
 overflow; at an edge it flips or shifts, and a long definition scrolls inside the
 viewport instead of disappearing beyond it.
+
+---
+
+## 2026-08-17: The reading list is a reading list, not a list of titles
+
+The saved-papers shelf was a grid of titles and bylines, and the reading view
+behind it showed a gist and a list of citing work. Both were thinner than the
+data we already had: the companion generated at bookmark time has always
+returned five parts — the gist, what they did, what they found, where it's
+shaky, and the one line worth remembering a month from now — plus a glossary and
+three questions a curious reader would want answered. Four of those seven fields
+were generated, stored, paid for, and never rendered.
+
+**A shelf card carries the "remember" line.** Not the abstract and not the gist:
+the one sentence the companion picked as the thing worth keeping. It is the only
+line that tells you whether tonight is the night for this paper. `/api/vault`
+parses the companion server-side and ships that one string — the blob itself
+stays out of list payloads, which is the whole point of `LIST_COLUMNS`. Below it,
+the digest question the paper was saved from, so the shelf keeps its provenance.
+
+**Prep resolves in place.** Bookmarking fires companion and homework generation
+in the background and it takes a while, so a freshly saved paper has no line yet.
+Rather than showing an empty card until the next navigation, it says "Reading it
+for you…" and the page polls every 10 seconds until every card has its line, then
+stops. The list fills in while you're looking at it.
+
+**The reading view is one continuous walkthrough, not five boxes.** Gist, then
+three hairline-separated beats. Hard words are chipped at first use with one
+shared "already defined" set across the whole page — a term explained in the gist
+is not explained again in the caveats, because it is one read. The glossary at
+the foot is a collapsed reference for the terms the companion flagged but never
+used in its own copy.
+
+**"Remember this" gets the page's biggest voice.** Display/LG inside the one
+framed shape in the product. No new token: it is a hero line, and Display/LG is
+what a hero line is set in. The alternative — a spectrum highlight like the
+digest card's takeaway — was wrong here, because the wash index is by position in
+a digest and this page has no position.
+
+**The three suggested questions are live.** They were being generated and thrown
+away. They now render as rows in the same idiom as the citing work — one thing
+per hairline-separated row, click to get it — and post to `/api/papers/[id]/qa`,
+which reads the full text rather than the abstract. The thread persists per user,
+so a paper you come back to still has what you asked it. A free-text box sits
+underneath for the question the companion didn't think of. This is the answer to
+"can I get the companion without reading the paper": you get the walkthrough, and
+then you can interrogate it.
+
+**Revised the same day, after review.**
+
+*The page wears the paper's colour.* The reading view was monochrome, so nothing
+connected it to the card you opened it from. Hard words now highlight in that
+card's hue — `washSlots(index)[0]`, or `GOLD` if the paper is foundational — and
+the "Remember this" block takes the card's full frame and wash. This is a new
+place for colour to land on type, and it needs to go into Paper. The
+justification is the existing one: the wash is wayfinding. Inside a paper's own
+page every term belongs to that paper, so a hue says *which paper you are in*,
+which is exactly what the mark on a card's takeaway does. The synthesis keeps the
+dotted grey rule and does not take a tint, because a paragraph there carries
+terms from three different papers and a hue would claim each for the wrong card
+— `DefinitionTerm` takes `tint` as an opt-in for that reason.
+
+*The chat is a rail, not a section.* "Ask this paper" moved out of the column and
+into a 372px sticky panel on the right, with the thread scrolling inside its own
+frame so the composer never leaves the viewport. As a section it sat below a long
+walkthrough, which is the one place you have already stopped having questions. In
+the rail it is visible the whole way down. Below 1060px it drops under the
+walkthrough and above the citing work. The container widens from 680 to 1240; the
+reading column keeps its measure because the rail takes the extra width.
+
+*"Every hard word, defined" is just the Glossary.* The longer label was
+explaining a word that needed no explaining.
+
+*The source link is the top right, not the foot.* Below the walkthrough it read
+as the end of the page rather than the way into the paper, and it competed with
+"Remember this" — the two strongest objects in the column were adjacent. It now
+sits opposite Back in a top bar: out on the left, in on the right.
+
+**Second review pass — two bugs and a token rule.**
+
+*Gold is a line colour, never a mark.* The foundational card's takeaway
+highlight, and then the hard-word highlights in the reading view, were filled
+`#c9a227`. Too dark to read a word through, and it made a foundational paper's
+marks look like a different species from every other paper's pastels. Both now
+use `foundationalSlots()[0]` — slot 02, the light gold the card is already washed
+in — which is precisely what `washSlots(index)[0]` does for every other paper.
+This did not loosen the menu; it enforced it. `design-style.md` already said gold
+was "the foundational frame and its reason rule, nothing else", and the marks
+were the thing violating it. The frame, its shadow, the reason rule and the eye
+stay `#c9a227`, because a 2px rule has to read as a line.
+
+*Every tooltip in the product was ink on ink.* `InkTip` set `background: INK`
+and `color: SURFACE`, then spread `...BODY_SM` after them — and every type style
+in `design-system.tsx` carries its own colour, `BODY_SM`'s being `INK`. The
+spread overwrote the white, so the one object that explains hard words, a paper's
+gist and the foundational eye rendered as a black box with invisible text. The
+type style is now spread first and the colour set after it. Any inverted surface
+added to that file has to do the same.
+
+*`.ds-lift` had no touch state, and its shadow half never worked.* A touch screen
+has no hover, so every card on a phone was inert — there is now a press, moving
+the object into its shadow rather than away from it, with the tap highlight
+suppressed so the press is the only feedback. The `box-shadow: 7px` on `:hover`
+is deleted rather than fixed: every lifting object sets `boxShadow` as an inline
+style and an inline declaration beats a stylesheet rule at any specificity, so it
+had never applied — and it was a second shadow offset, which the menu does not
+have. The motion is transform only, which also means it works on the gold-shadowed
+foundational card instead of flipping it to ink.
+
+*`/api/logout` assumed production.* It redirected to a hardcoded
+`learningetal.com` and set `secure: true` unconditionally, which http silently
+ignores — so a local logout bounced you to prod and left the cookie in place.
+Both now come from the request. This matters beyond dev: a session encrypted with
+a secret the server no longer has makes `auth()` throw `JWTSessionError` on every
+render, and since the cookie is HttpOnly this route is the only thing that can
+clear it.
+
+**The paper is read whole, and the bibliography is not read at all.**
+
+Findings go back to bold weight — that is what shipped and what reads. The ink
+underline experiment lived on the branch and never reached prod.
+
+The companion truncated a paper at 30,000 characters and Q&A at 15,000, both from
+the FRONT. Two things were wrong with that. The obvious one is that it wasn't the
+whole paper. The subtle one is which end got dropped: the discussion and the
+limitations are the last sections before the references, so "Where it's shaky"
+was being written without the authors' own account of where it was shaky, and a
+question about a result was answered out of the introduction.
+
+The fix is not simply a bigger number. `textForPrompt` in `lib/fetchers/pdf.ts`
+drops back matter first — the bibliography is roughly a quarter of a typical
+extract ("Attention Is All You Need" is 39,642 characters, of which 9,458 are
+references) and a list of other papers' titles is the single most misleading thing
+you can hand a summariser. Only a `References` / `Bibliography` heading in the
+back half is trusted, because front matter routinely lists section names and a
+body match would amputate the paper. An appendix after the references goes with
+it; that is the intended trade, since appendices are mostly tables while the
+discussion sits before the references.
+
+What remains is a rail, not a budget: `FULL_TEXT_CAP` is 400,000 characters, which
+passes every real paper whole and only stops a mis-parsed PDF that came back as a
+megabyte of ligature soup. It caps what enters the row as well as what enters a
+prompt — there is no reason for that soup to live in Turso forever. Both routes
+move to `maxDuration = 300`, matching the digest routes, because at 60 a
+review-length paper would time out mid-generation and cache nothing.
+
+Still open, and NOT fixed here: whether the companion read the PDF at all is
+invisible on screen. `pdfUrl` comes from OpenAlex `open_access.oa_url`, arXiv, or
+a Semantic Scholar arXiv id, so an open-access paper gets its full text and a
+paywalled one silently gets the abstract, and the two look identical in the
+reading view. The rail's subtitle was changed from "read out of the full text, not
+the abstract" to "from the paper itself, not from the digest" because the original
+claim could be false.

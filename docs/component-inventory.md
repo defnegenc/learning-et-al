@@ -38,7 +38,7 @@ one overrides Paper.
 | Export | What it is | Status |
 |---|---|---|
 | `PaperCard` size `digest` | Title, byline, hero, then findings and takeaway side by side behind one 2px rule; `Read paper` bottom right. No expand control, no tiles | ✅ |
-| `PaperCard` size `compact` | The same card smaller — title, byline, tags | ✅ what the rail, the vault and the permalink render |
+| `PaperCard` size `compact` | The same card smaller — title, byline, and optionally `preview` (one line of substance, clamped to 3) and `footnote` | ✅ what the rail, the vault and the permalink render; the vault passes the companion's "remember" as `preview` |
 | `FoundationalMark` (internal) | Gold frame, the label, the eye, the reason rule | ✅ |
 | `paperByline` | authors — venue, year. One line, everywhere | ✅ |
 
@@ -57,9 +57,11 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `vault/vault-page.tsx` | Shell + reading-list grid | ✅ renders `PaperCard` compact |
+| `vault/vault-page.tsx` | Shell + reading-list grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running |
 | `vault/digest-history.tsx` | Two-pane history | ✅ |
-| `vault/reading-paper-detail.tsx` | The reading view | ✅ 680px, Display/LG title, `paperByline` |
+| `vault/reading-paper-detail.tsx` | The reading view | ✅ 1240px two-column. Left: title, five companion beats, the `Remember this` card frame, `Glossary`, the citing work. Right: `AskThread` in a sticky rail. `Read the full paper` sits opposite Back in a top bar. Takes `index` for the paper's hue |
+| `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — a 372px framed rail: companion starters as rows, scrolling thread, composer pinned to the foot. Persisted per user | ✅ the only Q&A surface; digest-level Q&A is gone |
+| `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words | ✅ |
 | ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 
 ## Shell, settings, onboarding
