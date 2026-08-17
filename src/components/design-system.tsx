@@ -107,7 +107,17 @@ export function foundationalSlots(): [string, string] {
 
 export function foundationalWash(hover = false): React.CSSProperties {
   const [a, b] = foundationalSlots();
-  return washFromHues(hover ? darken(a) : a, hover ? darken(b) : b);
+  const c1 = hover ? darken(a) : a;
+  const c2 = hover ? darken(b) : b;
+  return {
+    background: [
+      `radial-gradient(circle 180px at 0 0, ${c1} 0%, transparent 48%)`,
+      `radial-gradient(circle 190px at 100% 6px, ${c2} 0%, transparent 48%)`,
+      `radial-gradient(circle 170px at calc(100% - 10px) 100%, ${c1} 0%, transparent 46%)`,
+      `linear-gradient(135deg, color-mix(in oklab, ${c1} 34%, ${SURFACE}) 0%, ${SURFACE} 48%, color-mix(in oklab, ${c2} 32%, ${SURFACE}) 100%)`,
+      SURFACE,
+    ].join(", "),
+  };
 }
 
 function washFromHues(c1: string, c2: string): React.CSSProperties {

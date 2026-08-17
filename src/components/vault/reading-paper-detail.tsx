@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, Bookmark, Loader2 } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
@@ -381,10 +382,12 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [companionPending, setCompanionPending] = useState(true);
   const [homework, setHomework] = useState<HomeworkItem[] | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   // Full-screen means the page behind must not scroll with it (the source of the
   // jittery double-scroll on mobile).
   useEffect(() => {
+    setMounted(true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
@@ -438,14 +441,17 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
   const defined = new Set<string>();
   const mark = (text: string) => annotateText(text, glossary, defined, hue);
 
-  return (
+  const detail = (
     <div
       style={{
-        position: "fixed", inset: 0, zIndex: 80, background: SURFACE,
+        position: "fixed", inset: 0, zIndex: 10000, background: SURFACE,
         overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain",
       }}
     >
-      <div style={{ maxWidth: 1240, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
+      <div
+        style={{ maxWidth: 1240, margin: "0 auto", paddingTop: "max(24px, env(safe-area-inset-top))" }}
+        className="px-5 md:px-8 pb-24"
+      >
         {/* The top bar: out of the page on the left, into the paper on the
             right. The source link used to sit below the walkthrough, where it
             read as the end of the page rather than the way out of it. */}
@@ -560,4 +566,7 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
       </div>
     </div>
   );
+
+  if (!mounted) return null;
+  return createPortal(detail, document.body);
 }
