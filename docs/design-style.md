@@ -85,7 +85,12 @@ resolving. This one stride replaced `PALETTES`, `HOVER_PALETTES`,
 ### Gold — one
 
 `--color-gold` `#c9a227`. The foundational frame and its reason rule, nothing
-else. Outside the spectrum on purpose: the one card per digest that is not from
+else. **Gold is a line colour and never a mark.** A foundational paper marks type
+with `foundationalSlots()[0]` — slot 02, the light gold its card is already
+washed in. Behind a word, `#c9a227` is too dark to read the word through, and it
+made a foundational paper's highlights look like a different species from every
+other paper's pastel ones. The frame stays dark because a 2px rule has to read as
+a line. Outside the spectrum on purpose: the one card per digest that is not from
 this decade should not look like it drew a slot. Retired: `#F7E38F`, `#8C6D1F`,
 `#E6C34A`, `#F5D547` — a flat 2px gold border reads as gold at every size the
 five-stop gradient did.

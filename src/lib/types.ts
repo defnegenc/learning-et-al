@@ -32,4 +32,6 @@ export interface PaperItem {
   relatesLine?: string | null;
   digestTheme?: string | null; // reading list only: theme of the digest this paper came from
   digestDate?: string | null;  // reading list only: date of that digest
+  /** Reading list only: the companion's one-line "remember", null while prep is still running. */
+  companionRemember?: string | null;
 }

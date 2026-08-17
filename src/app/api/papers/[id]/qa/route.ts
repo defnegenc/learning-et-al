@@ -4,8 +4,13 @@ import { papers, qaPairs, interests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { aiComplete, AIConfig } from "@/lib/ai/provider";
 import { qaPrompt } from "@/lib/ai/prompts";
-import { downloadAndParsePdf } from "@/lib/fetchers/pdf";
+import { downloadAndParsePdf, textForPrompt, FULL_TEXT_CAP } from "@/lib/fetchers/pdf";
 import { getAuthUser } from "@/lib/get-user";
+
+// The whole paper reaches the model now, so a question about a long one is a
+// large prompt. This route had no declared duration at all and took Vercel's
+// default.
+export const maxDuration = 300;
 
 export async function GET(
   req: NextRequest,
@@ -68,7 +73,8 @@ export async function POST(
 
     if (!hasRichFullText && paper.pdfUrl) {
       try {
-        const pdfText = await downloadAndParsePdf(paper.pdfUrl);
+        // Capped on the way into the row — see the companion route.
+        const pdfText = (await downloadAndParsePdf(paper.pdfUrl)).slice(0, FULL_TEXT_CAP);
         if (pdfText && pdfText.length > abstractText.length) {
           fullText = pdfText;
           // Save to DB so we don't re-download next time
@@ -89,7 +95,10 @@ export async function POST(
     const answer = await aiComplete(
       aiConfig,
       "You are a helpful research assistant that answers questions about academic papers.",
-      qaPrompt(paper.title, fullText, question)
+      // Bibliography dropped, whole paper otherwise. `qaPrompt` used to slice
+      // this to 15,000 characters itself, so a question about a result was
+      // answered out of the introduction.
+      qaPrompt(paper.title, textForPrompt(fullText), question)
     );
 
     const [pair] = await db.insert(qaPairs).values({

@@ -513,11 +513,18 @@ RULES:
 
 // ─── Other prompts ───────────────────────────────────────────────────────────
 
+/**
+ * `fullText` is used whole — the caller trims it with `textForPrompt`, which
+ * drops the bibliography and caps a pathological extract. The 15,000-character
+ * slice that used to live here silently answered every question from the first
+ * few pages, so anything about a result or a limitation got a confident answer
+ * out of the introduction.
+ */
 export function qaPrompt(paperTitle: string, fullText: string, question: string) {
   return `Answer the question directly — lead with the answer, not context. No restating what the paper is about. No "according to the paper" preamble. Just answer it like you already know they've read the digest. 2-4 sentences max. Cite a specific detail or number if you can.
 
 Title: ${paperTitle}
-Full text: ${fullText.slice(0, 15000)}
+Full text: ${fullText}
 
 Question: ${question}`;
 }
