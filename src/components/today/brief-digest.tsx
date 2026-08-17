@@ -204,11 +204,23 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
     return s.length ? s : [lines.length];
   }, [cardsAfter, lines]);
 
+  const sourceStarts = useMemo(() => (
+    Object.entries(cardsAfter)
+      .map(([lineIdx, paperIdxs]) => ({ lineIdx: Number(lineIdx), paperIdxs }))
+      .sort((a, b) => a.lineIdx - b.lineIdx)
+  ), [cardsAfter]);
+
   const [step, setStep] = useState(revealAll ? Number.MAX_SAFE_INTEGER : 0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
   const allRevealed = n >= lines.length;
   // First click reveals the first source; later clicks advance through the rest.
   const anySourceRevealed = Object.keys(cardsAfter).some(k => Number(k) < n);
+  const nextStop = stops[Math.min(step + 1, stops.length - 1)] ?? lines.length;
+  const nextPaperIdx = sourceStarts.find(start => start.lineIdx >= n && start.lineIdx < nextStop)?.paperIdxs[0]
+    ?? sourceStarts.find(start => start.lineIdx >= n)?.paperIdxs[0];
+  const nextPaperName = typeof nextPaperIdx === "number"
+    ? (papers[nextPaperIdx]?.plainName || papers[nextPaperIdx]?.title || "").trim()
+    : "";
 
   // Clicking a paper chip in the prose scrolls that paper's card into view (each
   // bump re-triggers the effect). The card is always open — there are no tiles.
@@ -277,7 +289,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
       {!allRevealed && (
         <div className="brief-line" style={{ marginTop: 24 }}>
           <ActionButton onClick={() => setStep((s) => s + 1)}>
-            {anySourceRevealed ? "Next: a study on this" : "Reveal first source →"}
+            {nextPaperName ? `Next: ${nextPaperName}` : anySourceRevealed ? "Next source" : "Reveal first source →"}
           </ActionButton>
         </div>
       )}
