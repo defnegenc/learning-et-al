@@ -659,3 +659,42 @@ explaining a word that needed no explaining.
 as the end of the page rather than the way into the paper, and it competed with
 "Remember this" — the two strongest objects in the column were adjacent. It now
 sits opposite Back in a top bar: out on the left, in on the right.
+
+**Second review pass — two bugs and a token rule.**
+
+*Gold is a line colour, never a mark.* The foundational card's takeaway
+highlight, and then the hard-word highlights in the reading view, were filled
+`#c9a227`. Too dark to read a word through, and it made a foundational paper's
+marks look like a different species from every other paper's pastels. Both now
+use `foundationalSlots()[0]` — slot 02, the light gold the card is already washed
+in — which is precisely what `washSlots(index)[0]` does for every other paper.
+This did not loosen the menu; it enforced it. `design-style.md` already said gold
+was "the foundational frame and its reason rule, nothing else", and the marks
+were the thing violating it. The frame, its shadow, the reason rule and the eye
+stay `#c9a227`, because a 2px rule has to read as a line.
+
+*Every tooltip in the product was ink on ink.* `InkTip` set `background: INK`
+and `color: SURFACE`, then spread `...BODY_SM` after them — and every type style
+in `design-system.tsx` carries its own colour, `BODY_SM`'s being `INK`. The
+spread overwrote the white, so the one object that explains hard words, a paper's
+gist and the foundational eye rendered as a black box with invisible text. The
+type style is now spread first and the colour set after it. Any inverted surface
+added to that file has to do the same.
+
+*`.ds-lift` had no touch state, and its shadow half never worked.* A touch screen
+has no hover, so every card on a phone was inert — there is now a press, moving
+the object into its shadow rather than away from it, with the tap highlight
+suppressed so the press is the only feedback. The `box-shadow: 7px` on `:hover`
+is deleted rather than fixed: every lifting object sets `boxShadow` as an inline
+style and an inline declaration beats a stylesheet rule at any specificity, so it
+had never applied — and it was a second shadow offset, which the menu does not
+have. The motion is transform only, which also means it works on the gold-shadowed
+foundational card instead of flipping it to ink.
+
+*`/api/logout` assumed production.* It redirected to a hardcoded
+`learningetal.com` and set `secure: true` unconditionally, which http silently
+ignores — so a local logout bounced you to prod and left the cookie in place.
+Both now come from the request. This matters beyond dev: a session encrypted with
+a secret the server no longer has makes `auth()` throw `JWTSessionError` on every
+render, and since the cookie is HttpOnly this route is the only thing that can
+clear it.

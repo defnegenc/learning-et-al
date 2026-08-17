@@ -7,7 +7,8 @@ import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
 import {
   ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
-  HAIRLINE, INK, MUTED, SHADOW, SURFACE, TextInput, foundationalWash, wash, washSlots,
+  HAIRLINE, INK, MUTED, SHADOW, SURFACE, TextInput,
+  foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
 type Jargon = { term: string; def: string };
@@ -372,9 +373,10 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
 }) {
   const byline = paperByline(paper);
   const foundational = paper.category === "foundational";
-  // The same mark the digest card's takeaway wears — GOLD for a foundational
-  // paper, otherwise the first of the card's two hues.
-  const hue = foundational ? GOLD : washSlots(index)[0];
+  // The same mark the digest card's takeaway wears: the first of the card's two
+  // wash hues. Never GOLD — that is a line colour, and behind a word it is too
+  // dark to read the word through.
+  const hue = foundational ? foundationalSlots()[0] : washSlots(index)[0];
 
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [companionPending, setCompanionPending] = useState(true);

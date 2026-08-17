@@ -89,10 +89,24 @@ export function wash(index: number, hover = false): React.CSSProperties {
   return washFromHues(hover ? darken(a) : a, hover ? darken(b) : b);
 }
 
-/** The foundational card sits at fixed slots 02 + 01 — it isn't competing for
- *  wayfinding, because the gold frame already says which card it is. */
+/**
+ * The foundational card's two hues — fixed slots 02 + 01. It isn't competing for
+ * wayfinding, because the gold frame already says which card it is.
+ *
+ * This is the pair a foundational paper marks type with, and it is deliberately
+ * NOT `GOLD`. Gold is a line colour: the frame, its shadow, the reason rule and
+ * the eye. Behind a word it is far too dark to read a highlight through, and it
+ * made a foundational paper's marks look like a different species from every
+ * other paper's pastel ones. Slots 02 + 01 are the light gold and light orange
+ * the card is already washed in, so the mark matches its own card exactly the
+ * way `washSlots` does for everything else.
+ */
+export function foundationalSlots(): [string, string] {
+  return [SPECTRUM[2], SPECTRUM[1]];
+}
+
 export function foundationalWash(hover = false): React.CSSProperties {
-  const [a, b] = [SPECTRUM[2], SPECTRUM[1]];
+  const [a, b] = foundationalSlots();
   return washFromHues(hover ? darken(a) : a, hover ? darken(b) : b);
 }
 
@@ -578,6 +592,12 @@ export function Segmented<T extends string>({ options, value, onChange, style }:
  * The ink tooltip — one object for every "what does this mean" in the product:
  * hard-word definitions in the synthesis, a paper's gist behind its name, and
  * the foundational card's eye. Square, no radius, hard shadow.
+ *
+ * `BODY_SM` is spread FIRST and `color` set after it. Every type style in this
+ * file carries its own colour, and `BODY_SM`'s is `INK` — spread last, it
+ * overwrote the white and every tooltip in the product rendered ink on ink. A
+ * black box with invisible text is what that looked like. Any inverted surface
+ * added here must set its colour after the type style for the same reason.
  */
 export function InkTip({ children, label, style }: {
   children: React.ReactNode;
@@ -588,6 +608,7 @@ export function InkTip({ children, label, style }: {
   return (
     <span
       style={{
+        ...BODY_SM,
         display: "block",
         width: 280,
         maxWidth: "80vw",
@@ -595,7 +616,6 @@ export function InkTip({ children, label, style }: {
         color: SURFACE,
         padding: "10px 14px",
         boxShadow: SHADOW,
-        ...BODY_SM,
         ...style,
       }}
     >
