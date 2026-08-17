@@ -514,7 +514,7 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
                 }}
               >
                 <h2 style={{ ...DISPLAY_SM, color: DIM, margin: "0 0 12px" }}>Remember this</h2>
-                <p style={{ ...DISPLAY_LG, margin: 0 }}>{companion.remember}</p>
+                <p style={{ ...READING_BODY, fontWeight: 600, margin: 0 }}>{companion.remember}</p>
               </div>
             )}
 
