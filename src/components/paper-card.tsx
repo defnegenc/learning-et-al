@@ -83,20 +83,16 @@ function BookmarkToggle({ paper, initial, onUnsaved }: {
 /* ── The two columns ─────────────────────────────────────────────────────── */
 
 /**
- * The pipeline's `**bold**`, drawn as an ink underline.
+ * The pipeline's `**bold**` markers, rendered as bold weight.
  *
- * Weight was doing two jobs at once: half of every finding came back bold, so
- * the emphasis stopped marking anything and just made the column heavier. An
- * underline marks the same words without changing the colour of the line.
+ * This branch had briefly drawn them as an ink underline instead, on the theory
+ * that weight was doing two jobs at once. Reverted: bold is what shipped and
+ * what reads. The underline never reached prod.
  */
 function emphasize(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     !part ? null : i % 2 === 1
-      ? (
-        <span key={i} style={{ textDecoration: "underline", textDecorationThickness: 2, textUnderlineOffset: 3 }}>
-          {part}
-        </span>
-      )
+      ? <strong key={i} style={{ fontWeight: 600 }}>{part}</strong>
       : <span key={i}>{part}</span>
   );
 }

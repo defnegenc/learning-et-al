@@ -698,3 +698,40 @@ Both now come from the request. This matters beyond dev: a session encrypted wit
 a secret the server no longer has makes `auth()` throw `JWTSessionError` on every
 render, and since the cookie is HttpOnly this route is the only thing that can
 clear it.
+
+**The paper is read whole, and the bibliography is not read at all.**
+
+Findings go back to bold weight — that is what shipped and what reads. The ink
+underline experiment lived on the branch and never reached prod.
+
+The companion truncated a paper at 30,000 characters and Q&A at 15,000, both from
+the FRONT. Two things were wrong with that. The obvious one is that it wasn't the
+whole paper. The subtle one is which end got dropped: the discussion and the
+limitations are the last sections before the references, so "Where it's shaky"
+was being written without the authors' own account of where it was shaky, and a
+question about a result was answered out of the introduction.
+
+The fix is not simply a bigger number. `textForPrompt` in `lib/fetchers/pdf.ts`
+drops back matter first — the bibliography is roughly a quarter of a typical
+extract ("Attention Is All You Need" is 39,642 characters, of which 9,458 are
+references) and a list of other papers' titles is the single most misleading thing
+you can hand a summariser. Only a `References` / `Bibliography` heading in the
+back half is trusted, because front matter routinely lists section names and a
+body match would amputate the paper. An appendix after the references goes with
+it; that is the intended trade, since appendices are mostly tables while the
+discussion sits before the references.
+
+What remains is a rail, not a budget: `FULL_TEXT_CAP` is 400,000 characters, which
+passes every real paper whole and only stops a mis-parsed PDF that came back as a
+megabyte of ligature soup. It caps what enters the row as well as what enters a
+prompt — there is no reason for that soup to live in Turso forever. Both routes
+move to `maxDuration = 300`, matching the digest routes, because at 60 a
+review-length paper would time out mid-generation and cache nothing.
+
+Still open, and NOT fixed here: whether the companion read the PDF at all is
+invisible on screen. `pdfUrl` comes from OpenAlex `open_access.oa_url`, arXiv, or
+a Semantic Scholar arXiv id, so an open-access paper gets its full text and a
+paywalled one silently gets the abstract, and the two look identical in the
+reading view. The rail's subtitle was changed from "read out of the full text, not
+the abstract" to "from the paper itself, not from the digest" because the original
+claim could be false.
