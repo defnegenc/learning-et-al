@@ -39,21 +39,30 @@ working question. Input: the bare candidate headlines. For each it returns:
 { "guess": "one sentence: what a digest with this headline is about",
   "unknownTerms": ["words/acronyms a smart non-expert couldn't define"],
   "wouldWonder": true/false,
-  "why": "if false: what makes it sound contorted — study-shaped framing, rhetoric, misparse" }
+  "stakes": "one sentence: why a normal person would care — or empty if you can't say",
+  "interest": 1-5,
+  "why": "if wouldWonder is false: what makes it sound contorted — study-shaped framing, rhetoric, misparse" }
 ```
 
 `wouldWonder` is the museum catcher: "does this sound like a question a
 curious person would genuinely ask out loud, or like a question
 reverse-engineered from academic studies?" `unknownTerms` is the TTOs catcher.
-`guess` is the self-containedness measure.
+`guess` is the self-containedness measure. `stakes` + `interest` are the
+layman-interest measure: the judge is told it is a smart person with no
+academic background flipping past headlines, and `interest` is "would you stop
+scrolling?", forced to a spread (it may not give every candidate the same
+score). Empty `stakes` fails the candidate — if a cold reader cannot say why
+anyone would care, clarity alone does not earn the slot.
 
-Selection becomes deterministic, in candidate order:
+Selection becomes deterministic:
 
-- passes `themeProblems` (existing checks + the new tells below),
-- `unknownTerms` empty and `wouldWonder` true,
-- `guess` embedding-matches the editorial `thread` (local MiniLM via
-  `src/lib/embeddings.ts`; log similarity for a few days before enforcing a
-  hard threshold, ~0.5 to start).
+- a candidate is ELIGIBLE if it passes `themeProblems` (existing checks + the
+  new tells below), `unknownTerms` is empty, `wouldWonder` is true, `stakes`
+  is non-empty, and `guess` embedding-matches the editorial `thread` (local
+  MiniLM via `src/lib/embeddings.ts`; log similarity for a few days before
+  enforcing a hard threshold, ~0.5 to start);
+- among eligible candidates, take the HIGHEST `interest`, not the first that
+  scrapes by — the gate should pick the best line, not merely a safe one.
 
 If no candidate survives, feed the cold reader's specific objections into the
 existing repair loop (digest.ts:1571-1576) — "a reader with no context said X"
@@ -92,6 +101,35 @@ alongside the existing paraphrased-jargon rule:
 > offices that decide which inventions become startups." AI and VC pass;
 > TTO, HCI, RCT do not. Appearing in the sources does not make an acronym
 > legible.
+
+### 3.5 Enforce lay interest UPSTREAM, at Step 1 — the headline gate alone
+cannot make a dull angle interesting
+
+A headline polish is the last mile. Whether the digest can be interesting to a
+layman is mostly decided earlier: which angle of the seed topic Step 1 picks,
+and which papers get selected for it. Two changes:
+
+- **Stakes question in the Step-1 prompt**: before writing the theme, the
+  model must answer (in its JSON, one field) "what does a normal person lose,
+  gain, or misjudge if they never learn this?" If it cannot, it must pick a
+  different angle *within the same seed topic*. The seed rotation stays
+  mechanical (the topic is not abandoned — that discipline exists for a
+  reason), but the ANGLE inside the topic must clear lay stakes. Every seed
+  topic came from the user's own interests, so a human-stakes angle nearly
+  always exists; "incubators and TTOs choosing startup survivors" was an
+  angle failure, not a topic failure — the same papers carry "Who really
+  decides which startups get to exist?".
+- **Run the cold-reader judge on the working theme too** (one call, same
+  schema). A failed working theme gets one re-angle retry inside the seed.
+  This matters beyond the headline: the working theme drives search, and a
+  study-shaped working question retrieves study-shaped papers that then cap
+  how interesting Step 5 can honestly be.
+
+Honest ceiling: on a day when the seed topic's literature is genuinely thin
+on human consequence, wording cannot manufacture fascination — the gate will
+then favor the most consequential angle available rather than inventing
+drama, which is the right failure mode (the prompt already bans invented
+controversy).
 
 ### 4. Stop the taste rules from drifting across retry paths
 
