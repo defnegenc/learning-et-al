@@ -82,15 +82,11 @@ function BookmarkToggle({ paper, initial, onUnsaved }: {
 
 /* ── The two columns ─────────────────────────────────────────────────────── */
 
-/** The pipeline's `**bold**`, highlighted with the card's wash mark — same system as the takeaway. */
-function emphasize(text: string, mark: string): React.ReactNode[] {
+/** The pipeline's `**bold**` markers, rendered as bold weight. */
+function emphasize(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
     !part ? null : i % 2 === 1
-      ? (
-        <span key={i} style={{ background: mark, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px" }}>
-          {part}
-        </span>
-      )
+      ? <strong key={i} style={{ fontWeight: 600 }}>{part}</strong>
       : <span key={i}>{part}</span>
   );
 }
@@ -114,7 +110,7 @@ function CardColumn({ heading, children }: { heading: string; children: React.Re
  * Findings as a list, not as three adjacent paragraphs: a 5px dot in an 18px
  * gutter with the text hanging beside it.
  */
-function FindingList({ items, mark }: { items: string[]; mark: string }) {
+function FindingList({ items }: { items: string[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {items.map((f, i) => (
@@ -122,7 +118,7 @@ function FindingList({ items, mark }: { items: string[]; mark: string }) {
           <span aria-hidden style={{ width: 18, flexShrink: 0, display: "flex" }}>
             <span style={{ width: 5, height: 5, marginTop: 10, background: INK, borderRadius: "50%" }} />
           </span>
-          <p style={{ ...READING_BODY, margin: 0 }}>{emphasize(startCap(f), mark)}</p>
+          <p style={{ ...READING_BODY, margin: 0 }}>{emphasize(startCap(f))}</p>
         </div>
       ))}
     </div>
@@ -223,12 +219,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         {!foundational && hero && <p style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: "26px", color: INK, margin: "14px 0 0" }}>{hero}</p>}
       </div>
 
-      {/* Reason — 3px gold rule + body text, below title+byline, foundational only */}
+      {/* Reason — plain body text below title+byline, foundational only */}
       {foundational && paper.foundationalReason && (
-        <div style={{ display: "flex", gap: 12 }}>
-          <span style={{ width: 3, flexShrink: 0, background: GOLD }} />
-          <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{paper.foundationalReason}</p>
-        </div>
+        <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{paper.foundationalReason}</p>
       )}
 
       {/* Findings + takeaway only for non-foundational papers */}
@@ -236,7 +229,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         <div className={hasSplit ? "paper-card-split" : undefined}>
           {findings.length > 0 && (
             <CardColumn heading={findingsLabel}>
-              <FindingList items={findings} mark={mark} />
+              <FindingList items={findings} />
             </CardColumn>
           )}
           {lead && (
