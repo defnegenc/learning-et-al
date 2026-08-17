@@ -53,7 +53,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 
 3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv** (in practice OpenAlex nearly always answers, so it's effectively the sole source — audit 6.1).
 
-- **Relevance-ranked recency**: OpenAlex "recent" mode sorts by `relevance_score:desc` within a 2-year `publication_year` window. (Was `publication_year:desc`, which discarded relevance and returned the newest works mentioning the query words anywhere — audit 6.2.)
+- **Relevance-ranked recency**: OpenAlex "recent" mode sorts by `relevance_score:desc` within a 2-year `publication_year` window. It fetches five candidates past the requested cutoff; if the top set contains no current-year work, the best current-year result from that small oversample replaces the last candidate so downstream scoring can consider it. This is candidate inclusion, not a guaranteed slot. (Sorting by `publication_year:desc` was rejected because it discarded relevance and returned the newest works mentioning the query words anywhere — audit 6.2.)
 - **Deterministic taxonomy routing**: query 1 starts with `primary_topic.id:{seedTopic}` for precision. Queries 2-3 start with `topics.id:{seedTopic}`, which also admits cross-domain papers where the seed is a secondary topic.
 - **Precision → recall widening**: if a scoped query returns fewer than its 10-candidate allotment, keep those papers and fill the remainder from `primary_topic.subfield.id:{seedSubfield}`, then unscoped OpenAlex. Widening is per query and stops as soon as the allotment is full.
 - If every OpenAlex scope returns zero, Semantic Scholar receives the deterministic field stored on the seeded user interest; arXiv remains the final fallback. No LLM-generated label controls retrieval.
@@ -72,7 +72,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - BM25 is computed against `theme + all 3 queries` for the same reason.
 
 Quality boosts (scaled to RRF range):
-- `recencyBonus`: +0.003 current year, +0.0015 last year
+- `recencyBonus`: +0.0035 current year, +0.0015 last year
 - `venueBoost`: `venueQualityBoost(venue, domain) * 0.03` (0 to ~0.0024)
 - `instBoost`: `institutionBoost(institutions) * 0.03` (0 to ~0.0015)
 
@@ -94,6 +94,7 @@ Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the LLM to pick the best N for complementarity:
 - Selects papers that each contribute something DIFFERENT
 - Creates genuine TENSION (supports + complicates + alternative mechanism)
+- Uses recency only as a tie-break when relevance, insight, and complementarity are otherwise equal
 - Returns `selectedIndices`, `selectionReasoning`, `coreTension`, `argumentArc`, `paperRoles`
 - Falls back to top-N by score if LLM fails.
 - Note: `argumentArc` and `paperRoles` from this step are currently discarded — Stage B re-derives them. Could be consolidated.
@@ -112,7 +113,7 @@ When news slots are needed:
 ### Step 4 Fill Passes (lines ~732-825)
 
 If items < 3 after news search:
-- Pass 1: third search query with moderate threshold
+- Pass 1: third search query with moderate threshold, using the same recent-paper window as the primary pool
 - Pass 2: broad fill without field filter — query is `focusInterest + 2 theme words` (varies per digest; the bare interest string returned a fixed result set every run)
 - Pass 3: search using theme text as query (last resort)
 - Pass 4: if still only 1 item, broad news search (threshold 0.15 + `isNewsRelevant` word guard; was 0.10 with no guard) for a second source

@@ -131,6 +131,7 @@ export async function searchOpenAlex(
   scope?: OpenAlexSearchScope,
 ): Promise<OpenAlexPaper[]> {
   try {
+    const currentYear = new Date().getFullYear();
     // type:article|preprint excludes dissertations, book chapters, reports, datasets, etc.
     // Citation floor only for cited_by_count sort — new papers sorted by date haven't had time to accumulate citations
     const filters: string[] = ["has_abstract:true", "type:article|preprint"];
@@ -150,19 +151,23 @@ export async function searchOpenAlex(
     }
 
     if (sort === "publication_year") {
-      const year = new Date().getFullYear();
-      filters.push(`publication_year:${year - 2}-${year}`);
+      filters.push(`publication_year:${currentYear - 2}-${currentYear}`);
     }
 
     // "Recent" mode sorts by relevance_score within a 2-year window, NOT by
     // publication_year — year sorting discards OA's relevance ranking entirely
     // and returns the newest works mentioning the query words anywhere (fulltext
     // included), which floods the pool with loosely-related papers (audit 6.2).
+    // Pull a few extra relevance-ranked results in recent mode. OpenAlex can put
+    // every current-year work just below a top-10 made up of mature 1-2-year-old
+    // papers; in that case our downstream recency bonus never gets a chance to
+    // consider the newer work. We still return only `limit` candidates below.
+    const fetchLimit = sort === "publication_year" ? Math.min(limit + 5, 200) : limit;
     const params = new URLSearchParams({
       search: query,
       filter: filters.join(","),
       sort: sort === "cited_by_count" ? "cited_by_count:desc" : "relevance_score:desc",
-      "per-page": String(limit),
+      "per-page": String(fetchLimit),
       select: OA_SELECT,
       mailto: OA_MAILTO,
     });
@@ -177,6 +182,19 @@ export async function searchOpenAlex(
       .filter(w => w.title && w.abstract_inverted_index)
       .map(mapWork)
       .filter(p => p.title && p.abstract.length > 50);
+    let shortlisted = mapped.slice(0, limit);
+    if (
+      sort === "publication_year" &&
+      shortlisted.length === limit &&
+      !shortlisted.some(p => p.year === currentYear)
+    ) {
+      // Give the best current-year result in the small oversample a chance in
+      // hybrid scoring; this is candidate inclusion, not a guaranteed selection.
+      const currentYearCandidate = mapped.slice(limit).find(p => p.year === currentYear);
+      if (currentYearCandidate) {
+        shortlisted = [...shortlisted.slice(0, -1), currentYearCandidate];
+      }
+    }
     // A concept filter that silently matches no OpenAlex concept returns 0 results
     // and the caller falls back to an unfiltered (CS-dominant) search — make that visible.
     if (mapped.length === 0 && fieldsOfStudy) {
@@ -185,7 +203,7 @@ export async function searchOpenAlex(
     if (mapped.length === 0 && scope) {
       console.log(`[OpenAlex] 0 results with ${scope.kind} scope ${scope.id} for "${query}"`);
     }
-    return mapped;
+    return shortlisted;
   } catch (err) {
     console.log(`[OpenAlex] Search error: ${err}`);
     return [];

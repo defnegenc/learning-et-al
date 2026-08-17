@@ -164,6 +164,7 @@ RULES:
 - selectedIndices should ideally contain ${targetCount} indices (1-indexed) — but may contain fewer if not enough papers genuinely fit
 - Every selected paper must have a DISTINCT role — no two papers with the same role
 - NO TWO PAPERS WITH THE SAME CONCLUSION. If papers A and B both conclude "X is better/faster/works", drop one.
+- RECENCY TIE-BREAK: when two papers are equally relevant, insightful, and complementary, prefer the newer one. Never choose a weaker paper just because it is newer.
 - coreInsight can be a tension, a surprise, a paradox, OR a complementary insight. NOT everything needs conflict — papers agreeing from different angles are great too.
 - shortName: MAX 4 WORDS, plain everyday language a reader who has NOT read the paper instantly understands: "the chatbot privacy study", "the makeup tutorial study", "the delete-button study". NEVER author names ("the Smith study"), acronyms, or title jargon — a reader should know what the study is ABOUT from the name alone. Each shortName must be DISTINCT from the others so the closing can cross-reference them unambiguously.
 - If a paper is >5 years old, it must offer something newer papers can't (historical perspective, foundational insight). Don't pick old papers just because they're highly cited.
