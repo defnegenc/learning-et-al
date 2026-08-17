@@ -31,6 +31,8 @@ const MICRO_MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN digest_paused INTEGER DEFAULT 0",
   "ALTER TABLE papers ADD COLUMN companion TEXT",
   "ALTER TABLE papers ADD COLUMN homework TEXT",
+  "ALTER TABLE digests ADD COLUMN working_theme TEXT",
+  "ALTER TABLE digests ADD COLUMN theme_candidates TEXT",
 ];
 let migrated: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {
