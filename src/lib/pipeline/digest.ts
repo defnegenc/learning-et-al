@@ -994,7 +994,9 @@ Return JSON only (no markdown):
       const relSim = embeddingSims[i];
       const rrfScore = rrfScores[i];
       const age = p.year ? currentYear - p.year : 2;
-      const recencyBonus = age <= 0 ? 0.003 : age === 1 ? 0.0015 : 0;
+      // A gentle current-year tie-break. Relevance still dominates qualification,
+      // and foundational work enters later through its own deliberately old lane.
+      const recencyBonus = age <= 0 ? 0.0035 : age === 1 ? 0.0015 : 0;
       const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
       const score = rrfScore + recencyBonus + venueBoost;
       if (venueBoost !== 0) {
@@ -1237,7 +1239,9 @@ Return JSON only (no markdown):
     console.log(`[Digest] Filling ${TOTAL_ITEMS - items.length} remaining slot(s)...`);
     await delay(500);
     const fillQuery = searchQueries[2] || `${focusInterest} applications`;
-    const fillResults = await searchPapers(fillQuery, 10, "citationCount", paperSearchPlan(2));
+    // Main-line fill stays in the same recent window as the primary pool. Truly
+    // old work belongs in the separately gated foundational lane below.
+    const fillResults = await searchPapers(fillQuery, 10, "publicationDate", paperSearchPlan(2));
     const fillEmbs = await embedBatch(fillResults.map(paperText));
     const fillQueryEmb = await embedText(fillQuery);
     for (let fi = 0; fi < fillResults.length; fi++) {
