@@ -5,57 +5,6 @@ bottom (dates live in `docs/changelog.md`).
 
 ## Open
 
-### Read a paper by section — UNDER EVALUATION, prototype only
-`/prototype/reading-list` now has two tabs on the reading view: **Walkthrough**
-(the five companion beats, shipped) and **By section** (fixed buttons that expand
-into a summary of that part of the paper alone). Both run on fixture data. Pick one
-before building the backend.
-
-**What the measurement says.** Heading detection over five real arXiv extracts
-(Attention, GPT-3, ResNet, chain-of-thought, BERT) found:
-
-| | intro | related | methods | results | discussion | limitations | conclusion |
-|---|---|---|---|---|---|---|---|
-| hit rate | 5/5 | 4/5 | **3/5** | 5/5 | **1/5** | **1/5** | 3/5 |
-
-ResNet calls its method "Deep Residual Learning" and BERT calls its "BERT", so no
-list of canonical names will catch them. Most ML papers have no Discussion or
-Limitations heading at all. GPT-3's results matched `2.4 Evaluation`, a subsection,
-before the real results section — depth must be preferred, not just position.
-
-**Therefore: fixed buttons, variable sources.** The buttons cannot be the paper's
-table of contents, because the two parts a non-expert most wants are the two most
-often missing. Each button is fixed and phrased for a reader; each records whether
-its answer was read out of a real section or inferred from the whole paper, and
-shows which. "Inferred from the whole paper" is a materially weaker claim.
-
-**The pipeline this needs** (not built):
-1. Regex sweeps candidate heading lines — 68–224 per paper, deterministic offsets,
-   zero tokens.
-2. One LLM call classifies just those lines (a few thousand tokens, not the paper)
-   into the fixed slots, preferring top-level over subsection depth. Offsets stay
-   exact because they came from step 1.
-3. Per-section summary generated lazily on first expand, from that chunk alone, and
-   cached on a new `papers.sections` column. Most readers won't open all four, so
-   nothing is spent up front — and a summary that only ever saw its own section
-   can't drift in material from elsewhere, which is the real argument for this view
-   over the walkthrough.
-
-**News stays on the walkthrough.** An article is not an experiment: it has no
-methods and no limitations, so the tabs are suppressed for `source === "rss"`
-regardless of what data exists. Worth noting separately that the companion prompt
-says "this paper" throughout and produces awkward output for news — the digest card
-already sidesteps this by relabelling Findings as "Key points" for `isNews`, and
-the beats need the same treatment.
-
-### Show whether the companion actually read the PDF
-`pdfUrl` comes from OpenAlex `open_access.oa_url`, arXiv, or a Semantic Scholar
-arXiv id. An open-access paper gets its real full text; a paywalled one silently
-falls back to the abstract, and the two are indistinguishable in the reading view.
-A companion built from 150 words of abstract should not look identical to one built
-from the whole paper. Needs a provenance line, and probably a weaker set of beats
-when it's abstract-only.
-
 ### Share Digest (partially shipped)
 Public logged-out viewing already works via `public-digest.tsx` + the `/api/digest/[id]`
 route. **Remaining:** a per-digest "copy share link" affordance so any digest can be
