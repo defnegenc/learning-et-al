@@ -37,10 +37,11 @@ export function paperByline(paper: PaperItem): string {
 }
 
 /** The bookmark — the acid green fill is the only colour on the card's chrome. */
-function BookmarkToggle({ paper, initial, onUnsaved }: {
+function BookmarkToggle({ paper, initial, onUnsaved, label }: {
   paper: PaperItem;
   initial?: boolean;
   onUnsaved?: (id: string) => void;
+  label?: string;
 }) {
   const [saved, setSaved] = useState(!!initial);
 
@@ -71,11 +72,25 @@ function BookmarkToggle({ paper, initial, onUnsaved }: {
   return (
     <button
       onClick={toggle}
-      title={saved ? "Remove from your reading list" : "Save to your reading list"}
-      aria-label={saved ? "Remove from your reading list" : "Save to your reading list"}
-      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", flexShrink: 0, lineHeight: 1 }}
+      title={saved ? "Remove from your reading list" : (label ?? "Save to your reading list")}
+      aria-label={saved ? "Remove from your reading list" : (label ?? "Save to your reading list")}
+      style={{
+        ...(label ? DISPLAY_SM : {}),
+        background: "none",
+        border: "none",
+        padding: label ? "2px 0" : 0,
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        flexShrink: 0,
+        lineHeight: 1,
+        color: saved ? INK : DIM,
+        whiteSpace: "nowrap",
+      }}
     >
-      <Bookmark size={16} style={{ fill: saved ? "currentColor" : "none", stroke: "currentColor", color: saved ? INK : DIM }} />
+      <Bookmark size={16} style={{ fill: saved ? "currentColor" : "none", stroke: "currentColor" }} />
+      {label && <span>{saved ? "Saved for later" : label}</span>}
     </button>
   );
 }
@@ -226,8 +241,13 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         overflow: "hidden",
       }}
     >
-      {/* Foundational eyebrow — label + eye only; sits above the title */}
-      {foundational && <FoundationalMark />}
+      {/* Foundational eyebrow — label + eye left, save action right. */}
+      {foundational && (
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+          <FoundationalMark />
+          {loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} label="Save for later" />}
+        </div>
+      )}
 
       <div>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
@@ -235,7 +255,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
           <h3 style={{ ...(foundational ? DISPLAY_LG : DISPLAY_SM), margin: 0, flex: 1 }}>
             {paper.plainName || paper.title}
           </h3>
-          {loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} />}
+          {!foundational && loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} />}
         </div>
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
         {/* Hero only for non-foundational — the large title + reason block serve that role */}
