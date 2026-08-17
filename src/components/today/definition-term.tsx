@@ -24,8 +24,15 @@ export function parseDefinitions(keyConcepts: string[]): Definition[] {
  * An inline glossary term whose explanation lives in a body-level portal.
  * Portalling lets the tip escape clipped cards and narrow content columns; the
  * measured placement also keeps every edge inside the browser viewport.
+ *
+ * `tint` marks the term as a highlight in a spectrum hue instead of the dotted
+ * grey rule. The synthesis passes nothing and stays on the rule, because a
+ * paragraph there may carry terms belonging to three different papers and a hue
+ * would claim each of them for the wrong card. The reading view passes the hue
+ * of the paper being read, where every term on the page belongs to that one
+ * paper and the highlight says which paper you are inside.
  */
-export function DefinitionTerm({ text, def }: { text: string; def: string }) {
+export function DefinitionTerm({ text, def, tint }: { text: string; def: string; tint?: string }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
@@ -98,11 +105,21 @@ export function DefinitionTerm({ text, def }: { text: string; def: string }) {
             setOpen((value) => !value);
           }
         }}
-        style={{
-          borderBottom: `2px dotted ${MUTED}`,
-          cursor: "help",
-          textDecorationSkipInk: "none",
-        }}
+        style={tint
+          ? {
+            background: tint,
+            // `clone` so a term that wraps carries the highlight on both lines
+            // rather than stretching one box behind the break.
+            boxDecorationBreak: "clone",
+            WebkitBoxDecorationBreak: "clone",
+            padding: "2px 4px",
+            cursor: "help",
+          }
+          : {
+            borderBottom: `2px dotted ${MUTED}`,
+            cursor: "help",
+            textDecorationSkipInk: "none",
+          }}
       >
         {text}
       </span>
