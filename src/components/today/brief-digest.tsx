@@ -277,7 +277,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
       {!allRevealed && (
         <div className="brief-line" style={{ marginTop: 24 }}>
           <ActionButton onClick={() => setStep((s) => s + 1)}>
-            {anySourceRevealed ? "Next source →" : "Reveal first source →"}
+            {anySourceRevealed ? "Next: a study on this" : "Reveal first source →"}
           </ActionButton>
         </div>
       )}
