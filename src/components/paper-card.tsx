@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Bookmark } from "lucide-react";
+import { Bookmark, Info, Sparkles } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import {
@@ -241,10 +241,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         overflow: "hidden",
       }}
     >
-      {/* Foundational eyebrow — label + eye left, save action right. */}
+      {/* Foundational eyebrow — label + info tooltip left, save action right. */}
       {foundational && (
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-          <FoundationalMark reason={paper.foundationalReason} />
+          <FoundationalMark />
           {loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} label="Save for later" />}
         </div>
       )}
@@ -259,6 +259,31 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
         {hero && <p style={{ fontFamily: DISPLAY, fontSize: foundational ? 22 : 18, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: foundational ? "28px" : "26px", color: INK, margin: foundational ? "4px 0 0" : "14px 0 0" }}>{hero}</p>}
       </div>
+
+      {foundational && paper.foundationalReason && (
+        <section
+          style={{
+            background: `color-mix(in oklab, ${mark} 55%, ${SURFACE})`,
+            borderLeft: `2px solid ${GOLD}`,
+            padding: "12px 14px",
+          }}
+        >
+          <h3
+            style={{
+              ...DISPLAY_SM,
+              display: "inline-block",
+              textDecoration: "underline",
+              textDecorationColor: GOLD,
+              textDecorationThickness: 2,
+              textUnderlineOffset: 4,
+              margin: "0 0 8px",
+            }}
+          >
+            Significance
+          </h3>
+          <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{paper.foundationalReason}</p>
+        </section>
+      )}
 
       {(findings.length > 0 || lead) && (
         <div className={hasSplit ? "paper-card-split" : undefined}>
@@ -378,44 +403,33 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
 }
 
 /**
- * The foundational lockup — the label, the eye, and the reason.
+ * The foundational lockup — the label and its explanation.
  *
  * The label stays constant so the lane is recognisable the third time you meet
- * it; the eye carries the explanation for the first. One gold moment: the frame
- * and the reason's rule. The border-image gradient, the glow and the gold
- * underline under the label are all retired.
+ * it; the info control carries the explanation for the first. Gold stays a line
+ * colour: frame, shadow and section rules, not a filled badge.
  */
-function FoundationalMark({ reason }: { reason?: string | null }) {
+function FoundationalMark() {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start", position: "relative" }}>
-        <span style={{ ...LABEL_STYLE, color: INK }}>Foundational text</span>
-        <button
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
-          onClick={() => setOpen(v => !v)}
-          aria-label="What is a foundational text?"
-          style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "flex", lineHeight: 1 }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={open ? INK : GOLD} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-        {open && (
-          <span style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, pointerEvents: "none" }}>
-            <InkTip>
-              Some days you&rsquo;ll get a foundational text — the paper that shaped how this field or this question came to be thought about at all.
-            </InkTip>
-          </span>
-        )}
-      </div>
-      {reason && (
-        <div style={{ display: "flex", gap: 10 }}>
-          <span style={{ width: 2, flexShrink: 0, background: GOLD }} />
-          <p style={{ ...BODY_SM, color: DIM, margin: 0 }}>{reason}</p>
-        </div>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start", position: "relative" }}>
+      <Sparkles size={14} strokeWidth={2} style={{ color: GOLD, flexShrink: 0 }} aria-hidden />
+      <span style={{ ...LABEL_STYLE, color: INK }}>Foundational text</span>
+      <button
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onClick={() => setOpen(v => !v)}
+        aria-label="What is a foundational text?"
+        style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "flex", lineHeight: 1, color: open ? INK : GOLD }}
+      >
+        <Info size={15} strokeWidth={2} />
+      </button>
+      {open && (
+        <span style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, pointerEvents: "none" }}>
+          <InkTip>
+            Earlier thinking that set the terms of the argument, giving today&rsquo;s newer work something to build on, revise, or push against.
+          </InkTip>
+        </span>
       )}
     </div>
   );
