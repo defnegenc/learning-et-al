@@ -278,7 +278,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
           {lead && (
             <CardColumn heading="Takeaway">
               <p style={{ ...READING_BODY, margin: 0 }}>
-                <span style={{ background: mark, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px" }}>
+                <span style={{ background: mark, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px", fontWeight: 600 }}>
                   {lead}
                 </span>
                 {rest ? ` ${rest}` : ""}
