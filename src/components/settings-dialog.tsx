@@ -13,8 +13,8 @@ import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
 import {
-  ACID_GREEN, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_SM, FIELD, HAIRLINE, INK,
-  Label, MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE,
+  ACID_GREEN, ActionButton, BODY_STYLE, DIM, DISPLAY_SM, FIELD, HAIRLINE, INK,
+  MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE,
 } from "@/components/design-system";
 
 export type SettingsTab = "interests" | "account";
@@ -232,7 +232,6 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {tab === "interests" && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="px-4 pt-5 pb-3 md:px-10 md:pt-8 md:pb-4" style={{ flexShrink: 0 }}>
-                <Label style={{ marginBottom: 12 }}>Preferences / Interests</Label>
                 <PageTitle style={{ marginBottom: 12 }}>Curate your feed</PageTitle>
                 <p style={{ ...BODY_STYLE, color: DIM, maxWidth: 560, margin: 0 }}>
                   Pick the topics your daily digest thinks with. Breadth beats depth, so it samples across everything you choose.
@@ -258,7 +257,6 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
           {/* ── Account tab — who you are, when it arrives, and the two buttons ── */}
           {tab === "account" && (
             <div className="flex-1 overflow-y-auto px-4 py-5 md:px-10 md:py-8">
-              <Label style={{ marginBottom: 12 }}>Preferences / Account</Label>
               <PageTitle style={{ marginBottom: 24 }}>Account</PageTitle>
 
               {authSession?.user && (
