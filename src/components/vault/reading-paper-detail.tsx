@@ -3,14 +3,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Bookmark, Loader2 } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
+import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
-import { annotateText, type Jargon } from "./reading-annotate";
-import { SectionList, type PaperSection } from "./reading-sections";
 import {
-  ActionButton, BODY_SM, BODY_STYLE, BORDER, BORDER_HAIR, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
-  HAIRLINE, INK, MUTED, NavTab, SHADOW, SURFACE, TextInput,
+  ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
+  HAIRLINE, INK, MUTED, SHADOW, SURFACE, TextInput,
   foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
+
+type Jargon = { term: string; def: string };
 
 export interface Companion {
   gist: string;
@@ -55,14 +56,34 @@ export interface ReadingFixture {
   qa: QaPair[];
   /** Stands in for the model when a question is asked. */
   answer: (question: string) => string;
-  /**
-   * The section view's data. Present → the Walkthrough/Sections tabs appear.
-   * Nothing generates these yet, so production passes none and the tabs stay
-   * hidden rather than shipping an empty second view.
-   */
-  sections?: PaperSection[];
-  /** Stands in for the per-section summariser on first expand. */
-  sectionSummary?: (key: string) => string | null;
+}
+
+/**
+ * Interleave TermChips into a text block at the first occurrence of each term.
+ *
+ * `used` is passed in rather than owned, so a term defined in the gist is not
+ * defined again three paragraphs later — the walkthrough is one continuous read,
+ * not five independent blocks.
+ */
+function annotateText(text: string, jargon: Jargon[], used: Set<string>, tint: string): React.ReactNode[] {
+  const sorted = [...jargon].sort((a, b) => b.term.length - a.term.length);
+  const out: React.ReactNode[] = [];
+  let rest = text;
+  let key = 0;
+  while (rest) {
+    let best: { i: number; len: number; j: Jargon } | null = null;
+    for (const j of sorted) {
+      if (used.has(j.term.toLowerCase())) continue;
+      const i = rest.toLowerCase().indexOf(j.term.toLowerCase());
+      if (i >= 0 && (!best || i < best.i)) best = { i, len: j.term.length, j };
+    }
+    if (!best) { out.push(<span key={key++}>{rest}</span>); break; }
+    used.add(best.j.term.toLowerCase());
+    if (best.i > 0) out.push(<span key={key++}>{rest.slice(0, best.i)}</span>);
+    out.push(<TermChip key={key++} text={rest.slice(best.i, best.i + best.len)} def={best.j.def} tint={tint} />);
+    rest = rest.slice(best.i + best.len);
+  }
+  return out;
 }
 
 /** One beat of the walkthrough: a Display/SM heading over a paragraph. */
@@ -169,19 +190,8 @@ function Glossary({ terms }: { terms: Jargon[] }) {
  * citing work, so the page has one way of offering you a next thing. Answers
  * come from /api/papers/[id]/qa, which reads the full text, and the thread is
  * persisted per user, so a paper you came back to still has what you asked.
- *
- * `scope` is set when the question came from a section — "Ask about this" inside
- * "How they did it" narrows the question to that part rather than the whole
- * paper, which is the point of reading it in parts. The scope is shown as a
- * removable line above the composer so it is never a hidden filter.
  */
-function AskThread({ paperId, starters, fixture, scope, onClearScope }: {
-  paperId: string;
-  starters: string[];
-  fixture?: ReadingFixture;
-  scope?: string | null;
-  onClearScope?: () => void;
-}) {
+function AskThread({ paperId, starters, fixture }: { paperId: string; starters: string[]; fixture?: ReadingFixture }) {
   const [pairs, setPairs] = useState<QaPair[]>([]);
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
@@ -211,32 +221,27 @@ function AskThread({ paperId, starters, fixture, scope, onClearScope }: {
   async function ask(question: string) {
     const q = question.trim();
     if (!q || asking) return;
-    // The scope rides along as part of the question rather than as a separate
-    // field, so the thread reads back as what was actually asked.
-    const scoped = scope ? `About the ${scope.toLowerCase()} of this paper: ${q}` : q;
-    setAsking(scoped);
+    setAsking(q);
     setFailed(false);
     try {
       if (fixture) {
         // A beat, so the pending state is reviewable rather than a flash.
         await new Promise(r => setTimeout(r, 900));
-        setPairs(prev => [...prev, { id: `fx-${prev.length}`, question: scoped, answer: fixture.answer(scoped) }]);
+        setPairs(prev => [...prev, { id: `fx-${prev.length}`, question: q, answer: fixture.answer(q) }]);
         asked.current.add(q);
         setDraft("");
-        onClearScope?.();
         return;
       }
       const res = await fetch(`/api/papers/${paperId}/qa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: scoped }),
+        body: JSON.stringify({ question: q }),
       });
       const data = await res.json();
       if (data.qaPair) {
         setPairs(prev => [...prev, data.qaPair]);
         asked.current.add(q);
         setDraft("");
-        onClearScope?.();
       } else setFailed(true);
     } catch { setFailed(true); }
     finally { setAsking(null); }
@@ -316,25 +321,11 @@ function AskThread({ paperId, starters, fixture, scope, onClearScope }: {
       </div>
 
       <div style={{ padding: "14px 18px", borderTop: BORDER, flexShrink: 0 }}>
-        {scope && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <span style={{ ...BODY_SM, fontWeight: 600, background: SURFACE, border: BORDER_HAIR, padding: "3px 9px" }}>
-              {scope}
-            </span>
-            <button
-              onClick={onClearScope}
-              aria-label="Ask about the whole paper instead"
-              style={{ ...BODY_SM, color: MUTED, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
-            >
-              whole paper instead
-            </button>
-          </div>
-        )}
         <TextInput
           value={draft}
           onChange={setDraft}
           onKeyDown={e => { if (e.key === "Enter") ask(draft); }}
-          placeholder={scope ? `Ask about the ${scope.toLowerCase()}…` : "Ask your own question…"}
+          placeholder="Ask your own question…"
           ariaLabel="Ask a question about this paper"
         />
         <ActionButton
@@ -390,17 +381,6 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [companionPending, setCompanionPending] = useState(true);
   const [homework, setHomework] = useState<HomeworkItem[] | null>(null);
-
-  // Two ways to read the same paper. `sections` only exists where something has
-  // segmented the PDF, so the tabs are absent rather than empty when it hasn't.
-  const sections = fixture?.sections;
-  const [mode, setMode] = useState<"walkthrough" | "sections">("walkthrough");
-  const [scope, setScope] = useState<string | null>(null);
-
-  // News has no methods and no limitations — an article is not an experiment —
-  // so the section view is never offered for it, whatever data exists.
-  const isNews = paper.source === "rss";
-  const canSection = !!sections?.length && !isNews;
 
   // Full-screen means the page behind must not scroll with it (the source of the
   // jittery double-scroll on mobile).
@@ -493,19 +473,10 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
           <div style={{ minWidth: 0 }}>
             <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{paper.title}</h1>
             {byline && (
-              <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: `0 0 ${canSection ? 20 : 32}px` }}>{byline}</p>
+              <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "0 0 32px" }}>{byline}</p>
             )}
 
-            {/* Two ways to read the same paper. Nav tabs are one of the two
-                sanctioned mono uses, and this is machinery, not content. */}
-            {canSection && (
-              <div style={{ display: "flex", gap: 20, marginBottom: 28, borderBottom: HAIRLINE, paddingBottom: 2 }}>
-                <NavTab active={mode === "walkthrough"} onClick={() => setMode("walkthrough")}>Walkthrough</NavTab>
-                <NavTab active={mode === "sections"} onClick={() => setMode("sections")}>By section</NavTab>
-              </div>
-            )}
-
-            {/* ── The gist — the one thing both views share ── */}
+            {/* ── The gist ── */}
             {companionPending ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
                 <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
@@ -519,30 +490,10 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
               <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: 0 }}>No summary available.</p>
             )}
 
-            {canSection && mode === "sections" ? (
-              /* ── By section — the paper opened one part at a time ── */
-              <div style={{ marginTop: 32 }}>
-                <SectionList
-                  sections={sections!}
-                  jargon={glossary}
-                  hue={hue}
-                  onAsk={setScope}
-                  onExpand={async key => {
-                    // The real thing calls a per-section summariser here; the
-                    // prototype pauses so the pending state is reviewable.
-                    await new Promise(r => setTimeout(r, 700));
-                    return fixture?.sectionSummary?.(key) ?? null;
-                  }}
-                />
-              </div>
-            ) : (
-              <>
-                {/* ── The walkthrough — the beats after the gist ── */}
-                {companion?.did && <Beat heading="What they did">{mark(companion.did)}</Beat>}
-                {companion?.found && <Beat heading="What they found">{mark(companion.found)}</Beat>}
-                {companion?.caveats && <Beat heading="Where it's shaky">{mark(companion.caveats)}</Beat>}
-              </>
-            )}
+            {/* ── The walkthrough — the beats after the gist ── */}
+            {companion?.did && <Beat heading="What they did">{mark(companion.did)}</Beat>}
+            {companion?.found && <Beat heading="What they found">{mark(companion.found)}</Beat>}
+            {companion?.caveats && <Beat heading="Where it's shaky">{mark(companion.caveats)}</Beat>}
 
             {/* The one line worth keeping, in the card's own frame and wash — so
                 the page closes on the object it opened from. */}
@@ -588,13 +539,7 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
           {/* ── Ask this paper, in the rail ── */}
           <aside className="reading-aside">
             {!companionPending && (
-              <AskThread
-                paperId={paper.id}
-                starters={companion?.questions ?? []}
-                fixture={fixture}
-                scope={scope}
-                onClearScope={() => setScope(null)}
-              />
+              <AskThread paperId={paper.id} starters={companion?.questions ?? []} fixture={fixture} />
             )}
           </aside>
         </div>

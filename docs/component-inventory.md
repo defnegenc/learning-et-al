@@ -62,8 +62,6 @@ one overrides Paper.
 | `vault/reading-paper-detail.tsx` | The reading view | ✅ 1240px two-column. Left: title, five companion beats, the `Remember this` card frame, `Glossary`, the citing work. Right: `AskThread` in a sticky rail. `Read the full paper` sits opposite Back in a top bar. Takes `index` for the paper's hue |
 | `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — a 372px framed rail: companion starters as rows, scrolling thread, composer pinned to the foot. Persisted per user | ✅ the only Q&A surface; digest-level Q&A is gone |
 | `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words | ✅ |
-| `vault/reading-annotate.tsx` | `annotateText` — TermChips at first use of each hard word, one shared "already defined" set, paper's hue as tint | ✅ own module so neither reading view imports the other |
-| `vault/reading-sections.tsx` | `SectionList` — the "By section" tab. Fixed buttons, lazy per-section summaries, per-section "Ask about this", provenance line | ⚠️ prototype only; no backend. See `features-todo.md` |
 | ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 
 ## Shell, settings, onboarding
