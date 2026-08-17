@@ -6,7 +6,7 @@ import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import {
   BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_LG, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
-  InkTip, SHADOW, SURFACE, wash, washSlots,
+  foundationalSlots, InkTip, SHADOW, SURFACE, wash, washSlots,
 } from "@/components/design-system";
 
 /*
