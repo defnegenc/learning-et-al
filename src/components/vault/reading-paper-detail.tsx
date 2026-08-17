@@ -6,8 +6,8 @@ import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
 import {
-  ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
-  HAIRLINE, INK, MUTED, SHADOW, SURFACE, TextInput,
+  ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
+  HAIRLINE, INK, MUTED, SHADOW, SURFACE, TextInput, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
 type Jargon = { term: string; def: string };
@@ -64,7 +64,7 @@ export interface ReadingFixture {
  * defined again three paragraphs later — the walkthrough is one continuous read,
  * not five independent blocks.
  */
-function annotateText(text: string, jargon: Jargon[], used: Set<string>): React.ReactNode[] {
+function annotateText(text: string, jargon: Jargon[], used: Set<string>, tint: string): React.ReactNode[] {
   const sorted = [...jargon].sort((a, b) => b.term.length - a.term.length);
   const out: React.ReactNode[] = [];
   let rest = text;
@@ -79,7 +79,7 @@ function annotateText(text: string, jargon: Jargon[], used: Set<string>): React.
     if (!best) { out.push(<span key={key++}>{rest}</span>); break; }
     used.add(best.j.term.toLowerCase());
     if (best.i > 0) out.push(<span key={key++}>{rest.slice(0, best.i)}</span>);
-    out.push(<TermChip key={key++} text={rest.slice(best.i, best.i + best.len)} def={best.j.def} />);
+    out.push(<TermChip key={key++} text={rest.slice(best.i, best.i + best.len)} def={best.j.def} tint={tint} />);
     rest = rest.slice(best.i + best.len);
   }
   return out;
@@ -92,16 +92,6 @@ function Beat({ heading, children }: { heading: string; children: React.ReactNod
       <h2 style={{ ...DISPLAY_SM, margin: "0 0 10px" }}>{heading}</h2>
       <p style={{ ...READING_BODY, margin: 0 }}>{children}</p>
     </section>
-  );
-}
-
-/** The page's big heading — used for the two sections that are not the paper. */
-function SectionHead({ title, sub }: { title: string; sub: string }) {
-  return (
-    <>
-      <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>{title}</h2>
-      <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>{sub}</p>
-    </>
   );
 }
 
@@ -175,7 +165,7 @@ function Glossary({ terms }: { terms: Jargon[] }) {
         style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer" }}
       >
         <span style={{ color: MUTED }}>{open ? "–" : "+"}</span>
-        Every hard word, defined ({terms.length})
+        Glossary ({terms.length})
       </button>
       {open && (
         <dl style={{ margin: "16px 0 0" }}>
@@ -257,58 +247,79 @@ function AskThread({ paperId, starters, fixture }: { paperId: string; starters: 
   }
 
   const remaining = starters.filter(q => !asked.current.has(q));
+  const empty = pairs.length === 0 && !asking;
 
   return (
-    <>
-      <SectionHead
-        title="Ask this paper"
-        sub="Answers are read out of the full text, not the abstract."
-      />
+    <div
+      style={{
+        border: BORDER, boxShadow: SHADOW, background: SURFACE,
+        display: "flex", flexDirection: "column",
+      }}
+      className="reading-ask"
+    >
+      <div style={{ padding: "16px 18px 14px", borderBottom: BORDER, flexShrink: 0 }}>
+        <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
+        <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
+          Answered from the paper itself, not from the digest.
+        </p>
+      </div>
 
-      {pairs.map(pair => (
-        <div key={pair.id} style={{ borderTop: HAIRLINE, padding: "18px 0" }}>
-          <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 10px" }}>{pair.question}</p>
-          <div style={{ display: "flex", gap: 12 }}>
-            <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
-            <p style={{ ...READING_BODY, margin: 0 }}>{pair.answer}</p>
+      <div style={{ overflowY: "auto", padding: "0 18px", flex: 1, minHeight: 0 }}>
+        {pairs.map((pair, i) => (
+          <div key={pair.id} style={{ padding: "16px 0", borderTop: i === 0 ? "none" : HAIRLINE }}>
+            <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{pair.question}</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
+              <p style={{ ...BODY_STYLE, margin: 0 }}>{pair.answer}</p>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
 
-      {asking && (
-        <div style={{ borderTop: HAIRLINE, padding: "18px 0" }}>
-          <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 10px" }}>{asking}</p>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
-            <span style={{ ...BODY_STYLE, color: MUTED }}>Looking it up&hellip;</span>
+        {asking && (
+          <div style={{ padding: "16px 0", borderTop: pairs.length ? HAIRLINE : "none" }}>
+            <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{asking}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+              <span style={{ ...BODY_STYLE, color: MUTED }}>Looking it up&hellip;</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {remaining.map(q => (
-        <button
-          key={q}
-          onClick={() => ask(q)}
-          disabled={!!asking}
-          style={{
-            ...READING_BODY,
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            border: "none",
-            borderTop: HAIRLINE,
-            background: "transparent",
-            padding: "16px 0",
-            cursor: asking ? "default" : "pointer",
-            opacity: asking ? 0.4 : 1,
-          }}
-        >
-          <span style={{ color: MUTED, marginRight: 10 }}>→</span>
-          {q}
-        </button>
-      ))}
+        {remaining.length > 0 && (
+          <div style={{ paddingBottom: 4 }}>
+            {empty && (
+              <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0 0" }}>
+                Three the companion thought you&rsquo;d want:
+              </p>
+            )}
+            {remaining.map((q, i) => (
+              <button
+                key={q}
+                onClick={() => ask(q)}
+                disabled={!!asking}
+                style={{
+                  ...BODY_STYLE,
+                  display: "flex",
+                  gap: 10,
+                  width: "100%",
+                  textAlign: "left",
+                  border: "none",
+                  borderTop: empty && i === 0 ? "none" : HAIRLINE,
+                  background: "transparent",
+                  padding: "14px 0",
+                  cursor: asking ? "default" : "pointer",
+                  opacity: asking ? 0.4 : 1,
+                }}
+              >
+                <span aria-hidden style={{ color: MUTED, flexShrink: 0 }}>→</span>
+                <span>{q}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+      <div style={{ padding: "14px 18px", borderTop: BORDER, flexShrink: 0 }}>
         <TextInput
           value={draft}
           onChange={setDraft}
@@ -316,16 +327,22 @@ function AskThread({ paperId, starters, fixture }: { paperId: string; starters: 
           placeholder="Ask your own question…"
           ariaLabel="Ask a question about this paper"
         />
-        <ActionButton onClick={() => ask(draft)} disabled={!draft.trim() || !!asking} style={{ flexShrink: 0 }}>
+        <ActionButton
+          onClick={() => ask(draft)}
+          variant="primary"
+          shadow={false}
+          disabled={!draft.trim() || !!asking}
+          style={{ width: "100%", marginTop: 8 }}
+        >
           Ask
         </ActionButton>
+        {failed && (
+          <p style={{ ...BODY_SM, color: MUTED, margin: "10px 0 0" }}>
+            That one didn&rsquo;t come back. Try again.
+          </p>
+        )}
       </div>
-      {failed && (
-        <p style={{ ...BODY_SM, color: MUTED, margin: "10px 0 0" }}>
-          That one didn&rsquo;t come back. Try again.
-        </p>
-      )}
-    </>
+    </div>
   );
 }
 
@@ -340,13 +357,24 @@ function AskThread({ paperId, starters, fixture }: { paperId: string; starters: 
  * continuous read with hard words defined in place, and the questions the
  * companion suggests are live rather than decorative.
  */
-export function ReadingPaperDetail({ paper, onClose, fixture }: {
+export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
   paper: PaperItem;
+  /**
+   * The paper's position on the shelf — its wash index, so this page wears the
+   * same hue as the card it was opened from. Highlights inside a paper's own
+   * page are wayfinding for once rather than decoration: every hard word here
+   * belongs to this paper, so colouring them says which paper you are inside.
+   */
+  index?: number;
   onClose: () => void;
   /** Prototype only — see `ReadingFixture`. */
   fixture?: ReadingFixture;
 }) {
   const byline = paperByline(paper);
+  const foundational = paper.category === "foundational";
+  // The same mark the digest card's takeaway wears — GOLD for a foundational
+  // paper, otherwise the first of the card's two hues.
+  const hue = foundational ? GOLD : washSlots(index)[0];
 
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [companionPending, setCompanionPending] = useState(true);
@@ -406,7 +434,7 @@ export function ReadingPaperDetail({ paper, onClose, fixture }: {
   // render so the chips land in the same places every time.
   const glossary = companion?.glossary ?? [];
   const defined = new Set<string>();
-  const mark = (text: string) => annotateText(text, glossary, defined);
+  const mark = (text: string) => annotateText(text, glossary, defined, hue);
 
   return (
     <div
@@ -415,83 +443,118 @@ export function ReadingPaperDetail({ paper, onClose, fixture }: {
         overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain",
       }}
     >
-      <div style={{ maxWidth: 680, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
-        <button
-          onClick={onClose}
-          style={{ ...BODY_STYLE, display: "inline-flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: DIM, padding: 0, marginBottom: 28 }}
-        >
-          <ArrowLeft size={15} /> Back
-        </button>
-
-        <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{paper.title}</h1>
-        {byline && (
-          <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "0 0 32px" }}>{byline}</p>
-        )}
-
-        {/* ── The gist ── */}
-        {companionPending ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-            <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
-            <span style={{ ...BODY_STYLE, color: MUTED }}>Reading the paper…</span>
-          </div>
-        ) : companion?.gist ? (
-          <p style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist)}</p>
-        ) : paper.abstract ? (
-          <p style={{ ...READING_BODY, margin: 0 }}>{paper.abstract}</p>
-        ) : (
-          <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: 0 }}>No summary available.</p>
-        )}
-
-        {/* ── The walkthrough — the four beats after the gist ── */}
-        {companion?.did && <Beat heading="What they did">{mark(companion.did)}</Beat>}
-        {companion?.found && <Beat heading="What they found">{mark(companion.found)}</Beat>}
-        {companion?.caveats && <Beat heading="Where it's shaky">{mark(companion.caveats)}</Beat>}
-
-        {/* The one line worth keeping gets the page's biggest voice, inside the
-            one framed shape in the product. */}
-        {companion?.remember && (
-          <div style={{ border: BORDER, boxShadow: SHADOW, background: SURFACE, padding: "22px 24px", marginTop: 32 }}>
-            <h2 style={{ ...DISPLAY_SM, color: MUTED, margin: "0 0 12px" }}>Remember this</h2>
-            <p style={{ ...DISPLAY_LG, margin: 0 }}>{companion.remember}</p>
-          </div>
-        )}
-
-        {paper.sourceUrl && (
-          <a
-            href={paper.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ds-lift"
-            style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "12px 22px", textDecoration: "none", marginTop: 32 }}
+      <div style={{ maxWidth: 1240, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
+        {/* The top bar: out of the page on the left, into the paper on the
+            right. The source link used to sit below the walkthrough, where it
+            read as the end of the page rather than the way out of it. */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, marginBottom: 28 }}>
+          <button
+            onClick={onClose}
+            style={{ ...BODY_STYLE, display: "inline-flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: DIM, padding: 0 }}
           >
-            Read the full paper ↗
-          </a>
-        )}
+            <ArrowLeft size={15} /> Back
+          </button>
+          {paper.sourceUrl && (
+            <a
+              href={paper.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ds-lift"
+              style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "10px 18px", textDecoration: "none", flexShrink: 0 }}
+            >
+              Read the full paper ↗
+            </a>
+          )}
+        </div>
 
-        {/* ── The glossary, as a closing list ── */}
-        {glossary.length > 0 && <Glossary terms={glossary} />}
+        <div className="reading-shell">
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{paper.title}</h1>
+            {byline && (
+              <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "0 0 32px" }}>{byline}</p>
+            )}
 
-        {/* ── Ask this paper ── */}
-        {!companionPending && (
-          <AskThread paperId={paper.id} starters={companion?.questions ?? []} fixture={fixture} />
-        )}
+            {/* ── The gist ── */}
+            {companionPending ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+                <span style={{ ...BODY_STYLE, color: MUTED }}>Reading the paper…</span>
+              </div>
+            ) : companion?.gist ? (
+              <p style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist)}</p>
+            ) : paper.abstract ? (
+              <p style={{ ...READING_BODY, margin: 0 }}>{paper.abstract}</p>
+            ) : (
+              <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: 0 }}>No summary available.</p>
+            )}
 
-        {/* ── What's happened since ── */}
-        <SectionHead title="What's happened since" sub="Newer work that cites this paper." />
-        {homework === null ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
-            <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
-            <span style={{ ...BODY_STYLE, color: MUTED }}>Looking for follow-up work…</span>
+            {/* ── The walkthrough — the beats after the gist ── */}
+            {companion?.did && <Beat heading="What they did">{mark(companion.did)}</Beat>}
+            {companion?.found && <Beat heading="What they found">{mark(companion.found)}</Beat>}
+            {companion?.caveats && <Beat heading="Where it's shaky">{mark(companion.caveats)}</Beat>}
+
+            {/* The one line worth keeping, in the card's own frame and wash — so
+                the page closes on the object it opened from. */}
+            {companion?.remember && (
+              <div
+                style={{
+                  ...(foundational ? foundationalWash() : wash(index)),
+                  border: `2px solid ${foundational ? GOLD : INK}`,
+                  boxShadow: `5px 5px 0 0 ${foundational ? GOLD : INK}`,
+                  padding: "22px 24px",
+                  marginTop: 32,
+                }}
+              >
+                <h2 style={{ ...DISPLAY_SM, color: DIM, margin: "0 0 12px" }}>Remember this</h2>
+                <p style={{ ...DISPLAY_LG, margin: 0 }}>{companion.remember}</p>
+              </div>
+            )}
+
+            {/* ── The glossary ── */}
+            {glossary.length > 0 && <Glossary terms={glossary} />}
+
+            {/* ── What's happened since ── */}
+            <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
+            <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>
+              Newer work that cites this paper.
+            </p>
+            {homework === null ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
+                <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+                <span style={{ ...BODY_STYLE, color: MUTED }}>Looking for follow-up work…</span>
+              </div>
+            ) : homework.length === 0 ? (
+              <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
+            ) : (
+              <div>
+                {homework.map(item => (
+                  <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
+                ))}
+              </div>
+            )}
           </div>
-        ) : homework.length === 0 ? (
-          <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
-        ) : (
-          <div>
-            {homework.map(item => (
-              <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
-            ))}
-          </div>
-        )}
+
+          {/* ── Ask this paper, in the rail ── */}
+          <aside className="reading-aside">
+            {!companionPending && (
+              <AskThread paperId={paper.id} starters={companion?.questions ?? []} fixture={fixture} />
+            )}
+          </aside>
+        </div>
+
+        <style>{`
+          .reading-shell { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 56px; align-items: start; }
+          /* The rail holds position while the walkthrough scrolls past it, and
+             the thread scrolls inside its own frame so the composer never
+             leaves the viewport. */
+          .reading-aside { position: sticky; top: 8px; }
+          .reading-ask { max-height: calc(100vh - 100px); }
+          @media (max-width: 1060px) {
+            .reading-shell { grid-template-columns: 1fr; gap: 0; }
+            .reading-aside { position: static; margin-top: 56px; }
+            .reading-ask { max-height: none; }
+          }
+        `}</style>
       </div>
     </div>
   );

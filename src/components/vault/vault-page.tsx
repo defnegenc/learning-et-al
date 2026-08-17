@@ -15,7 +15,9 @@ export function VaultPage() {
   const [loading, setLoading] = useState(true);
   // Two shelves, equal peers — not a page with a hidden sub-view.
   const [view, setView] = useState<"history" | "list">("history");
-  const [detail, setDetail] = useState<PaperItem | null>(null);
+  // The shelf position travels with the paper, because the reading view wears
+  // the hue of the card it was opened from.
+  const [detail, setDetail] = useState<{ paper: PaperItem; index: number } | null>(null);
   const loaded = useRef(false);
 
   const fetchPapers = useCallback(async () => {
@@ -84,7 +86,7 @@ export function VaultPage() {
                 initialBookmarked
                 preview={paper.companionRemember}
                 footnote={<ShelfFootnote paper={paper} />}
-                onOpen={p => setDetail(p)}
+                onOpen={p => setDetail({ paper: p, index: idx })}
                 onUnsaved={id => setPapers(prev => prev.filter(p => p.id !== id))}
               />
             ))}
@@ -92,7 +94,13 @@ export function VaultPage() {
         </>
       )}
 
-      {detail && <ReadingPaperDetail paper={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <ReadingPaperDetail
+          paper={detail.paper}
+          index={detail.index}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </div>
   );
 }

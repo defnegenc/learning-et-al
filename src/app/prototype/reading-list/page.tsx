@@ -184,7 +184,7 @@ function fixtureFor(id: string): ReadingFixture {
 
 export default function ReadingListPrototype() {
   const [view, setView] = useState<"history" | "list">("list");
-  const [detail, setDetail] = useState<PaperItem | null>(null);
+  const [detail, setDetail] = useState<{ paper: PaperItem; index: number } | null>(null);
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
@@ -228,7 +228,7 @@ export default function ReadingListPrototype() {
                     <span style={{ ...BODY_SM, color: DIM }}>Saved from &ldquo;{paper.digestTheme}&rdquo;</span>
                   ) : null
                 }
-                onOpen={p => setDetail(p)}
+                onOpen={p => setDetail({ paper: p, index: idx })}
               />
             ))}
           </div>
@@ -244,9 +244,10 @@ export default function ReadingListPrototype() {
 
       {detail && (
         <ReadingPaperDetail
-          paper={detail}
+          paper={detail.paper}
+          index={detail.index}
           onClose={() => setDetail(null)}
-          fixture={fixtureFor(detail.id)}
+          fixture={fixtureFor(detail.paper.id)}
         />
       )}
     </div>

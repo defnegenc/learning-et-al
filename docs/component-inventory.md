@@ -59,8 +59,9 @@ one overrides Paper.
 |-----------|--------|--------|
 | `vault/vault-page.tsx` | Shell + reading-list grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running |
 | `vault/digest-history.tsx` | Two-pane history | ✅ |
-| `vault/reading-paper-detail.tsx` | The reading view | ✅ 680px, Display/LG title, `paperByline`. Renders all five companion beats, the `Remember this` frame, `Glossary`, `AskThread`, then the citing work |
-| `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — companion starters as rows, free-text input, persisted per user | ✅ the only Q&A surface; digest-level Q&A is gone |
+| `vault/reading-paper-detail.tsx` | The reading view | ✅ 1240px two-column. Left: title, five companion beats, the `Remember this` card frame, `Glossary`, the citing work. Right: `AskThread` in a sticky rail. `Read the full paper` sits opposite Back in a top bar. Takes `index` for the paper's hue |
+| `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — a 372px framed rail: companion starters as rows, scrolling thread, composer pinned to the foot. Persisted per user | ✅ the only Q&A surface; digest-level Q&A is gone |
+| `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words | ✅ |
 | ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 
 ## Shell, settings, onboarding

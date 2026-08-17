@@ -138,8 +138,8 @@ function PaperChip({ paper, label, cap, onOpen }: { paper: PaperItem; label: str
 }
 
 /** Hard-word definitions. Same ink tooltip as everything else that explains. */
-export function TermChip({ text, def }: { text: string; def: string }) {
-  return <DefinitionTerm text={text} def={def} />;
+export function TermChip({ text, def, tint }: { text: string; def: string; tint?: string }) {
+  return <DefinitionTerm text={text} def={def} tint={tint} />;
 }
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */

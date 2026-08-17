@@ -585,7 +585,7 @@ viewport instead of disappearing beyond it.
 
 ---
 
-## 2026-08-16: The reading list is a reading list, not a list of titles
+## 2026-08-17: The reading list is a reading list, not a list of titles
 
 The saved-papers shelf was a grid of titles and bylines, and the reading view
 behind it showed a gist and a list of citing work. Both were thinner than the
@@ -629,3 +629,33 @@ so a paper you come back to still has what you asked it. A free-text box sits
 underneath for the question the companion didn't think of. This is the answer to
 "can I get the companion without reading the paper": you get the walkthrough, and
 then you can interrogate it.
+
+**Revised the same day, after review.**
+
+*The page wears the paper's colour.* The reading view was monochrome, so nothing
+connected it to the card you opened it from. Hard words now highlight in that
+card's hue — `washSlots(index)[0]`, or `GOLD` if the paper is foundational — and
+the "Remember this" block takes the card's full frame and wash. This is a new
+place for colour to land on type, and it needs to go into Paper. The
+justification is the existing one: the wash is wayfinding. Inside a paper's own
+page every term belongs to that paper, so a hue says *which paper you are in*,
+which is exactly what the mark on a card's takeaway does. The synthesis keeps the
+dotted grey rule and does not take a tint, because a paragraph there carries
+terms from three different papers and a hue would claim each for the wrong card
+— `DefinitionTerm` takes `tint` as an opt-in for that reason.
+
+*The chat is a rail, not a section.* "Ask this paper" moved out of the column and
+into a 372px sticky panel on the right, with the thread scrolling inside its own
+frame so the composer never leaves the viewport. As a section it sat below a long
+walkthrough, which is the one place you have already stopped having questions. In
+the rail it is visible the whole way down. Below 1060px it drops under the
+walkthrough and above the citing work. The container widens from 680 to 1240; the
+reading column keeps its measure because the rail takes the extra width.
+
+*"Every hard word, defined" is just the Glossary.* The longer label was
+explaining a word that needed no explaining.
+
+*The source link is the top right, not the foot.* Below the walkthrough it read
+as the end of the page rather than the way into the paper, and it competed with
+"Remember this" — the two strongest objects in the column were adjacent. It now
+sits opposite Back in a top bar: out on the left, in on the right.
