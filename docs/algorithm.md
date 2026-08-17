@@ -41,7 +41,11 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - Headline taste is calibrated to user-approved examples: recognizable subject + consequential tension + plain spoken English (for example, "Does AI help students learn or cheat?"). A bare capability question is not enough, and interrogative shape should vary across days.
 - **Theme validation**: if >10 words, a retry call (AI call 2, conditional) requests a shorter version without sacrificing the specific noun. The former 8-word hard edge rejected user-approved natural questions; 8 is now the target, not the guillotine.
 - **Theme novelty**: word-overlap check vs last 5 themes (≥2 shared non-stop words = too similar). If too similar, a fresh-angle call (AI call 3, conditional) generates a different question/tension within today's already-rotated topic. (Note: this is a word check, not embedding similarity — see Part 5.2 of algo-audit.md.)
+- **Lay stakes, enforced upstream** (added 2026-08-17): the hypothesis call must return a `stakes` field — what a normal person loses, gains, or misjudges if they never learn this. A headline polish is the last mile; whether a digest can interest a layman is mostly decided here, by which ANGLE of the seed topic gets picked. Empty stakes is an angle failure, not a topic failure.
+- **Cold read of the working question** (added 2026-08-17): the same context-free judge used in Step 5 (see below) reads the working question, and empty `stakes` or any cold-reader objection triggers ONE re-angle call inside the same seed. The seed rotation stays mechanical — the topic is never abandoned, only the angle moves. This matters beyond the headline: a study-shaped working question retrieves study-shaped papers, which caps how interesting Step 5 can honestly be.
 - Fallback: if LLM fails, the OpenAlex topic name is used as the theme (or the seeded interest when topic lookup failed).
+
+**Shared taste block** (`THEME_TASTE_RULES`, added 2026-08-17): five prompts write or rewrite a theme — hypothesis, the >10-word shortener, the novelty retry, the not-enough-papers reframe, and Step 5 + its repair. The retry paths used to carry almost none of the taste rules, so a mangled theme from a retry degraded retrieval as well as the headline. All five now interpolate one constant (dinner-table test, name-the-object, placeholder ban, study-design rule, acronym rule, one-intensifier rule, length). Same class of gotcha as the `shortName` rules living in two places — change the constant, never restate a rule.
 
 **Theme retry loop** (up to 2 retries): If the theme produces too few qualifying papers, the pipeline changes the researchable angle and queries while keeping the OpenAlex topic, then re-searches. Each retry is an additional AI call.
 
@@ -169,11 +173,30 @@ The working question is retrieval scaffolding, not the displayed headline. Once 
 - **Editorial gate** (deterministic, AI call conditional): `themeProblems()` enforces word count, grounding, and paraphrased-jargon checks. The structured response is also rejected when it lacks the shared thread or a connection for any kept source.
   - (a) *Vague* — `themeNamesAThing()`. A placeholder noun in **subject position** (first 3 words, `SUBJECT_WINDOW`) fails outright: "Can TECHNOLOGY read your mind?" is sunk by its subject, while the same word later is harmless ("Old traditions, new machines"). Otherwise it passes on a digit, or a non-placeholder word >3 chars grounded in source **titles or abstracts**. `PLACEHOLDER_NOUNS` includes generic subjects and abstract topic nouns (emotion, behavior, presence, learning, performance, states, patterns…), so borrowing a real but vague word from a paper cannot masquerade as self-containedness.
   - (b) *Hard to read* — `PARAPHRASED_JARGON` regexes catch the negative constructions that signal a paraphrased property. The key one keys on **nominalisation, not the word "without"**: `without …<word>ing|ion|ment|ness|ity` flags "without touching it" and "without any central planning" while leaving "without soil" and "without a teacher" alone, since those name real things.
-  - On failure, ONE rewrite call receives the exact problems, kept sources, and evidence-backed thread; it is accepted only if it clears the deterministic gate. Matters doubly because `theme` is also the email subject line (`email.ts`).
+  - (c) *Insider acronym* (added 2026-08-17) — any all-caps token of 2-5 letters (trailing plural allowed, so "TTOs" is caught) outside `HOUSEHOLD_ACRONYMS` fails. "Are incubators and TTOs choosing startup survivors?" shipped because the term appears in the sources, which is exactly backwards: source vocabulary is evidence of grounding, not of legibility. AI, VC, GPS, DNA, CEO, NASA pass; TTO, HCI, RCT, LLM do not.
+  - (d) *Stacked intensifiers* (added 2026-08-17) — more than one of `ever / actually / truly / really / any(thing|one) / always / never` fails. One is explicitly fine (the approved set uses single "actually"); two compound into rhetoric — "Is one museum exhibit ever enough to teach anything?" reads as a put-down, not curiosity.
+  - On failure, ONE rewrite call receives the exact problems, kept sources, and evidence-backed thread; it is accepted only if it clears the deterministic gate **and the cold reader** (see below). Matters doubly because `theme` is also the email subject line (`email.ts`).
   - Known limitation: lexical grounding is not full grammatical understanding. The source-connection audit is the semantic backstop; a future upgrade could use POS tagging or a concreteness lexicon.
 - The **coherence guard** stays a hard rule in both the hypothesis and revise prompts: the theme must make literal sense to someone who hasn't read the papers. Comprehension beats cleverness; a specific plain question beats a vague clever one. (User feedback, July 2026 + Aug 2026.)
 - The >10-word shortener in Step 1 forbids swapping a specific noun for a generic one — the specific noun is usually the longest token, so a rule-free "shorten this" cut it first and undid the specificity work at the last mile.
 - Returns `thread`, per-source connections, optional exclusions, source order, ordering rationale, 3 candidates, and the selected theme for logging and enforcement.
+
+**Cold-reader gate** (AI call, added 2026-08-17). Every other check on a headline is generation-side: regexes, plus rules inside the prompt that wrote the line. The dinner-table test was self-certified by a model that already knew what it meant, so it could not hear how the line lands on someone who doesn't — which is how both confirmed 2026-08-17 failures shipped. After Step 5 collects its unique candidates, ONE extra call with **no digest context at all** (no sources, no thread, no working question) reads the bare headlines as a smart person with no academic background, and returns per candidate:
+
+| Field | What it catches |
+|-------|-----------------|
+| `guess` | self-containedness — one sentence on what the digest is about |
+| `unknownTerms` | the "TTOs" failure — words a smart non-expert couldn't define |
+| `wouldWonder` | the "museum exhibit" failure — a question reverse-engineered from study design rather than one a person would ask aloud |
+| `stakes` | why a normal person would care; **empty fails the candidate** — clarity alone does not earn the slot |
+| `interest` | 1-5, "would you stop scrolling?", forced to a spread |
+| `why` | when `wouldWonder` is false: what makes the line sound contorted |
+
+Selection is deterministic: a candidate is ELIGIBLE if it clears `themeProblems()`, has no unknown terms, `wouldWonder` is true, and `stakes` is non-empty. Among eligible candidates the pipeline takes the **highest `interest`** — the gate picks the best line, not the first that scrapes by. If none survive, the cold reader's specific objections ("A reader with no context could not define…") feed the existing repair call, and the repaired line is cold-read once more; it is accepted only if it reads clean or owes strictly fewer answers than the line it replaces. A judge that errors or skips an index blocks nothing — the deterministic checks stay in charge.
+
+The `guess` is embedded (local MiniLM) against the editorial `thread`, logged per candidate, and currently used only to break `interest` ties. It earns a hard floor (~0.5) once there is enough production data to set one honestly.
+
+**Debug trail**: `digests.working_theme` and `digests.theme_candidates` (JSON: each candidate's problems, cold-read verdict, guess↔thread similarity, and which one was chosen, plus any repair) are persisted so the next weird headline is diagnosable from its own row rather than by memory and a manual DB trawl.
 
 ### Step 6: Multi-Stage Synthesis (AI calls 7-13)
 
@@ -221,23 +244,27 @@ picturable noun, so titles are graspable, not just punchy.
 
 ### Step 7: Storage
 
-- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, seed_topic (topic rotation memory), search_queries (query memory), gist, starred flag.
+- Digest saved with: theme, synthesis, keyConcepts, suggestedQuestions, seed_interests, seed_topic (topic rotation memory), search_queries (query memory), gist, starred flag, working_theme + theme_candidates (headline debug trail).
 - Papers saved with: summaries, keywords, key findings, connectionReason, plainName, openAlexId (dedup identity), foundationalReason (foundational lane only).
 - All linked to user and dated.
 
 ---
 
-## Total AI Calls Per Digest: 9-15
+## Total AI Calls Per Digest: 11-19
 
 | # | Call | Step | When | Input tokens (approx) | Output (approx) |
 |---|------|------|------|-----------------------|-----------------|
 | 1 | Hypothesis generation | 1 | Always | ~800 | ~100 |
 | 2 | Working-question shortening | 1 | If >10 words | ~100 | ~30 |
 | 3 | Theme novelty retry | 1 | If sim >0.5 to recent | ~400 | ~100 |
+| 3b | Cold read of working question | 1 | Always | ~500 | ~120 |
+| 3c | Working-question re-angle | 1 | If cold read or stakes fail | ~900 | ~120 |
 | 4 | Theme retry (bad papers) | 1 | Up to 2x if <2 papers | ~800 | ~100 |
 | 5 | Complementarity selection | 3b | If wide pool > target | ~2000 | ~200 |
 | 6 | LLM re-ranking | 4b | If ≥2 papers | ~600 | ~100 |
 | 7 | Final-source editorial pass | 5 | Always | ~4000 | ~500 |
+| 7b | Cold read of headline candidates | 5 | Always | ~600 | ~300 |
+| 7c | Cold read of repaired headline | 5 | If the repair call fired | ~500 | ~120 |
 | 8 | Metadata (Stage A) | 6 | Always | ~6000 | ~600 |
 | 9 | Skeleton (Stage B) | 6 | Always | ~4000 | ~300 |
 | 10 | Synthesis draft (Stage C) | 6 | Always | ~5000 | ~400 |
@@ -247,7 +274,7 @@ picturable noun, so titles are graspable, not just punchy.
 | 14 | Self-critique revision | 6 | If any score <4 | ~2000 | ~400 |
 | 15 | Final coverage revision | 6 | If paper missing in bold | ~1500 | ~400 |
 
-**Typical: 10-12 calls.** Calls 2-4, 12, 14, 15 are conditional. Cost: ~$0.01-0.02 per digest at Gemini Flash pricing.
+**Typical: 12-14 calls.** Calls 2, 3, 3c, 4, 7c, 12, 14, 15 are conditional. The cold-reader gate adds 2 always-on small completions (+1 on repair, +1 on re-angle) and a few local embeddings. Cost: ~$0.01-0.02 per digest at Gemini Flash pricing.
 
 ---
 
@@ -265,6 +292,11 @@ picturable noun, so titles are graspable, not just punchy.
 | Paywall detection | 2+ paywall signals | Step 4 article fetch |
 | Theme novelty | ≥2 shared non-stop words vs recent themes | Step 1 |
 | Theme word count | ≤ 10 words (8 target) | Steps 1 and 5 |
+| Insider acronym | all-caps 2-5 letter token outside `HOUSEHOLD_ACRONYMS` | Steps 1 and 5 (`themeProblems`) |
+| Stacked intensifiers | >1 of ever/actually/truly/really/any(thing/one)/always/never | Steps 1 and 5 (`themeProblems`) |
+| Cold read | `unknownTerms` empty + `wouldWonder` + non-empty `stakes` | Steps 1 and 5 |
+| Headline interest | highest `interest` (1-5) among eligible candidates | Step 5 selection |
+| Guess↔thread similarity | logged only; no floor enforced yet (~0.5 planned) | Step 5 |
 | LLM re-rank | score > 2 to keep | Step 4b |
 | Cross-digest dedup | all past digests, openAlexId + normalized title | Step 2 |
 | Citation floor | cited_by_count > 1 | Step 2 OpenAlex |

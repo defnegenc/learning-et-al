@@ -176,6 +176,29 @@ const STOP_WORDS = new Set([
 const MAX_THEME_WORDS = 10;
 
 /*
+ * The taste, in one place. Five prompts write or rewrite a theme (Step-1
+ * hypothesis, the shortener, the novelty retry, the not-enough-papers reframe,
+ * and Step 5 + its repair), and the retry paths used to carry almost none of
+ * these rules — so a mangled theme from a retry degraded retrieval as well as
+ * the headline. Same class of gotcha as the `shortName` rules living in two
+ * places; interpolate this block instead of restating any of it.
+ */
+const THEME_TASTE_RULES = `TASTE RULES — every question or headline you write must obey all of these:
+- DINNER TABLE TEST: would a smart non-expert actually SAY these words out loud? "Why can't robots fold laundry?" passes. "Can better architecture solve computational bottlenecks?" fails — nobody talks like that. The reader must get it on ONE pass, with no re-reading.
+- NO JARGON: if it contains words like "computational", "architecture", "optimization", "framework", "methodology", "paradigm", "scalability" — REWRITE in plain English. Your grandma should understand the question.
+- WHEN YOU STRIP JARGON, NAME THE OBJECT — never paraphrase the term's abstract property. Describing what a thing does or lacks produces a riddle that reads WORSE than the jargon did:
+  BAD: "non-invasive" → "without touching it" ("Can technology read your mind without touching it?" — the reader has to decode the phrase before they can tell what's being asked). GOOD: "non-invasive" → "a headband".
+  BAD: "low-resource languages" → "languages without much data". GOOD: "Swahili and Tamil".
+  Negative constructions ("without…", "that doesn't…", "even when there's no…") are almost always a paraphrased property. Cut them and name the physical thing the reader can picture.
+- NAME SOMETHING REAL: at least ONE recognizable subject, object, group, or setting. A line built out of placeholders ("technology", "systems", "models", "signals", "innovation", "the future", "humans", "experience") tells the reader nothing.
+  BAD: "When signals speak, do our models truly listen?" — all abstractions; you can't tell it's about reading emotion in text and brainwaves.
+  GOOD: "Can AI read emotion in text and brainwaves?" — same idea, but graspable.
+- DON'T IMPORT THE STUDY DESIGN. Papers examine one exhibit, one classroom, one app — because that's how studies work, not because that's the question. "Is one museum exhibit ever enough to teach anything?" is a study talking; "Are museums actually good at teaching us?" is a person talking. Import the subject, never the unit of analysis — unless the number itself is the surprise.
+- NO INSIDER ACRONYMS. If a smart non-expert can't expand it at the dinner table, spell out what it does in human terms: "TTOs" → "the university offices that decide which inventions become startups." AI and VC pass; TTO, HCI, RCT, LLM do not. Appearing in the sources does not make an acronym legible.
+- ONE INTENSIFIER AT MOST. "ever", "actually", "truly", "really", "anything", "always", "never" — one can sharpen a line, but two stacked ("is one exhibit EVER enough to teach ANYTHING?") read as dismissive rhetoric rather than curiosity.
+- LENGTH: aim for 8 words; HARD MAX ${MAX_THEME_WORDS}. Keep a natural spoken sentence when it earns the extra words.`;
+
+/*
  * Words that look like a subject but name nothing. A theme built on these
  * ("Can technology read your mind?") is grammatical, parseable, and completely
  * uninformative — the failure mode the coherence guard can't catch, because
@@ -257,6 +280,27 @@ function themeNamesAThing(theme: string, papers: { title: string; abstract?: str
   );
 }
 
+/*
+ * Acronyms a smart non-expert expands without thinking. Everything else — TTO,
+ * HCI, RCT, LLM, SME — is insider vocabulary, and the fact that the sources use
+ * it is evidence of grounding, not of legibility ("Are incubators and TTOs
+ * choosing startup survivors?" passed every other check).
+ */
+const HOUSEHOLD_ACRONYMS = new Set([
+  "AI", "VC", "US", "USA", "UK", "EU", "UN", "TV", "PC", "GPS", "DNA", "RNA",
+  "CEO", "CFO", "FBI", "CIA", "NASA", "WHO", "NATO", "HIV", "IQ", "ID", "OK",
+  "COVID", "LGBT", "NBA", "NFL", "FDA", "GDP", "SUV", "USB", "PDF", "MRI",
+]);
+/** Trailing lowercase plural is part of the acronym ("TTOs"), not a separate word. */
+const ACRONYM_TOKEN = /\b([A-Z]{2,5})s?\b/g;
+
+/*
+ * One intensifier can sharpen a line; the approved headline set uses a single
+ * "actually" happily. Two stacked ("is one exhibit EVER enough to teach
+ * ANYTHING?") stop reading as curiosity and start reading as a put-down.
+ */
+const INTENSIFIERS = /\b(anything|anyone|actually|truly|really|always|never|ever|any)\b/gi;
+
 /**
  * What's wrong with this theme, in plain terms the retry prompt can act on.
  * Empty array = ships. Two independent failure modes, because a headline can
@@ -275,6 +319,101 @@ function themeProblems(theme: string, papers: { title: string; abstract?: string
   }
   if (PARAPHRASED_JARGON.some(re => re.test(theme))) {
     problems.push("It is HARD TO READ — it describes what something isn't or doesn't do, instead of naming the thing. The reader has to decode the phrase before they can tell what is being asked.");
+  }
+  const insiderAcronyms = [...theme.matchAll(ACRONYM_TOKEN)]
+    .map(match => match[1])
+    .filter(acronym => !HOUSEHOLD_ACRONYMS.has(acronym));
+  if (insiderAcronyms.length > 0) {
+    problems.push(`It uses INSIDER ACRONYM${insiderAcronyms.length > 1 ? "S" : ""} ${[...new Set(insiderAcronyms)].map(a => `"${a}"`).join(", ")} that a smart non-expert cannot expand. Spell out the human meaning instead.`);
+  }
+  const intensifiers = theme.match(INTENSIFIERS) || [];
+  if (intensifiers.length > 1) {
+    problems.push(`It STACKS INTENSIFIERS (${intensifiers.map(w => `"${w}"`).join(", ")}) — pick one or none. Stacked intensifiers read as dismissive rhetoric, not curiosity.`);
+  }
+  return problems;
+}
+
+/**
+ * What a reader with no context makes of a bare headline.
+ *
+ * Every other check in this pipeline is generation-side: regexes, plus rules
+ * inside the prompt that wrote the line. The dinner-table test is self-certified
+ * by a model that already knows what it meant, so it cannot hear how the line
+ * lands on someone who doesn't. This judge is given the headlines and NOTHING
+ * else — no sources, no thread, no working question.
+ */
+type ColdReadVerdict = {
+  /** What the reader thinks the digest is about — the self-containedness measure. */
+  guess: string;
+  /** Words/acronyms a smart non-expert couldn't define — the "TTOs" catcher. */
+  unknownTerms: string[];
+  /** Would a curious person genuinely ask this aloud — the "museum exhibit" catcher. */
+  wouldWonder: boolean;
+  /** Why a normal person would care. Empty = clarity alone didn't earn the slot. */
+  stakes: string;
+  /** Would you stop scrolling? 1-5. */
+  interest: number;
+  /** When wouldWonder is false: what makes the line sound contorted. */
+  why: string;
+};
+
+async function coldRead(aiConfig: AIConfig, headlines: string[]): Promise<Map<string, ColdReadVerdict>> {
+  const verdicts = new Map<string, ColdReadVerdict>();
+  if (headlines.length === 0) return verdicts;
+
+  const resp = await aiComplete(aiConfig,
+    "You are a smart, curious person with no academic background. You judge headlines you have never seen the articles for. Return only JSON.",
+    `You are flipping past headlines for a research digest. You are smart and curious but have NO academic background, and you have NOT read the articles — you only see these lines:
+
+${headlines.map((headline, i) => `[${i + 1}] "${headline}"`).join("\n")}
+
+For each headline, answer honestly from that position alone. Do not be generous; do not try to reconstruct what the writer probably meant.
+
+- "guess": one sentence — what do you think a digest with this headline is about? If you genuinely cannot tell, say so.
+- "unknownTerms": every word or acronym in the headline you could not confidently define at a dinner table. Common ones (AI, VC, GPS, DNA, CEO, NASA) are fine and should NOT be listed; specialist ones (TTO, HCI, RCT, LLM, SME) belong here. Empty array if all of it is plain English.
+- "wouldWonder": is this a question a curious person would genuinely ask out loud, or a question reverse-engineered from how academic studies happen to be designed? "Are museums actually good at teaching us?" is a person wondering. "Is one museum exhibit ever enough to teach anything?" is a study talking — nobody wonders about learning PER EXHIBIT, and the piled-up "ever … anything" reads as a put-down rather than curiosity. false for anything in that second family.
+- "stakes": one sentence on why a normal person would care — what they'd lose, gain, or get wrong without knowing this. If you cannot say, return an empty string. Do not invent stakes to be polite.
+- "interest": 1-5, would you stop scrolling for this? You may NOT give every headline the same score — spread them, and reserve 5 for a line you'd actually click.
+- "why": only when "wouldWonder" is false — what makes it sound contorted (study-shaped framing, rhetoric, a phrase you misparse on first read). Empty string otherwise.
+
+Return JSON only:
+{"verdicts": [{"index": 1, "guess": "", "unknownTerms": [], "wouldWonder": true, "stakes": "", "interest": 3, "why": ""}]}`
+  );
+
+  const parsed = extractJson<{
+    verdicts?: { index?: number; guess?: string; unknownTerms?: string[]; wouldWonder?: boolean; stakes?: string; interest?: number; why?: string }[];
+  }>(resp);
+  for (const verdict of parsed?.verdicts || []) {
+    const index = Number(verdict?.index);
+    if (!Number.isInteger(index) || index < 1 || index > headlines.length) continue;
+    verdicts.set(headlines[index - 1], {
+      guess: verdict.guess?.trim() || "",
+      unknownTerms: (verdict.unknownTerms || []).map(term => String(term).trim()).filter(Boolean),
+      wouldWonder: verdict.wouldWonder !== false,
+      stakes: verdict.stakes?.trim() || "",
+      interest: Math.min(5, Math.max(1, Math.round(Number(verdict.interest) || 3))),
+      why: verdict.why?.trim() || "",
+    });
+  }
+  return verdicts;
+}
+
+/**
+ * The cold reader's objections, phrased for a repair prompt. An absent verdict
+ * (judge down, or the model skipped an index) returns nothing — a broken judge
+ * must not block a digest, it just leaves the deterministic checks in charge.
+ */
+function coldReadProblems(verdict: ColdReadVerdict | undefined): string[] {
+  if (!verdict) return [];
+  const problems: string[] = [];
+  if (verdict.unknownTerms.length > 0) {
+    problems.push(`A reader with no context could not define ${verdict.unknownTerms.map(t => `"${t}"`).join(", ")}. Spell out the human meaning instead of using the term.`);
+  }
+  if (!verdict.wouldWonder) {
+    problems.push(`A reader with no context said this is not a question a person would ask out loud${verdict.why ? `: ${verdict.why}` : " — it sounds reverse-engineered from how the studies were designed."}`);
+  }
+  if (!verdict.stakes) {
+    problems.push("A reader with no context could not say why anyone would care. The line may be clear, but it gives no reason to read on.");
   }
   return problems;
 }
@@ -560,17 +699,10 @@ BAD themes are wordy, academic, topic labels, or built on words that name nothin
 - "The question of whether generative AI..." — NO. Never start with "The question of"
 - "Optimizing neural network architectures" — TECHNICAL DESCRIPTION, not a question anyone wonders about
 
+${THEME_TASTE_RULES}
+
 Rules:
-- Aim for 8 words; HARD MAX ${MAX_THEME_WORDS}. Keep a natural spoken sentence when it earns the extra words.
-- At least ONE recognizable subject, object, group, or setting. The reader must know what the question is about; a title made entirely of placeholders ("signals", "models", "systems") does not provide that.
-  BAD: "When signals speak, do our models truly listen?" — all abstractions; you can't tell it's about reading emotion in text and brainwaves.
-  GOOD: "Can AI read emotion in text and brainwaves?" — same idea, but graspable.
-- NO JARGON in the theme. If it contains words like "computational", "architecture", "optimization", "framework", "methodology", "paradigm", "scalability" — REWRITE in plain English. Your grandma should understand the question.
-- WHEN YOU STRIP JARGON, NAME THE OBJECT — never paraphrase the term's abstract property. Describing what a thing does or lacks produces a riddle that reads WORSE than the jargon did:
-  BAD: "non-invasive" → "without touching it" ("Can technology read your mind without touching it?" — the reader has to decode the phrase before they can tell what's being asked). GOOD: "non-invasive" → "a headband".
-  BAD: "low-resource languages" → "languages without much data". GOOD: "Swahili and Tamil".
-  Negative constructions ("without…", "that doesn't…", "even when there's no…") are almost always a paraphrased property. Cut them and name the physical thing the reader can picture.
-- The theme must pass the DINNER TABLE TEST: would a smart non-expert actually SAY these words out loud? "Why can't robots fold laundry?" passes. "Can better architecture solve computational bottlenecks?" fails — nobody talks like that. The reader must get it on ONE pass, with no re-reading.
+- LAY STAKES COME FIRST. Before you write the theme, answer this: what does a normal person lose, gain, or misjudge if they never learn this? Return that answer in "stakes". If you cannot answer it, the ANGLE is wrong — pick a different angle INSIDE the same seed topic rather than abandoning the topic. "Are incubators and TTOs choosing startup survivors?" is an angle failure, not a topic failure: the same literature carries "Who really decides which startups get to exist?".
 - Ask about a real TENSION, not a bare capability. "Can robots actually work in real workplaces?" implies the lab-to-workplace gap. "Can robots do tasks?" says nothing.
 - Vary the question shape across days: how/why/who/when and clear statements are as useful as can/does. Do not add "actually" or "truly" unless the evidence challenges a common belief.
 - For beginner interests: concrete and real-world, avoid pure theory
@@ -591,6 +723,7 @@ SEARCH QUERY RULES:
 Return JSON only (no markdown):
 {
   "selectedInterests": ["interest1", "interest2"],
+  "stakes": "one sentence: what a normal person loses, gains, or misjudges if they never learn this. Never empty — if you cannot fill it, change the angle.",
   "theme": "working research question, ideally 8 words and never over ${MAX_THEME_WORDS} — question or statement. If statement, NO question mark.",
   "searchQueries": [
     "core-evidence query using the interest or topic vocabulary, 3-6 words",
@@ -614,10 +747,11 @@ Return JSON only (no markdown):
       "You generate surprising, curiosity-provoking central questions for a daily research digest. Return only JSON.",
       hypothesisPrompt
     );
-    type HypothesisResult = { theme?: string; searchQueries?: string[]; newsQuery?: string; selectedInterests?: string[] };
+    type HypothesisResult = { theme?: string; stakes?: string; searchQueries?: string[]; newsQuery?: string; selectedInterests?: string[] };
     const parsed = extractJson<HypothesisResult>(hypothesisResp);
     if (!parsed) throw new Error("No JSON in hypothesis response");
     if (parsed.theme) theme = parsed.theme;
+    let workingStakes = parsed.stakes?.trim() || "";
     if (parsed.searchQueries && parsed.searchQueries.length > 0) searchQueries = parsed.searchQueries;
     if (parsed.newsQuery) newsQuery = parsed.newsQuery;
     if (parsed.selectedInterests && parsed.selectedInterests.length > 0) {
@@ -640,7 +774,7 @@ Return JSON only (no markdown):
           // Rule-free shortening used to undo the specificity work: the concrete
           // noun is usually the longest token, so it got cut first and a generic
           // one took its place. Cut hedges instead.
-          `Shorten this to MAX ${MAX_THEME_WORDS} WORDS. Cut hedges, qualifiers and abstractions FIRST. NEVER replace a specific thing, place or number with a generic word ("technology", "systems", "AI models") — the specific noun is the most valuable word in the headline. Return JSON: {"theme": "shorter version"}\n\nOriginal: "${theme}"`
+          `Shorten this to MAX ${MAX_THEME_WORDS} WORDS. Cut hedges, qualifiers and abstractions FIRST. NEVER replace a specific thing, place or number with a generic word ("technology", "systems", "AI models") — the specific noun is the most valuable word in the headline.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "shorter version"}\n\nOriginal: "${theme}"`
         );
         const retryParsed = extractJson<{ theme?: string }>(retryResp);
         if (retryParsed) {
@@ -667,17 +801,52 @@ Return JSON only (no markdown):
         try {
           const noveltyResp = await aiComplete(aiConfig,
             "You generate surprising research questions. Return only JSON.",
-            `This theme is too similar to a recent one. Generate a genuinely different QUESTION and tension, not just different wording.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat their angles): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n${seedTopicBlock}\nStay grounded in today's OpenAlex seed; the topic is already rotated and should not be abandoned. Return JSON: {"theme": "fresh angle MAX ${MAX_THEME_WORDS} WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+            `This theme is too similar to a recent one. Generate a genuinely different QUESTION and tension, not just different wording.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat their angles): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n${seedTopicBlock}\nStay grounded in today's OpenAlex seed; the topic is already rotated and should not be abandoned.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "fresh angle MAX ${MAX_THEME_WORDS} WORDS", "stakes": "what a normal person loses, gains, or misjudges without this", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
           );
-          const noveltyParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(noveltyResp);
+          const noveltyParsed = extractJson<{ theme?: string; stakes?: string; searchQueries?: string[]; newsQuery?: string }>(noveltyResp);
           if (noveltyParsed?.theme) {
             theme = noveltyParsed.theme;
+            workingStakes = noveltyParsed.stakes?.trim() || "";
             if (noveltyParsed.searchQueries && noveltyParsed.searchQueries.length > 0) searchQueries = noveltyParsed.searchQueries;
             if (noveltyParsed.newsQuery) newsQuery = noveltyParsed.newsQuery;
             console.log(`[Digest] Fresh theme: "${theme}"`);
           }
         } catch { /* keep original if novelty retry fails */ }
       }
+    }
+
+    // Cold-read the WORKING question too. This matters beyond the headline: the
+    // working question drives search, and a study-shaped question retrieves
+    // study-shaped papers, which caps how interesting Step 5 can honestly be.
+    // One re-angle retry, inside the same seed — the topic rotation is
+    // mechanical and stays; only the angle is allowed to move.
+    try {
+      const workingVerdict = (await coldRead(aiConfig, [theme])).get(theme);
+      const objections = [
+        ...coldReadProblems(workingVerdict),
+        ...(workingStakes ? [] : ["It came back with no answer to what a normal person loses, gains, or misjudges if they never learn this."]),
+      ];
+      if (objections.length > 0) {
+        console.log(`[Digest] Working question "${theme}" failed the cold reader:\n${objections.map(o => `  - ${o}`).join("\n")}`);
+        const reangleResp = await aiComplete(aiConfig,
+          "You generate surprising research questions. Return only JSON.",
+          `The working question "${theme}" was shown to a smart reader with no academic background and no other context. It failed:\n${objections.map(o => `- ${o}`).join("\n")}\n\nInterests: ${interestList}\n${seedTopicBlock}\nDo NOT abandon today's seed topic — it is already rotated. Change the ANGLE inside it: find the version of this literature a normal person has a stake in. Every seed topic came from the reader's own interests, so a human-stakes angle nearly always exists.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "re-angled question, MAX ${MAX_THEME_WORDS} WORDS", "stakes": "what a normal person loses, gains, or misjudges without this — never empty", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+        );
+        const reangled = extractJson<{ theme?: string; stakes?: string; searchQueries?: string[]; newsQuery?: string }>(reangleResp);
+        if (reangled?.theme?.trim() && reangled.stakes?.trim()) {
+          theme = reangled.theme.trim();
+          workingStakes = reangled.stakes.trim();
+          if (reangled.searchQueries && reangled.searchQueries.length > 0) searchQueries = reangled.searchQueries;
+          if (reangled.newsQuery) newsQuery = reangled.newsQuery;
+          console.log(`[Digest] Re-angled working question: "${theme}" (stakes: ${workingStakes})`);
+        } else {
+          console.log(`[Digest] Re-angle produced nothing usable — keeping "${theme}"`);
+        }
+      } else {
+        console.log(`[Digest] Working question cleared the cold reader (stakes: ${workingStakes || "n/a"})`);
+      }
+    } catch (err) {
+      console.log(`[Digest] Cold reader unavailable for the working question (${err}) — continuing`);
     }
 
     console.log(`[Digest] Central question: "${theme}"`);
@@ -721,7 +890,7 @@ Return JSON only (no markdown):
     try {
       const retryResp = await aiComplete(aiConfig,
         "You generate surprising research questions. Return only JSON.",
-        `The theme "${theme}" didn't find enough academic papers. Reframe it into a DIFFERENT, more researchable question and write more literal academic search queries.\n\nInterests: ${interestList}\n${seedTopicBlock}\nKeep today's OpenAlex topic seed. Change the angle and vocabulary, not the research neighborhood. Prefer a measurable relationship, comparison, adoption barrier, or real-world consequence over abstract philosophy.\n\nReturn JSON: {"theme": "MAX ${MAX_THEME_WORDS} WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+        `The theme "${theme}" didn't find enough academic papers. Reframe it into a DIFFERENT, more researchable question and write more literal academic search queries.\n\nInterests: ${interestList}\n${seedTopicBlock}\nKeep today's OpenAlex topic seed. Change the angle and vocabulary, not the research neighborhood. Prefer a measurable relationship, comparison, adoption barrier, or real-world consequence over abstract philosophy.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "MAX ${MAX_THEME_WORDS} WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
       );
       const retryParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(retryResp);
       if (retryParsed?.theme) {
@@ -1401,6 +1570,17 @@ Return JSON: {"works": [{"title": "exact title", "author": "lead author surname"
   // but it is not privileged as the final headline. This editorial pass must
   // discover the real thread in what survived selection and re-ranking.
   let finalTheme = theme;
+  // Debug trail: only the final theme used to be stored, which is why diagnosing
+  // one weird headline meant a manual DB trawl. Persisted on the digest row.
+  let themeCandidateLog: {
+    theme: string;
+    chosen: boolean;
+    problems: string[];
+    guessSim: number | null;
+    coldRead: ColdReadVerdict | null;
+    repairOf?: string;
+  }[] = [];
+  let coldReads = new Map<string, ColdReadVerdict>();
   try {
     // A scarce foundational item supplies context; it should not force the main
     // three-source question to contort around a historical paper.
@@ -1464,6 +1644,10 @@ The headline must be:
 
 Avoid fake twists, riddles, academic topic labels, and generic subjects such as technology, systems, machines, models, tools, devices, innovation, the future, humans, experience, presence, or learning when the line never names WHO or WHERE.
 
+${THEME_TASTE_RULES}
+
+Every candidate will be shown to a reader with NO context — no sources, no thread, just the line — who is asked what it is about, which words they couldn't define, whether a person would really ask this out loud, and why anyone should care. Write for that reader.
+
 Privately draft several genuinely different lines, not the same sentence with a different auxiliary. Return the strongest one plus a short audit showing the thread and how every source belongs. The audit is for verification; the reader only sees the theme.
 
 Return JSON only:
@@ -1522,15 +1706,69 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       ...(reviseParsed?.candidates || []).map(candidate => candidate.theme),
     ].filter((value): value is string => Boolean(value?.trim()));
     const uniqueThemes = [...new Set(generatedThemes.map(value => value.trim()))];
-    const firstValidTheme = uniqueThemes.find(value => themeProblems(value, activeHeadlineSources).length === 0);
-    if (firstValidTheme) finalTheme = firstValidTheme;
-    else if (uniqueThemes[0]) finalTheme = uniqueThemes[0];
 
     const editorialThread = reviseParsed?.thread?.trim() || "";
     const editorialConnections = reviseParsed?.sourceConnections || [];
     if (editorialThread) {
       console.log(`[Digest] Final editorial thread: ${editorialThread}`);
     }
+
+    // ─── Cold-reader gate ─────────────────────────────────────────────────────
+    // One LLM call with no digest context, on the bare candidate lines. This is
+    // the only check in the pipeline that hears the headline the way the reader
+    // will, rather than the way the model that wrote it meant it.
+    try {
+      coldReads = await coldRead(aiConfig, uniqueThemes);
+    } catch (err) {
+      console.log(`[Digest] Cold reader unavailable (${err}) — deterministic checks only`);
+    }
+    // How close the cold reader's GUESS lands to the editorial thread is the
+    // self-containedness measure. Logged for calibration and used to break
+    // interest ties; it will earn a hard floor (~0.5) once there is enough
+    // production data to set one honestly.
+    const threadEmb = editorialThread && uniqueThemes.length > 0 ? await embedText(editorialThread) : null;
+    const guessEmbs = threadEmb
+      ? await embedBatch(uniqueThemes.map(value => coldReads.get(value)?.guess || value))
+      : [];
+    const evaluated = uniqueThemes.map((value, index) => {
+      const verdict = coldReads.get(value);
+      return {
+        theme: value,
+        problems: themeProblems(value, activeHeadlineSources),
+        coldProblems: coldReadProblems(verdict),
+        interest: verdict?.interest ?? 0,
+        guessSim: threadEmb && guessEmbs[index] ? cosineSimilarity(threadEmb, guessEmbs[index]) : null,
+        verdict,
+      };
+    });
+    for (const candidate of evaluated) {
+      const flags = [...candidate.problems, ...candidate.coldProblems];
+      console.log(`[Digest] Candidate "${candidate.theme}" — interest ${candidate.verdict ? `${candidate.interest}/5` : "unjudged"}, guess↔thread ${candidate.guessSim?.toFixed(2) ?? "n/a"}${flags.length > 0 ? `\n${flags.map(flag => `    ✗ ${flag}`).join("\n")}` : " ✓"}`);
+    }
+    // Among candidates that clear every gate, take the MOST INTERESTING line —
+    // not the first one that scrapes by. Ties go to the line a cold reader
+    // understood closest to the actual thread.
+    const eligible = evaluated
+      .filter(candidate => candidate.problems.length === 0 && candidate.coldProblems.length === 0)
+      .sort((a, b) => (b.interest - a.interest) || ((b.guessSim ?? 0) - (a.guessSim ?? 0)));
+    if (eligible.length > 0) {
+      finalTheme = eligible[0].theme;
+      console.log(`[Digest] Cold-reader gate: ${eligible.length}/${evaluated.length} candidates eligible, picked "${finalTheme}" (interest ${eligible[0].verdict ? `${eligible[0].interest}/5` : "unjudged"})`);
+    } else {
+      // Nothing clean. Take the most readable line as the repair's starting
+      // point; its objections drive the rewrite below.
+      const readable = evaluated.find(candidate => candidate.problems.length === 0);
+      const fallback = readable ?? evaluated[0];
+      if (fallback) finalTheme = fallback.theme;
+      console.log(`[Digest] Cold-reader gate: no candidate cleared it — repairing "${finalTheme}"`);
+    }
+    themeCandidateLog = evaluated.map(candidate => ({
+      theme: candidate.theme,
+      chosen: candidate.theme === finalTheme,
+      problems: [...candidate.problems, ...candidate.coldProblems],
+      guessSim: candidate.guessSim,
+      coldRead: candidate.verdict ?? null,
+    }));
 
     // Apply the editor's order only when it is an exact permutation. Main
     // sources move together; a foundational context card stays additive at end.
@@ -1554,6 +1792,8 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
     // source belongs to its thread; this catches a fluent title built around only
     // one especially vivid paper.
     const problems = themeProblems(finalTheme, activeHeadlineSources);
+    const chosenColdProblems = coldReadProblems(coldReads.get(finalTheme));
+    problems.push(...chosenColdProblems);
     const coveredIndices = new Set(
       editorialConnections
         .filter(connection => Boolean(connection.connection?.trim()))
@@ -1573,7 +1813,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       try {
         const groundResp = await aiComplete(aiConfig,
           "You are a sharp magazine editor repairing one research headline. Return only JSON.",
-          `This headline failed:\n"${finalTheme}"\n\nWhy it failed:\n${problems.map(p => `- ${p}`).join("\n")}\n\nThe kept final sources:\n${activePaperList}\n\nThe evidence-backed thread already identified:\n${editorialThread || "Re-read the sources and state their honest shared thread before rewriting."}\n\nRewrite the headline so it is self-contained, evidence-led, interesting, and plainly spoken. Name the recognizable subject or setting; do not replace it with abstractions. Aim for 8 words; hard maximum ${MAX_THEME_WORDS}. Also return the thread and one honest connection for every kept source so the repair can be verified.\n\nTaste examples: "Can a headset replace being in the room?" / "Virtual classrooms feel real. Does that help?" / "Are virtual classrooms ready for real students?" / "We built the virtual classroom. Can students use it?" / "Are we jumping the gun on virtual classrooms?"\nRejected: "Does feeling present mean learning more?" It hides the virtual-classroom setting behind abstractions.\n\nThe examples are taste, not templates. Follow these sources.\n\nReturn JSON: {"thread": "shared evidence-backed thread", "sourceConnections": [{"index": 1, "connection": "honest contribution"}], "theme": "the repaired headline"}`
+          `This headline failed:\n"${finalTheme}"\n\nWhy it failed:\n${problems.map(p => `- ${p}`).join("\n")}\n\nThe kept final sources:\n${activePaperList}\n\nThe evidence-backed thread already identified:\n${editorialThread || "Re-read the sources and state their honest shared thread before rewriting."}\n\nRewrite the headline so it is self-contained, evidence-led, interesting, and plainly spoken. Name the recognizable subject or setting; do not replace it with abstractions. Aim for 8 words; hard maximum ${MAX_THEME_WORDS}. Also return the thread and one honest connection for every kept source so the repair can be verified.\n\nTaste examples: "Can a headset replace being in the room?" / "Virtual classrooms feel real. Does that help?" / "Are virtual classrooms ready for real students?" / "We built the virtual classroom. Can students use it?" / "Are we jumping the gun on virtual classrooms?"\nRejected: "Does feeling present mean learning more?" It hides the virtual-classroom setting behind abstractions.\n\nThe examples are taste, not templates. Follow these sources.\n\n${THEME_TASTE_RULES}\n\nAny objection above that begins "A reader with no context" came from a real cold read of this line by someone who had not seen the sources. Fix what they could not follow instead of explaining it away.\n\nReturn JSON: {"thread": "shared evidence-backed thread", "sourceConnections": [{"index": 1, "connection": "honest contribution"}], "theme": "the repaired headline"}`
         );
         const groundParsed = extractJson<{
           thread?: string;
@@ -1593,9 +1833,37 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
           && groundParsed?.thread?.trim()
           && repairAuditsEverySource
           && themeProblems(grounded, activeHeadlineSources).length === 0) {
-          console.log(`[Digest] Theme rewritten: "${grounded}" (was: "${finalTheme}")`);
-          finalTheme = grounded;
-          console.log(`[Digest] Repaired editorial thread: ${groundParsed.thread.trim()}`);
+          // Re-read the repair cold, once. A rewrite aimed at one objection
+          // routinely introduces another, and the repair prompt is just as
+          // context-blind to its own line as the editor was.
+          let repairedVerdict: ColdReadVerdict | undefined;
+          try {
+            repairedVerdict = (await coldRead(aiConfig, [grounded])).get(grounded);
+          } catch (err) {
+            console.log(`[Digest] Cold reader unavailable for the repair (${err})`);
+          }
+          const repairedColdProblems = coldReadProblems(repairedVerdict);
+          themeCandidateLog.push({
+            theme: grounded,
+            chosen: false,
+            problems: repairedColdProblems,
+            guessSim: null,
+            coldRead: repairedVerdict ?? null,
+            repairOf: finalTheme,
+          });
+          // Accept the repair when it reads clean, or when it at least owes the
+          // cold reader fewer answers than the line it replaces.
+          if (repairedColdProblems.length === 0 || repairedColdProblems.length < chosenColdProblems.length) {
+            console.log(`[Digest] Theme rewritten: "${grounded}" (was: "${finalTheme}")`);
+            for (const candidate of themeCandidateLog) candidate.chosen = candidate.theme === grounded;
+            finalTheme = grounded;
+            console.log(`[Digest] Repaired editorial thread: ${groundParsed.thread.trim()}`);
+            if (repairedColdProblems.length > 0) {
+              console.log(`[Digest] Repair still flagged, but less than the original:\n${repairedColdProblems.map(p => `  - ${p}`).join("\n")}`);
+            }
+          } else {
+            console.log(`[Digest] Repair "${grounded}" failed the cold reader too, keeping "${finalTheme}":\n${repairedColdProblems.map(p => `  - ${p}`).join("\n")}`);
+          }
         } else {
           console.log(`[Digest] Rewrite did not clear the gate, keeping "${finalTheme}"`);
         }
@@ -1968,6 +2236,8 @@ Return JSON (no markdown fences):
     }) : null,
     searchQueries: JSON.stringify(searchQueries),
     gist: gist || null,
+    workingTheme: theme,
+    themeCandidates: themeCandidateLog.length > 0 ? JSON.stringify(themeCandidateLog) : null,
   }).returning();
 
   await db.insert(papers).values(
