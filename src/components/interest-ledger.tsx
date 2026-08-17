@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { FIELD_HIERARCHY, type S2Field } from "@/lib/field-hierarchy";
 import {
-  AddChip, BODY_STYLE, BODY_SM, DIM, DISPLAY_SM, HAIRLINE, INK, MUTED, SURFACE, TopicChip,
+  ACID_PINK, AddChip, BODY_STYLE, BODY_SM, DIM, DISPLAY_SM, HAIRLINE, INK, MUTED, SURFACE, TopicChip,
 } from "@/components/design-system";
 
 // Max interests a user can select. The digest samples 5 candidates/day from the
@@ -27,15 +27,18 @@ export type CustomTopics = Record<string, string[]>;
 
 /** "+ Add" at the end of an open field, expanding in place to a small input.
  *  Only ever one on screen — the field you have open. */
-function RowAdder({ onAdd, disabled = false }: { onAdd: (topic: string) => void; disabled?: boolean }) {
+function RowAdder({ onAdd, disabled = false, onBlocked }: {
+  onAdd: (topic: string) => void;
+  disabled?: boolean;
+  onBlocked?: () => void;
+}) {
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
 
   if (!open) {
     return (
       <AddChip
-        onClick={() => setOpen(true)}
-        disabled={disabled}
+        onClick={disabled ? () => onBlocked?.() : () => setOpen(true)}
         title={disabled ? `Remove an interest to add more (max ${MAX_INTERESTS}).` : undefined}
       />
     );
@@ -112,17 +115,19 @@ export function InterestLedger({
     if (!any && entries.length) init[entries[0][0]] = true;
     return init;
   });
+  const [blockedField, setBlockedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!atMax) setBlockedField(null);
+  }, [atMax]);
+
+  const shoutLimit = (fieldKey: string) => {
+    setOpen(prev => ({ ...prev, [fieldKey]: true }));
+    setBlockedField(fieldKey);
+  };
 
   return (
     <div>
-      {/* The only status line, and only when it applies: past the cap the chips
-          stop responding, which needs saying. */}
-      {atMax && (
-        <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 4px", paddingTop: 4 }}>
-          You&rsquo;re at {maxSelected} topics. Remove one to add another.
-        </p>
-      )}
-
       {entries.map(([fieldKey, fieldDef]) => {
         const customTopics = custom[fieldKey] || [];
         const allTopics = [...fieldDef.topics, ...customTopics];
@@ -175,14 +180,28 @@ export function InterestLedger({
                       label={topic}
                       selected={isSelected}
                       tint={fieldDef.color}
-                      onClick={() => onToggle(topic, fieldKey)}
+                      onClick={() => {
+                        if (atMax && !isSelected) {
+                          shoutLimit(fieldKey);
+                          return;
+                        }
+                        onToggle(topic, fieldKey);
+                      }}
                       onRemove={customTopics.includes(topic) ? () => onRemoveCustom(fieldKey, topic) : undefined}
-                      disabled={atMax && !isSelected}
                       title={atMax && !isSelected ? `Remove an interest to add more (max ${maxSelected}).` : undefined}
                     />
                   );
                 })}
-                <RowAdder onAdd={t => onAddCustom(fieldKey, t)} disabled={atMax} />
+                <RowAdder onAdd={t => onAddCustom(fieldKey, t)} disabled={atMax} onBlocked={() => shoutLimit(fieldKey)} />
+                {blockedField === fieldKey && (
+                  <p
+                    role="alert"
+                    aria-live="assertive"
+                    style={{ ...BODY_STYLE, color: ACID_PINK, fontWeight: 600, flexBasis: "100%", margin: "2px 0 0" }}
+                  >
+                    You&rsquo;re at {maxSelected} topics. Remove one to add another.
+                  </p>
+                )}
               </div>
             )}
           </div>
