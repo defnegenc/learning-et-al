@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { papers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { getOpenAlexCitingWorks, searchOpenAlex } from "@/lib/fetchers/open-alex";
+import { getOpenAlexCitingWorks, getOpenAlexRecentTitleMentions } from "@/lib/fetchers/open-alex";
 import { getAuthUser } from "@/lib/get-user";
 
 export const maxDuration = 30;
@@ -26,13 +26,27 @@ export interface HomeworkItem {
   citationCount: number;
 }
 
+function parseHomework(raw: string | null): HomeworkItem[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizedTitle(title: string): string {
+  return title.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getAuthUser(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const paper = await db.query.papers.findFirst({ where: eq(papers.id, id) });
   if (!paper) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ homework: paper.homework ? JSON.parse(paper.homework) : null });
+  return NextResponse.json({ homework: parseHomework(paper.homework) });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -42,18 +56,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params;
     const paper = await db.query.papers.findFirst({ where: eq(papers.id, id) });
     if (!paper) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (paper.homework) return NextResponse.json({ homework: JSON.parse(paper.homework) });
+    const cached = parseHomework(paper.homework);
+    if (cached) return NextResponse.json({ homework: cached });
 
     let results = paper.openAlexId ? await getOpenAlexCitingWorks(paper.openAlexId, 8) : [];
     if (results.length === 0) {
-      // No OpenAlex ID (or nothing cites it yet): recency search on the title.
-      results = (await searchOpenAlex(paper.title, undefined, "publication_year", 8))
+      // No OpenAlex ID (or nothing cites it yet): look for recent work that
+      // mentions this title, which is the closest useful "since then" fallback.
+      results = (await getOpenAlexRecentTitleMentions(paper.title, 8))
         .filter((r) => !paper.year || (r.year && r.year >= paper.year));
     }
 
-    const sourceTitle = paper.title.toLowerCase().trim();
+    const sourceTitle = normalizedTitle(paper.title);
     const homework: HomeworkItem[] = results
-      .filter((r) => r.title.toLowerCase().trim() !== sourceTitle)
+      .filter((r) => normalizedTitle(r.title) !== sourceTitle)
       .slice(0, 4)
       .map((r) => ({
         openAlexId: r.openAlexId,
@@ -67,8 +83,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         citationCount: r.citationCount,
       }));
 
-    // Cache even an empty result so we don't re-hit OpenAlex on every open.
-    await db.update(papers).set({ homework: JSON.stringify(homework) }).where(eq(papers.id, id)).catch(() => {});
+    if (homework.length > 0) {
+      await db.update(papers).set({ homework: JSON.stringify(homework) }).where(eq(papers.id, id)).catch(() => {});
+    }
     return NextResponse.json({ homework });
   } catch (error) {
     console.error("Homework error:", error);

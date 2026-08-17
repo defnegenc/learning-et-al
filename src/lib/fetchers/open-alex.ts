@@ -452,10 +452,11 @@ export async function getOpenAlexCitingWorks(
   openAlexId: string,
   limit = 8,
 ): Promise<OpenAlexPaper[]> {
-  if (!openAlexId) return [];
+  const id = openAlexId.replace("https://openalex.org/", "").trim();
+  if (!id) return [];
   try {
     const params = new URLSearchParams({
-      filter: [`cites:${openAlexId}`, "has_abstract:true", "type:article|preprint"].join(","),
+      filter: [`cites:${id}`, "has_abstract:true", "type:article|preprint"].join(","),
       sort: "publication_date:desc",
       "per-page": String(limit),
       select: OA_SELECT,
@@ -463,7 +464,7 @@ export async function getOpenAlexCitingWorks(
     });
     const res = await oaFetch(`${OA_BASE}/works?${params}`);
     if (!res.ok) {
-      console.log(`[OpenAlex] Citing works ${res.status} for ${openAlexId}`);
+      console.log(`[OpenAlex] Citing works ${res.status} for ${id}`);
       return [];
     }
     const data = await res.json();
@@ -472,6 +473,45 @@ export async function getOpenAlexCitingWorks(
       .map(mapWork);
   } catch (err) {
     console.log(`[OpenAlex] Citing works error: ${err}`);
+    return [];
+  }
+}
+
+// A softer fallback for rows without a usable OpenAlex ID, or for old cached
+// empty homework. Search only title terms in recent work; the caller filters
+// the source paper itself out before caching.
+export async function getOpenAlexRecentTitleMentions(
+  title: string,
+  limit = 8,
+): Promise<OpenAlexPaper[]> {
+  const q = title.trim();
+  if (!q) return [];
+  try {
+    const year = new Date().getFullYear();
+    const params = new URLSearchParams({
+      search: q,
+      filter: [
+        "has_abstract:true",
+        "type:article|preprint",
+        `publication_year:${year - 3}-${year}`,
+      ].join(","),
+      sort: "publication_date:desc",
+      "per-page": String(limit),
+      select: OA_SELECT,
+      mailto: OA_MAILTO,
+    });
+    const res = await oaFetch(`${OA_BASE}/works?${params}`);
+    if (!res.ok) {
+      console.log(`[OpenAlex] Recent title mentions ${res.status} for "${q}"`);
+      return [];
+    }
+    const data = await res.json();
+    return (data.results as OARawWork[] || [])
+      .filter(w => w.title && w.abstract_inverted_index)
+      .map(mapWork)
+      .filter(p => p.title && p.abstract.length > 50);
+  } catch (err) {
+    console.log(`[OpenAlex] Recent title mentions error: ${err}`);
     return [];
   }
 }
