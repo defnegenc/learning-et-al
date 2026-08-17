@@ -218,7 +218,7 @@ Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
 
 Powers the zero-click header rendered under the central question (`DigestHeader` in
 `today-page.tsx`, shown in all modes). One JSON call over the FINAL synthesis returns:
-- **gist** — normally a one-sentence answer to the central question (≤25 words, plain English, leads with the answer). If the headline depends on an unfamiliar term or named contrast, matching `keyConcepts` definitions are injected and the gist may use two short sentences / 35 words: define the terms in parallel first, then answer. This prevents pronoun-led explanations such as "It works…" when the reader does not yet know what "dynamic assessment" means.
+- **gist** — normally a one-sentence answer to the central question (≤25 words, plain English, leads with the answer). If the headline depends on an unfamiliar named contrast, matching `keyConcepts` definitions are injected and the gist may use two short sentences / 35 words: define both sides in parallel first, then answer. A yes/no headline with one specialist term still leads with the verdict; the term is already underlined with a tooltip, so the gist must not open with a standalone glossary sentence.
 
 The first matching mention of each `keyConcept` in both the gist and synthesis is
 underlined as an interactive definition. Its tooltip is portalled to the document body,

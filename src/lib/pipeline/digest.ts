@@ -2191,7 +2191,9 @@ VOICE: Sound like a real person talking to a friend. Use contractions. Plain wor
 
 EVIDENCE GUARD: Every claim in the gist must be supported by the synthesis. Do not invent a psychological mechanism to make the answer sound complete. Avoid "everyone", "every", "always", and "never" unless the sources actually establish that universal claim.
 
-TERM BRIDGE: If the central question relies on a specialist term, unfamiliar phrase, or named contrast that a smart non-expert may only half-understand, define it BEFORE giving the verdict or implication. When two terms are contrasted, define both in parallel. Use concrete verbs, not a dictionary definition. You may use two short sentences and up to 35 words for this case.
+TERM BRIDGE: If the central question relies on a named contrast that a smart non-expert may only half-understand, define both sides in parallel BEFORE giving the implication. Use concrete verbs, not a dictionary definition. You may use two short sentences and up to 35 words for this case.
+
+SINGLE-TERM RULE: If the question contains one specialist term but is otherwise a normal yes/no question, DO NOT open with a standalone definition. The term will already be underlined with a tooltip. Lead with the answer, and only fold a tiny clarification into the verdict if it helps. Bad: "Mass spectrometry reads a molecule's fingerprint. Sort of: ..." Good: "Sort of: mass spectrometry can spot chemical fingerprints, but reference gaps and messy mixtures make some supplement calls a best guess."
 
 Example — Q: "Dynamic assessment beats static testing. Why is it still rare?"
 GOOD: "Dynamic assessment adapts through live back-and-forth; static testing gives everyone the same fixed test. The adaptive approach works, but is hard to run at scale."
@@ -2199,7 +2201,7 @@ BAD: "It works, but running it well requires a real-time conversation." This wit
 
 Return JSON (no markdown fences):
 {
-  "gist": "Usually ONE plain sentence, max 25 words. When TERM BRIDGE applies, use up to TWO short sentences and 35 words: define first, then answer. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question and needs no term definition. If it's a who/what/how/why question, answer it DIRECTLY — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT merely echo the question. No unexplained jargon or unsupported mechanism."
+  "gist": "Usually ONE plain sentence, max 25 words. When TERM BRIDGE applies to a named contrast, use up to TWO short sentences and 35 words: define first, then answer. For yes/no questions with one specialist term, answer first; never write a standalone glossary sentence before the verdict. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question. If it's a who/what/how/why question, answer it DIRECTLY — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT merely echo the question. No unexplained jargon or unsupported mechanism."
 }`
     );
     const gp = extractJson<{ gist?: string }>(gistResp);
