@@ -12,7 +12,7 @@ import {
 
 type Jargon = { term: string; def: string };
 
-interface Companion {
+export interface Companion {
   gist: string;
   did: string;
   found: string;
@@ -22,7 +22,7 @@ interface Companion {
   questions: string[];
 }
 
-interface HomeworkItem {
+export interface HomeworkItem {
   openAlexId: string;
   title: string;
   authors: string[];
@@ -34,10 +34,27 @@ interface HomeworkItem {
   citationCount: number;
 }
 
-interface QaPair {
+export interface QaPair {
   id: string;
   question: string;
   answer: string;
+}
+
+/**
+ * Everything this view normally fetches, handed to it instead.
+ *
+ * `/prototype/reading-list` renders the real component against sample data with
+ * no database, no session and no model behind it — which is the only way to
+ * review this page's typography and rhythm without a signed-in account and a
+ * populated reading list. Production never passes it; absent, every fetch runs
+ * exactly as before.
+ */
+export interface ReadingFixture {
+  companion: Companion | null;
+  homework: HomeworkItem[];
+  qa: QaPair[];
+  /** Stands in for the model when a question is asked. */
+  answer: (question: string) => string;
 }
 
 /**
@@ -183,7 +200,7 @@ function Glossary({ terms }: { terms: Jargon[] }) {
  * come from /api/papers/[id]/qa, which reads the full text, and the thread is
  * persisted per user, so a paper you came back to still has what you asked.
  */
-function AskThread({ paperId, starters }: { paperId: string; starters: string[] }) {
+function AskThread({ paperId, starters, fixture }: { paperId: string; starters: string[]; fixture?: ReadingFixture }) {
   const [pairs, setPairs] = useState<QaPair[]>([]);
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
@@ -193,6 +210,11 @@ function AskThread({ paperId, starters }: { paperId: string; starters: string[] 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (fixture) {
+        setPairs(fixture.qa);
+        fixture.qa.forEach(p => asked.current.add(p.question));
+        return;
+      }
       try {
         const res = await fetch(`/api/papers/${paperId}/qa`);
         const data = await res.json();
@@ -203,7 +225,7 @@ function AskThread({ paperId, starters }: { paperId: string; starters: string[] 
       } catch { /* an empty thread is the right fallback */ }
     })();
     return () => { cancelled = true; };
-  }, [paperId]);
+  }, [paperId, fixture]);
 
   async function ask(question: string) {
     const q = question.trim();
@@ -211,6 +233,14 @@ function AskThread({ paperId, starters }: { paperId: string; starters: string[] 
     setAsking(q);
     setFailed(false);
     try {
+      if (fixture) {
+        // A beat, so the pending state is reviewable rather than a flash.
+        await new Promise(r => setTimeout(r, 900));
+        setPairs(prev => [...prev, { id: `fx-${prev.length}`, question: q, answer: fixture.answer(q) }]);
+        asked.current.add(q);
+        setDraft("");
+        return;
+      }
       const res = await fetch(`/api/papers/${paperId}/qa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -310,7 +340,12 @@ function AskThread({ paperId, starters }: { paperId: string; starters: string[] 
  * continuous read with hard words defined in place, and the questions the
  * companion suggests are live rather than decorative.
  */
-export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClose: () => void }) {
+export function ReadingPaperDetail({ paper, onClose, fixture }: {
+  paper: PaperItem;
+  onClose: () => void;
+  /** Prototype only — see `ReadingFixture`. */
+  fixture?: ReadingFixture;
+}) {
   const byline = paperByline(paper);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
@@ -334,6 +369,12 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
   // Companion + homework: use the cache if the bookmark already generated
   // them, otherwise trigger generation now and wait.
   useEffect(() => {
+    if (fixture) {
+      setCompanion(fixture.companion);
+      setCompanionPending(false);
+      setHomework(fixture.homework);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -359,7 +400,7 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
       } catch { if (!cancelled) setHomework([]); }
     })();
     return () => { cancelled = true; };
-  }, [paper.id]);
+  }, [paper.id, fixture]);
 
   // One shared "already defined" set for the whole walkthrough, rebuilt on each
   // render so the chips land in the same places every time.
@@ -431,7 +472,9 @@ export function ReadingPaperDetail({ paper, onClose }: { paper: PaperItem; onClo
         {glossary.length > 0 && <Glossary terms={glossary} />}
 
         {/* ── Ask this paper ── */}
-        {!companionPending && <AskThread paperId={paper.id} starters={companion?.questions ?? []} />}
+        {!companionPending && (
+          <AskThread paperId={paper.id} starters={companion?.questions ?? []} fixture={fixture} />
+        )}
 
         {/* ── What's happened since ── */}
         <SectionHead title="What's happened since" sub="Newer work that cites this paper." />
