@@ -2,7 +2,7 @@
 
 import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { InkTip, MUTED } from "@/components/design-system";
+import { INK, InkTip } from "@/components/design-system";
 
 type Definition = { term: string; def: string };
 type Placement = { left: number; top: number; width: number; maxHeight: number };
@@ -116,7 +116,7 @@ export function DefinitionTerm({ text, def, tint }: { text: string; def: string;
             cursor: "help",
           }
           : {
-            borderBottom: `2px dotted ${MUTED}`,
+            borderBottom: `2px dotted ${INK}`,
             cursor: "help",
             textDecorationSkipInk: "none",
           }}
