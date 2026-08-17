@@ -613,16 +613,16 @@ export function InkTip({ children, label, style }: {
         width: 280,
         maxWidth: "80vw",
         background: INK,
-        color: SURFACE,
         padding: "10px 14px",
         boxShadow: SHADOW,
         ...style,
+        color: SURFACE,
       }}
     >
       {label && (
         <span style={{ ...LABEL_STYLE, display: "block", color: RULE, marginBottom: 5 }}>{label}</span>
       )}
-      {children}
+      <span style={{ color: SURFACE }}>{children}</span>
     </span>
   );
 }
