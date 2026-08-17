@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, Loader2 } from "lucide-react";
+import { ArrowLeft, Bookmark, Loader2, Maximize2, X } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
@@ -202,6 +202,7 @@ function AskThread({ paperId, starters, headerWash, fixture }: {
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
   const asked = useRef(new Set<string>());
 
   useEffect(() => {
@@ -261,14 +262,32 @@ function AskThread({ paperId, starters, headerWash, fixture }: {
       style={{
         border: BORDER, boxShadow: SHADOW, background: SURFACE,
         display: "flex", flexDirection: "column",
+        ...(fullScreen ? {
+          position: "fixed",
+          inset: "max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
+          zIndex: 10020,
+          maxHeight: "none",
+        } : {}),
       }}
       className="reading-ask"
     >
       <div style={{ ...headerWash, padding: "16px 18px 14px", borderBottom: BORDER, flexShrink: 0 }}>
-        <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
-        <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
-          Answered from the paper itself, not from the digest.
-        </p>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
+          <div>
+            <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
+            <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
+              Answered from the paper itself, not from the digest.
+            </p>
+          </div>
+          <button
+            onClick={() => setFullScreen(v => !v)}
+            title={fullScreen ? "Close fullscreen" : "Open fullscreen"}
+            aria-label={fullScreen ? "Close fullscreen" : "Open fullscreen"}
+            style={{ background: "none", border: "none", padding: 2, color: INK, cursor: "pointer", display: "flex", lineHeight: 1, flexShrink: 0 }}
+          >
+            {fullScreen ? <X size={17} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
       </div>
 
       <div style={{ overflowY: "auto", padding: "0 18px", flex: 1, minHeight: 0 }}>
