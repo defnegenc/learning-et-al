@@ -568,6 +568,11 @@ parallel, then explain the finding. Matching definitions already extracted into
 than improvised. This case may use two short sentences and 35 words; the normal
 one-sentence, 25-word limit remains.
 
+That doorway is for contrasts, not every technical noun. A yes/no headline with
+one specialist term should still read question -> answer, not question ->
+glossary -> answer. The term is already underlined with a tooltip, so the gist
+leads with the verdict and folds in only a tiny clarification when needed.
+
 The small "Daily digest" line is content, not machinery. It therefore leaves the
 grey uppercase mono Label style and uses sentence-case black Display type. The
 right side of that same row shows unique seeded fields such as Education as
