@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import {
-  ACID_GREEN, ACID_PINK, BODY_STYLE, BODY_SM, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
+  ACID_GREEN, ACID_PINK, ActionButton, BODY_STYLE, BODY_SM, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
   HAIRLINE, INK, Label, LABEL_STYLE, MUTED, SHADOW, SURFACE, Tag, wordSlot,
 } from "@/components/design-system";
 
@@ -20,6 +20,8 @@ interface UserStat {
   regenerateCount: number;
   interestCount: number;
   interests: string[];
+  latestDigestTitle: string | null;
+  latestDigestDate: string | null;
 }
 
 interface EventItem {
@@ -57,6 +59,8 @@ export function AdminDashboard() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("users");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [regenerateError, setRegenerateError] = useState<{ userId: string; message: string } | null>(null);
 
   async function togglePause(u: UserStat) {
     if (togglingId) return;
@@ -73,6 +77,54 @@ export function AdminDashboard() {
       }
     } catch { /* leave state as-is */ }
     finally { setTogglingId(null); }
+  }
+
+  async function regenerateForUser(u: UserStat) {
+    if (regeneratingId) return;
+    setRegeneratingId(u.id);
+    setRegenerateError(null);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: u.id }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result.error || `Generation failed (${res.status})`);
+
+      const generated = result.digest as { id: string; theme: string | null; date: string; createdAt: string | null };
+      setData(current => current ? {
+        ...current,
+        users: current.users.map(user => user.id === u.id ? {
+          ...user,
+          latestDigestTitle: generated.theme || "Untitled",
+          latestDigestDate: generated.date,
+          digestCount: user.digestCount + 1,
+          regenerateCount: user.regenerateCount + 1,
+          lastActive: generated.createdAt || user.lastActive,
+        } : user),
+        themes: [{
+          id: generated.id,
+          theme: generated.theme,
+          date: generated.date,
+          starred: false,
+          userName: u.name || u.email || "Unknown",
+          userId: u.id,
+        }, ...current.themes].slice(0, 100),
+        totals: {
+          ...current.totals,
+          digests: current.totals.digests + 1,
+          events: current.totals.events + 1,
+        },
+      } : current);
+    } catch (err) {
+      setRegenerateError({
+        userId: u.id,
+        message: err instanceof Error ? err.message : "Failed to regenerate digest",
+      });
+    } finally {
+      setRegeneratingId(null);
+    }
   }
 
   useEffect(() => {
@@ -128,10 +180,11 @@ export function AdminDashboard() {
 
       {/* Users tab */}
       {tab === "users" && (
-        <table className="w-full" style={{ borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto", paddingBottom: 8 }}>
+        <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 1180 }}>
           <thead>
             <tr style={{ borderBottom: `2px solid ${INK}` }}>
-              {["User", "Auto-digest", "Joined", "Last active", "Digests", "Stars", "Questions", "Regens", "Interests"].map(h => (
+              {["User", "Latest digest", "Auto-digest", "Joined", "Last active", "Digests", "Stars", "Questions", "Regens", "Interests", "Action"].map(h => (
                 <th key={h} style={{ ...LABEL_STYLE, textAlign: "left", padding: "10px 12px" }}>{h}</th>
               ))}
             </tr>
@@ -142,6 +195,10 @@ export function AdminDashboard() {
                 <td style={{ padding: "12px" }}>
                   <p style={{ ...BODY_SM, fontWeight: 600, margin: 0 }}>{u.name || "—"}</p>
                   <p style={{ ...BODY_SM, color: MUTED, margin: 0 }}>{u.email || "—"}</p>
+                </td>
+                <td style={{ padding: 12, maxWidth: 260 }}>
+                  <p style={{ ...BODY_SM, fontWeight: 600, margin: 0 }}>{u.latestDigestTitle || "No digest yet"}</p>
+                  {u.latestDigestDate && <p style={{ ...BODY_SM, color: MUTED, margin: "2px 0 0" }}>{new Date(`${u.latestDigestDate}T00:00:00`).toLocaleDateString()}</p>}
                 </td>
                 <td style={{ padding: "10px 12px" }}>
                   <button
@@ -171,10 +228,26 @@ export function AdminDashboard() {
                     {u.interests.length > 5 && <span style={{ ...BODY_SM, color: MUTED }}>+{u.interests.length - 5}</span>}
                   </div>
                 </td>
+                <td style={{ padding: 12, verticalAlign: "top" }}>
+                  <ActionButton
+                    onClick={() => regenerateForUser(u)}
+                    disabled={Boolean(regeneratingId) || u.interestCount === 0}
+                    shadow={false}
+                    title={u.interestCount === 0 ? "This user needs at least one interest" : `Generate a fresh digest for ${u.name || u.email || "this user"}`}
+                    style={{ padding: "7px 10px", whiteSpace: "nowrap" }}
+                  >
+                    {regeneratingId === u.id && <Loader2 size={13} className="animate-spin" />}
+                    {regeneratingId === u.id ? "Generating…" : "Regenerate"}
+                  </ActionButton>
+                  {regenerateError?.userId === u.id && (
+                    <p style={{ ...BODY_SM, color: ACID_PINK, margin: "8px 0 0", maxWidth: 220 }}>{regenerateError.message}</p>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {/* Activity tab */}
