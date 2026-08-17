@@ -192,7 +192,12 @@ function Glossary({ terms }: { terms: Jargon[] }) {
  * come from /api/papers/[id]/qa, which reads the full text, and the thread is
  * persisted per user, so a paper you came back to still has what you asked.
  */
-function AskThread({ paperId, starters, fixture }: { paperId: string; starters: string[]; fixture?: ReadingFixture }) {
+function AskThread({ paperId, starters, headerWash, fixture }: {
+  paperId: string;
+  starters: string[];
+  headerWash: React.CSSProperties;
+  fixture?: ReadingFixture;
+}) {
   const [pairs, setPairs] = useState<QaPair[]>([]);
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState<string | null>(null);
@@ -259,7 +264,7 @@ function AskThread({ paperId, starters, fixture }: { paperId: string; starters: 
       }}
       className="reading-ask"
     >
-      <div style={{ padding: "16px 18px 14px", borderBottom: BORDER, flexShrink: 0 }}>
+      <div style={{ ...headerWash, padding: "16px 18px 14px", borderBottom: BORDER, flexShrink: 0 }}>
         <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
         <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
           Answered from the paper itself, not from the digest.
@@ -545,7 +550,12 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
           {/* ── Ask this paper, in the rail ── */}
           <aside className="reading-aside">
             {!companionPending && (
-              <AskThread paperId={paper.id} starters={companion?.questions ?? []} fixture={fixture} />
+              <AskThread
+                paperId={paper.id}
+                starters={companion?.questions ?? []}
+                headerWash={foundational ? foundationalWash() : wash(index)}
+                fixture={fixture}
+              />
             )}
           </aside>
         </div>
