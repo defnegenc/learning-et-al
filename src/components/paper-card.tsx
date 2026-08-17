@@ -264,21 +264,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
         <section
           style={{
             background: `color-mix(in oklab, ${mark} 55%, ${SURFACE})`,
-            borderLeft: `2px solid ${GOLD}`,
-            padding: "12px 14px",
+            padding: "14px 16px",
           }}
         >
-          <h3
-            style={{
-              ...DISPLAY_SM,
-              display: "inline-block",
-              textDecoration: "underline",
-              textDecorationColor: GOLD,
-              textDecorationThickness: 2,
-              textUnderlineOffset: 4,
-              margin: "0 0 8px",
-            }}
-          >
+          <h3 style={{ ...DISPLAY_SM, margin: "0 0 8px" }}>
             Significance
           </h3>
           <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{paper.foundationalReason}</p>
