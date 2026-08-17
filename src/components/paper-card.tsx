@@ -6,7 +6,7 @@ import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import {
   BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
-  InkTip, SHADOW, SHADOW_GOLD, SURFACE, foundationalWash, wash, washSlots,
+  InkTip, SHADOW, SHADOW_GOLD, SURFACE, foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
 /*
@@ -202,7 +202,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
   }, [expandTick]);
 
   const foundational = paper.category === "foundational";
-  const mark = foundational ? GOLD : washSlots(index)[0];
+  // The mark is a wash hue, never GOLD — gold is a line colour and is far too
+  // dark to read a highlight through. See `foundationalSlots`.
+  const mark = foundational ? foundationalSlots()[0] : washSlots(index)[0];
 
   const body = (paper.summary || paper.abstract || "").trim();
   const hero = body.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || body;
