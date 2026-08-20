@@ -92,6 +92,27 @@ export function aiConfigFor(task: AITask): AIConfig {
   };
 }
 
+/**
+ * The same provider and key as the run's config, with the model swapped to the
+ * judge tier when `AI_MODEL_DIGEST_JUDGE` is set.
+ *
+ * About half the digest pipeline's calls are structured-JSON judgment or
+ * grounded extraction — cold reads, the re-rank, the foundational gate — where a
+ * flash-class model answers in ~1s instead of 5-8s and every one already has a
+ * graceful fallback if the verdict is absent. Taste- and knowledge-critical
+ * calls (selection, the headline, the skeleton, the synthesis itself) stay on
+ * the run's model.
+ *
+ * Derived from the CALLER's config rather than re-reading `aiConfigFor`, so this
+ * stays correct on both the cron path and any bring-your-own-key path, and can't
+ * pair a Gemini model with an Anthropic key (the CLAUDE.md gotcha). Unset env =
+ * the identical config back = provably zero behavior change.
+ */
+export function judgeConfigFrom(cfg: AIConfig): AIConfig {
+  const model = process.env.AI_MODEL_DIGEST_JUDGE?.trim();
+  return model ? { ...cfg, model } : cfg;
+}
+
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
