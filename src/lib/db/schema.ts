@@ -143,12 +143,24 @@ export const papers = sqliteTable("papers", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+/**
+ * Every turn a reader has with a paper — typed questions and highlighted
+ * passages both. One table rather than a separate `digs` one: a dig and an Ask
+ * question are the same object once a dig can be followed up, and the reading
+ * view rehydrates a paper's panels and its thread from the same read.
+ *
+ * `threadId` groups turns. Rows written before threading exist have it null and
+ * are treated as single-turn threads of their own.
+ */
 export const qaPairs = sqliteTable("qa_pairs", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   paperId: text("paper_id").notNull().references(() => papers.id),
   userId: text("user_id").notNull().references(() => users.id),
   question: text("question").notNull(),
   answer: text("answer").notNull(),
+  threadId: text("thread_id"),        // groups a dig and its follow-ups; null on legacy rows
+  selection: text("selection"),       // the quoted passage a dig started from; null for typed questions
+  sectionKey: text("section_key"),    // gist | did | found | caveats | remember — where the highlight was
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

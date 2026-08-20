@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bookmark, Info } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
+import { announceSave } from "@/lib/save-nux";
 import {
   BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
   foundationalSlots, foundationalWash, InkTip, SHADOW, SHADOW_GOLD, SURFACE, wash, washSlots,
@@ -36,12 +37,25 @@ export function paperByline(paper: PaperItem): string {
   return [authors, venue].filter(Boolean).join(" · ");
 }
 
-/** The bookmark — the acid green fill is the only colour on the card's chrome. */
-function BookmarkToggle({ paper, initial, onUnsaved, label, onSignedOutSaveChange }: {
+/**
+ * The save control.
+ *
+ * One name for one action: "Save", "Saved", and the place it lands is "your
+ * library". The three names this used to have — "Save to your reading list" in
+ * the tooltip, "Save for later" on foundational cards, "Read later" in the
+ * vault's empty state — were three names for the same button, and none of them
+ * was visible on the cards a signed-in reader actually meets, which is why the
+ * feature read as missing in production.
+ *
+ * `showLabel` renders the word beside the icon. It is on for every digest and
+ * shelf card now, not just foundational ones: an icon-only bookmark teaches
+ * nobody what saving does, and saving is what starts the librarian reading.
+ */
+function BookmarkToggle({ paper, initial, onUnsaved, showLabel, onSignedOutSaveChange }: {
   paper: PaperItem;
   initial?: boolean;
   onUnsaved?: (id: string) => void;
-  label?: string;
+  showLabel?: boolean;
   onSignedOutSaveChange?: (paper: PaperItem, saved: boolean) => void | Promise<void>;
 }) {
   const [saved, setSaved] = useState(!!initial);
@@ -69,9 +83,11 @@ function BookmarkToggle({ paper, initial, onUnsaved, label, onSignedOutSaveChang
       if (!response.ok) throw new Error("Bookmark failed");
       if (next) {
         // Reading prep runs in the background so the companion and the citing
-        // work are ready by the time the reading list is opened.
+        // work are ready by the time the library is opened. On a reader's first
+        // save this is also the only thing they are ever told about it.
         fetch(`/api/papers/${paper.id}/companion`, { method: "POST" }).catch(() => {});
         fetch(`/api/papers/${paper.id}/homework`, { method: "POST" }).catch(() => {});
+        announceSave({ paperId: paper.id, title: paper.plainName || paper.title });
       } else {
         onUnsaved?.(paper.id);
       }
@@ -80,16 +96,20 @@ function BookmarkToggle({ paper, initial, onUnsaved, label, onSignedOutSaveChang
     }
   }
 
+  const name = saved ? "Remove from your library" : "Save to your library";
+
   return (
     <button
       onClick={toggle}
-      title={saved ? "Remove from your reading list" : (label ?? "Save to your reading list")}
-      aria-label={saved ? "Remove from your reading list" : (label ?? "Save to your reading list")}
+      title={name}
+      aria-label={name}
       style={{
-        ...(label ? DISPLAY_SM : {}),
+        // The word is Body/SM, not Display/SM: it names a thing rather than the
+        // machinery, so it is not a Label and it is not a button voice either.
+        ...(showLabel ? { ...BODY_SM, fontWeight: 600 } : {}),
         background: "none",
         border: "none",
-        padding: label ? "2px 0" : 0,
+        padding: showLabel ? "2px 0" : 0,
         cursor: "pointer",
         display: "inline-flex",
         alignItems: "center",
@@ -101,7 +121,7 @@ function BookmarkToggle({ paper, initial, onUnsaved, label, onSignedOutSaveChang
       }}
     >
       <Bookmark size={16} style={{ fill: saved ? "currentColor" : "none", stroke: "currentColor" }} />
-      {label && <span>{saved ? "Saved for later" : label}</span>}
+      {showLabel && <span>{saved ? "Saved" : "Save"}</span>}
     </button>
   );
 }
@@ -262,7 +282,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
             <BookmarkToggle
               paper={paper}
               initial={initialBookmarked}
-              label="Save for later"
+              showLabel
               onSignedOutSaveChange={onSignedOutSaveChange}
             />
           )}
@@ -275,7 +295,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
             {paper.plainName || paper.title}
           </h3>
           {!foundational && (loggedIn || onSignedOutSaveChange) && (
-            <BookmarkToggle paper={paper} initial={initialBookmarked} onSignedOutSaveChange={onSignedOutSaveChange} />
+            <BookmarkToggle paper={paper} initial={initialBookmarked} showLabel onSignedOutSaveChange={onSignedOutSaveChange} />
           )}
         </div>
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
@@ -391,6 +411,7 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSav
             paper={paper}
             initial={initialBookmarked}
             onUnsaved={onUnsaved}
+            showLabel
             onSignedOutSaveChange={onSignedOutSaveChange}
           />
         ) : null}

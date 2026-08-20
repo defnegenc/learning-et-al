@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDigest } from "@/lib/pipeline/digest";
-import { AIConfig } from "@/lib/ai/provider";
+import { AIConfig, aiConfigFor } from "@/lib/ai/provider";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
 
@@ -18,21 +18,10 @@ export async function POST(req: NextRequest) {
   try {
     const { force } = await req.json();
 
-    const cronProvider = (process.env.CRON_AI_PROVIDER || "gemini") as "gemini" | "anthropic" | "openai" | "other";
-    const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-6"
-      : cronProvider === "openai" ? "gpt-4o"
-      : "gemini-2.5-flash";
-    const apiKey = process.env.CRON_AI_KEY || "";
-    if (!apiKey) {
+    const aiConfig: AIConfig = aiConfigFor("digest");
+    if (!aiConfig.apiKey) {
       return NextResponse.json({ error: "Server AI key not configured." }, { status: 500 });
     }
-
-    const aiConfig: AIConfig = {
-      apiKey,
-      provider: cronProvider,
-      model: process.env.CRON_AI_MODEL || cronDefaultModel,
-      baseUrl: process.env.CRON_AI_BASE_URL || "",
-    };
     const digest = await generateDigest(userId, aiConfig, force);
 
     trackEvent(userId, "digest_generate", { metadata: { force: !!force } });
