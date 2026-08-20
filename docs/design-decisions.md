@@ -1099,3 +1099,41 @@ term column beside a 200px gutter.
 This is the first half of a larger move — the rail is meant to go entirely, or
 to become half the screen while a passage is selected. The inline question box
 is what makes that possible: it is now the only thing you need the rail for.
+
+---
+
+## 2026-08-20: The dig is a fold, and the wait is where the questions live
+
+Three things were wrong with the dig-deeper panel the first time, and they were
+all the same mistake: the panel was treated as a document rather than as an
+answer to something you can still see.
+
+**The passage is not quoted back.** The panel lands directly under the paragraph
+the highlight came from, so printing the sentence again inside it was the same
+words twice, two inches apart. The position is the citation.
+
+**Digs fold.** Four digs down one walkthrough buried the paper under the
+reader's own back-catalogue. A closed dig is one line — the mono `Deeper`
+eyebrow, the glossary's chevron, and the first clause of the answer clamped to
+the line. Digs
+made in this session open; digs rehydrated from the thread store on load start
+folded, because on the second visit the paper is the thing you came back for.
+
+**The wait is a surface, not a gap.** The interleave used to sit inside the
+answer panel as a bordered block with a heading, a caption and a footnote — a
+survey card dropped into the middle of a paper, which is exactly how it read.
+Now: while a dig is running there is **no box at all**. A loader, and under it
+one thing at a time — the familiarity question if it is owed, then, only if the
+reader answers it and the dig is still going, how much they liked the paper,
+then a rotating tip. If the answer lands first, none of it was ever in the way.
+Both questions are the same object (`ScaleRow`): one sentence, five boxes, a
+label at each end, a skip. Two arrangements of one idea is what "busy" was.
+
+**The one-question-a-day budget is not spent on a wait nobody saw.** The offer
+is reserved 1.2 seconds into a dig, not at its start, and only if the dig is
+still running. A fast answer costs the reader nothing.
+
+**Paper ratings go in `events`, not `feedback`.** `feedback` is a two-value enum
+that the interest weights read directly, and a five-point opinion is not a save:
+somebody can rate a paper 2/5 and still have been right to be sent it. As an
+event it reaches the taste ledger without changing what a star means.
