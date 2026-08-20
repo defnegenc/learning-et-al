@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { db, ensureSchema } from "@/lib/db";
 import { papers, feedback, interests, digests, savedDigests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
+import { refreshDossier } from "@/lib/librarian/dossier";
 
 export async function DELETE(
   req: NextRequest,
@@ -114,6 +115,16 @@ export async function POST(
         isCrossDomain,
       },
     });
+
+    // A save or a dislike is a taste signal. The keeper decides for itself
+    // whether five have piled up since the last rewrite, so this costs two
+    // queries in the common case — and it must never make the reader wait for
+    // their bookmark. `after` rather than a bare floating promise: on Vercel the
+    // invocation can be frozen the moment the response is sent, which would kill
+    // a rewrite mid-flight.
+    if (!existingFeedback) {
+      after(() => refreshDossier(userId).catch(() => {}));
+    }
 
     return NextResponse.json({ feedback: fb });
   } catch (error) {
