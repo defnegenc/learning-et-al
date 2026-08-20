@@ -17,6 +17,14 @@ The question comes first. Papers are found to inform that question — not to an
 
 The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code comments.
 
+**Step order vs. execution order** (added 2026-08-20, `docs/plans/digest-generation-speedup.md` Phase 1): the steps below are numbered by their place in the argument, not by wall clock. Three things now run concurrently, with no change to what any gate judges:
+- **Step 2's three search queries** fire together (the scope ladder *inside* each query stays ordered — precision→recall widening is inherently serial). Results are merged afterwards in query order, so dedup stays deterministic and query 1 still owns a shared title.
+- **Step 4c (foundational lane)** starts right after Step 4b and is merged after Step 5. Step 5 already filters foundational items out of its headline sources, so it never read the lane's result; the only coupling was that both mutated `items`. `findFoundationalItem()` returns instead of pushing. Accepted edge case: Step 5's exclusion gate can drop a lane paper *after* tier 1 mined its reference list — the ancestor is still a real, verified, LLM-gated foundational text, and the merge point re-checks for title collisions.
+- **Stage A (metadata) and Stage B (skeleton)** fire together. Both read only `paperListing` + `finalTheme`, and the skeleton no longer drops papers.
+- Smaller: the **news web search** is kicked off before the selection call and awaited in Step 4.
+
+**Timing instrumentation**: `generateDigest` logs `[Digest][timing] <stage>: +Xs (total Ys)` at every stage boundary. Grep Vercel logs for `[Digest][timing]` to see where a slow run actually went.
+
 ### Step 1: Interest Selection & Central Question (AI calls 1-3)
 
 **Interest sampling** (lines ~140-200):
@@ -51,7 +59,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 
 ### Step 2: Paper Search (lines ~370-400)
 
-3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv** (in practice OpenAlex nearly always answers, so it's effectively the sole source — audit 6.1).
+3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv** (in practice OpenAlex nearly always answers, so it's effectively the sole source — audit 6.1). The three queries run **concurrently** (3 concurrent requests, each internally serial through its scope ladder, sits well inside OpenAlex's 10 rps polite pool); the inter-query sleeps are gone.
 
 - **Relevance-ranked recency**: OpenAlex "recent" mode sorts by `relevance_score:desc` within a 2-year `publication_year` window. It fetches five candidates past the requested cutoff; if the top set contains no current-year work, the best current-year result from that small oversample replaces the last candidate so downstream scoring can consider it. This is candidate inclusion, not a guaranteed slot. (Sorting by `publication_year:desc` was rejected because it discarded relevance and returned the newest works mentioning the query words anywhere — audit 6.2.)
 - **Deterministic taxonomy routing**: query 1 starts with `primary_topic.id:{seedTopic}` for precision. Queries 2-3 start with `topics.id:{seedTopic}`, which also admits cross-domain papers where the seed is a secondary topic.
@@ -134,6 +142,9 @@ Combined score ≤3 → attempt swap with next-best from qualified pool. **If no
 
 ### Step 4c: Foundational Lane (1-2 OpenAlex calls + AI gate, conditional)
 
+Lives in `findFoundationalItem()` and **runs concurrently with Step 5**, merged into
+`items` once the headline pass returns (see "Step order vs. execution order" above).
+
 The main pool is deliberately windowed to the last 2 years — recency is the product
 default. This lane is ADDITIVE: it asks "what did today's papers build on?" Two tiers:
 
@@ -208,7 +219,7 @@ Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
 
 **Stage A: Metadata** (AI call 7) — per-paper summaries, keywords, findings, connectionToTheme, **plainName** (plain-language paper name shown on cards above the academic title), **takeaway** (`hook` = the one surprise, `stat` = concrete anchor or null, `line` = a distinct conversational implication — powers Conversational Papers; hook/stat/line may not paraphrase one another), **methodType/methodFacts/claim** (what the source IS — "Field study", "Opinion piece", "News feature" — plus 2-3 short how-they-did-it facts and the one-sentence central claim; these fill the card's themed See-more tiles), keyConcepts, suggestedQuestions. `plainName` must distinguish the source rather than restate the digest headline or takeaway. Scripted-casual filler ("So you'd think", "Turns out", "It's kind of like", "which sounds obvious") is explicitly banned; clarity and evidence supply the voice. Uses `metadataPrompt`. keyConcepts now aggressively captures jargon a non-expert trips on — model/system names (RoBERTa, DistilBERT), technical methods (subword tokenization, self-attention), and acronyms (EEG, NLP) — so the synthesis hover-definitions actually fire on scary words.
 
-**Stage B: Argument Skeleton** (AI call 8) — cross-document relations (agrees/contradicts/extends/alternative_mechanism/unrelated), paper roles, core tension, argument arc. Uses `skeletonPrompt`.
+**Stage B: Argument Skeleton** (AI call 8, fires **concurrently with Stage A**) — cross-document relations (agrees/contradicts/extends/alternative_mechanism/unrelated), paper roles, core tension, argument arc. Uses `skeletonPrompt`.
 
 **Stage C: Synthesis Draft** (AI call 9) — writes the paragraph following skeleton's argument arc. Explicit list of papers that MUST appear in bold. Uses `synthesisFromSkeletonPrompt`.
 
@@ -334,7 +345,7 @@ Alongside the weights there is now a second, slower memory: a per-reader
 |---|---|---|
 | Exemplars | papers saved (positive) vs. shown-and-walked-past (soft negative) | `feedback` + every paper in the reader's digests |
 | Engagement | questions asked, passages dug into | `qa_pairs.question`, `events` type `dig_deeper` |
-| Stated | interests and their weights | `interests` |
+| Stated | interests and their weights; self-rated familiarity per subtopic | `interests`, `familiarity` |
 | Negative | dislikes, and the reasons typed at the regenerate CTA | `feedback` type `dislike`, `digest_feedback` |
 
 `digest_feedback` had been **write-only since it shipped** — rows went in and

@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { digestFeedback, digests, events, feedback, interests, papers, qaPairs } from "@/lib/db/schema";
+import { digestFeedback, digests, events, familiarity, feedback, interests, papers, qaPairs } from "@/lib/db/schema";
 import { LIST_COLUMNS } from "@/lib/db/paper-payload";
 
 /*
@@ -43,6 +43,8 @@ export interface Ledger {
   questions: string[];
   digs: string[];
   interests: { keyword: string; field: string | null; weight: number }[];
+  /** Self-reported, per subtopic. Pitching context only — never a selection signal. */
+  familiarity: { topic: string; level: number }[];
   disliked: { title: string; reason: string | null }[];
   complaints: string[];
   /**
@@ -167,6 +169,12 @@ export async function collectLedger(userId: string): Promise<Ledger> {
     } catch { return ""; }
   }).filter(Boolean);
 
+  const familiarityRows = await db.query.familiarity.findMany({
+    where: eq(familiarity.userId, userId),
+    orderBy: desc(familiarity.createdAt),
+    limit: 20,
+  });
+
   const questions = questionRows.map(q => q.question).filter(Boolean);
 
   return {
@@ -174,10 +182,13 @@ export async function collectLedger(userId: string): Promise<Ledger> {
     skipped,
     questions,
     digs,
-    // TODO(librarian): when the familiarity table lands, its levels join here as
-    // the fourth "stated" signal — the dossier should know what someone already
-    // knows, not just what they like.
     interests: interestRows.map(i => ({ keyword: i.keyword, field: i.field, weight: i.weight ?? 1 })),
+    // The other half of "stated": what they already KNOW, as against what they
+    // like. It travels to the dossier as pitching context, and the dossier
+    // prompt is explicit that a low level is never a reason to send less of a
+    // topic — familiarity is presentation, interest is selection, and the two
+    // must not be crossed anywhere.
+    familiarity: familiarityRows.map(f => ({ topic: f.topicName, level: f.level })),
     disliked,
     complaints: complaintRows.map(c => c.reason).filter(Boolean),
     signalCount:

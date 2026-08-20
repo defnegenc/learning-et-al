@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import type { PaperItem } from "@/lib/types";
 import { PaperCard } from "@/components/paper-card";
-import { BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, NavTab, PageHeader, PageLoader } from "@/components/design-system";
-import { ReadingPaperDetail } from "./reading-paper-detail";
+import { BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, PageHeader, PageLoader, Segmented } from "@/components/design-system";
+import { useOpenLibrary } from "@/components/save-nux";
 import { DigestHistory } from "./digest-history";
 
 /** How long between checks for prep that was still running when the list loaded. */
@@ -14,10 +15,26 @@ export function VaultPage() {
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
   // Two shelves, equal peers — not a page with a hidden sub-view.
+  //
+  // Digests opens by default only for a reader with nothing saved. Once there
+  // is a library, the library is what "vault" means to them, and burying it one
+  // tab behind the digest archive is half of why the reading view read as two
+  // clicks deep.
   const [view, setView] = useState<"history" | "list">("history");
-  // The shelf position travels with the paper, because the reading view wears
-  // the hue of the card it was opened from.
-  const [detail, setDetail] = useState<{ paper: PaperItem; index: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/papers/bookmarks")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled && (d?.ids?.length ?? 0) > 0) setView("list"); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // "Go to library →" from the first-save confirmation lands on the shelf, not
+  // on the digest archive.
+  useOpenLibrary(useCallback(() => setView("list"), []));
+  const router = useRouter();
   const loaded = useRef(false);
 
   const fetchPapers = useCallback(async () => {
@@ -51,10 +68,22 @@ export function VaultPage() {
       <PageHeader
         title="Vault"
         action={
-          <div style={{ display: "flex", alignItems: "center", gap: 20, paddingTop: 12 }}>
-            <NavTab active={view === "history"} onClick={() => setView("history")}>Digests</NavTab>
-            <NavTab active={view === "list"} onClick={() => setView("list")}>Saved papers</NavTab>
-          </div>
+          /* A toggle, not navigation. `NavTab` is the mono tab strip the shell
+             uses for Today / Vault, and wearing it here made these two read as
+             the same kind of move as leaving the vault entirely. They aren't:
+             this picks which half of the vault you're looking at, which is
+             exactly what `Segmented` is for. The menu keeps them apart on
+             purpose, which is also why settings navigation is a rail and not
+             this shape. */
+          <Segmented
+            style={{ width: 320, paddingTop: 8 }}
+            value={view}
+            onChange={setView}
+            options={[
+              { key: "history" as const, label: "Digests" },
+              { key: "list" as const, label: "Saved papers" },
+            ]}
+          />
         }
       />
 
@@ -66,14 +95,17 @@ export function VaultPage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "80px 0" }}>
           <span style={DISPLAY_SM}>No saved papers yet</span>
           <span style={{ ...BODY_STYLE, color: MUTED }}>
-            Hit &ldquo;Read later&rdquo; on any paper in a digest and it lands here.
+            Hit &ldquo;Save&rdquo; on any paper in a digest and it lands here.
           </span>
         </div>
       ) : (
         <>
+          {/* No count. The grid is the count, and a running total of your own
+              saves is a number that means nothing to the person who made them.
+              (The em dash here was also a standing copy-rule violation.) */}
           <p style={{ ...BODY_STYLE, color: DIM, margin: "-24px 0 24px", maxWidth: 620 }}>
-            {papers.length} saved. Open one for the walkthrough — the gist, what
-            they did, what they found, where it&rsquo;s shaky, and what you can ask it.
+            Open one for the walkthrough: the gist, what they did, what they
+            found, where it&rsquo;s shaky, and what you can ask it.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
             {papers.map((paper, idx) => (
@@ -86,7 +118,10 @@ export function VaultPage() {
                 initialBookmarked
                 preview={paper.companionRemember}
                 footnote={<ShelfFootnote paper={paper} />}
-                onOpen={p => setDetail({ paper: p, index: idx })}
+                // The reading view is a page with an address now, not an
+                // overlay the shelf covers itself with — so back works, refresh
+                // works, and the walkthrough is linkable from anywhere.
+                onOpen={p => router.push(`/library/${p.id}`)}
                 onUnsaved={id => setPapers(prev => prev.filter(p => p.id !== id))}
               />
             ))}
@@ -94,13 +129,6 @@ export function VaultPage() {
         </>
       )}
 
-      {detail && (
-        <ReadingPaperDetail
-          paper={detail.paper}
-          index={detail.index}
-          onClose={() => setDetail(null)}
-        />
-      )}
     </div>
   );
 }

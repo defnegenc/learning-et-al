@@ -145,6 +145,7 @@ Hard rules:
 - Write ONLY what the evidence supports. If there are four saves, say so and keep the note short — "too early to tell" is a useful sentence and a confident invention is a harmful one.
 - Never guess at demographics, profession, or seniority.
 - Distinguish "likes the topic" from "likes how it was explained". They are different signals and the second one is not your business here.
+- Self-rated familiarity is about PITCHING, never about selection. If they rate themselves 2/5 on a subject, that means explain it properly — it does NOT mean send them less of it, and you must not write anything that could be read as "avoid this topic". Say at most one sentence about it, phrased as how to explain, not what to choose.
 - End with one sentence naming what you are still unsure about.`;
 
 function ledgerPrompt(ledger: Ledger): string {
@@ -171,6 +172,9 @@ ${ledger.complaints.map(c => `- "${c}"`).join("\n") || "  (none)"}
 
 THEIR STATED INTERESTS (weight in brackets — higher means more engaged):
 ${ledger.interests.slice(0, 20).map(i => `- ${i.keyword} [${i.weight.toFixed(2)}]`).join("\n") || "  (none)"}
+
+HOW FAMILIAR THEY SAY THEY ARE (1 = new to it, 5 = they work on it). This is about how to EXPLAIN a subject, never about whether to send it:
+${ledger.familiarity.map(f => `- ${f.topic}: ${f.level}/5`).join("\n") || "  (they haven't said)"}
 
 Write the working note.`;
 }
@@ -201,12 +205,15 @@ export async function refreshDossier(userId: string, opts: { force?: boolean } =
       }
     }
 
-    // Fast tier on purpose: this is a summarisation chore over evidence we
+    // `metadata` on purpose: this is a summarisation chore over evidence we
     // already hold, run weekly, and it is not the product's voice.
-    const config = aiConfigFor("chore");
-    if (!config) return { written: false, reason: "no_model" };
+    const config = aiConfigFor("metadata");
+    if (!config.apiKey) return { written: false, reason: "no_model" };
 
-    const dossier = (await aiChat(config, DOSSIER_SYSTEM, [{ role: "user", content: ledgerPrompt(ledger) }])).trim();
+    const dossier = (await aiChat(config, [
+      { role: "system", content: DOSSIER_SYSTEM },
+      { role: "user", content: ledgerPrompt(ledger) },
+    ])).trim();
     if (!dossier) return { written: false, reason: "empty_response" };
 
     let centroids: Centroid[] = [];

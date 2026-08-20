@@ -765,6 +765,296 @@ in.
 
 ---
 
+## 2026-08-19: The first wait is a show, not a sentence
+
+A new user's first digest takes ~90 seconds and the landing they got for it was
+"Today's digest is brewing / Check back soon. A fresh research digest is
+generated every day." — generic, addressed to nobody, and sitting above a
+**"Generate today's digest" button that double-fired the run already in flight**
+from onboarding's `onComplete`. The one moment where somebody has just told us
+what they're curious about and is actively waiting on us was the emptiest screen
+in the product.
+
+`justOnboarded` (set in `page.tsx`, cleared by `TodayPage` when a digest lands,
+persisted in the local session so a refresh mid-wait doesn't drop back to the
+generic copy) splits that state in two. The first-run branch says *"Your first
+digest is brewing"* and that we're reading papers across **their** topics right
+now. The non-first-run branch is untouched — a returning reader whose cron run
+hasn't landed genuinely should just check back.
+
+**The travelling stamp.** `PageLoader` gains its one variant. The shipped stamp
+turns 90° in place while its shadow steps four spectrum slots; the travelling
+one walks a 269px track, one 26px hop per step, its shadow stepping the **full
+spectrum in hue order 00 → 09**. Rotating 90° per hop lands on 900° at the wrap,
+which for a square is the same face as 0°, so the turn reads continuous across
+the carriage return back to the left. The loop is meant to be visible as a loop.
+
+It stays honest: ten hops are ten hops, not ten percent each — the pipeline's
+percent-done is genuinely unknown, and "no fake progress" is binding. One
+indicator for one wait; it doesn't morph when the digest arrives, the whole
+state is replaced. `steps(1, end)`, 2s, inside the menu's 1.5–2s loop range.
+`prefers-reduced-motion` falls back to the static stamp on slot 00.
+
+This introduces **no new tokens** — 2px ink border, the one 5px offset, ten
+existing spectrum slots, white surface. It is the sanctioned colour-beside-ink
+move (colour falls behind a white ink-bordered object) and not a swatch: the
+slots appear one at a time, as one object's shadow, never as a row. The Paper
+board carries the values but has no motion or components section, so there was
+nothing to sketch there; motion lives in `design-style.md` §8.
+
+**Tips while it brews.** Under the loader, a `Label` eyebrow "While it brews"
+over one Body-face tip, rotating every 7s with the `briefRise` entrance. They
+teach the things a brand-new reader has no way to discover — that saving a
+paper starts its reading companion, that jargon is hoverable, that paper names
+in the synthesis are clickable. The line reserves its height so the copy above
+doesn't jump on rotation, and the loop is passive: when the digest lands nothing
+has to finish first.
+
+The list is a **maintained surface** (`src/components/first-run-tips.ts`), with
+the keep-current rule in its header comment and in CLAUDE.md's Context
+Maintenance Rules. A tip pointing at a feature that no longer ships is worse
+than no tip — the rule earned itself on the merge that introduced it: the Save
+NUX landing in parallel renamed the saved-papers surface to **your library** and
+its agent to **your librarian**, and added highlight-to-dig-deeper, so two tips
+were already stale and one feature was missing before this ever shipped. The
+tips also deliberately avoid restating `SaveTipStrip`'s copy, which appears on
+the very digest they are the wait for.
+
+**The Generate button is hidden during the first-run wait.** Generation is
+already running; the button only invited a double-fire. It returns as "Try
+again" when the existing 4-minute poll deadline passes (`pollTimedOut`) or the
+manual generate errors — the recovery path, not the default.
+
+**Considered and dropped: per-interest expertise prompts during the wait.**
+Asking "how well do you know Computer Science?" per picked field, with answer
+chips in that field's spectrum slot, is charming but makes the wait a blocking
+mini-survey racing generation (digest ready before they finish → hold the
+reveal? handle abandonment?) — and the answers can't inform the digest already
+being written. Interests already carry a `level` field; expertise would inform
+the reading companion's tone. If revived it belongs in settings or the reading
+view, as its own feature.
+
+---
+
+## 2026-08-19: Saving has one name, and it says what it starts
+
+Saving is the most agentic thing in this product — it fires the companion
+walkthrough and the citing-work scout — and it did all of that behind an
+unlabelled 16px bookmark with three different names for one action ("Save to
+your reading list" in the tooltip, "Save for later" on foundational cards,
+"Read later" in the vault's empty state) and zero feedback of any kind. That is
+why the feature read as missing in production: it was mute, not absent.
+
+One name: **Save** / **Saved**, landing in **your library**. The word renders
+beside the icon on every digest and shelf card, in Body/SM — it names a thing
+rather than the machinery, so it is not a Label and it is not a button voice.
+
+Two teaching moments, neither anchored to a control. A dismissible **strip**
+above the digest while a reader has nothing saved, which self-retires on the
+first save because saving *is* the dismissal. A **confirmation panel** on the
+first-ever save, which is the higher-leverage half: it explains the feature at
+the moment the reader acted, and it is the only thing that has ever mentioned
+the background prep. An anchored coachmark on the bookmark itself was
+considered and dropped — it teaches the control best and misfires worst, and it
+would have fought the foundational card's own tooltip.
+
+---
+
+## 2026-08-19: The reading view is a page, not an overlay
+
+`ReadingPaperDetail` was a portal overlay the vault handed a paper object to.
+It had no URL, so nothing could link to it: not a digest email, not a share, not
+the first-save confirmation. Refresh lost it and back didn't close it, and it
+sat two clicks deep behind a Vault that opened on the digest archive.
+
+It is now `/library/[paperId]`, a real route, and the vault navigates there.
+There is deliberately **no intercepted route**: the view was always full-bleed,
+so the overlay was never buying a layered presentation over the shelf — it was
+only costing the URL. An intercept would also have to fight the fact that the
+"vault" is a client-side tab inside `/` rather than a route of its own.
+
+The Vault now opens on **Saved papers** for anyone who has any. Once a reader
+has a library, that is what "vault" means to them.
+
+---
+
+## 2026-08-19: Highlight to dig deeper — green marks the selection, not the answer
+
+The reader's problem is not that they can't ask; it's that formulating the
+question is the work. Highlighting a passage removes that entirely, and it gives
+the model the precise sentences plus the beat they came from instead of a vague
+question, so answers get better for free. It is also the richest taste signal in
+the product: the exact sentences somebody found confusing or exciting beat any
+thumbs-up.
+
+**Green lives in the highlight, not the panel.** The live selection is acid
+green (`SELECTION_FILL`, the one sanctioned acid fill — see `design-style.md`)
+for the seconds between selecting and firing. The answer panel is the paper's
+own wash; the only other green is ink on the confirmation. Anything more and the
+acid stops meaning "this is the thing I am acting on".
+
+**Anchored to text and section, not to DOM offsets.** What is stored is the
+quoted passage and which beat it came from (`gist` / `did` / `found` /
+`caveats` / `remember`), so a panel survives a re-render, a refresh, and a
+companion regenerated in between. A selection spanning two beats gets no menu —
+one passage, one section, or nothing.
+
+**Desktop selects; touch taps.** Touch text selection loses to the native
+selection callout, so on narrow screens each beat carries its own "¶ Dig deeper
+on this" affordance and digs on the whole passage.
+
+**One store, one thread model.** Ask-this-paper and dig-deeper are the same
+object once a dig can be followed up, so both live in `qa_pairs` with a
+`thread_id`. A dig thread renders inline under its beat; a typed thread renders
+in the rail. "Ask about this" drops the quoted passage into the composer as
+context and posts *without* a section, so it stays in the rail where it was
+typed. Prior turns of a thread go to the model — every question in this product
+used to be answered blind.
+
+Answers **stream**, because the confirmation promises the reader they can keep
+reading and it will be below. The row is written only when the stream
+completes, so a dropped connection leaves no half-answer in the thread.
+
+---
+
+## 2026-08-20: One explanation of the product, reachable from three places
+
+Nothing in the logged-out funnel ever said what Learning et al. is. A stranger
+landed directly on the admin's digest — a good digest, with no indication that
+it was generated from somebody's interests or that they could have their own —
+and the only call to action in the whole experience was a bare **Sign in** in
+the header. The value proposition was entirely implicit, inferred or not at all.
+
+`what-is-this.tsx` is the answer, and it is deliberately **one** surface. Three
+beats: *Pick your interests*, *Get one idea every morning*, *Save what hooks
+you* — the product's three verbs, in the order a reader meets them.
+
+**The first beat is the interest picker's own chips**, not a description of it.
+Three real selected `TopicChip`s, so what the explainer promises is literally
+the component the reader will touch a minute later and the two cannot drift.
+They carry words, so this is not the banned swatch row: the colour is identity,
+the same identity those fields wear everywhere else. Their fills are read from
+`FIELD_HIERARCHY` rather than written into this file — the plan had assigned
+quantum computing to Computer Science and behavioral economics to Business, and
+the hierarchy files them under Physics & Engineering and Social Sciences. A
+surface is not allowed to have an opinion about a field's fixed slot, so the
+code takes the slot and the wrong hexes never existed.
+
+**Click-only, no auto-open.** A modal that opens itself on first paint is the
+opposite of this product's calm, and it would meet a reader before the digest
+has had a chance to be interesting on its own. A once-per-visitor
+`localStorage` auto-open was considered and dropped for that reason; it is a
+one-line change if the click-through rate says otherwise.
+
+**The trigger is an `i`, and it travels with Share.** It shipped first as an
+ink-underlined line of body copy beside the "Daily digest" eyebrow, on the
+theory that the explainer should sit where a confused visitor is already
+looking. That was the wrong read: it put a second sentence directly above the
+question and made the reader choose between them before they had finished
+either, so the surface that exists to reduce confusion added some. As an icon in
+the actions cluster it asks for nothing. It is the same plain, frameless, 15px
+control Share already is, and it takes **ink at rest** for that reason — muted
+at 15px reads as disabled beside Share's ink, and a pair has to match to be a
+pair.
+
+**Two placements, both beside Share.** Today's eyebrow row, and the shared
+permalink's header cluster — where it lands next to Sign in as well, which is
+the other place it belongs. A shared link is most people's first contact with
+this product, so an explainer that only existed on the home page missed the
+majority of first impressions. Today's **no-digest state** deliberately has
+none: an `i` is legible as an action inside a cluster and cryptic as a lone
+glyph under a sentence, and that state has no cluster. The case is rare (the
+admin's digest is almost always there), and a bare icon would explain less than
+nothing.
+
+**Onboarding reaches the same popup** through a quiet "What happens next?" in
+the footer, rather than a second explanation that would drift. Only the trigger
+words and the closing line change by variant: the public one can point at the
+digest behind the window and offer Sign in, while the onboarding one has a
+signed-in reader about to press a button, so it says the first digest takes a
+minute or two — which hands off directly to the travelling stamp and the tips.
+The subtitle above it now carries the third verb too ("Save any paper to dig
+deeper later"); the premise line had promised a digest and stopped, leaving a
+third of the product unmentioned at the one step that exists to explain it.
+
+**Not reachable when logged in**, beyond onboarding. A reader inside the product
+is being taught by the product — the tip strip, the first-save confirmation, the
+brewing tips all do this in place and at the moment it matters. An explainer in
+settings would be a worse version of all three.
+
+Composition only: the Card frame on the existing `ui/dialog` primitive, four of
+the five type styles, no invented hex, size, border or shadow. Copy avoids em
+dashes, which `design-style.md` §6 bans in static copy on the Today surface and
+which the drafted beats had used.
+
+**On the board.** The menu board has sections for colour, type, geometry and
+cost, and no components or motion section — which is why the travelling stamp
+had nothing to sketch there and lives in `design-style.md` §8 instead. A
+composed *surface* is different: the file already keeps "Interests panel — on
+the new system" and "The foundational lane" as their own boards beside the menu,
+so the explainer is now **"Explainer — what is this?"** on the same pattern — the
+popup at its real 480px, the trigger in its eyebrow row, and the four calls
+above in a notes column. It introduces no tokens, so nothing upstream moved.
+
+---
+
+## 2026-08-20: Familiarity is a visible presentation control, never a taste signal
+
+The natural moment to ask how much background somebody has is after they ask
+the librarian to dig: the answer is already arriving, and the question has a
+clear benefit. The interleave is therefore one compact 1–5 row inside that dig
+panel, always with **Skip**. Its budget is server-side and reserved before the
+row paints: one topic once, and at most one topic per reader-local day across
+devices. A skipped topic counts as asked. This is product restraint, not a
+device NUX flag.
+
+The rating changes presentation only. It can change prose depth, jargon density,
+analogies, and how far an answer skips into the method. It cannot change paper
+retrieval, selection, ranking, or interest weights. A low rating means “explain
+this field to me,” not “show me less of this field.” The system never infers a
+replacement rating from behavior; correction is explicit.
+
+The glossary is generated once as a tiered superset and filtered when rendered:
+levels 1–2 see basic, working, and deep terms; level 3 sees working and deep;
+levels 4–5 see deep terms. Optional analogies appear only at levels 1–2. Missing
+tiers on older companions mean “show it,” so the migration cannot hide existing
+definitions. This render-time choice is what lets one correction re-tune every
+already-cached paper without regeneration.
+
+Every actual use is disclosed. `PITCHED FOR YOU` is a mono structural eyebrow;
+the sentence below it is body face and names the topic, rating, and consequence.
+The line is parsed out of generated text into UI rather than left for markdown
+or later model passes to swallow. Tapping it opens the same scale pre-filled at
+the stored value, so disclosure and correction are one control rather than a
+new settings screen.
+
+---
+
+## 2026-08-20: On the reading page, a fill means the selection
+
+Hard words in the walkthrough wore the paper's own wash hue. The argument for
+it was good at the time: inside a paper's own page every hard word belongs to
+that paper, so the fill was wayfinding rather than decoration, and it matched
+the card the reader had opened.
+
+Highlight-to-dig-deeper broke that argument. Selecting a passage fills it with
+acid green, and it is the one thing on the page that has to be unmistakable —
+it is the reader's own gesture, mid-gesture. A page already speckled with filled
+words makes their selection just one more coloured patch, which is exactly the
+confusion the fill exists to prevent.
+
+So the terms go back to the **dotted rule**, the same one the synthesis uses,
+and `DefinitionTerm`'s `tint` opt-in is now unused on this surface. Fill on the
+reading page means one thing: what you are highlighting right now. The paper's
+hue is not gone — it still carries the dig panels and the `Remember this` frame,
+where nothing competes with it.
+
+The glossary's disclosure also becomes the chevron the interests accordion uses.
+It was already collapsible and closed by default, but a bare `+` / `–` was
+carrying the whole signal and read as punctuation rather than a control.
+
+---
+
 ## 2026-08-20: The librarian keeps a note, and the reader gets to read it
 
 The digest finder stays a pipeline. It is deterministic, it is tuned, and every

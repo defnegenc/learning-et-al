@@ -11,6 +11,8 @@ import { ShareDigestButton } from "@/components/today/share-digest-button";
 import type { PaperItem } from "@/lib/types";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { pendingPaperIds, setPendingSharedPaper } from "@/lib/shared-saves";
+import { FirstSaveConfirmation } from "@/components/save-nux";
+import { WhatIsThis } from "@/components/what-is-this";
 import { ACID_GREEN, ActionButton, BODY_SM, BODY_STYLE, BORDER, DISPLAY, INK, Label, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
 
 interface Digest {
@@ -108,6 +110,12 @@ export default function DigestPermalink() {
       <SiteHeader
         right={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* A shared link is most people's first contact with this product,
+                so the explainer belongs in this cluster, beside Share and the
+                Sign in it is trying to earn. */}
+            {authStatus === "unauthenticated" && (
+              <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
+            )}
             <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
             {loggedIn ? (
               <>
@@ -194,6 +202,10 @@ export default function DigestPermalink() {
           />
         )}
       </main>
+
+      {/* A shared digest is where plenty of readers meet the save control for
+          the first time, so the confirmation has to reach here too. */}
+      <FirstSaveConfirmation />
     </div>
   );
 }

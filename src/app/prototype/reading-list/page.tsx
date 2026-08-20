@@ -99,10 +99,17 @@ const COMPANIONS: Record<string, Companion> = {
     remember:
       "Practice writes the skill; sleep is what files it. Cut the night after a session and you keep the day's gain but lose most of the overnight one — and a good night later doesn't get it back.",
     glossary: [
-      { term: "consolidation", def: "The process that turns a fresh, fragile memory into a stable one, mostly while you are not using it." },
-      { term: "slow-wave sleep", def: "The deepest stage of non-dreaming sleep, concentrated in the first few hours of the night." },
-      { term: "criterion", def: "A fixed performance level everyone must reach, so people start the test equally trained rather than equally practised." },
+      { term: "consolidation", def: "The process that turns a fresh, fragile memory into a stable one, mostly while you are not using it.", tier: "basic", analogy: "Think of saving a draft so it survives after the app closes." },
+      { term: "slow-wave sleep", def: "The deepest stage of non-dreaming sleep, concentrated in the first few hours of the night.", tier: "working" },
+      { term: "criterion", def: "A fixed performance level everyone must reach, so people start the test equally trained rather than equally practised.", tier: "deep" },
     ],
+    topic: { id: "T101", name: "sleep and memory", subfield: "Cognitive Neuroscience", source: "openalex" },
+    pitchedForYou: {
+      topicId: "T101",
+      topicName: "sleep and memory",
+      level: 2,
+      consequence: "I'm defining terms and using analogies as I go.",
+    },
     questions: [
       "Does a nap the next afternoon do anything, or is it only the first night that counts?",
       "Was the restricted group just tired at retest, rather than worse at the skill?",
@@ -120,9 +127,10 @@ const COMPANIONS: Record<string, Companion> = {
     remember:
       "The limit isn't seven items, it's seven chunks — and how much a chunk holds is the part you can actually train.",
     glossary: [
-      { term: "chunk", def: "A group of items your mind is treating as one thing, like a familiar area code rather than three separate digits." },
-      { term: "recoding", def: "Deliberately regrouping information into bigger units before you try to hold on to it." },
+      { term: "chunk", def: "A group of items your mind is treating as one thing, like a familiar area code rather than three separate digits.", tier: "basic" },
+      { term: "recoding", def: "Deliberately regrouping information into bigger units before you try to hold on to it.", tier: "working" },
     ],
+    topic: { id: "T202", name: "working memory", subfield: "Cognitive Psychology", source: "openalex" },
     questions: [
       "Is seven still the accepted number, or has it been revised down?",
       "What actually makes something become a single chunk?",
@@ -160,13 +168,22 @@ const HOMEWORK: Record<string, HomeworkItem[]> = {
 };
 
 /** A stand-in for the model — enough shape to review the thread, no pretence. */
-function cannedAnswer(question: string): string {
+function cannedAnswer(question: string, selection?: string | null): string {
+  if (selection) {
+    return `Sample dig on "${selection.slice(0, 60)}${selection.length > 60 ? "…" : ""}". In the product this comes from /api/papers/[id]/qa with the highlighted passage as the anchor, streamed a token at a time so the panel is filling in by the time you scroll to it. This page has no model behind it, so what arrives is fixed — it is here to show the shape of a dig, not the quality of one.`;
+  }
   return `Sample answer for "${question.replace(/\s+$/, "")}". In the product this comes from /api/papers/[id]/qa, which reads the paper's full text and is told to lead with the answer in two to four sentences and cite a specific number where it can. This page has no model behind it, so the text you're reading is fixed — it's here to show the shape of a reply, not the quality of one.`;
 }
 
 function fixtureFor(id: string): ReadingFixture {
   return {
     companion: COMPANIONS[id] ?? null,
+    familiarity: id === "p1" ? {
+      topicId: "T101",
+      topicName: "sleep and memory",
+      level: 2,
+      source: "interleave",
+    } : null,
     homework: HOMEWORK[id] ?? [],
     qa: id === "p1"
       ? [{
@@ -185,6 +202,20 @@ function fixtureFor(id: string): ReadingFixture {
 export default function ReadingListPrototype() {
   const [view, setView] = useState<"history" | "list">("list");
   const [detail, setDetail] = useState<{ paper: PaperItem; index: number } | null>(null);
+
+  // The reading view is a page now rather than an overlay, so the prototype
+  // swaps to it the way the router does in production.
+  if (detail) {
+    return (
+      <ReadingPaperDetail
+        paper={detail.paper}
+        index={detail.index}
+        provenance={{ theme: detail.paper.digestTheme ?? null, seedInterests: ["sleep", "motor learning"] }}
+        onBack={() => setDetail(null)}
+        fixture={fixtureFor(detail.paper.id)}
+      />
+    );
+  }
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
@@ -242,14 +273,6 @@ export default function ReadingListPrototype() {
         </>
       )}
 
-      {detail && (
-        <ReadingPaperDetail
-          paper={detail.paper}
-          index={detail.index}
-          onClose={() => setDetail(null)}
-          fixture={fixtureFor(detail.paper.id)}
-        />
-      )}
     </div>
   );
 }

@@ -46,7 +46,13 @@ interface OARawWork {
   best_oa_location?: { source?: { display_name: string } | null } | null;
   open_access: { oa_url: string | null } | null;
   related_works: string[];
-  primary_topic?: { domain?: { display_name: string }; field?: { display_name: string } } | null;
+  primary_topic?: {
+    id?: string;
+    display_name?: string;
+    subfield?: { display_name?: string };
+    domain?: { display_name: string };
+    field?: { display_name: string };
+  } | null;
 }
 
 export interface OpenAlexPaper {
@@ -121,6 +127,35 @@ async function oaFetch(url: string): Promise<Response> {
   return fetch(url, {
     headers: { "User-Agent": `LearningEtAl/1.0 (mailto:${OA_MAILTO})` },
   });
+}
+
+/** Resolve the paper-level topic once, when its companion is generated. */
+export async function getOpenAlexWorkTopic(openAlexId: string): Promise<OpenAlexTopic | null> {
+  const id = openAlexId.replace("https://openalex.org/", "").trim();
+  if (!id) return null;
+  try {
+    const params = new URLSearchParams({
+      select: "primary_topic",
+      mailto: OA_MAILTO,
+    });
+    const res = await oaFetch(`${OA_BASE}/works/${encodeURIComponent(id)}?${params}`);
+    if (!res.ok) return null;
+    const raw = await res.json() as Pick<OARawWork, "primary_topic">;
+    const topic = raw.primary_topic;
+    if (!topic?.id || !topic.display_name) return null;
+    return {
+      id: topic.id.replace("https://openalex.org/", ""),
+      name: topic.display_name,
+      description: "",
+      keywords: [],
+      subfield: topic.subfield?.display_name || "",
+      subfieldId: "",
+      worksCount: 0,
+    };
+  } catch (err) {
+    console.log(`[OpenAlex] Work topic error: ${err}`);
+    return null;
+  }
 }
 
 export async function searchOpenAlex(
