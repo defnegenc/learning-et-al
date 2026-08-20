@@ -225,7 +225,7 @@ the wash index can no longer drift between two files.
 | `Card` / `CardGrid` | The frame (2px + `5px 5px 0`) and the standard shelf |
 | `Tag` | Body-face tag, `glass` \| `solid` |
 | `TopicChip` / `AddChip` | Interest-picker units. Idle white + 2px dashed rule; selected = the field's slot behind a solid ink border |
-| `Segmented` | The one "pick exactly one" shape. Settings navigation is the nav rail, not this — a segmented control reads as a toggle |
+| `Segmented` | The one "pick exactly one" shape. Settings navigation is the nav rail, not this — a segmented control reads as a toggle, which is exactly why the vault's Digests / Saved papers switch *is* one |
 | `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye |
 | `TextInput` | The one input shape |
 | `wash` / `washSlots` / `wordSlot` / `SPECTRUM` | The three spectrum indexes |
