@@ -169,6 +169,34 @@ export const digestFeedback = sqliteTable("digest_feedback", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+/**
+ * What the librarian thinks you like — one row per reader.
+ *
+ * `dossier` is a ~300-word natural-language document rewritten from the signal
+ * ledger (saves, skips, questions, digs, complaints). It is deliberately prose
+ * rather than a feature vector: it is inspectable, it can be shown to the reader
+ * in settings, and it is the form the LLM selection step can actually use.
+ *
+ * `centroids` are embedding centroids of saved papers — one per cluster, never
+ * one global average, because somebody who saves both HCI and metabolism papers
+ * is not the midpoint of the two. They are a SOFT prior on ranking inside the
+ * already-qualified pool, never a filter and never a threshold.
+ *
+ * `signalCount` is what the last rewrite was written from, so the keeper can
+ * tell "five new signals since" without re-reading the whole ledger's content.
+ */
+export const tasteDossiers = sqliteTable("taste_dossiers", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  dossier: text("dossier"),
+  centroids: text("centroids"),   // JSON [{label, vector: number[], count}]
+  signalCount: integer("signal_count").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => [
+  uniqueIndex("taste_dossiers_user_unique").on(table.userId),
+]);
+
 export const events = sqliteTable("events", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").notNull().references(() => users.id),

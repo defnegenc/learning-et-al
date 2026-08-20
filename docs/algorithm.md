@@ -75,6 +75,7 @@ Quality boosts (scaled to RRF range):
 - `recencyBonus`: +0.0035 current year, +0.0015 last year
 - `venueBoost`: `venueQualityBoost(venue, domain) * 0.03` (0 to ~0.0024)
 - `instBoost`: `institutionBoost(institutions) * 0.03` (0 to ~0.0015)
+- `tasteBoost`: 0 to 0.02 — cosine to the nearest **saved-paper centroid** (`lib/librarian/dossier.ts`), ramped from 0.30 to 0.65 similarity. Applied to `score` only, **never to `relSim`**, so it reorders the qualified pool and can never qualify an off-theme paper. Max over clusters, not mean: one strong match to a cluster is the signal, and averaging it against the reader's other interests would erase it. Absent (0) for any reader with no dossier yet.
 
 Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 
@@ -91,7 +92,9 @@ Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 
 ### Step 3b: LLM Complementarity Selection (AI call 4, lines ~548-587)
 
-If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the LLM to pick the best N for complementarity:
+If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the LLM to pick the best N for complementarity. When the reader has a **taste dossier**, it is injected here as a `WHO YOU ARE PICKING FOR` block — this step is where the real quality call is made, so it is the one place taste is allowed to argue. The prompt states explicitly that the note breaks ties only: it cannot relax the relevance gate, and if the note conflicts with the theme, the theme wins.
+
+Selection criteria:
 - Selects papers that each contribute something DIFFERENT
 - Creates genuine TENSION (supports + complicates + alternative mechanism)
 - Uses recency only as a tie-break when relevance, insight, and complementarity are otherwise equal
@@ -320,6 +323,42 @@ When the local embedding model fails to load (e.g., Vercel cold starts):
 ## Learning System
 
 Engagement only boosts **existing** interests. Weight changes are intentionally tiny.
+
+### The taste dossier (2026-08-20)
+
+Alongside the weights there is now a second, slower memory: a per-reader
+**dossier** kept by `lib/librarian/dossier.ts` from the signal ledger in
+`lib/librarian/ledger.ts`.
+
+| Class | Signal | Source |
+|---|---|---|
+| Exemplars | papers saved (positive) vs. shown-and-walked-past (soft negative) | `feedback` + every paper in the reader's digests |
+| Engagement | questions asked, passages dug into | `qa_pairs.question`, `events` type `dig_deeper` |
+| Stated | interests and their weights | `interests` |
+| Negative | dislikes, and the reasons typed at the regenerate CTA | `feedback` type `dislike`, `digest_feedback` |
+
+`digest_feedback` had been **write-only since it shipped** — rows went in and
+nothing ever read one. The keeper reads them, and a typed rejection forces a
+rewrite on its own.
+
+Two representations come out, used in two places and nowhere else:
+
+1. **~300 words of prose** → the Step 3b selection prompt. Prose because it is
+   inspectable, survives schema drift, and is the form the model can use.
+2. **Embedding centroids of saved papers**, greedily clustered (join at cosine
+   0.45, ≤5 clusters) → the `tasteBoost` in Step 3. Never one global average.
+
+**Rewrite policy**: five new signals since the last note, or seven days,
+whichever comes first — checked *before* any model call, so a save costs two
+queries in the common case. Below three signals total the keeper writes nothing:
+a confident invention would steer selection worse than silence. Fast tier
+(`aiConfigFor("chore")`). Triggered by saves/dislikes/rejections via `after()`,
+and by `/api/cron/dossier` on Sundays at 03:00 UTC, an hour before the digest
+cron.
+
+**What it is not allowed to do**: taste never touches search, the similarity
+thresholds, the news lane, or `relSim`. Upstream scoring is still a filter — the
+dossier is a nudge inside it and an argument at the one LLM call that decides.
 
 | Signal | Effect | Cap |
 |--------|--------|-----|

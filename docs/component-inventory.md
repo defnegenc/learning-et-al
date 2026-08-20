@@ -73,7 +73,7 @@ one overrides Paper.
 | `providers.tsx` | SessionProvider with server-primed session; flushes device-backed shared saves after sign-in | ✅ no styling |
 | `pending-shared-saves.tsx` | Invisible post-sign-in bridge from local shared saves to account bookmarks/history | ✅ no styling |
 | `noise-overlay.tsx` | Paper grain | ✅ no colour of its own |
-| `settings-dialog.tsx` | Full-screen settings | ✅ Label eyebrow + Display/LG title, "All changes saved" in acid green, "Save interests" |
+| `settings-dialog.tsx` | Full-screen settings | ✅ Label eyebrow + Display/LG title, "All changes saved" in acid green, "Save interests". Three nav sections: Interests · Librarian · Account. `LibrarianPanel` is local to this file — read-only prose, `Tag` for cluster labels, no Save button (there is nothing on it to save) |
 | `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton` |
 | `interest-ledger.tsx` | The interests panel | ✅ matches the Paper board's vocabulary on the accordion |
 | `keyword-tag.tsx` | A keyword anywhere on white | ✅ wraps `Tag` + `InkTip` |

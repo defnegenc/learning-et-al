@@ -40,10 +40,78 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function aiComplete(
+/* ────────────────────────────────────────────────────────────────────────────
+   Task routing
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The librarian's jobs, by shape of work rather than by route.
+ *
+ * `deep` is the product's voice — synthesis, the companion walkthrough, a
+ * dig-deeper answer. `fast` is the high-volume, low-stakes chores: glossary
+ * passes, homework annotation, deciding whether to ask a question at all.
+ * Every task is env-overridable (`AI_MODEL_DIG=…`) so a harness can be swapped
+ * without a deploy.
+ */
+export type AITask = "synthesis" | "companion" | "qa" | "dig" | "chore";
+
+const TASK_TIER: Record<AITask, "deep" | "fast"> = {
+  synthesis: "deep",
+  companion: "deep",
+  qa: "deep",
+  dig: "deep",
+  chore: "fast",
+};
+
+function tierDefault(provider: AIConfig["provider"], tier: "deep" | "fast"): string {
+  if (tier === "fast") {
+    switch (provider) {
+      case "anthropic": return "claude-haiku-4-5-20251001";
+      case "gemini": return "gemini-2.5-flash";
+      case "openai": return "gpt-4o-mini";
+      default: return "gpt-4o-mini";
+    }
+  }
+  return getDefaultModel(provider);
+}
+
+/**
+ * The one place a route derives its model config.
+ *
+ * This replaces the env block that was copy-pasted into five routes, each free
+ * to drift on which default it fell back to. Precedence, highest first:
+ * per-task override → `CRON_AI_MODEL` (what production actually sets) → the
+ * tier default for the provider.
+ *
+ * Returns null when there is no server key, which is the caller's cue to fall
+ * back rather than throw — a missing key is a configuration state, not an error.
+ */
+export function aiConfigFor(task: AITask): AIConfig | null {
+  const apiKey = process.env.CRON_AI_KEY;
+  if (!apiKey) return null;
+  const provider = (process.env.CRON_AI_PROVIDER || "gemini") as AIConfig["provider"];
+  const model =
+    process.env[`AI_MODEL_${task.toUpperCase()}`] ||
+    process.env.CRON_AI_MODEL ||
+    tierDefault(provider, TASK_TIER[task]);
+  return { apiKey, provider, model, baseUrl: process.env.CRON_AI_BASE_URL || "" };
+}
+
+/** One turn in a conversation with a paper. */
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * The conversational call. Same client, same retries, same error translation as
+ * `aiComplete` — it just takes prior turns, so a follow-up question is answered
+ * knowing what was already asked. Every question used to be answered blind.
+ */
+export async function aiChat(
   config: AIConfig,
   systemPrompt: string,
-  userPrompt: string
+  turns: ChatTurn[]
 ): Promise<string> {
   const client = new OpenAI(getClientConfig(config));
   const model = config.model || getDefaultModel(config.provider);
@@ -55,7 +123,7 @@ export async function aiComplete(
         model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          ...turns,
         ],
         max_tokens: 4096,
       });
@@ -90,4 +158,12 @@ export async function aiComplete(
   }
 
   return "";
+}
+
+export async function aiComplete(
+  config: AIConfig,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  return aiChat(config, systemPrompt, [{ role: "user", content: userPrompt }]);
 }

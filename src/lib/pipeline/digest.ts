@@ -13,6 +13,7 @@ import { extractJson, stripFences } from "@/lib/ai/parse";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
+import { getTasteContext, tasteSimilarity } from "@/lib/librarian/dossier";
 
 // See docs/algorithm.md for the full algorithm design.
 
@@ -438,6 +439,19 @@ function isNewsRelevant(article: { title: string; abstract: string }, themeWords
 }
 
 // Embedding similarity thresholds for all-MiniLM-L6-v2
+/*
+ * The taste prior's ceiling, and the band it reads across.
+ *
+ * 0.02 is smaller than the venue signal (0.08 × 0.3 = 0.024) and much smaller
+ * than the spread of RRF scores, which is the point: it decides between two
+ * papers the pipeline already considers interchangeable and nothing more. Below
+ * 0.30 similarity to a saved cluster it contributes nothing at all — everything
+ * in the pool is on-theme by then, so a weak resemblance is noise.
+ */
+const TASTE_MAX_BOOST = 0.02;
+const TASTE_FLOOR = 0.30;
+const TASTE_RANGE = 0.35;
+
 const SIM_ONTOPIC  = 0.25; // strong match — clearly about the theme
 const SIM_MIDPOINT = 0.20; // moderate match — related but not directly on-topic
 const SIM_FALLBACK = 0.18; // last-resort fallback (raised from 0.15 — 0.15 lets in too much)
@@ -453,6 +467,17 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   if (existing && !force) return existing;
 
   // Don't delete old digests — they become history. Dedup will prevent repeats.
+
+  // The librarian's read on this reader. Loaded once, used in exactly two
+  // places — a soft prior on ranking inside the qualified pool (Step 3) and the
+  // LLM selection call (Step 3b), which is where the real quality decision is
+  // made. It is never consulted by search, by the similarity thresholds, or by
+  // the news lane. Reading it never blocks: a reader with no dossier gets the
+  // pipeline exactly as it was.
+  const taste = await getTasteContext(userId);
+  if (taste.dossier) {
+    console.log(`[Digest] Taste dossier loaded (${taste.signalCount} signals, ${taste.centroids.length} clusters: ${taste.centroids.map(c => c.label).join(", ") || "none"})`);
+  }
 
   const userInterests = await db.query.interests.findMany({
     where: eq(interests.userId, userId),
@@ -998,9 +1023,18 @@ Return JSON only (no markdown):
       // and foundational work enters later through its own deliberately old lane.
       const recencyBonus = age <= 0 ? 0.0035 : age === 1 ? 0.0015 : 0;
       const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
-      const score = rrfScore + recencyBonus + venueBoost;
+      // Taste prior: how near this sits to a cluster of papers the reader has
+      // actually saved. Deliberately capped BELOW the venue signal and applied
+      // to `score` only — `relSim` is what the qualification thresholds read, so
+      // taste can reorder the qualified pool but can never let an off-theme
+      // paper into it. Upstream scoring is a filter; this is a nudge inside it.
+      const tasteBoost = TASTE_MAX_BOOST * Math.min(1, Math.max(0, (tasteSimilarity(taste.centroids, resultEmbs[i]) - TASTE_FLOOR) / TASTE_RANGE));
+      const score = rrfScore + recencyBonus + venueBoost + tasteBoost;
       if (venueBoost !== 0) {
         console.log(`[Digest] Venue signal: "${p.title.slice(0, 50)}" ${venueBoost > 0 ? "+" : ""}${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
+      }
+      if (tasteBoost > 0.004) {
+        console.log(`[Digest] Taste signal: "${p.title.slice(0, 50)}" +${tasteBoost.toFixed(4)}`);
       }
       return { p, relSim, score };
     })
@@ -1139,7 +1173,8 @@ Return JSON only (no markdown):
         selectionSkeletonPrompt(
           widePool.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year })),
           theme,
-          targetPapers
+          targetPapers,
+          taste.dossier
         )
       );
       const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreInsight?: string }>(selectionResp);
