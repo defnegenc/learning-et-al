@@ -26,7 +26,26 @@ import {
  * Click-only. A modal that opens itself on first paint is the opposite of this
  * product's calm, and the trigger sits exactly where a confused visitor's eye
  * already is.
+ *
+ * Two contexts, one surface. `public` is the logged-out digest and the shared
+ * permalink, where the closing line can point at the digest behind the window
+ * and the CTA is Sign in. `onboarding` is the same three beats reached from the
+ * interest step, where the reader has already signed in and the honest closing
+ * line is what happens when they press the button. Only the trigger's words and
+ * that last line differ — the beats are deliberately identical, because the
+ * whole point is that there is one explanation of this product, not two.
  */
+
+const COPY = {
+  public: {
+    trigger: "What is Learning et al.?",
+    closing: "The digest behind this window is a live example.",
+  },
+  onboarding: {
+    trigger: "What happens next?",
+    closing: "Your first digest takes a minute or two to make.",
+  },
+} as const;
 
 /**
  * The three chips, as interest tags doing their real job. They carry words, so
@@ -48,9 +67,13 @@ function Beat({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-export function WhatIsThis({ onSignIn }: { onSignIn?: () => void }) {
+export function WhatIsThis({ onSignIn, variant = "public" }: {
+  onSignIn?: () => void;
+  variant?: keyof typeof COPY;
+}) {
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(false);
+  const copy = COPY[variant];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -78,7 +101,7 @@ export function WhatIsThis({ onSignIn }: { onSignIn?: () => void }) {
           />
         }
       >
-        What is Learning et al.?
+        {copy.trigger}
       </DialogTrigger>
 
       <DialogContent
@@ -129,7 +152,7 @@ export function WhatIsThis({ onSignIn }: { onSignIn?: () => void }) {
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginTop: 20 }}>
             <p style={{ ...BODY_SM, color: DIM, margin: 0, maxWidth: 220 }}>
-              The digest behind this window is a live example.
+              {copy.closing}
             </p>
             {onSignIn && (
               <ActionButton
