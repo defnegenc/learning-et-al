@@ -144,7 +144,7 @@ export function TermChip({ text, def, tint }: { text: string; def: string; tint?
 
 /* ---- main: user-paced verdict (Next source) → dig deeper ---- */
 
-export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, endSlot, loggedIn, savedIds }: {
+export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, endSlot, loggedIn, savedIds, onSignedOutSaveChange }: {
   synthesis: string;
   theme?: string;
   keyConcepts: string[];
@@ -155,10 +155,12 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
   revealAll?: boolean;
   /** Rendered after the prose once every source is revealed (e.g. the regenerate CTA). */
   endSlot?: React.ReactNode;
-  /** Shows the bookmark on each card — signed-out readers have nowhere to save to. */
+  /** Shows the bookmark on each card for an authenticated reader. */
   loggedIn?: boolean;
   /** Paper ids already in the vault, so the bookmark renders filled on load. */
   savedIds?: Set<string>;
+  /** Shared pages can hold a guest's saves until they sign in. */
+  onSignedOutSaveChange?: (paper: PaperItem, saved: boolean) => void;
   // Accepted for API compatibility with today-page; keyword tags were removed from
   // the dead-simple card, so these are no longer read here.
   interests?: { keyword: string; field: string }[];
@@ -255,7 +257,14 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
         if (!papers[pi]) return;
         els.push(
           <div key={`c${pi}`} className="brief-line" style={{ margin: firstEl ? "0" : "34px 0 0" }}>
-            <PaperCard paper={papers[pi]} index={pi} loggedIn={loggedIn} initialBookmarked={savedIds?.has(papers[pi].id)} expandTick={expandTicks[pi]} />
+            <PaperCard
+              paper={papers[pi]}
+              index={pi}
+              loggedIn={loggedIn}
+              initialBookmarked={savedIds?.has(papers[pi].id)}
+              onSignedOutSaveChange={onSignedOutSaveChange}
+              expandTick={expandTicks[pi]}
+            />
           </div>
         );
         firstEl = false;
