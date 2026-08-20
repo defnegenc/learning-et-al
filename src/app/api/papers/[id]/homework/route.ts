@@ -73,8 +73,8 @@ Return ONLY JSON: {"whys": [{"index": 1, "why": "…"}]}`;
  */
 async function annotateShelf(shelf: HomeworkItem[], sourceTitle: string, userId: string): Promise<HomeworkItem[]> {
   if (shelf.length === 0) return shelf;
-  const config = aiConfigFor("chore");
-  if (!config) return shelf;
+  const config = aiConfigFor("metadata");
+  if (!config.apiKey) return shelf;
 
   try {
     const taste = await getTasteContext(userId);
@@ -82,7 +82,10 @@ async function annotateShelf(shelf: HomeworkItem[], sourceTitle: string, userId:
       `[${i + 1}] (${item.kind}) "${item.title}" (${item.year ?? "n.d."}) — ${item.abstract.slice(0, 300)}`
     ).join("\n\n");
 
-    const raw = await aiChat(config, WHY_SYSTEM, [{
+    const raw = await aiChat(config, [{
+      role: "system",
+      content: WHY_SYSTEM,
+    }, {
       role: "user",
       content: `They just read: "${sourceTitle}"
 ${taste.dossier ? `\nWhat this reader tends to care about:\n"""\n${taste.dossier}\n"""\n` : ""}
