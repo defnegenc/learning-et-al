@@ -18,7 +18,7 @@ one overrides Paper.
 | Component | What it is | Status |
 |-----------|-----------|--------|
 | `SPECTRUM` / `wash` / `washSlots` / `wordSlot` | The ten slots and their three indexes — field (fixed), keyword (by hash), card (by position) | ✅ replaced 5 palette tables |
-| `PageLoader` | The stamp: 30px square turning in 90° steps, shadow walking spectrum 0/3/6/9. The only page-level loader | ✅ |
+| `PageLoader` | The stamp: 30px square turning in 90° steps, shadow walking spectrum 0/3/6/9. The only page-level loader. `travelling` is its one variant — walks a 269px track, shadow stepping the full spectrum 00 → 09, for the first-digest wait | ✅ |
 | `SiteHeader` | The 52px bar — wordmark left, caller's controls right | ✅ |
 | `Wordmark` | Display/SM at 0.12em tracking. A lockup, not a type style | ✅ Space Grotesk retired with it |
 | `PageHeader` / `PageTitle` | Display/LG + one Body line | ✅ |
@@ -33,6 +33,16 @@ one overrides Paper.
 | `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye | ✅ new |
 | `TextInput` | The one input shape | ✅ new |
 
+## Save NUX — `src/components/save-nux.tsx`
+
+| Component | What it is | Status |
+|-----------|-----------|--------|
+| `SaveTipStrip` | The band above the digest while a reader has nothing saved. Mono `Tip` eyebrow, one Body sentence, `×`. Self-retires on the first save | ✅ new — nothing new in the menu |
+| `FirstSaveConfirmation` | The first-ever save, confirmed, bottom-left: what the librarian is doing and "Go to library →". Mounted on `app-shell` and on `/digest/[id]` | ✅ new — acid green as ink only |
+| `useOpenLibrary` | Claims the "go to library" event; unclaimed, it falls back to a real navigation | ✅ |
+
+---
+
 ## The one paper card — `src/components/paper-card.tsx`
 
 | Export | What it is | Status |
@@ -46,7 +56,8 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ `InkTitle` at Display/LG (1px stroke), notepad is square, rail renders `PaperCard` compact |
+| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ `InkTitle` at Display/LG (1px stroke), notepad is square, rail renders `PaperCard` compact; local `BrewingTips` + the first-run no-digest state |
+| `first-run-tips.ts` | The eight tips shown while a new user's first digest generates. **Not a component — a maintained content surface**: update it whenever a user-facing feature is added, removed or renamed (rule is in CLAUDE.md too) | ✅ new |
 | `today/brief-digest.tsx` | The prose, the paper chips, the term chips | ✅ card extracted to `paper-card.tsx`; highlights are ink underlines |
 | `today/digest-header.tsx` | The gist and the addable topic tags | ✅ its local `TopicChip` renamed `AddableTopic` and now uses `Tag` |
 | `today/regenerate-cta.tsx` | End-of-digest "don't like this?" | ✅ |
@@ -58,10 +69,11 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `vault/vault-page.tsx` | Shell + reading-list grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running |
+| `vault/vault-page.tsx` | Shell + library grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running; opens on Saved papers when the reader has any, and navigates to `/library/[paperId]` rather than covering itself |
 | `vault/digest-history.tsx` | Two-pane history | ✅ |
-| `vault/reading-paper-detail.tsx` | The reading view | ✅ 1240px two-column. Left: title, five companion beats, the `Remember this` card frame, `Glossary`, the citing work. Right: `AskThread` in a sticky rail. `Read the full paper` sits opposite Back in a top bar. Takes `index` for the paper's hue |
-| `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — a 372px framed rail: companion starters as rows, scrolling thread, composer pinned to the foot. Persisted per user | ✅ the only Q&A surface; digest-level Q&A is gone |
+| `vault/reading-paper-detail.tsx` | The reading view — the body of `/library/[paperId]` | ✅ 1240px two-column, a page rather than a portal overlay. Left: title, the why-you're-reading-this line, five companion beats each selectable for a dig, inline `DigPanel`s, the `Remember this` card frame, `Glossary`, the citing work. Right: `AskThread` in a sticky rail, with a pending state instead of dead air. `Read the full paper` sits opposite Back in a top bar. Takes `index` for the paper's hue |
+| `SelectionMenu` / `DigPanel` / `DigThisBeat` (internal to `reading-paper-detail.tsx`) | Highlight to dig deeper: the floating **Dig deeper** · **Ask about this** pair, the wash panel the streamed answer lands in under its beat, and the per-beat touch affordance | ✅ new — the selection is the one sanctioned acid fill (`SELECTION_FILL`); the panel is the paper's wash |
+| `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — a 372px framed rail: companion starters as rows, scrolling threads with follow-ups, composer pinned to the foot. Persisted per user, threaded, streamed | ✅ the only typed Q&A surface; digest-level Q&A is gone |
 | `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words | ✅ |
 | ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 

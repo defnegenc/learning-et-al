@@ -7,6 +7,13 @@ interface Session {
   isSetUp: boolean;
   contentMix: number;
   inviteCode?: string;
+  /**
+   * True between finishing onboarding and the first digest landing. Drives
+   * TodayPage's first-run brewing state; TodayPage clears it once a digest
+   * arrives. Persisted with the rest of the session so a refresh mid-wait
+   * doesn't drop the reader into the generic "check back soon" copy.
+   */
+  justOnboarded?: boolean;
 }
 
 const DEFAULT_SESSION: Session = {

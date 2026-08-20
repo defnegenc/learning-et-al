@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers, interests } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
-import { aiComplete } from "@/lib/ai/provider";
+import { aiComplete, aiConfigFor } from "@/lib/ai/provider";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
 
@@ -16,14 +16,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const question = body.question;
     const digestId = body.digestId;
-    const cronProvider = (process.env.CRON_AI_PROVIDER || "gemini") as "gemini" | "anthropic" | "openai" | "other";
-    const cronDefaultModel = cronProvider === "anthropic" ? "claude-sonnet-4-6" : cronProvider === "openai" ? "gpt-4o" : "gemini-2.5-flash";
-    const apiKey = process.env.CRON_AI_KEY || "";
-    const provider = cronProvider;
-    const model = process.env.CRON_AI_MODEL || cronDefaultModel;
-    const baseUrl = "";
+    const aiConfig = aiConfigFor("chat");
 
-    if (!question || !digestId || !apiKey) {
+    if (!question || !digestId || !aiConfig.apiKey) {
       return NextResponse.json({ error: "Missing question or digest." }, { status: 400 });
     }
 
@@ -70,11 +65,7 @@ ${digest.synthesisContent ?? ""}
 
 ${papersContext}`;
 
-    const answer = await aiComplete(
-      { apiKey, provider, model, baseUrl },
-      systemPrompt,
-      question
-    );
+    const answer = await aiComplete(aiConfig, systemPrompt, question);
 
     trackEvent(userId, "dig_deeper", { digestId, metadata: { question } });
 

@@ -53,6 +53,18 @@ Retired: `#7700ff` purple (link hover became an ink underline), `#ffcc00`,
 `#ff5500`. The chart ramp was the five acids; it now reads spectrum slots
 00/02/04/06/08, which is hue-ordered and a better ramp.
 
+**One amendment, 2026-08-19: `SELECTION_FILL`.** Acid green gains exactly one
+sanctioned fill use — the live dig-deeper selection in the reading view
+(`::selection` inside `[data-section]`, at
+`color-mix(in oklab, #38b000 30%, transparent)`). It marks the passage the agent
+is about to act on for the seconds between selecting text and the dig firing,
+and it collapses the moment the answer starts arriving. Alpha, not the flat hex,
+because a marker stroke you can't read the sentence through isn't a marker.
+
+It must not leak. The dig-deeper answer panel is the **paper's wash**, not green;
+the only other green in the interaction is ink — the confirmation tick and the
+word "Saved". Panels, chips and washes are unchanged.
+
 ### Spectrum — ten slots, ordered by hue
 
 `--color-spectrum-00` … `-09`: `#fecaca` `#fed7aa` `#fde68a` `#d9f99d` `#bbf7d0`
@@ -200,7 +212,7 @@ the wash index can no longer drift between two files.
 
 | Component | What it is |
 |---|---|
-| `PageLoader` | The stamp — the ONE page-level loader. Shadow walks spectrum 0/3/6/9 |
+| `PageLoader` | The stamp — the ONE page-level loader. Shadow walks spectrum 0/3/6/9. `travelling` is its one variant (see §8) |
 | `SiteHeader` | The 52px bar: wordmark left, caller's controls right |
 | `Wordmark` | Display/SM at 0.12em tracking. A lockup, not a style |
 | `PageHeader` / `PageTitle` | Display/LG title + one Body line. No eyebrow above, no rule under |
@@ -338,6 +350,21 @@ The stroke is 1px, not the 1.5px the prototype ended on — the menu halved the
 headline, and 1.5px on 32px type is a heavier outline than the same value was on
 64px. The seven candidates it was chosen from are in the history, not on a
 route: `/prototype/headline` was deleted once the decision was made.
+
+**The travelling stamp** (`PageLoader travelling`) is the loader's one variant,
+for the one wait long enough to deserve a show: a new user's first digest. Same
+30px square, same 90° turn, but it walks a 269px track — one 26px hop per step,
+just under its own width, so it reads as walking rather than jumping — while the
+shadow steps the **full spectrum in hue order 00 → 09**, one slot per hop. At
+the end it snaps back to the left; the loop is meant to be visible as a loop.
+Rotating 90° per hop lands on 900° at the wrap, which for a square is the same
+face as 0°, so the turn reads continuous across the carriage return. 2s,
+`steps(1, end)`, inline rather than fixed because it sits above a headline
+instead of owning the page. It is still **indeterminate** — ten hops are ten
+hops, not ten percent each — and `prefers-reduced-motion` gets the static stamp
+on slot 00. No new tokens: the sanctioned colour-beside-ink move, one slot at a
+time behind one white ink-bordered object, which is why ten slots on screen over
+2s is not a swatch.
 
 ---
 

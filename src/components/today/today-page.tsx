@@ -10,6 +10,8 @@ import { DigestHeader } from "./digest-header";
 import { PaperCard } from "@/components/paper-card";
 import { ShareDigestButton } from "./share-digest-button";
 import { WhatIsThis } from "@/components/what-is-this";
+import { FIRST_RUN_TIPS, FIRST_RUN_TIP_MS } from "@/components/first-run-tips";
+import { SaveTipStrip } from "@/components/save-nux";
 
 
 /*
@@ -128,6 +130,34 @@ function NotepadFloat({ notes, onChange, onSave }: { notes: string; onChange: (v
   );
 }
 
+/* ── While it brews ── */
+// One tip at a time under the travelling stamp, rotating every ~7s. `key` on the
+// line remounts it so `briefRise` — the product's one entrance — replays per tip.
+// It loops passively and blocks nothing: when the digest lands the whole state is
+// replaced, tips and all.
+function BrewingTips() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI(n => (n + 1) % FIRST_RUN_TIPS.length), FIRST_RUN_TIP_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div style={{ maxWidth: 440, textAlign: "center" }}>
+      <style>{`
+        @keyframes tipRise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
+        .brew-tip { animation: tipRise 0.4s ease both; }
+        @media (prefers-reduced-motion: reduce) { .brew-tip { animation: none } }
+      `}</style>
+      <Label style={{ marginBottom: 10 }}>While it brews</Label>
+      {/* Reserve the tallest tip's height so the copy above doesn't jump on rotation. */}
+      <p key={i} className="brew-tip" style={{ ...BODY_STYLE, color: DIM, margin: 0, minHeight: 72 }}>
+        {FIRST_RUN_TIPS[i]}
+      </p>
+    </div>
+  );
+}
+
 /* ── Interfaces ── */
 interface Digest {
   id: string;
@@ -147,6 +177,8 @@ interface Digest {
 interface Session {
   userId: string | null;
   isSetUp: boolean;
+  /** Set by `page.tsx` when onboarding completes; cleared once a digest lands. */
+  justOnboarded?: boolean;
 }
 
 interface TodayPageProps {
@@ -154,9 +186,11 @@ interface TodayPageProps {
   isAdmin?: boolean;
   onRegisterRefresh?: (fn: () => void) => void;
   onSignIn?: () => void;
+  /** Fired once when the first digest arrives, so the shell can drop `justOnboarded`. */
+  onFirstDigestLanded?: () => void;
 }
 
-export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPageProps) {
+export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestLanded }: TodayPageProps) {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [interestKeywords, setInterestKeywords] = useState<{ keyword: string; field: string }[]>([]);
@@ -177,7 +211,15 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  // The save tip is gated on server truth, so it must not flash while the count
+  // is still in flight — an empty Set is indistinguishable from "not loaded".
+  const [bookmarksLoaded, setBookmarksLoaded] = useState(false);
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
+  /* First-run: generation is already in flight from onboarding's `onComplete`, so
+     the manual Generate button is hidden until polling gives up — otherwise the
+     button just double-fires the run the user is already waiting on. */
+  const [pollTimedOut, setPollTimedOut] = useState(false);
+  const firstRun = !!session && !!session.justOnboarded;
 
   /* ── Experience modes — brief is the DEFAULT; ?classic=1 selects the
      original synthesis + paper-rail view (also what /digest/[id] renders) ── */
@@ -283,18 +325,29 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
     fetch("/api/papers/bookmarks")
       .then(r => r.json())
       .then(data => setBookmarkedIds(new Set(data.ids ?? [])))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setBookmarksLoaded(true));
   }, [session?.userId]);
 
   useEffect(() => {
     if (!session || digest) return;
     const deadline = Date.now() + 4 * 60 * 1000;
     const id = setInterval(() => {
-      if (Date.now() > deadline) { clearInterval(id); return; }
+      if (Date.now() > deadline) { clearInterval(id); setPollTimedOut(true); return; }
       fetchDigest(undefined, true); // polling for a digest that doesn't exist yet — must not be cached
     }, 10000);
     return () => clearInterval(id);
   }, [session, digest, fetchDigest]);
+
+  /* The first digest landed — tell the shell to drop `justOnboarded` so the
+     brewing state is a one-time thing. Ref-guarded: `onFirstDigestLanded` is an
+     inline arrow upstream, so the effect can re-run before the flag clears. */
+  const firstDigestReported = useRef(false);
+  useEffect(() => {
+    if (!digest || !firstRun || firstDigestReported.current) return;
+    firstDigestReported.current = true;
+    onFirstDigestLanded?.();
+  }, [digest, firstRun, onFirstDigestLanded]);
 
   useEffect(() => { handleGenerateRef.current = handleGenerate; });
   useEffect(() => { onRegisterRefresh?.(() => handleGenerateRef.current?.(true)); }, [onRegisterRefresh]);
@@ -328,6 +381,39 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
   /* ── Loading state — the same PageLoader the auth gate shows, so the two
      waits look like one continuous load rather than two spinners ── */
   if (loading) return <PageLoader />;
+
+  /* ── No digest, first run — the wait after onboarding ──
+     A different state from the one below, because this reader has never seen a
+     digest: the generation is happening for them, right now, and the ~90s is
+     worth making a small show of rather than a sentence. The travelling stamp
+     carries it; the tips use the wait to teach the things they'd otherwise never
+     find. No Generate button — that run is already in flight (see `pollTimedOut`). */
+  if (!digest && firstRun) {
+    const stuck = pollTimedOut || !!generateError;
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-6 px-4">
+        <PageLoader travelling />
+        <h1 style={{ ...DISPLAY_LG, textAlign: "center", margin: 0 }}>
+          Your first digest is brewing
+        </h1>
+        <p style={{ ...BODY_STYLE, color: DIM, textAlign: "center", maxWidth: 440, margin: 0 }}>
+          We&apos;re reading papers across your topics right now — it usually takes a minute
+          or two. This page will update itself.
+        </p>
+        <BrewingTips />
+        {generateError && (
+          <p style={{ ...BODY_STYLE, color: ACID_PINK, maxWidth: 440, textAlign: "center", margin: 0 }}>{generateError}</p>
+        )}
+        {stuck && (
+          <ActionButton onClick={() => handleGenerate(true)} disabled={generating}>
+            {generating
+              ? <><Loader2 className="size-3.5 animate-spin" /> Generating…</>
+              : <><RefreshCw className="size-3.5" /> Try again</>}
+          </ActionButton>
+        )}
+      </div>
+    );
+  }
 
   /* ── No digest state ── */
   if (!digest) {
@@ -375,6 +461,10 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
 
         {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
+          {/* What saving does, before anyone has done it. Retires on the first
+              save, and on dismissal. */}
+          <SaveTipStrip show={!!session?.userId && bookmarksLoaded && bookmarkedIds.size === 0} />
+
           {/* DigestTitleBlock — 28px below matches the tag→gist gap inside DigestHeader */}
           <div style={{ marginBottom: "28px" }}>
             <div style={{ marginBottom: "24px" }}>

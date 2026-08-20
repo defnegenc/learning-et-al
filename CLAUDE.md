@@ -27,6 +27,7 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `RESEND_API_KEY` — Resend API key for digest emails
 - `INVITE_CODE` — Optional invite code for gated access
 - `EMBEDDING_MODEL` — Optional override (default: `all-MiniLM-L6-v2`, alt: `bge-small-en-v1.5`)
+- `AI_MODEL_DIGEST` / `AI_MODEL_COMPANION` / `AI_MODEL_DIG` / `AI_MODEL_CHAT` / `AI_MODEL_METADATA` / `AI_MODEL_HEALTHCHECK` — Optional per-task model overrides. Each falls back to `CRON_AI_MODEL`, then the provider default. Set one to move a single kind of work onto a cheaper or better model without a deploy. See `aiConfigFor()` in `src/lib/ai/provider.ts`.
 
 ## Architecture
 ```
@@ -34,10 +35,11 @@ src/
 ├── app/                    # Next.js App Router
 │   ├── page.tsx            # Main entry — renders today's digest or onboarding
 │   ├── api/                # API routes (digest, feedback, qa, vault, setup, etc.)
+│   ├── library/[paperId]/  # The reading view — canonical URL for a saved paper
 │   └── auth/               # NextAuth catch-all — DO NOT add routes here
 ├── components/
 │   ├── today/              # Digest view: synthesis, paper cards, dig deeper
-│   ├── vault/              # Vault archive grid + sidebar
+│   ├── vault/              # Vault archive grid + the reading view body
 │   ├── onboarding.tsx      # API key + interest setup
 │   ├── settings-dialog.tsx # Full-screen settings (API, interests, content mix)
 │   └── ui/                 # shadcn/ui primitives
@@ -79,6 +81,14 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **Mono is structure only** — section eyebrows and nav tabs. If it names a thing
   rather than the machinery, it is not a Label: tags, chips and the venue line
   are body-face sentence case.
+- **No NEW mono/all-caps eyebrow labels.** Defne dislikes the all-caps little-mono
+  look; existing eyebrows stay, but new surfaces use bolded body-face,
+  sentence-case lead-ins ("Tip:", "Pitched for you:") instead.
+- **No em dashes in user-visible text, ever** — UI strings, AI output, emails,
+  OG images. Use a period, comma, colon, or parentheses. Prompts must forbid
+  them and `aiComplete` sanitizes survivors (see docs/plans/reading-view-revamp.md,
+  "Global copy rule"). En dashes in numeric ranges are fine. Code comments and
+  docs are exempt.
 - **One paper card** (`src/components/paper-card.tsx`), two sizes. Today, the
   vault, the rail and the permalink all render it. Don't add a second card.
 - **The spectrum has three indexes and they never mix**: fields take a fixed
@@ -128,7 +138,10 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
   can only substitute other properties on the same element. On `<body>` the chain
   resolves to invalid and every mono label silently falls back.
 - **`drizzle-kit push` fails on SQLite schema changes involving primary keys** — SQLite can't ALTER TABLE to drop/recreate PKs. For simple column additions, run `sqlite3 paper-processor.db "ALTER TABLE X ADD COLUMN Y TEXT;"` manually, then push schema to Turso prod separately.
-- **Digest-level Q&A was removed (July 2026)** — questions live on reading-list papers instead (reading companion + "Ask this paper" via `/api/papers/[id]/companion` and `/api/papers/[id]/qa`). `suggestedQuestions` are still stored for legacy rows; `suggestedAnswers` are no longer generated.
+- **Digest-level Q&A was removed (July 2026)** — questions live on saved papers instead (reading companion + "Ask this paper" via `/api/papers/[id]/companion` and `/api/papers/[id]/qa`). `suggestedQuestions` are still stored for legacy rows; `suggestedAnswers` are no longer generated.
+- **`qa_pairs` is one store for two interactions** — typed Ask questions AND highlight-to-dig-deeper. `thread_id` groups turns (null on pre-threading rows, which read as threads of one), `selection` is the quoted passage, `section_key` is which walkthrough beat it came from. A row with a `section_key` renders inline under that beat; everything else renders in the Ask rail. `/api/papers/[id]/qa` streams NDJSON when the body has `stream: true` and writes the row only when the stream completes.
+- **The reading view is `/library/[paperId]`, a real route** — not a portal overlay, and deliberately not an intercepted route (it was always full-bleed, and "vault" is a client-side tab inside `/`, not a route). The vault navigates there. `ReadingPaperDetail` renders inline as that page's body; `src/app/prototype/reading-list` does the same with a `ReadingFixture`.
+- **The save control has exactly one name** — "Save" / "Saved", landing in "your library". If you add a fourth string for it, you have re-created the bug that made the feature read as missing in production.
 - **Reading prep is bookmark-triggered** — starring a paper fires background POSTs to `/api/papers/[id]/companion` (full-text walkthrough, cached on `papers.companion`) and `/api/papers/[id]/homework` (OpenAlex citing works, cached on `papers.homework`). The vault detail view falls back to generating on open if the cache is empty.
 - **To manually trigger a digest locally**: POST `/api/digest/generate` with `{"force":true}` and a valid session cookie, or use the Generate button in the admin UI.
 
@@ -161,3 +174,4 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - Keep a rolling "Top 3 Ideas to Improve" list in `docs/algorithm.md`
 - Log what worked AND what didn't work in the relevant docs
 - Update `docs/changelog.md` with dates for every new feature
+- **When a user-facing feature majorly changes (added, removed, renamed), update the first-run tips in `src/components/first-run-tips.ts`** — they're shown while a new user's first digest generates and are the only place we tell someone these features exist. A tip pointing at a feature that no longer ships is worse than no tip.
