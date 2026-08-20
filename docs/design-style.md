@@ -57,11 +57,20 @@ Retired: `#7700ff` purple (link hover became an ink underline), `#ffcc00`,
 
 **One amendment, 2026-08-19: `SELECTION_FILL`.** Acid green gains exactly one
 sanctioned fill use — the live dig-deeper selection in the reading view
-(`::selection` inside `[data-section]`, at
-`color-mix(in oklab, #38b000 30%, transparent)`). It marks the passage the agent
-is about to act on for the seconds between selecting text and the dig firing,
-and it collapses the moment the answer starts arriving. Alpha, not the flat hex,
-because a marker stroke you can't read the sentence through isn't a marker.
+(`::selection` anywhere inside `.reading-shell`, at `rgb(56 176 0 / 30%)`). It
+marks the passage the agent is about to act on for the seconds between selecting
+text and the dig firing, and it collapses the moment the dig fires. Alpha, not
+the flat hex, because a marker stroke you can't read the sentence through isn't
+a marker.
+
+Two corrections, 2026-08-20, same colour both times. It is written as
+`rgb(… / 30%)` and **not** `color-mix()`: `::selection` accepts a narrower set of
+values than an ordinary background, engines drop the whole declaration when it
+carries a `color-mix()`, and a dropped declaration means the UA default — which
+is why the marker kept coming back system blue. And it is scoped to the reading
+column rather than to `[data-section]`, because a drag that ends past a beat's
+last line selects the gap too, and that overhang was rendering blue beside the
+green.
 
 It must not leak. The dig-deeper answer panel is the **paper's wash**, not green;
 the only other green in the interaction is ink — the confirmation tick and the

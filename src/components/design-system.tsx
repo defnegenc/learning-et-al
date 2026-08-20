@@ -47,8 +47,14 @@ export const ACID_PINK = "#ff007f";  // anything that failed
  *
  * Alpha, not the flat hex: at full strength ink is unreadable through it, and
  * the point of a marker stroke is that you can still read the sentence.
+ *
+ * Written as `rgb(… / 30%)` rather than `color-mix`, which is the same colour
+ * and NOT a new one. `::selection` accepts a much narrower set of values than
+ * an ordinary background: several engines drop the whole declaration when it
+ * carries a `color-mix()`, and a dropped declaration means the UA default —
+ * which is why the marker was coming back system blue instead of green.
  */
-export const SELECTION_FILL = `color-mix(in oklab, ${ACID_GREEN} 30%, transparent)`;
+export const SELECTION_FILL = "rgb(56 176 0 / 30%)"; // = ACID_GREEN at 30%
 
 /** Gold — one. The foundational frame, and nothing else. */
 export const GOLD = "#c9a227";
