@@ -13,12 +13,12 @@ import {
   type PitchedForYou,
 } from "@/lib/familiarity";
 import {
-  askThreads, digsForSection, groupThreads,
+  DEFAULT_QUESTION, askThreads, digsForSection, groupThreads,
   type ReadingThread, type SectionKey, type ThreadTurn,
 } from "@/lib/reading-thread";
 import {
   ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, BORDER_HAIR, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
-  HAIRLINE, INK, LABEL_STYLE, MUTED, SELECTION_FILL, SHADOW, SURFACE, TextInput,
+  HAIRLINE, INK, LABEL_STYLE, MUTED, PageLoader, SHADOW, SURFACE, TextInput,
   foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
@@ -172,7 +172,7 @@ async function runFixtureAsk(
   on.start({
     id,
     threadId,
-    question: payload.question || "Dig deeper on this passage.",
+    question: payload.question || DEFAULT_QUESTION,
     selection: payload.selection ?? null,
     sectionKey: payload.sectionKey ?? null,
   });
@@ -342,11 +342,17 @@ const OFFER_AFTER_MS = 1200;
  * quoted text and which beat it came from, so a panel survives a re-render, a
  * refresh, and a companion that was regenerated in between.
  *
- * Also reports whether the browser's own selection is still drawn. The moment
- * the reader clicks into the floating bar the DOM selection collapses and the
- * green goes with it, so the page draws the passage itself from that point on
- * (see `annotateBeat`) — and only from that point, so the two greens never
- * stack on the same words.
+ * Two highlights, in sequence, and the handoff between them is the interaction.
+ * While the mouse is down the browser draws its own selection — the ink one this
+ * product uses everywhere, no override. The instant it is released, the passage
+ * is captured and the DOM selection is collapsed on purpose, so the page can
+ * redraw the same words in the paper's own hue (see `annotateBeat`). Drag black,
+ * release colour: the colour is the confirmation that the passage is now the
+ * thing the question will be asked about.
+ *
+ * `nativeLive` is what keeps the two from stacking — while the browser is still
+ * drawing (a keyboard selection, which is never collapsed out from under the
+ * reader), the page draws nothing.
  */
 function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: boolean) {
   const [pick, setPick] = useState<Pick | null>(null);
@@ -366,6 +372,7 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
     if (!enabled) return;
 
     const read = (event?: Event) => {
+      const released = event?.type === "mouseup";
       // Anything that happens inside the menu is the reader using the menu, not
       // re-selecting. Focusing the question box necessarily collapses the DOM
       // selection, and without this the menu would close the instant it was
@@ -396,6 +403,12 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
         x: last.right,
         y: last.bottom,
       });
+
+      // Hand the highlight over: the browser's ink selection was the drag, the
+      // paper's hue is the held passage. Only on release of the mouse — a
+      // keyboard selection is still being made and must not be collapsed
+      // mid-stroke.
+      if (released) sel.removeAllRanges();
     };
 
     const clear = () => setPick(null);
@@ -416,15 +429,18 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
  * The floating menu. Hard border, the one shadow, no radius — the same object as
  * every other frame, just small and following the cursor.
  *
- * One bar, not a choice. It used to offer "Ask" and "Dig deeper" as two
- * separate controls, and nobody could say what the difference was — they land
- * in the same place and produce the same shape of answer. So there is one text
- * field: leave it empty and the button digs, type a question and the same
- * button asks it. Either way the answer posts inline under the beat the passage
- * came from, so the passage, the question and the answer stay in one place.
+ * One bar, one verb. It used to offer "Ask" and "Dig deeper" as two separate
+ * controls and nobody could say what the difference was — they land in the same
+ * place and produce the same shape of answer, so "dig deeper" is gone from the
+ * interface entirely. There is a text field and an Ask button: type a question
+ * and it asks it, press Ask with nothing typed and it asks the question almost
+ * everybody was going to type anyway. Either way the answer posts inline under
+ * the beat the passage came from, so the passage, the question and the answer
+ * stay in one place.
  */
 function SelectionMenu({ pick, onDig, onAsk }: {
   pick: Pick;
+  /** Ask with an empty field — sends `DEFAULT_QUESTION`. */
   onDig: () => void;
   onAsk: (question: string) => void;
 }) {
@@ -458,8 +474,8 @@ function SelectionMenu({ pick, onDig, onAsk }: {
         onKeyDown={e => {
           if (e.key === "Enter") { e.preventDefault(); submit(); }
         }}
-        placeholder="Ask about this, or just dig deeper…"
-        aria-label="Ask a question about the selected passage, or leave empty to dig deeper"
+        placeholder={`Ask about this, or just “${DEFAULT_QUESTION}”`}
+        aria-label="Ask a question about the selected passage"
         autoFocus
         style={{
           ...BODY_SM, flex: 1, minWidth: 0, background: SURFACE, color: INK,
@@ -467,7 +483,7 @@ function SelectionMenu({ pick, onDig, onAsk }: {
         }}
       />
       <button onMouseDown={submit} style={{ ...menuButton, borderLeft: BORDER }}>
-        {typed ? "Ask" : "Dig deeper"}
+        Ask
       </button>
     </div>
   );
@@ -550,7 +566,7 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip, lead }: {
   currentLevel?: number | null;
   onSelect: (level: number) => void;
   onSkip?: () => void;
-  /** Mid-dig the question opens with "While I dig —"; as a correction it just asks. */
+  /** Mid-answer the question opens with "While I read:"; as a correction it just asks. */
   lead?: string;
 }) {
   return (
@@ -579,7 +595,7 @@ function PaperRating({ value, onSelect, onSkip }: {
 }) {
   return (
     <ScaleRow
-      question="While I dig — how much did you like this paper?"
+      question="While I read: how much did you like this paper?"
       lowLabel="not for me"
       highLabel="loved it"
       value={value}
@@ -597,11 +613,11 @@ function PaperRating({ value, onSelect, onSkip }: {
  * features, so update them when one is added, renamed or removed.
  */
 const DIG_WAIT_TIPS = [
-  "Highlight anything else while you wait — digs queue under the passage they came from.",
-  "“Ask about this” sends the passage to the thread on the right instead of answering inline.",
+  "Highlight anything else while you wait. Answers land under the passage they came from.",
+  "Type your own question in the bar, or just press Ask and I'll explain the passage.",
   "Underlined words carry a definition. Hover or tap one.",
   "Answers read the paper's full text, then check it against what current web sources say.",
-  "What you dig into teaches your librarian what to send you next.",
+  "What you ask about teaches your librarian what to send you next.",
 ];
 
 const TIP_ROTATE_MS = 6000;
@@ -637,9 +653,15 @@ function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFami
 
   return (
     <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
-        <span style={{ ...BODY_STYLE, color: MUTED }}>Digging into that passage&hellip;</span>
+      {/* The stamp, centred in the column, not a spinner pinned to a line of
+          text: this is the same wait as every other wait in the product and it
+          should be the same object. Centring it also stops the eye reading it
+          as a bullet on the paragraph above. */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "10px 0 2px" }}>
+        <PageLoader inline />
+        <span style={{ ...BODY_STYLE, color: MUTED, textAlign: "center" }}>
+          Re-reading the paper for that&hellip;
+        </span>
       </div>
 
       {familiarityOffer ? (
@@ -648,7 +670,7 @@ function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFami
           currentLevel={familiarityValue?.level}
           onSelect={onFamiliarity}
           onSkip={onSkipFamiliarity}
-          lead="While I dig — how"
+          lead="While I read: how"
         />
       ) : ratingOffer ? (
         <PaperRating value={ratingValue} onSelect={onRating} onSkip={onSkipRating} />
@@ -802,7 +824,7 @@ function DigPanel({ thread, streaming, onFollowUp, error, defaultOpen, familiari
           <p style={{ ...READING_BODY, margin: 0 }}>
             {turn.answer}
             {streaming && i === thread.turns.length - 1 && !turn.answer && (
-              <span style={{ color: MUTED, fontStyle: "italic" }}>Digging&hellip;</span>
+              <span style={{ color: MUTED, fontStyle: "italic" }}>Looking it up&hellip;</span>
             )}
           </p>
         </div>
@@ -866,7 +888,7 @@ function DigThisBeat({ onDig }: { onDig: () => void }) {
         padding: "10px 0 0", cursor: "pointer", color: DIM,
       }}
     >
-      ¶ Dig deeper on this
+      ¶ Ask about this paragraph
     </button>
   );
 }
@@ -1502,7 +1524,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     // The live selection first, so re-highlighting a passage you already dug
     // into shows it as the current selection rather than as an old dig.
     ...(pick && pick.section === key && !nativeSelectionLive
-      ? [{ text: pick.text, fill: SELECTION_FILL }]
+      ? [{ text: pick.text, fill: hue }]
       : []),
     ...digsForSection(threads, key)
       .map(t => ({ text: t.selection ?? "", fill: hue }))
@@ -1614,7 +1636,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             <div style={{ display: "flex", gap: 10, alignItems: "baseline", margin: "0 0 26px" }}>
               <span style={LABEL_STYLE}>Tip</span>
               <span style={{ ...BODY_SM, color: DIM }}>
-                Highlight any passage to have the agent dig deeper on it.
+                Highlight any passage to ask about it.
               </span>
             </div>
           )}
@@ -1771,10 +1793,11 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
            leaves the viewport. */
         .reading-aside { position: sticky; top: 8px; }
         .reading-ask { max-height: calc(100vh - 100px); }
-        /* The one sanctioned fill use of acid green — see SELECTION_FILL. It is
-           scoped to the walkthrough, because that is the only text a dig can
-           act on. */
-        .reading-shell ::selection { background: ${SELECTION_FILL}; }
+        /* No ::selection override here. The drag wears the product's ordinary
+           ink selection, and the paper's hue arrives on release, drawn by the
+           page in useSelectionPick. Acid green is out of this interaction: it
+           said "confirmed" about a passage nothing had happened to yet, and it
+           was the same green on a pink paper as on a blue one. */
         /* Desktop selects; touch taps the beat's own affordance, because touch
            selection loses to the native callout. */
         .reading-beat-dig { display: none; }

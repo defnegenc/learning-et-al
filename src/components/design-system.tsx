@@ -35,26 +35,19 @@ export const SURFACE = "#ffffff";  // cards, panels
 export const ACID_GREEN = "#38b000"; // confirmation: saved, connected, done
 export const ACID_PINK = "#ff007f";  // anything that failed
 
-/**
- * The ONE sanctioned fill use of acid green — the live dig-deeper selection in
- * the reading view, and nothing else.
+/*
+ * `SELECTION_FILL` is retired, 2026-08-20. Acid green briefly had one sanctioned
+ * fill use — the live highlight in the reading view, at 30% — and it is gone
+ * again, so the rule above is once more absolute: acid is ink, never a fill.
  *
- * The rule above still stands everywhere else: acid is ink. This is the single
- * amendment, and it is narrow on purpose. It marks the passage the agent is
- * about to act on, for the seconds between selecting text and the dig firing —
- * "exactly this" — and it collapses the moment the answer starts arriving. It
- * must not leak into panels, chips or washes; those stay as they are.
- *
- * Alpha, not the flat hex: at full strength ink is unreadable through it, and
- * the point of a marker stroke is that you can still read the sentence.
- *
- * Written as `rgb(… / 30%)` rather than `color-mix`, which is the same colour
- * and NOT a new one. `::selection` accepts a much narrower set of values than
- * an ordinary background: several engines drop the whole declaration when it
- * carries a `color-mix()`, and a dropped declaration means the UA default —
- * which is why the marker was coming back system blue instead of green.
+ * It failed on its own terms. Green is the product's word for "that worked",
+ * and it was being said about a passage nothing had happened to yet. It was
+ * also the same green on every paper, in a reading view whose entire colour
+ * scheme is the one hue that paper owns. The interaction now hands off between
+ * two highlights the product already has: the ordinary ink `::selection` while
+ * the mouse is down, and the paper's own wash hue once it is released, drawn by
+ * the page rather than by the browser. See `useSelectionPick`.
  */
-export const SELECTION_FILL = "rgb(56 176 0 / 30%)"; // = ACID_GREEN at 30%
 
 /** Gold — one. The foundational frame, and nothing else. */
 export const GOLD = "#c9a227";
@@ -224,6 +217,12 @@ export const SHADOW_GOLD = `5px 5px 0 0 ${GOLD}`;
  * the same pixel across the handoff. Don't add a second page-level loader
  * shape, and don't animate it toward a percentage.
  *
+ * `inline` is not a second shape — it is the same stamp, turning the same way,
+ * centred in whatever box it is dropped into instead of pinned to the viewport.
+ * It exists so a wait *inside* the page (the reading view's answer, streaming
+ * under the passage you highlighted) shows the product's loader rather than a
+ * lucide spinner, which is what every inline wait used to reach for.
+ *
  * `travelling` is the ONE variant, for the one wait long enough to deserve a
  * show: a new user's first digest. Same stamp, same 90° turn, but it walks a
  * track while the shadow steps the FULL spectrum in hue order, 00 → 09, one
@@ -251,7 +250,7 @@ const travelFrames = SPECTRUM.map((hue, i) =>
   `${(i / SPECTRUM.length) * 100}% { transform: translateX(${i * HOP}px) rotate(${i * 90}deg); box-shadow: ${SHADOW_OFFSET}px ${SHADOW_OFFSET}px 0 0 ${hue} }`
 ).join("\n        ");
 
-export function PageLoader({ travelling = false }: { travelling?: boolean } = {}) {
+export function PageLoader({ travelling = false, inline = false }: { travelling?: boolean; inline?: boolean } = {}) {
   const stamp = { width: STAMP, height: STAMP, border: BORDER, background: SURFACE };
 
   if (travelling) {
@@ -276,13 +275,8 @@ export function PageLoader({ travelling = false }: { travelling?: boolean } = {}
     );
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-10 flex items-center justify-center pointer-events-none"
-      role="status"
-      aria-label="Loading"
-    >
-      <style>{`
+  const keyframes = (
+    <style>{`
         @keyframes dsStamp {
           0%   { transform: rotate(0deg);   box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[0]} }
           25%  { transform: rotate(90deg);  box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[1]} }
@@ -295,6 +289,31 @@ export function PageLoader({ travelling = false }: { travelling?: boolean } = {}
           .ds-stamp { animation: none; box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[0]}; }
         }
       `}</style>
+  );
+
+  if (inline) {
+    return (
+      <div
+        role="status"
+        aria-label="Loading"
+        // The shadow paints 5px past the square on two sides, so the box is the
+        // stamp plus its offset — otherwise the colour clips against the text
+        // below it.
+        style={{ display: "flex", justifyContent: "center", padding: `2px ${SHADOW_OFFSET}px ${SHADOW_OFFSET}px 0` }}
+      >
+        {keyframes}
+        <div className="ds-stamp" style={stamp} />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-10 flex items-center justify-center pointer-events-none"
+      role="status"
+      aria-label="Loading"
+    >
+      {keyframes}
       <div className="ds-stamp" style={stamp} />
     </div>
   );
