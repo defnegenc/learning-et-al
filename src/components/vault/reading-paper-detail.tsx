@@ -140,7 +140,7 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
       </div>
       <button
         onClick={save}
-        title={saved ? "In your reading list" : "Save to reading list"}
+        title={saved ? "In your library" : "Save to your library"}
         style={{ background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: INK, marginTop: 3 }}
       >
         {saving

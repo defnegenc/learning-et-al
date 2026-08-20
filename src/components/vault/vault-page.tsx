@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { PaperItem } from "@/lib/types";
 import { PaperCard } from "@/components/paper-card";
 import { BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, NavTab, PageHeader, PageLoader } from "@/components/design-system";
+import { useOpenLibrary } from "@/components/save-nux";
 import { ReadingPaperDetail } from "./reading-paper-detail";
 import { DigestHistory } from "./digest-history";
 
@@ -14,7 +15,25 @@ export function VaultPage() {
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
   // Two shelves, equal peers — not a page with a hidden sub-view.
+  //
+  // Digests opens by default only for a reader with nothing saved. Once there
+  // is a library, the library is what "vault" means to them, and burying it one
+  // tab behind the digest archive is half of why the reading view read as two
+  // clicks deep.
   const [view, setView] = useState<"history" | "list">("history");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/papers/bookmarks")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled && (d?.ids?.length ?? 0) > 0) setView("list"); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // "Go to library →" from the first-save confirmation lands on the shelf, not
+  // on the digest archive.
+  useOpenLibrary(useCallback(() => setView("list"), []));
   // The shelf position travels with the paper, because the reading view wears
   // the hue of the card it was opened from.
   const [detail, setDetail] = useState<{ paper: PaperItem; index: number } | null>(null);
@@ -66,7 +85,7 @@ export function VaultPage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "80px 0" }}>
           <span style={DISPLAY_SM}>No saved papers yet</span>
           <span style={{ ...BODY_STYLE, color: MUTED }}>
-            Hit &ldquo;Read later&rdquo; on any paper in a digest and it lands here.
+            Hit &ldquo;Save&rdquo; on any paper in a digest and it lands here.
           </span>
         </div>
       ) : (
