@@ -942,20 +942,30 @@ code takes the slot and the wrong hexes never existed.
 
 **Click-only, no auto-open.** A modal that opens itself on first paint is the
 opposite of this product's calm, and it would meet a reader before the digest
-has had a chance to be interesting on its own. The trigger sits in the eyebrow
-row, directly above the question, which is where a confused visitor is already
-looking. A once-per-visitor `localStorage` auto-open was considered and dropped
-for that reason; it is a one-line change if the click-through rate says
-otherwise.
+has had a chance to be interesting on its own. A once-per-visitor
+`localStorage` auto-open was considered and dropped for that reason; it is a
+one-line change if the click-through rate says otherwise.
 
-**Three placements, not one.** Today's eyebrow row was the plan, and it turned
-out to be the smallest of the three cases. The **shared permalink** carries it
-too — a shared link is most people's first contact with this product, so an
-explainer that only exists on the home page misses the majority of first
-impressions. Today's **no-digest state** carries it as well: with no digest to
-explain itself, a stranger has nothing at all to go on. It stays out of the
-header, which already holds Share and Sign in and would make three competing
-asks on one bar.
+**The trigger is an `i`, and it travels with Share.** It shipped first as an
+ink-underlined line of body copy beside the "Daily digest" eyebrow, on the
+theory that the explainer should sit where a confused visitor is already
+looking. That was the wrong read: it put a second sentence directly above the
+question and made the reader choose between them before they had finished
+either, so the surface that exists to reduce confusion added some. As an icon in
+the actions cluster it asks for nothing. It is the same plain, frameless, 15px
+control Share already is, and it takes **ink at rest** for that reason — muted
+at 15px reads as disabled beside Share's ink, and a pair has to match to be a
+pair.
+
+**Two placements, both beside Share.** Today's eyebrow row, and the shared
+permalink's header cluster — where it lands next to Sign in as well, which is
+the other place it belongs. A shared link is most people's first contact with
+this product, so an explainer that only existed on the home page missed the
+majority of first impressions. Today's **no-digest state** deliberately has
+none: an `i` is legible as an action inside a cluster and cryptic as a lone
+glyph under a sentence, and that state has no cluster. The case is rare (the
+admin's digest is almost always there), and a bare icon would explain less than
+nothing.
 
 **Onboarding reaches the same popup** through a quiet "What happens next?" in
 the footer, rather than a second explanation that would drift. Only the trigger

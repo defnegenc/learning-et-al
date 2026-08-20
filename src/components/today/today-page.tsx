@@ -425,10 +425,9 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
         <p style={{ ...BODY_STYLE, color: DIM, textAlign: "center", maxWidth: 440 }}>
           Check back soon. A fresh research digest is generated every day.
         </p>
-        {/* No digest to explain itself, which is exactly when a stranger needs
-            telling what this is. The trigger otherwise lives in the eyebrow row
-            of a digest that isn't here. */}
-        {!session && <WhatIsThis onSignIn={onSignIn} />}
+        {/* No explainer here: the trigger is an `i` that belongs beside Share,
+            and this state has no actions cluster for it to sit in. A lone glyph
+            under a sentence explains less than nothing. */}
         {session && generateError && (
           <p style={{ ...BODY_STYLE, color: ACID_PINK, maxWidth: 440, textAlign: "center" }}>{generateError}</p>
         )}
@@ -500,17 +499,17 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                {/* The eyebrow row carries the one explainer affordance a
-                    logged-out visitor gets. Nothing else on this page says the
-                    digest was generated from somebody's interests, and this is
-                    where their eye already is. */}
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
-                    Daily digest
-                  </div>
-                  {!session && <WhatIsThis onSignIn={onSignIn} />}
+                <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
+                  Daily digest
                 </div>
-                <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
+                {/* Page actions, not remarks. The explainer is the one thing on
+                    this page that tells a stranger what it is, but beside the
+                    eyebrow it read as a second headline competing with the
+                    question. As an `i` next to Share it waits to be asked. */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {!session && <WhatIsThis onSignIn={onSignIn} />}
+                  <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
+                </div>
               </div>
               {generateError && (
                 <span style={{ ...BODY_SM, color: ACID_PINK, display: "block", marginTop: 4 }} title={generateError}>

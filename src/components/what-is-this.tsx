@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Info } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FIELD_HIERARCHY } from "@/lib/field-hierarchy";
 import {
@@ -24,8 +25,7 @@ import {
  * this surface is not allowed to have an opinion about it.
  *
  * Click-only. A modal that opens itself on first paint is the opposite of this
- * product's calm, and the trigger sits exactly where a confused visitor's eye
- * already is.
+ * product's calm.
  *
  * Two contexts, one surface. `public` is the logged-out digest and the shared
  * permalink, where the closing line can point at the digest behind the window
@@ -34,16 +34,29 @@ import {
  * line is what happens when they press the button. Only the trigger's words and
  * that last line differ — the beats are deliberately identical, because the
  * whole point is that there is one explanation of this product, not two.
+ *
+ * The public trigger is an `i`, and it travels with Share. It began as an
+ * ink-underlined line of body copy beside the "Daily digest" eyebrow, which put
+ * a second sentence directly above the question and made the reader choose
+ * between them before they had read either. An icon in the actions cluster asks
+ * for nothing: it is the same plain, frameless, 15px control Share already is,
+ * so the two read as one pair of page actions rather than a control and a
+ * remark. It takes ink at rest for the same reason: muted at 15px reads as
+ * disabled beside Share's ink, and a pair has to match to be a pair.
+ * Onboarding keeps a text trigger, because its footer has no actions cluster
+ * for an icon to belong to.
  */
 
 const COPY = {
   public: {
     trigger: "What is Learning et al.?",
     closing: "The digest behind this window is a live example.",
+    icon: true,
   },
   onboarding: {
     trigger: "What happens next?",
     closing: "Your first digest takes a minute or two to make.",
+    icon: false,
   },
 } as const;
 
@@ -77,31 +90,53 @@ export function WhatIsThis({ onSignIn, variant = "public" }: {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {/* The trigger names the product, not the machinery, so it is the body
-          face rather than a mono Label — and an ink underline rather than a
-          button, so it stays quieter than the digest title beside it. */}
+      {/* `render` has to receive a plain DOM button: the dialog spreads its own
+          click and aria props onto whatever it is given, and `ActionButton`
+          takes a fixed prop list rather than spreading, so the trigger would go
+          inert. These styles are `ActionButton variant="plain"` compact, held by
+          hand for that one reason. */}
       <DialogTrigger
         render={
-          <button
-            onMouseEnter={() => setHover(true)}
-            onMouseLeave={() => setHover(false)}
-            style={{
-              ...BODY_SM,
-              color: INK,
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              textDecoration: "underline",
-              textDecorationThickness: hover ? "3px" : "2px",
-              textUnderlineOffset: "3px",
-              transition: "text-decoration-thickness 140ms",
-              whiteSpace: "nowrap",
-            }}
-          />
+          copy.icon ? (
+            <button
+              aria-label={copy.trigger}
+              title={copy.trigger}
+              style={{
+                ...DISPLAY_SM,
+                padding: "6px 2px",
+                background: "transparent",
+                border: "none",
+                color: INK,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            />
+          ) : (
+            /* Names the product, not the machinery, so it is the body face
+               rather than a mono Label, and an ink underline rather than a
+               button so it stays quieter than the CTA beside it. */
+            <button
+              onMouseEnter={() => setHover(true)}
+              onMouseLeave={() => setHover(false)}
+              style={{
+                ...BODY_SM,
+                color: INK,
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                textDecoration: "underline",
+                textDecorationThickness: hover ? "3px" : "2px",
+                textUnderlineOffset: "3px",
+                transition: "text-decoration-thickness 140ms",
+                whiteSpace: "nowrap",
+              }}
+            />
+          )
         }
       >
-        {copy.trigger}
+        {copy.icon ? <Info size={15} /> : copy.trigger}
       </DialogTrigger>
 
       <DialogContent
