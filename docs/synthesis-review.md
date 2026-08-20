@@ -83,7 +83,7 @@ The hypothesis prompt had no anti-jargon rule. Result: themes like "Can better a
 
 **Evidence**: Madaan et al. (2023) "Self-Refine: Iterative Refinement with Self-Feedback" (NeurIPS 2023) shows ~20% absolute quality improvement across diverse tasks. The key: the critique must be specific ("Does paragraph 2 merely describe Paper B, or does it show how Paper B challenges Paper A?"), not generic ("make it better").
 
-**Cost**: 2 additional LLM calls per digest. At current Gemini Flash pricing, ~$0.002 extra per digest.
+**Cost**: 2 additional LLM calls per digest. Actual cost depends on the deployed `CRON_AI_PROVIDER`/`CRON_AI_MODEL`; Gemini Flash pricing is only an example, not proof of the live production model.
 
 **Implementation**: After the synthesis call, add a critique call with prompts targeting: (a) does each paper serve the argument or just appear? (b) is there a genuine tension identified? (c) would removing any paper make the synthesis *better*?
 

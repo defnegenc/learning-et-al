@@ -1,8 +1,78 @@
 # Reading view revamp, save NUX, and the librarian agent — plan
 
-*Drafted 2026-08-19. Planning only — nothing here is built yet. Companion docs:
-`docs/design-style.md` (the menu), `docs/algorithm.md` (pipeline),
-`docs/design-decisions.md` (log decisions there once we commit).*
+*Drafted 2026-08-19. Companion docs: `docs/design-style.md` (the menu),
+`docs/algorithm.md` (pipeline), `docs/design-decisions.md` (decisions log).*
+
+## Status — 2026-08-20
+
+| Phase | Name | State |
+|---|---|---|
+| 1 | **Save NUX** — one name, a visible control, strip + confirmation | ✅ built (branch `yamoussoukro`) |
+| 2 | **The reading view** — `/library/[paperId]`, highlight to dig deeper, threads, streaming | ✅ built (branch `yamoussoukro`) — *to the 2026-08-19 spec; deltas below* |
+| 2½ | **The 2026-08-20 deltas** — decided after the build; see list below | ⬜ not started |
+| 3 | **The familiarity interleave** — Likert moment, tiered glossary, "pitched for you" | ⬜ not started |
+| 4 | **The librarian proper** — taste dossier, ledger, centroids, scout's shelf | ⬜ not started |
+
+**Phase 2½ — deltas decided 2026-08-20, after phases 1–2 were built.** The body
+of this doc already reads as if these are done; against the built code they are
+still to-do:
+
+- **Rename "dig deeper" → "Explain"** everywhere in the reading view: button,
+  copy, `DIG_SYSTEM`/`DigPanel`/`AI_MODEL_DIG` naming (§2b). "Dig deeper" stays
+  only on the legacy digest-level feature.
+- **Kill the Ask rail → marginalia**: every explain and typed question is its
+  own collapsible section in the document; end-of-document composer; outline
+  column on the **left** (§2c).
+- **Key-numbers table** (`keyStats`, wash-tinted) + **lede/closing type weight**
+  (Paper board first) + bolded beat first-clauses + caveats in `DIM` (§2a).
+- **No mono/all-caps eyebrow labels** on any of the new surfaces; lead-ins are
+  bolded body face ("Tip:") (§1).
+- **No em dashes in user-visible text, project-wide** — sweep + prompt guard +
+  `aiComplete` sanitizer + lint rule (global copy rule section). Applies to the
+  copy phases 1–2 shipped.
+
+**Phase 2 leaves a migration to run before deploy** — three nullable columns:
+
+```sql
+ALTER TABLE qa_pairs ADD COLUMN thread_id TEXT;
+ALTER TABLE qa_pairs ADD COLUMN selection TEXT;
+ALTER TABLE qa_pairs ADD COLUMN section_key TEXT;
+```
+
+**Phases 3 and 4 have their own brief: `docs/plans/reading-view-handoff-3-4.md`.**
+Point the agent picking them up at that file — it restates §3 and §4 with the
+file paths, the seams phase 2 left, and what "done" means for each. (That brief
+predates the 2026-08-20 deltas; where it says "dig", read "Explain".)
+
+### What phases 2½, 3 and 4 should build on
+
+Seams that now exist, so the next phases don't re-invent them:
+
+- **`aiConfigFor(task)`** in `src/lib/ai/provider.ts` — the routing seam §4c
+  asked for, already replacing the five copy-pasted config blocks. Tasks are
+  `digest | companion | dig | chat | metadata | healthcheck`, each overridable
+  via `AI_MODEL_*`. Adding the dossier keeper and the interleaver means adding
+  two task names. `aiChat(config, messages)` and `aiChatStream` are there too.
+- **`qa_pairs` is the engagement ledger** — `thread_id`, `selection`,
+  `section_key`. The passages a reader highlights are §4a's richest signal and
+  they are being written now.
+- **The companion prompt** is `COMPANION_SYSTEM` in
+  `src/app/api/papers/[id]/companion/route.ts`. The tiered glossary (§3) is a
+  change to its `glossary` contract plus a `tier` field; the render-time filter
+  belongs in `annotateText` / `Glossary` in
+  `src/components/vault/reading-paper-detail.tsx`.
+- **The dig / ask prompts** are `ASK_SYSTEM` and `DIG_SYSTEM` in
+  `src/app/api/papers/[id]/qa/route.ts`. The familiarity line (§3) goes in
+  there, and the visible-use contract's structured strip-and-render belongs in
+  the same route, next to where the row is persisted.
+- **The interleave moment** (§3) is the dig confirmation: `DigPanel` in
+  `reading-paper-detail.tsx`, which already knows when a dig fired and has the
+  paper in hand.
+- **First-visit flags** live in `src/lib/nux.ts` (`nuxSeen` /`markNuxSeen`).
+  The interleaver's annoyance budget needs a server-side counterpart, not this.
+
+*(§0 below describes the codebase as it was before phases 1–2 were built; it is
+kept as the rationale record, not as a map of current code.)*
 
 This covers four things:
 

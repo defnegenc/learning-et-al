@@ -4,19 +4,23 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
-import { SynthesisBanner } from "@/components/today/synthesis-banner";
+import { BriefDigest } from "@/components/today/brief-digest";
+import { DigestHeader } from "@/components/today/digest-header";
+import { splitSynthesisTheme } from "@/components/today/synthesis-text";
 import { ShareDigestButton } from "@/components/today/share-digest-button";
 import type { PaperItem } from "@/lib/types";
 import { NoiseOverlay } from "@/components/noise-overlay";
-import { PaperCard } from "@/components/paper-card";
 import { pendingPaperIds, setPendingSharedPaper } from "@/lib/shared-saves";
-import { ACID_GREEN, ActionButton, BODY_SM, BODY_STYLE, BORDER, INK, Label, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
+import { FirstSaveConfirmation } from "@/components/save-nux";
+import { ACID_GREEN, ActionButton, BODY_SM, BODY_STYLE, BORDER, DISPLAY, INK, Label, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
 
 interface Digest {
   id: string;
   theme: string | null;
   synthesisContent: string | null;
   keyConcepts: string[];
+  seedInterests?: { keyword: string; field: string }[];
+  gist?: string | null;
   starred: boolean | null;
   date: string;
 }
@@ -24,7 +28,7 @@ interface Digest {
 export default function DigestPermalink() {
   const params = useParams();
   const id = params.id as string;
-  const { status: authStatus } = useSession();
+  const { data: authSession, status: authStatus } = useSession();
   const [digest, setDigest] = useState<Digest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
@@ -87,7 +91,15 @@ export default function DigestPermalink() {
     );
   }
 
-  const openSource = (p: PaperItem) => p.sourceUrl && window.open(p.sourceUrl, "_blank", "noopener,noreferrer");
+  const displayDate = new Date(`${digest.date}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const accountName = authSession?.user?.name || authSession?.user?.email || "Signed in";
+  const displayTheme = splitSynthesisTheme(digest.synthesisContent || "", digest.theme ?? undefined).displayTheme;
 
   return (
     <div className="relative min-h-screen" style={{ background: SURFACE }}>
@@ -97,12 +109,20 @@ export default function DigestPermalink() {
       <SiteHeader
         right={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <ShareDigestButton digestId={digest.id} theme={digest.theme} compact />
+            <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
             {loggedIn ? (
-              <ActionButton variant="outline" shadow={false} style={{ padding: "7px 12px" }} onClick={() => { window.location.href = "/"; }}>
-                Open app
-              </ActionButton>
-            ) : (
+              <>
+                <span
+                  title={`Signed in as ${accountName}`}
+                  style={{ ...BODY_SM, color: ACID_GREEN, fontWeight: 600, whiteSpace: "nowrap" }}
+                >
+                  Signed in
+                </span>
+                <ActionButton variant="outline" shadow={false} style={{ padding: "7px 12px" }} onClick={() => { window.location.href = "/"; }}>
+                  Open app
+                </ActionButton>
+              </>
+            ) : authStatus === "unauthenticated" ? (
               <ActionButton
                 variant="primary"
                 shadow={false}
@@ -111,75 +131,74 @@ export default function DigestPermalink() {
               >
                 Sign in
               </ActionButton>
-            )}
+            ) : null}
           </div>
         }
       />
 
-      {/* Content */}
-      <div className="grid grid-cols-1 md:grid-cols-[5fr_minmax(340px,2fr)] w-full" style={{ position: "relative", zIndex: 10 }}>
-        {/* Left: synthesis */}
-        <div className="px-4 md:px-10 pt-6 md:pt-8 pb-6 md:pb-8">
-          <Label style={{ marginBottom: 16 }}>{digest.date}</Label>
+      {/* A shared digest is a reading surface, not a second app layout. Render
+          the same fully revealed brief used when its author revisits it. */}
+      <main
+        className="px-4 md:px-8 pt-8 md:pt-12 pb-20"
+        style={{ position: "relative", zIndex: 10, maxWidth: 760, margin: "0 auto" }}
+      >
+        <div style={{ marginBottom: 28 }}>
+          <Label style={{ marginBottom: 16 }}>{displayDate}</Label>
 
-          {!loggedIn && deviceSavedIds.size > 0 && (
-            <div style={{ border: BORDER, padding: "12px 14px", marginBottom: 22, background: SURFACE }}>
-              <p style={{ ...BODY_SM, color: ACID_GREEN, fontWeight: 600, margin: 0 }}>
-                Saved on this device.
-              </p>
-              <p style={{ ...BODY_SM, margin: "2px 0 0" }}>
-                Sign in to keep this digest in your history and {deviceSavedIds.size === 1 ? "this paper" : `these ${deviceSavedIds.size} papers`} in Saved papers.
-              </p>
-            </div>
+          {displayTheme && (
+            <h1
+              style={{
+                fontFamily: DISPLAY,
+                fontSize: "clamp(2.75rem, 7vw, 4rem)",
+                lineHeight: 1.12,
+                fontWeight: 700,
+                letterSpacing: "-0.055em",
+                color: INK,
+                margin: "0 0 28px",
+              }}
+            >
+              {displayTheme}
+            </h1>
           )}
 
-          {digest.synthesisContent && (
-            <SynthesisBanner
-              synthesis={digest.synthesisContent}
-              theme={digest.theme ?? undefined}
-              keyConcepts={digest.keyConcepts}
-              activeConcept={null}
-              onConceptClick={() => {}}
-              papers={papers}
-              onSelectPaper={openSource}
-            />
-          )}
+          <DigestHeader
+            seedInterests={digest.seedInterests}
+            gist={digest.gist}
+            keyConcepts={digest.keyConcepts}
+            isLoggedIn={loggedIn}
+            onSignIn={() => signIn("google", { redirectTo: window.location.href })}
+          />
         </div>
 
-        {/* Right: sources (desktop) */}
-        <div className="hidden md:block pt-8 pb-8 px-4">
-          <Label style={{ marginBottom: 20 }}>Referenced sources</Label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {papers.map((paper, idx) => (
-              <PaperCard
-                key={paper.id}
-                paper={paper}
-                index={idx}
-                size="compact"
-                loggedIn={loggedIn}
-                initialBookmarked={bookmarkedIds.has(paper.id) || deviceSavedIds.has(paper.id)}
-                onSignedOutSaveChange={authStatus === "unauthenticated" ? handleDeviceSave : undefined}
-              />
-            ))}
+        {!loggedIn && deviceSavedIds.size > 0 && (
+          <div style={{ border: BORDER, padding: "12px 14px", marginBottom: 22, background: SURFACE }}>
+            <p style={{ ...BODY_SM, color: ACID_GREEN, fontWeight: 600, margin: 0 }}>
+              Saved on this device.
+            </p>
+            <p style={{ ...BODY_SM, margin: "2px 0 0" }}>
+              Sign in to keep this digest in your history and {deviceSavedIds.size === 1 ? "this paper" : `these ${deviceSavedIds.size} papers`} in Saved papers.
+            </p>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Mobile: sources below */}
-      <div className="block md:hidden px-4 pb-20" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Label>Referenced sources</Label>
-        {papers.map((paper, idx) => (
-          <PaperCard
-            key={paper.id}
-            paper={paper}
-            index={idx}
-            size="compact"
+        {digest.synthesisContent && (
+          <BriefDigest
+            revealAll
+            synthesis={digest.synthesisContent}
+            theme={displayTheme}
+            keyConcepts={digest.keyConcepts}
+            papers={papers}
+            digestId={digest.id}
             loggedIn={loggedIn}
-            initialBookmarked={bookmarkedIds.has(paper.id) || deviceSavedIds.has(paper.id)}
+            savedIds={new Set([...bookmarkedIds, ...deviceSavedIds])}
             onSignedOutSaveChange={authStatus === "unauthenticated" ? handleDeviceSave : undefined}
           />
-        ))}
-      </div>
+        )}
+      </main>
+
+      {/* A shared digest is where plenty of readers meet the save control for
+          the first time, so the confirmation has to reach here too. */}
+      <FirstSaveConfirmation />
     </div>
   );
 }
