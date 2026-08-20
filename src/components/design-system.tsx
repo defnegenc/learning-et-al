@@ -35,6 +35,21 @@ export const SURFACE = "#ffffff";  // cards, panels
 export const ACID_GREEN = "#38b000"; // confirmation: saved, connected, done
 export const ACID_PINK = "#ff007f";  // anything that failed
 
+/**
+ * The ONE sanctioned fill use of acid green — the live dig-deeper selection in
+ * the reading view, and nothing else.
+ *
+ * The rule above still stands everywhere else: acid is ink. This is the single
+ * amendment, and it is narrow on purpose. It marks the passage the agent is
+ * about to act on, for the seconds between selecting text and the dig firing —
+ * "exactly this" — and it collapses the moment the answer starts arriving. It
+ * must not leak into panels, chips or washes; those stay as they are.
+ *
+ * Alpha, not the flat hex: at full strength ink is unreadable through it, and
+ * the point of a marker stroke is that you can still read the sentence.
+ */
+export const SELECTION_FILL = `color-mix(in oklab, ${ACID_GREEN} 30%, transparent)`;
+
 /** Gold — one. The foundational frame, and nothing else. */
 export const GOLD = "#c9a227";
 

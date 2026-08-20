@@ -804,7 +804,7 @@ nothing to sketch there; motion lives in `design-style.md` §8.
 
 **Tips while it brews.** Under the loader, a `Label` eyebrow "While it brews"
 over one Body-face tip, rotating every 7s with the `briefRise` entrance. They
-teach the seven things a brand-new reader has no way to discover — that saving a
+teach the things a brand-new reader has no way to discover — that saving a
 paper starts its reading companion, that jargon is hoverable, that paper names
 in the synthesis are clickable. The line reserves its height so the copy above
 doesn't jump on rotation, and the loop is passive: when the digest lands nothing
@@ -813,7 +813,12 @@ has to finish first.
 The list is a **maintained surface** (`src/components/first-run-tips.ts`), with
 the keep-current rule in its header comment and in CLAUDE.md's Context
 Maintenance Rules. A tip pointing at a feature that no longer ships is worse
-than no tip.
+than no tip — the rule earned itself on the merge that introduced it: the Save
+NUX landing in parallel renamed the saved-papers surface to **your library** and
+its agent to **your librarian**, and added highlight-to-dig-deeper, so two tips
+were already stale and one feature was missing before this ever shipped. The
+tips also deliberately avoid restating `SaveTipStrip`'s copy, which appears on
+the very digest they are the wait for.
 
 **The Generate button is hidden during the first-run wait.** Generation is
 already running; the button only invited a double-fire. It returns as "Try
@@ -828,3 +833,84 @@ reveal? handle abandonment?) — and the answers can't inform the digest already
 being written. Interests already carry a `level` field; expertise would inform
 the reading companion's tone. If revived it belongs in settings or the reading
 view, as its own feature.
+
+---
+
+## 2026-08-19: Saving has one name, and it says what it starts
+
+Saving is the most agentic thing in this product — it fires the companion
+walkthrough and the citing-work scout — and it did all of that behind an
+unlabelled 16px bookmark with three different names for one action ("Save to
+your reading list" in the tooltip, "Save for later" on foundational cards,
+"Read later" in the vault's empty state) and zero feedback of any kind. That is
+why the feature read as missing in production: it was mute, not absent.
+
+One name: **Save** / **Saved**, landing in **your library**. The word renders
+beside the icon on every digest and shelf card, in Body/SM — it names a thing
+rather than the machinery, so it is not a Label and it is not a button voice.
+
+Two teaching moments, neither anchored to a control. A dismissible **strip**
+above the digest while a reader has nothing saved, which self-retires on the
+first save because saving *is* the dismissal. A **confirmation panel** on the
+first-ever save, which is the higher-leverage half: it explains the feature at
+the moment the reader acted, and it is the only thing that has ever mentioned
+the background prep. An anchored coachmark on the bookmark itself was
+considered and dropped — it teaches the control best and misfires worst, and it
+would have fought the foundational card's own tooltip.
+
+---
+
+## 2026-08-19: The reading view is a page, not an overlay
+
+`ReadingPaperDetail` was a portal overlay the vault handed a paper object to.
+It had no URL, so nothing could link to it: not a digest email, not a share, not
+the first-save confirmation. Refresh lost it and back didn't close it, and it
+sat two clicks deep behind a Vault that opened on the digest archive.
+
+It is now `/library/[paperId]`, a real route, and the vault navigates there.
+There is deliberately **no intercepted route**: the view was always full-bleed,
+so the overlay was never buying a layered presentation over the shelf — it was
+only costing the URL. An intercept would also have to fight the fact that the
+"vault" is a client-side tab inside `/` rather than a route of its own.
+
+The Vault now opens on **Saved papers** for anyone who has any. Once a reader
+has a library, that is what "vault" means to them.
+
+---
+
+## 2026-08-19: Highlight to dig deeper — green marks the selection, not the answer
+
+The reader's problem is not that they can't ask; it's that formulating the
+question is the work. Highlighting a passage removes that entirely, and it gives
+the model the precise sentences plus the beat they came from instead of a vague
+question, so answers get better for free. It is also the richest taste signal in
+the product: the exact sentences somebody found confusing or exciting beat any
+thumbs-up.
+
+**Green lives in the highlight, not the panel.** The live selection is acid
+green (`SELECTION_FILL`, the one sanctioned acid fill — see `design-style.md`)
+for the seconds between selecting and firing. The answer panel is the paper's
+own wash; the only other green is ink on the confirmation. Anything more and the
+acid stops meaning "this is the thing I am acting on".
+
+**Anchored to text and section, not to DOM offsets.** What is stored is the
+quoted passage and which beat it came from (`gist` / `did` / `found` /
+`caveats` / `remember`), so a panel survives a re-render, a refresh, and a
+companion regenerated in between. A selection spanning two beats gets no menu —
+one passage, one section, or nothing.
+
+**Desktop selects; touch taps.** Touch text selection loses to the native
+selection callout, so on narrow screens each beat carries its own "¶ Dig deeper
+on this" affordance and digs on the whole passage.
+
+**One store, one thread model.** Ask-this-paper and dig-deeper are the same
+object once a dig can be followed up, so both live in `qa_pairs` with a
+`thread_id`. A dig thread renders inline under its beat; a typed thread renders
+in the rail. "Ask about this" drops the quoted passage into the composer as
+context and posts *without* a section, so it stays in the rail where it was
+typed. Prior turns of a thread go to the model — every question in this product
+used to be answered blind.
+
+Answers **stream**, because the confirmation promises the reader they can keep
+reading and it will be below. The row is written only when the stream
+completes, so a dropped connection leaves no half-answer in the thread.
