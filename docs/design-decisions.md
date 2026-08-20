@@ -1027,3 +1027,28 @@ The line is parsed out of generated text into UI rather than left for markdown
 or later model passes to swallow. Tapping it opens the same scale pre-filled at
 the stored value, so disclosure and correction are one control rather than a
 new settings screen.
+
+---
+
+## 2026-08-20: On the reading page, a fill means the selection
+
+Hard words in the walkthrough wore the paper's own wash hue. The argument for
+it was good at the time: inside a paper's own page every hard word belongs to
+that paper, so the fill was wayfinding rather than decoration, and it matched
+the card the reader had opened.
+
+Highlight-to-dig-deeper broke that argument. Selecting a passage fills it with
+acid green, and it is the one thing on the page that has to be unmistakable —
+it is the reader's own gesture, mid-gesture. A page already speckled with filled
+words makes their selection just one more coloured patch, which is exactly the
+confusion the fill exists to prevent.
+
+So the terms go back to the **dotted rule**, the same one the synthesis uses,
+and `DefinitionTerm`'s `tint` opt-in is now unused on this surface. Fill on the
+reading page means one thing: what you are highlighting right now. The paper's
+hue is not gone — it still carries the dig panels and the `Remember this` frame,
+where nothing competes with it.
+
+The glossary's disclosure also becomes the chevron the interests accordion uses.
+It was already collapsible and closed by default, but a bare `+` / `–` was
+carrying the whole signal and read as punctuation rather than a control.
