@@ -425,6 +425,10 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
         <p style={{ ...BODY_STYLE, color: DIM, textAlign: "center", maxWidth: 440 }}>
           Check back soon. A fresh research digest is generated every day.
         </p>
+        {/* No digest to explain itself, which is exactly when a stranger needs
+            telling what this is. The trigger otherwise lives in the eyebrow row
+            of a digest that isn't here. */}
+        {!session && <WhatIsThis onSignIn={onSignIn} />}
         {session && generateError && (
           <p style={{ ...BODY_STYLE, color: ACID_PINK, maxWidth: 440, textAlign: "center" }}>{generateError}</p>
         )}

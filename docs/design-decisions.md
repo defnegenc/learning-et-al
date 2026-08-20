@@ -917,6 +917,77 @@ completes, so a dropped connection leaves no half-answer in the thread.
 
 ---
 
+## 2026-08-20: One explanation of the product, reachable from three places
+
+Nothing in the logged-out funnel ever said what Learning et al. is. A stranger
+landed directly on the admin's digest — a good digest, with no indication that
+it was generated from somebody's interests or that they could have their own —
+and the only call to action in the whole experience was a bare **Sign in** in
+the header. The value proposition was entirely implicit, inferred or not at all.
+
+`what-is-this.tsx` is the answer, and it is deliberately **one** surface. Three
+beats: *Pick your interests*, *Get one idea every morning*, *Save what hooks
+you* — the product's three verbs, in the order a reader meets them.
+
+**The first beat is the interest picker's own chips**, not a description of it.
+Three real selected `TopicChip`s, so what the explainer promises is literally
+the component the reader will touch a minute later and the two cannot drift.
+They carry words, so this is not the banned swatch row: the colour is identity,
+the same identity those fields wear everywhere else. Their fills are read from
+`FIELD_HIERARCHY` rather than written into this file — the plan had assigned
+quantum computing to Computer Science and behavioral economics to Business, and
+the hierarchy files them under Physics & Engineering and Social Sciences. A
+surface is not allowed to have an opinion about a field's fixed slot, so the
+code takes the slot and the wrong hexes never existed.
+
+**Click-only, no auto-open.** A modal that opens itself on first paint is the
+opposite of this product's calm, and it would meet a reader before the digest
+has had a chance to be interesting on its own. The trigger sits in the eyebrow
+row, directly above the question, which is where a confused visitor is already
+looking. A once-per-visitor `localStorage` auto-open was considered and dropped
+for that reason; it is a one-line change if the click-through rate says
+otherwise.
+
+**Three placements, not one.** Today's eyebrow row was the plan, and it turned
+out to be the smallest of the three cases. The **shared permalink** carries it
+too — a shared link is most people's first contact with this product, so an
+explainer that only exists on the home page misses the majority of first
+impressions. Today's **no-digest state** carries it as well: with no digest to
+explain itself, a stranger has nothing at all to go on. It stays out of the
+header, which already holds Share and Sign in and would make three competing
+asks on one bar.
+
+**Onboarding reaches the same popup** through a quiet "What happens next?" in
+the footer, rather than a second explanation that would drift. Only the trigger
+words and the closing line change by variant: the public one can point at the
+digest behind the window and offer Sign in, while the onboarding one has a
+signed-in reader about to press a button, so it says the first digest takes a
+minute or two — which hands off directly to the travelling stamp and the tips.
+The subtitle above it now carries the third verb too ("Save any paper to dig
+deeper later"); the premise line had promised a digest and stopped, leaving a
+third of the product unmentioned at the one step that exists to explain it.
+
+**Not reachable when logged in**, beyond onboarding. A reader inside the product
+is being taught by the product — the tip strip, the first-save confirmation, the
+brewing tips all do this in place and at the moment it matters. An explainer in
+settings would be a worse version of all three.
+
+Composition only: the Card frame on the existing `ui/dialog` primitive, four of
+the five type styles, no invented hex, size, border or shadow. Copy avoids em
+dashes, which `design-style.md` §6 bans in static copy on the Today surface and
+which the drafted beats had used.
+
+**On the board.** The menu board has sections for colour, type, geometry and
+cost, and no components or motion section — which is why the travelling stamp
+had nothing to sketch there and lives in `design-style.md` §8 instead. A
+composed *surface* is different: the file already keeps "Interests panel — on
+the new system" and "The foundational lane" as their own boards beside the menu,
+so the explainer is now **"Explainer — what is this?"** on the same pattern — the
+popup at its real 480px, the trigger in its eyebrow row, and the four calls
+above in a notes column. It introduces no tokens, so nothing upstream moved.
+
+---
+
 ## 2026-08-20: Familiarity is a visible presentation control, never a taste signal
 
 The natural moment to ask how much background somebody has is after they ask
