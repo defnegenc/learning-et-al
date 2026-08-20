@@ -81,6 +81,14 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **Mono is structure only** — section eyebrows and nav tabs. If it names a thing
   rather than the machinery, it is not a Label: tags, chips and the venue line
   are body-face sentence case.
+- **No NEW mono/all-caps eyebrow labels.** Defne dislikes the all-caps little-mono
+  look; existing eyebrows stay, but new surfaces use bolded body-face,
+  sentence-case lead-ins ("Tip:", "Pitched for you:") instead.
+- **No em dashes in user-visible text, ever** — UI strings, AI output, emails,
+  OG images. Use a period, comma, colon, or parentheses. Prompts must forbid
+  them and `aiComplete` sanitizes survivors (see docs/plans/reading-view-revamp.md,
+  "Global copy rule"). En dashes in numeric ranges are fine. Code comments and
+  docs are exempt.
 - **One paper card** (`src/components/paper-card.tsx`), two sizes. Today, the
   vault, the rail and the permalink all render it. Don't add a second card.
 - **The spectrum has three indexes and they never mix**: fields take a fixed
