@@ -69,7 +69,7 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `vault/vault-page.tsx` | Shell + library grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running; opens on Saved papers when the reader has any, and navigates to `/library/[paperId]` rather than covering itself |
+| `vault/vault-page.tsx` | Shell + library grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running; opens on Saved papers when the reader has any, and navigates to `/library/[paperId]` rather than covering itself. Digests / Saved papers is a `Segmented` toggle, not the shell's `NavTab` strip |
 | `vault/digest-history.tsx` | Two-pane history | ✅ |
 | `vault/reading-paper-detail.tsx` | The reading view — the body of `/library/[paperId]` | ✅ 1240px two-column, a page rather than a portal overlay. Left: title, the why-you're-reading-this line, five companion beats each selectable for a dig, inline `DigPanel`s, the `Remember this` card frame, `Glossary`, the citing work. Right: `AskThread` in a sticky rail, with a pending state instead of dead air. `Read the full paper` sits opposite Back in a top bar. Takes `index` for the paper's hue |
 | `SelectionMenu` / `DigPanel` / `DigThisBeat` (internal to `reading-paper-detail.tsx`) | Highlight to dig deeper: the floating **Dig deeper** · **Ask about this** pair, the wash panel the streamed answer lands in under its beat, and the per-beat touch affordance | ✅ new — the selection is the one sanctioned acid fill (`SELECTION_FILL`); the panel is the paper's wash |

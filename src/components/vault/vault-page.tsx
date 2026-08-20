@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { PaperItem } from "@/lib/types";
 import { PaperCard } from "@/components/paper-card";
-import { BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, NavTab, PageHeader, PageLoader } from "@/components/design-system";
+import { BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, PageHeader, PageLoader, Segmented } from "@/components/design-system";
 import { useOpenLibrary } from "@/components/save-nux";
 import { DigestHistory } from "./digest-history";
 
@@ -68,10 +68,22 @@ export function VaultPage() {
       <PageHeader
         title="Vault"
         action={
-          <div style={{ display: "flex", alignItems: "center", gap: 20, paddingTop: 12 }}>
-            <NavTab active={view === "history"} onClick={() => setView("history")}>Digests</NavTab>
-            <NavTab active={view === "list"} onClick={() => setView("list")}>Saved papers</NavTab>
-          </div>
+          /* A toggle, not navigation. `NavTab` is the mono tab strip the shell
+             uses for Today / Vault, and wearing it here made these two read as
+             the same kind of move as leaving the vault entirely. They aren't:
+             this picks which half of the vault you're looking at, which is
+             exactly what `Segmented` is for. The menu keeps them apart on
+             purpose, which is also why settings navigation is a rail and not
+             this shape. */
+          <Segmented
+            style={{ width: 320, paddingTop: 8 }}
+            value={view}
+            onChange={setView}
+            options={[
+              { key: "history" as const, label: "Digests" },
+              { key: "list" as const, label: "Saved papers" },
+            ]}
+          />
         }
       />
 
@@ -88,9 +100,12 @@ export function VaultPage() {
         </div>
       ) : (
         <>
+          {/* No count. The grid is the count, and a running total of your own
+              saves is a number that means nothing to the person who made them.
+              (The em dash here was also a standing copy-rule violation.) */}
           <p style={{ ...BODY_STYLE, color: DIM, margin: "-24px 0 24px", maxWidth: 620 }}>
-            {papers.length} saved. Open one for the walkthrough — the gist, what
-            they did, what they found, where it&rsquo;s shaky, and what you can ask it.
+            Open one for the walkthrough: the gist, what they did, what they
+            found, where it&rsquo;s shaky, and what you can ask it.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
             {papers.map((paper, idx) => (
