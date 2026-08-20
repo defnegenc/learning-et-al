@@ -95,13 +95,9 @@ Typography: Apercu Pro for body text (warm, readable), Space Grotesk for display
 
 ## 9. Auth
 
-Google OAuth via Auth.js (next-auth v5) with DrizzleAdapter. BYOK (bring your own API key) model — users provide their own Anthropic/OpenAI/Gemini key.
+Google OAuth via Auth.js (next-auth v5) with DrizzleAdapter. Digest generation currently uses server-side `CRON_AI_*` environment variables, not a user-provided key during onboarding.
 
-Keys stored in localStorage (client-side), never sent to our DB. This means:
-- We never see or store user API keys
-- Users control their own AI costs
-- No server-side key management or billing
-- Switching providers clears the API key field (keys aren't interchangeable)
+The AI provider layer supports OpenAI, Anthropic, Gemini-compatible, and custom OpenAI-compatible endpoints. Production's active provider/model are whatever Vercel has in `CRON_AI_PROVIDER`, `CRON_AI_MODEL`, and `CRON_AI_KEY`; masked Vercel values do not prove which provider is live. If `CRON_AI_PROVIDER` is missing, the current code falls back to `gemini`, but operational docs should not state "production uses Gemini" unless the Vercel env has been verified.
 
 ---
 
@@ -109,7 +105,7 @@ Keys stored in localStorage (client-side), never sent to our DB. This means:
 
 Vercel + Turso (libsql). Local dev uses SQLite file. Production uses remote Turso DB. Embeddings run in-process via `@xenova/transformers` with `all-MiniLM-L6-v2` (no external API needed). This keeps embedding costs at zero and avoids external dependencies for the scoring pipeline.
 
-Environment variables: TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, SERPER_API_KEY, AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ADMIN_USER_ID, NEXTAUTH_URL
+Environment variables: TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, SERPER_API_KEY, AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ADMIN_USER_ID, NEXTAUTH_URL, CRON_AI_PROVIDER, CRON_AI_MODEL, CRON_AI_KEY
 
 ---
 

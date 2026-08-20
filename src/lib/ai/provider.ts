@@ -80,7 +80,10 @@ export async function aiComplete(
         throw new Error(`Authentication failed for ${config.provider}. Check your API key in settings.`);
       }
       if (status === 402) {
-        throw new Error(`Insufficient credits for ${config.provider}. Add funds or switch to Gemini (free tier).`);
+        throw new Error(`Insufficient credits for ${config.provider}. Add funds or switch to another configured provider.`);
+      }
+      if (status === 400) {
+        throw new Error(`Bad request for ${config.provider} model "${model}". Check CRON_AI_PROVIDER and CRON_AI_MODEL in Vercel; model IDs must be exact. Details: ${message}`);
       }
       throw new Error(`${config.provider} API error: ${message}`);
     }

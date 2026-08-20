@@ -22,8 +22,8 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `AUTH_SECRET` — NextAuth.js secret
 - `ADMIN_USER_ID` — User ID whose digest is shown to logged-out visitors
 - `CRON_AI_KEY` — API key used by cron for server-side digest generation
-- `CRON_AI_PROVIDER` — Provider for cron (default: `gemini`)
-- `CRON_AI_MODEL` — Model for cron (default: provider-appropriate)
+- `CRON_AI_PROVIDER` — Provider for cron (`gemini`, `anthropic`, `openai`, or `other`). If unset, the code currently falls back to `gemini`; do not treat that fallback as proof of the live Vercel configuration.
+- `CRON_AI_MODEL` — Model for cron. If unset, the code chooses a provider default; if set in Vercel, the value is masked and must be verified/replaced in Vercel directly.
 - `RESEND_API_KEY` — Resend API key for digest emails
 - `INVITE_CODE` — Optional invite code for gated access
 - `EMBEDDING_MODEL` — Optional override (default: `all-MiniLM-L6-v2`, alt: `bge-small-en-v1.5`)
@@ -43,7 +43,7 @@ src/
 │   └── ui/                 # shadcn/ui primitives
 └── lib/
     ├── pipeline/           # Core digest generation (digest.ts is the main orchestrator)
-    ├── ai/                 # AI provider abstraction (OpenAI/Anthropic/Gemini via OpenAI SDK)
+    ├── ai/                 # AI provider abstraction (supports OpenAI/Anthropic/Gemini-compatible chat completions)
     ├── fetchers/           # Paper sources (OpenAlex, Semantic Scholar, arXiv) + web search
     ├── db/                 # Drizzle schema + queries (schema.ts, queries.ts)
     ├── embeddings.ts       # Local embedding via @xenova/transformers (all-MiniLM-L6-v2)
@@ -105,7 +105,7 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - Email: Resend integration, cadence-aware (daily = every digest, biweekly = best-of Tue+Fri, weekly = best-of Sunday). "Best" = most recent digest of the period (digest starring was removed).
 - Feedback: Users can dislike a paper with optional reason, no control over recommendations. Digest-level feedback via the end-of-digest "Don't like this digest? Regenerate." CTA (reason → hide → force-regenerate).
 - Auth: Google OAuth via Auth.js (next-auth v5) with DrizzleAdapter. Public logged-out experience showing admin's digest with pre-generated Q&A.
-- AI: Signed-in users generate without entering an API key (server-side `CRON_AI_*` used). BYOK still supported in settings for power users.
+- AI: Signed-in users generate without entering an API key (server-side `CRON_AI_*` used). The active production provider/model are Vercel env values; masked `CRON_AI_KEY`/`CRON_AI_MODEL` entries cannot confirm which provider or model is live.
 - Deployment: Vercel, learningetal.com domain
 
 ## Gotchas
@@ -114,7 +114,7 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **`focusLevel` belongs in synthesis, not retrieval.** It's passed via `synthesisCtx` to affect tone and keyword jargon. Do NOT use it to modify search queries — that biases paper type rather than letting the LLM selection decide.
 - **Upstream scoring is a filter, not a ranker.** The LLM in `selectionSkeletonPrompt` makes the real quality call. Embedding threshold + MMR just need to deliver a diverse on-topic pool of 6. Don't add heavy signals (institution prestige, topic-trending context) to the scoring chain — they don't move outcomes.
 - **HttpOnly cookies CANNOT be cleared from JavaScript.** Always use a server-side route.
-- **Default model must match provider.** When returning config from env vars, validate consistency (e.g. don't return a gemini model with anthropic provider).
+- **Provider/model must be explicit and consistent.** `CRON_AI_PROVIDER` may be absent in older Vercel setups, in which case the code falls back to Gemini. When changing AI config, set `CRON_AI_PROVIDER`, `CRON_AI_MODEL`, and `CRON_AI_KEY` together and validate consistency (e.g. don't use a Gemini model with an Anthropic key).
 - **Only call `res.json()` once** per request — second call gets empty body.
 - **When adding a new option** (provider, feature flag, etc.), grep for ALL places it needs to appear — config, UI, types.
 - **`pdf-parse` is broken with Turbopack** — use `unpdf` instead.
