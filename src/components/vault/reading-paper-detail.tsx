@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Bookmark, Loader2, Maximize2, X } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
+import { READING_TIP_KEY, markNuxSeen, nuxSeen } from "@/lib/nux";
 import {
-  ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
-  HAIRLINE, INK, MUTED, SHADOW, SURFACE, TextInput,
+  askThreads, digsForSection, groupThreads,
+  type ReadingThread, type SectionKey, type ThreadTurn,
+} from "@/lib/reading-thread";
+import {
+  ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
+  HAIRLINE, INK, LABEL_STYLE, MUTED, SELECTION_FILL, SHADOW, SURFACE, TextInput,
   foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
@@ -40,6 +44,16 @@ export interface QaPair {
   id: string;
   question: string;
   answer: string;
+  threadId?: string | null;
+  selection?: string | null;
+  sectionKey?: string | null;
+  createdAt?: string | number | Date | null;
+}
+
+/** Where this paper came from — the one line of "why you're reading this". */
+export interface Provenance {
+  theme: string | null;
+  seedInterests: string[];
 }
 
 /**
@@ -48,16 +62,103 @@ export interface QaPair {
  * `/prototype/reading-list` renders the real component against sample data with
  * no database, no session and no model behind it — which is the only way to
  * review this page's typography and rhythm without a signed-in account and a
- * populated reading list. Production never passes it; absent, every fetch runs
+ * populated library. Production never passes it; absent, every fetch runs
  * exactly as before.
  */
 export interface ReadingFixture {
   companion: Companion | null;
   homework: HomeworkItem[];
   qa: QaPair[];
-  /** Stands in for the model when a question is asked. */
-  answer: (question: string) => string;
+  /** Stands in for the model when a question is asked or a passage is dug into. */
+  answer: (question: string, selection?: string | null) => string;
 }
+
+/* ── The wire ────────────────────────────────────────────────────────────── */
+
+interface AskPayload {
+  question?: string;
+  selection?: string | null;
+  sectionKey?: SectionKey | null;
+  threadId?: string | null;
+}
+
+interface StartEvent {
+  id: string;
+  threadId: string;
+  question: string;
+  selection: string | null;
+  sectionKey: string | null;
+}
+
+/**
+ * Consume the route's NDJSON stream.
+ *
+ * The answer arrives as it is written, because dig-deeper tells the reader to
+ * keep reading and that it will be below — a promise that only holds if the
+ * panel is filling in by the time they scroll to it.
+ */
+async function runAsk(
+  paperId: string,
+  payload: AskPayload,
+  on: { start: (e: StartEvent) => void; delta: (id: string, text: string) => void },
+): Promise<void> {
+  const res = await fetch(`/api/papers/${paperId}/qa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, stream: true }),
+  });
+  if (!res.ok || !res.body) throw new Error("Ask failed");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let turnId = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let event: { type: string; [k: string]: unknown };
+      try { event = JSON.parse(line); } catch { continue; }
+      if (event.type === "start") {
+        turnId = event.id as string;
+        on.start(event as unknown as StartEvent);
+      } else if (event.type === "delta") {
+        on.delta(turnId, event.text as string);
+      } else if (event.type === "error") {
+        throw new Error((event.message as string) || "Ask failed");
+      }
+    }
+  }
+}
+
+/** The same contract, played back from a fixture so the prototype behaves. */
+async function runFixtureAsk(
+  fixture: ReadingFixture,
+  payload: AskPayload,
+  on: { start: (e: StartEvent) => void; delta: (id: string, text: string) => void },
+): Promise<void> {
+  const id = `fx-${Math.random().toString(36).slice(2)}`;
+  const threadId = payload.threadId || id;
+  on.start({
+    id,
+    threadId,
+    question: payload.question || "Dig deeper on this passage.",
+    selection: payload.selection ?? null,
+    sectionKey: payload.sectionKey ?? null,
+  });
+  const words = fixture.answer(payload.question || "", payload.selection).split(" ");
+  for (let i = 0; i < words.length; i++) {
+    await new Promise(r => setTimeout(r, 24));
+    on.delta(id, (i === 0 ? "" : " ") + words[i]);
+  }
+}
+
+/* ── Prose ───────────────────────────────────────────────────────────────── */
 
 /**
  * Interleave TermChips into a text block at the first occurrence of each term.
@@ -87,13 +188,219 @@ function annotateText(text: string, jargon: Jargon[], used: Set<string>, tint: s
   return out;
 }
 
+/* ── Highlight to dig deeper ─────────────────────────────────────────────── */
+
+interface Pick {
+  text: string;
+  section: SectionKey;
+  x: number;
+  y: number;
+}
+
+/** A word is not a passage. Below this, the reader is probably just reading. */
+const MIN_SELECTION = 16;
+
+/**
+ * Watch for a selection inside the walkthrough and report where it ended.
+ *
+ * Anchored to the section rather than to DOM offsets: what gets stored is the
+ * quoted text and which beat it came from, so a panel survives a re-render, a
+ * refresh, and a companion that was regenerated in between.
+ */
+function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: boolean) {
+  const [pick, setPick] = useState<Pick | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const read = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setPick(null);
+      const text = sel.toString().trim();
+      if (text.length < MIN_SELECTION) return setPick(null);
+
+      const range = sel.getRangeAt(0);
+      const node = range.commonAncestorContainer;
+      const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as HTMLElement | null;
+      const host = el?.closest("[data-section]") as HTMLElement | null;
+      // A selection spanning two beats resolves above both of them and gets no
+      // menu — one passage, one section, or nothing.
+      if (!host || !scope.current?.contains(host)) return setPick(null);
+
+      const rects = range.getClientRects();
+      const last = rects[rects.length - 1];
+      if (!last) return setPick(null);
+
+      setPick({
+        text,
+        section: host.dataset.section as SectionKey,
+        x: last.right,
+        y: last.bottom,
+      });
+    };
+
+    const clear = () => setPick(null);
+    document.addEventListener("mouseup", read);
+    document.addEventListener("keyup", read);
+    document.addEventListener("scroll", clear, true);
+    return () => {
+      document.removeEventListener("mouseup", read);
+      document.removeEventListener("keyup", read);
+      document.removeEventListener("scroll", clear, true);
+    };
+  }, [scope, enabled]);
+
+  return [pick, setPick] as const;
+}
+
+/**
+ * The floating pair. Hard border, the one shadow, no radius — it is the same
+ * object as every other frame, just small and following the cursor.
+ */
+function SelectionMenu({ pick, onDig, onAsk }: {
+  pick: Pick;
+  onDig: () => void;
+  onAsk: () => void;
+}) {
+  const WIDTH = 232;
+  const left = Math.min(Math.max(12, pick.x - WIDTH / 2), window.innerWidth - WIDTH - 12);
+  const top = Math.min(pick.y + 10, window.innerHeight - 60);
+
+  return (
+    <div
+      // mousedown, not click: clicking anywhere collapses the selection, and by
+      // the time click fires the passage we were about to send is gone.
+      onMouseDown={e => e.preventDefault()}
+      style={{
+        position: "fixed", left, top, zIndex: 10040,
+        display: "flex", border: BORDER, boxShadow: SHADOW, background: SURFACE,
+      }}
+    >
+      <button onMouseDown={onDig} style={menuButton}>Dig deeper</button>
+      <button onMouseDown={onAsk} style={{ ...menuButton, borderLeft: BORDER }}>Ask about this</button>
+    </div>
+  );
+}
+
+const menuButton: React.CSSProperties = {
+  ...BODY_SM,
+  fontWeight: 600,
+  background: "transparent",
+  border: "none",
+  padding: "9px 14px",
+  cursor: "pointer",
+  color: INK,
+  whiteSpace: "nowrap",
+};
+
+/**
+ * A dig, answered — the wash panel that lands directly under the beat the
+ * passage came from.
+ *
+ * The panel is the paper's own wash, never green: green lives in the live
+ * selection and in the confirmation tick, and nowhere else. The quoted passage
+ * wears the same ink underline a paper name wears in the synthesis.
+ */
+function DigPanel({ thread, washStyle, streaming, onFollowUp, error }: {
+  thread: ReadingThread;
+  washStyle: React.CSSProperties;
+  streaming: boolean;
+  error?: string | null;
+  onFollowUp: (question: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  return (
+    <div style={{ ...washStyle, border: BORDER, boxShadow: SHADOW, padding: "18px 20px", marginTop: 22 }}>
+      <div style={{ ...LABEL_STYLE, marginBottom: 10 }}>Deeper</div>
+
+      {thread.selection && (
+        <p
+          style={{
+            ...BODY_STYLE,
+            fontStyle: "italic",
+            margin: "0 0 14px",
+            textDecoration: "underline",
+            textDecorationColor: INK,
+            textUnderlineOffset: 4,
+          }}
+        >
+          {thread.selection}
+        </p>
+      )}
+
+      {thread.turns.map((turn, i) => (
+        <div key={turn.id} style={{ borderTop: i === 0 ? "none" : HAIRLINE, paddingTop: i === 0 ? 0 : 14, marginTop: i === 0 ? 0 : 14 }}>
+          {/* The opener's question is the canned dig intent — the passage above
+              already says what was asked. Follow-ups the reader typed do show. */}
+          {i > 0 && <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>}
+          <p style={{ ...READING_BODY, margin: 0 }}>
+            {turn.answer}
+            {streaming && i === thread.turns.length - 1 && !turn.answer && (
+              <span style={{ color: MUTED, fontStyle: "italic" }}>Digging&hellip;</span>
+            )}
+          </p>
+        </div>
+      ))}
+
+      {error && (
+        <p style={{ ...BODY_SM, color: ACID_PINK, margin: "12px 0 0" }}>{error}</p>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <TextInput
+          value={draft}
+          onChange={setDraft}
+          onKeyDown={e => { if (e.key === "Enter" && draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
+          placeholder="Follow up on this…"
+          ariaLabel="Follow up on this passage"
+        />
+        <ActionButton
+          onClick={() => { if (draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
+          shadow={false}
+          disabled={!draft.trim() || streaming}
+          style={{ flexShrink: 0 }}
+        >
+          Ask
+        </ActionButton>
+      </div>
+    </div>
+  );
+}
+
 /** One beat of the walkthrough: a Display/SM heading over a paragraph. */
-function Beat({ heading, children }: { heading: string; children: React.ReactNode }) {
+function Beat({ heading, sectionKey, children }: {
+  heading: string;
+  sectionKey: SectionKey;
+  children: React.ReactNode;
+}) {
   return (
     <section style={{ borderTop: HAIRLINE, paddingTop: 22, marginTop: 22 }}>
       <h2 style={{ ...DISPLAY_SM, margin: "0 0 10px" }}>{heading}</h2>
-      <p style={{ ...READING_BODY, margin: 0 }}>{children}</p>
+      <p data-section={sectionKey} style={{ ...READING_BODY, margin: 0 }}>{children}</p>
     </section>
+  );
+}
+
+/**
+ * The mobile half of highlight-to-dig.
+ *
+ * Touch selection fights the native selection callout, and losing that fight
+ * means the reader gets the OS copy menu instead of ours. So on narrow screens
+ * the beat carries its own affordance and digs on the whole passage.
+ */
+function DigThisBeat({ onDig }: { onDig: () => void }) {
+  return (
+    <button
+      className="reading-beat-dig"
+      onClick={onDig}
+      style={{
+        ...BODY_SM, fontWeight: 600, background: "transparent", border: "none",
+        padding: "10px 0 0", cursor: "pointer", color: DIM,
+      }}
+    >
+      ¶ Dig deeper on this
+    </button>
   );
 }
 
@@ -188,74 +495,44 @@ function Glossary({ terms }: { terms: Jargon[] }) {
  *
  * The companion hands over three starter questions it thinks a curious reader
  * would actually want answered; they're rows in the same list idiom as the
- * citing work, so the page has one way of offering you a next thing. Answers
- * come from /api/papers/[id]/qa, which reads the full text, and the thread is
- * persisted per user, so a paper you came back to still has what you asked.
+ * citing work, so the page has one way of offering you a next thing.
+ *
+ * Threaded now: a question and its follow-ups go to the model together, so
+ * "and the second one?" resolves against what was just said instead of being
+ * answered blind, which is how every question here used to be answered.
  */
-function AskThread({ paperId, starters, headerWash, fixture }: {
-  paperId: string;
+function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, onFollowUp, streaming, failed }: {
+  threads: ReadingThread[];
   starters: string[];
   headerWash: React.CSSProperties;
-  fixture?: ReadingFixture;
+  /** "Ask about this" dropped a passage in here — shown above the composer. */
+  quote: string | null;
+  onClearQuote: () => void;
+  onAsk: (question: string, quote: string | null) => void;
+  onFollowUp: (threadId: string, question: string) => void;
+  streaming: boolean;
+  failed: string | null;
 }) {
-  const [pairs, setPairs] = useState<QaPair[]>([]);
   const [draft, setDraft] = useState("");
-  const [asking, setAsking] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
-  const asked = useRef(new Set<string>());
+  const inputRef = useRef<HTMLDivElement>(null);
 
+  // "Ask about this" is a request to type — put the cursor where the typing goes.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (fixture) {
-        setPairs(fixture.qa);
-        fixture.qa.forEach(p => asked.current.add(p.question));
-        return;
-      }
-      try {
-        const res = await fetch(`/api/papers/${paperId}/qa`);
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data.qaPairs)) {
-          setPairs(data.qaPairs);
-          data.qaPairs.forEach((p: QaPair) => asked.current.add(p.question));
-        }
-      } catch { /* an empty thread is the right fallback */ }
-    })();
-    return () => { cancelled = true; };
-  }, [paperId, fixture]);
+    if (!quote) return;
+    inputRef.current?.querySelector("input")?.focus();
+  }, [quote]);
 
-  async function ask(question: string) {
-    const q = question.trim();
-    if (!q || asking) return;
-    setAsking(q);
-    setFailed(false);
-    try {
-      if (fixture) {
-        // A beat, so the pending state is reviewable rather than a flash.
-        await new Promise(r => setTimeout(r, 900));
-        setPairs(prev => [...prev, { id: `fx-${prev.length}`, question: q, answer: fixture.answer(q) }]);
-        asked.current.add(q);
-        setDraft("");
-        return;
-      }
-      const res = await fetch(`/api/papers/${paperId}/qa`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
-      });
-      const data = await res.json();
-      if (data.qaPair) {
-        setPairs(prev => [...prev, data.qaPair]);
-        asked.current.add(q);
-        setDraft("");
-      } else setFailed(true);
-    } catch { setFailed(true); }
-    finally { setAsking(null); }
-  }
+  const asked = new Set(threads.flatMap(t => t.turns.map(turn => turn.question)));
+  const remaining = starters.filter(q => !asked.has(q));
+  const empty = threads.length === 0 && !streaming;
 
-  const remaining = starters.filter(q => !asked.current.has(q));
-  const empty = pairs.length === 0 && !asking;
+  const submit = () => {
+    const q = draft.trim();
+    if (!q || streaming) return;
+    onAsk(q, quote);
+    setDraft("");
+  };
 
   return (
     <div
@@ -270,6 +547,7 @@ function AskThread({ paperId, starters, headerWash, fixture }: {
         } : {}),
       }}
       className="reading-ask"
+      id="ask-this-paper"
     >
       <div style={{ ...headerWash, padding: "16px 18px 14px", borderBottom: BORDER, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
@@ -291,25 +569,29 @@ function AskThread({ paperId, starters, headerWash, fixture }: {
       </div>
 
       <div style={{ overflowY: "auto", padding: "0 18px", flex: 1, minHeight: 0 }}>
-        {pairs.map((pair, i) => (
-          <div key={pair.id} style={{ padding: "16px 0", borderTop: i === 0 ? "none" : HAIRLINE }}>
-            <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{pair.question}</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
-              <p style={{ ...BODY_STYLE, margin: 0 }}>{pair.answer}</p>
-            </div>
+        {threads.map((thread, ti) => (
+          <div key={thread.id} style={{ padding: "16px 0", borderTop: ti === 0 ? "none" : HAIRLINE }}>
+            {thread.selection && (
+              <p style={{ ...BODY_SM, color: DIM, fontStyle: "italic", margin: "0 0 8px" }}>
+                &ldquo;{thread.selection}&rdquo;
+              </p>
+            )}
+            {thread.turns.map((turn, i) => (
+              <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 14 }}>
+                <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
+                  <p style={{ ...BODY_STYLE, margin: 0 }}>
+                    {turn.answer || (
+                      <span style={{ color: MUTED }}>Looking it up&hellip;</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+            <FollowUpRow disabled={streaming} onSubmit={q => onFollowUp(thread.id, q)} />
           </div>
         ))}
-
-        {asking && (
-          <div style={{ padding: "16px 0", borderTop: pairs.length ? HAIRLINE : "none" }}>
-            <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{asking}</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
-              <span style={{ ...BODY_STYLE, color: MUTED }}>Looking it up&hellip;</span>
-            </div>
-          </div>
-        )}
 
         {remaining.length > 0 && (
           <div style={{ paddingBottom: 4 }}>
@@ -321,8 +603,8 @@ function AskThread({ paperId, starters, headerWash, fixture }: {
             {remaining.map((q, i) => (
               <button
                 key={q}
-                onClick={() => ask(q)}
-                disabled={!!asking}
+                onClick={() => onAsk(q, null)}
+                disabled={streaming}
                 style={{
                   ...BODY_STYLE,
                   display: "flex",
@@ -333,8 +615,8 @@ function AskThread({ paperId, starters, headerWash, fixture }: {
                   borderTop: empty && i === 0 ? "none" : HAIRLINE,
                   background: "transparent",
                   padding: "14px 0",
-                  cursor: asking ? "default" : "pointer",
-                  opacity: asking ? 0.4 : 1,
+                  cursor: streaming ? "default" : "pointer",
+                  opacity: streaming ? 0.4 : 1,
                 }}
               >
                 <span aria-hidden style={{ color: MUTED, flexShrink: 0 }}>→</span>
@@ -345,45 +627,101 @@ function AskThread({ paperId, starters, headerWash, fixture }: {
         )}
       </div>
 
-      <div style={{ padding: "14px 18px", borderTop: BORDER, flexShrink: 0 }}>
+      <div style={{ padding: "14px 18px", borderTop: BORDER, flexShrink: 0 }} ref={inputRef}>
+        {quote && (
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+            <p style={{ ...BODY_SM, color: DIM, fontStyle: "italic", margin: 0, flex: 1 }}>
+              &ldquo;{quote}&rdquo;
+            </p>
+            <button
+              onClick={onClearQuote}
+              aria-label="Drop the quoted passage"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 16, lineHeight: 1, color: MUTED }}
+            >×</button>
+          </div>
+        )}
         <TextInput
           value={draft}
           onChange={setDraft}
-          onKeyDown={e => { if (e.key === "Enter") ask(draft); }}
-          placeholder="Ask your own question…"
+          onKeyDown={e => { if (e.key === "Enter") submit(); }}
+          placeholder={quote ? "What do you want to know about it?" : "Ask your own question…"}
           ariaLabel="Ask a question about this paper"
         />
         <ActionButton
-          onClick={() => ask(draft)}
+          onClick={submit}
           variant="primary"
           shadow={false}
-          disabled={!draft.trim() || !!asking}
+          disabled={!draft.trim() || streaming}
           style={{ width: "100%", marginTop: 8 }}
         >
           Ask
         </ActionButton>
         {failed && (
-          <p style={{ ...BODY_SM, color: MUTED, margin: "10px 0 0" }}>
-            That one didn&rsquo;t come back. Try again.
-          </p>
+          <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>
         )}
       </div>
     </div>
   );
 }
 
+/** The quiet "keep going" line under a thread in the rail. */
+function FollowUpRow({ disabled, onSubmit }: { disabled: boolean; onSubmit: (q: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: "12px 0 0", cursor: "pointer", color: DIM }}
+      >
+        + Follow up
+      </button>
+    );
+  }
+
+  const submit = () => {
+    const q = draft.trim();
+    if (!q) return;
+    onSubmit(q);
+    setDraft("");
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <TextInput
+        value={draft}
+        onChange={setDraft}
+        onKeyDown={e => { if (e.key === "Enter") submit(); }}
+        placeholder="Follow up…"
+        ariaLabel="Follow up"
+        autoFocus
+      />
+      <ActionButton onClick={submit} shadow={false} disabled={!draft.trim() || disabled} style={{ width: "100%", marginTop: 8 }}>
+        Ask
+      </ActionButton>
+    </div>
+  );
+}
+
+/* ── The page ────────────────────────────────────────────────────────────── */
+
 /**
- * Full-screen reading view: the companion walkthrough, then the thread, then
- * what's happened since.
+ * The reading view: the companion walkthrough, the digs it produced, then the
+ * thread, then what's happened since.
  *
  * The point of this page is that you get the paper without reading the paper.
- * The companion has always been generated in five parts at bookmark time — the
- * gist, the method, the results, the caveats and the one line to remember — and
- * this view used to render only the first. All five are here now, as one
- * continuous read with hard words defined in place, and the questions the
- * companion suggests are live rather than decorative.
+ * The companion is generated in five parts at save time — the gist, the method,
+ * the results, the caveats and the one line to remember — and all five are here
+ * as one continuous read with hard words defined in place.
+ *
+ * It is a page now, not a portal overlay. It was always full-bleed, so the
+ * overlay bought nothing except a view with no URL: nothing could link to it,
+ * refresh lost it and back didn't close it. `/library/[paperId]` is the
+ * canonical address; the vault navigates there rather than covering itself.
  */
-export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
+export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixture }: {
   paper: PaperItem;
   /**
    * The paper's position on the shelf — its wash index, so this page wears the
@@ -392,7 +730,8 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
    * belongs to this paper, so colouring them says which paper you are inside.
    */
   index?: number;
-  onClose: () => void;
+  provenance?: Provenance | null;
+  onBack?: () => void;
   /** Prototype only — see `ReadingFixture`. */
   fixture?: ReadingFixture;
 }) {
@@ -402,49 +741,55 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
   // wash hues. Never GOLD — that is a line colour, and behind a word it is too
   // dark to read the word through.
   const hue = foundational ? foundationalSlots()[0] : washSlots(index)[0];
+  const washStyle = foundational ? foundationalWash() : wash(index);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [companionPending, setCompanionPending] = useState(true);
+  const [companionFailed, setCompanionFailed] = useState(false);
   const [homework, setHomework] = useState<HomeworkItem[] | null>(null);
-  const [mounted, setMounted] = useState(false);
 
-  // Full-screen means the page behind must not scroll with it (the source of the
-  // jittery double-scroll on mobile).
-  useEffect(() => {
-    setMounted(true);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+  const [threads, setThreads] = useState<ReadingThread[]>([]);
+  const [streamingTurn, setStreamingTurn] = useState<string | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
+  const [quote, setQuote] = useState<string | null>(null);
+  const [tipSeen, setTipSeen] = useState(true);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const proseRef = useRef<HTMLDivElement>(null);
+  const [pick, setPick] = useSelectionPick(proseRef, !companionPending);
 
-  // Companion + homework: use the cache if the bookmark already generated
-  // them, otherwise trigger generation now and wait.
+  useEffect(() => { setTipSeen(nuxSeen(READING_TIP_KEY)); }, []);
+
+  const loadCompanion = useCallback(async () => {
+    setCompanionPending(true);
+    setCompanionFailed(false);
+    try {
+      const res = await fetch(`/api/papers/${paper.id}/companion`);
+      let data = await res.json();
+      if (!data.companion) {
+        const gen = await fetch(`/api/papers/${paper.id}/companion`, { method: "POST" });
+        data = await gen.json();
+      }
+      setCompanion(data.companion ?? null);
+      // A null companion after an explicit generate is a failure, not an empty
+      // state — the sections used to just silently not exist.
+      setCompanionFailed(!data.companion);
+    } catch {
+      setCompanionFailed(true);
+    } finally {
+      setCompanionPending(false);
+    }
+  }, [paper.id]);
+
   useEffect(() => {
     if (fixture) {
       setCompanion(fixture.companion);
       setCompanionPending(false);
       setHomework(fixture.homework);
+      setThreads(groupThreads(fixture.qa.map(normalizeTurn)));
       return;
     }
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/papers/${paper.id}/companion`);
-        let data = await res.json();
-        if (!data.companion) {
-          const gen = await fetch(`/api/papers/${paper.id}/companion`, { method: "POST" });
-          data = await gen.json();
-        }
-        if (!cancelled) setCompanion(data.companion ?? null);
-      } catch { /* companion stays null */ }
-      finally { if (!cancelled) setCompanionPending(false); }
-    })();
+    loadCompanion();
     (async () => {
       try {
         const res = await fetch(`/api/papers/${paper.id}/homework`);
@@ -456,8 +801,64 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
         if (!cancelled) setHomework(data.homework ?? []);
       } catch { if (!cancelled) setHomework([]); }
     })();
+    (async () => {
+      try {
+        const res = await fetch(`/api/papers/${paper.id}/qa`);
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data.qaPairs)) {
+          setThreads(groupThreads(data.qaPairs.map(normalizeTurn)));
+        }
+      } catch { /* an empty thread is the right fallback */ }
+    })();
     return () => { cancelled = true; };
-  }, [paper.id, fixture]);
+  }, [paper.id, fixture, loadCompanion]);
+
+  /* ── Asking ── */
+
+  const ask = useCallback(async (payload: AskPayload) => {
+    if (streamingTurn) return;
+    setAskError(null);
+    const handlers = {
+      start: (e: StartEvent) => {
+        setStreamingTurn(e.id);
+        const turn: ThreadTurn = {
+          id: e.id, question: e.question, answer: "",
+          threadId: e.threadId, selection: e.selection, sectionKey: e.sectionKey,
+        };
+        setThreads(prev => prev.some(t => t.id === e.threadId)
+          ? prev.map(t => t.id === e.threadId ? { ...t, turns: [...t.turns, turn] } : t)
+          : [...prev, {
+              id: e.threadId,
+              selection: e.selection,
+              sectionKey: (e.sectionKey as SectionKey | null) ?? null,
+              turns: [turn],
+            }]);
+      },
+      delta: (id: string, text: string) => {
+        setThreads(prev => prev.map(t => ({
+          ...t,
+          turns: t.turns.map(turn => turn.id === id ? { ...turn, answer: turn.answer + text } : turn),
+        })));
+      },
+    };
+    try {
+      if (fixture) await runFixtureAsk(fixture, payload, handlers);
+      else await runAsk(paper.id, payload, handlers);
+    } catch (e) {
+      setAskError(e instanceof Error ? e.message : "That one didn't come back. Try again.");
+    } finally {
+      setStreamingTurn(null);
+    }
+  }, [paper.id, fixture, streamingTurn]);
+
+  const dig = useCallback((text: string, section: SectionKey) => {
+    window.getSelection()?.removeAllRanges();
+    setPick(null);
+    if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
+    ask({ selection: text, sectionKey: section });
+  }, [ask, setPick, tipSeen]);
+
+  /* ── Prose ── */
 
   // One shared "already defined" set for the whole walkthrough, rebuilt on each
   // render so the chips land in the same places every time.
@@ -465,72 +866,132 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
   const defined = new Set<string>();
   const mark = (text: string) => annotateText(text, glossary, defined, hue);
 
-  const detail = (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 10000, background: SURFACE,
-        overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain",
-      }}
-    >
-      <div
-        style={{ maxWidth: 1240, margin: "0 auto", paddingTop: "max(24px, env(safe-area-inset-top))" }}
-        className="px-5 md:px-8 pb-24"
-      >
-        {/* The top bar: out of the page on the left, into the paper on the
-            right. The source link used to sit below the walkthrough, where it
-            read as the end of the page rather than the way out of it. */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, marginBottom: 28 }}>
+  const sectionText: Record<SectionKey, string> = {
+    gist: companion?.gist ?? "",
+    did: companion?.did ?? "",
+    found: companion?.found ?? "",
+    caveats: companion?.caveats ?? "",
+    remember: companion?.remember ?? "",
+  };
+
+  const digs = (key: SectionKey) => digsForSection(threads, key).map(thread => (
+    <DigPanel
+      key={thread.id}
+      thread={thread}
+      washStyle={washStyle}
+      streaming={thread.turns.some(t => t.id === streamingTurn)}
+      error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
+      onFollowUp={q => ask({ question: q, threadId: thread.id })}
+    />
+  ));
+
+  const beatDig = (key: SectionKey) => (
+    sectionText[key] ? <DigThisBeat onDig={() => dig(sectionText[key], key)} /> : null
+  );
+
+  return (
+    <div style={{ maxWidth: 1240, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
+      {/* The top bar: out of the page on the left, into the paper on the right. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, marginBottom: 28 }}>
+        {onBack ? (
           <button
-            onClick={onClose}
+            onClick={onBack}
             style={{ ...BODY_STYLE, display: "inline-flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", color: DIM, padding: 0 }}
           >
             <ArrowLeft size={15} /> Back
           </button>
-          {paper.sourceUrl && (
-            <a
-              href={paper.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ds-lift"
-              style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "10px 18px", textDecoration: "none", flexShrink: 0 }}
-            >
-              Read the full paper ↗
-            </a>
+        ) : <span />}
+        {paper.sourceUrl && (
+          <a
+            href={paper.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ds-lift"
+            style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "10px 18px", textDecoration: "none", flexShrink: 0 }}
+          >
+            Read the full paper ↗
+          </a>
+        )}
+      </div>
+
+      <div className="reading-shell">
+        <div style={{ minWidth: 0 }} ref={proseRef}>
+          <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{paper.title}</h1>
+          {byline && (
+            <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "0 0 8px" }}>{byline}</p>
           )}
-        </div>
 
-        <div className="reading-shell">
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{paper.title}</h1>
-            {byline && (
-              <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "0 0 32px" }}>{byline}</p>
-            )}
+          {/* Why you're reading this — the digest question that surfaced it and
+              the interests that seeded that question. */}
+          <WhyLine provenance={provenance} paper={paper} />
 
-            {/* ── The gist ── */}
-            {companionPending ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
-                <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
-                <span style={{ ...BODY_STYLE, color: MUTED }}>Reading the paper…</span>
-              </div>
-            ) : companion?.gist ? (
-              <p style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist)}</p>
-            ) : paper.abstract ? (
-              <p style={{ ...READING_BODY, margin: 0 }}>{paper.abstract}</p>
-            ) : (
-              <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: 0 }}>No summary available.</p>
-            )}
+          {/* Taught once. Retires on the first successful dig. */}
+          {!tipSeen && !companionPending && companion && (
+            <div style={{ display: "flex", gap: 10, alignItems: "baseline", margin: "0 0 26px" }}>
+              <span style={LABEL_STYLE}>Tip</span>
+              <span style={{ ...BODY_SM, color: DIM }}>
+                Highlight any passage to have the agent dig deeper on it.
+              </span>
+            </div>
+          )}
 
-            {/* ── The walkthrough — the beats after the gist ── */}
-            {companion?.did && <Beat heading="What they did">{mark(companion.did)}</Beat>}
-            {companion?.found && <Beat heading="What they found">{mark(companion.found)}</Beat>}
-            {companion?.caveats && <Beat heading="Where it's shaky">{mark(companion.caveats)}</Beat>}
+          {/* ── The gist ── */}
+          {companionPending ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+              <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+              <span style={{ ...BODY_STYLE, color: MUTED }}>Reading the paper…</span>
+            </div>
+          ) : companion?.gist ? (
+            <>
+              <p data-section="gist" style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist)}</p>
+              {beatDig("gist")}
+              {digs("gist")}
+            </>
+          ) : companionFailed ? (
+            <div style={{ border: BORDER, padding: "14px 16px" }}>
+              <p style={{ ...BODY_STYLE, margin: 0 }}>
+                The walkthrough didn&rsquo;t come back this time.
+              </p>
+              <ActionButton onClick={loadCompanion} shadow={false} style={{ marginTop: 12 }}>
+                Try again
+              </ActionButton>
+            </div>
+          ) : paper.abstract ? (
+            <p style={{ ...READING_BODY, margin: 0 }}>{paper.abstract}</p>
+          ) : (
+            <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: 0 }}>No summary available.</p>
+          )}
 
-            {/* The one line worth keeping, in the card's own frame and wash — so
-                the page closes on the object it opened from. */}
-            {companion?.remember && (
+          {/* ── The walkthrough — the beats after the gist ── */}
+          {companion?.did && (
+            <>
+              <Beat heading="What they did" sectionKey="did">{mark(companion.did)}</Beat>
+              {beatDig("did")}
+              {digs("did")}
+            </>
+          )}
+          {companion?.found && (
+            <>
+              <Beat heading="What they found" sectionKey="found">{mark(companion.found)}</Beat>
+              {beatDig("found")}
+              {digs("found")}
+            </>
+          )}
+          {companion?.caveats && (
+            <>
+              <Beat heading="Where it's shaky" sectionKey="caveats">{mark(companion.caveats)}</Beat>
+              {beatDig("caveats")}
+              {digs("caveats")}
+            </>
+          )}
+
+          {/* The one line worth keeping, in the card's own frame and wash — so
+              the page closes on the object it opened from. */}
+          {companion?.remember && (
+            <>
               <div
                 style={{
-                  ...(foundational ? foundationalWash() : wash(index)),
+                  ...washStyle,
                   border: `2px solid ${foundational ? GOLD : INK}`,
                   boxShadow: `5px 5px 0 0 ${foundational ? GOLD : INK}`,
                   padding: "22px 24px",
@@ -538,64 +999,139 @@ export function ReadingPaperDetail({ paper, index = 0, onClose, fixture }: {
                 }}
               >
                 <h2 style={{ ...DISPLAY_SM, color: DIM, margin: "0 0 12px" }}>Remember this</h2>
-                <p style={{ ...READING_BODY, fontWeight: 600, margin: 0 }}>{companion.remember}</p>
+                <p data-section="remember" style={{ ...READING_BODY, fontWeight: 600, margin: 0 }}>
+                  {companion.remember}
+                </p>
               </div>
-            )}
+              {digs("remember")}
+            </>
+          )}
 
-            {/* ── The glossary ── */}
-            {glossary.length > 0 && <Glossary terms={glossary} />}
+          {/* ── The glossary ── */}
+          {glossary.length > 0 && <Glossary terms={glossary} />}
 
-            {/* ── What's happened since ── */}
-            <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
-            <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>
-              Newer work that cites this paper.
-            </p>
-            {homework === null ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
-                <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
-                <span style={{ ...BODY_STYLE, color: MUTED }}>Looking for follow-up work…</span>
-              </div>
-            ) : homework.length === 0 ? (
-              <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
-            ) : (
-              <div>
-                {homework.map(item => (
-                  <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ── Ask this paper, in the rail ── */}
-          <aside className="reading-aside">
-            {!companionPending && (
-              <AskThread
-                paperId={paper.id}
-                starters={companion?.questions ?? []}
-                headerWash={foundational ? foundationalWash() : wash(index)}
-                fixture={fixture}
-              />
-            )}
-          </aside>
+          {/* ── What's happened since ── */}
+          <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
+          <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>
+            Newer work that cites this paper.
+          </p>
+          {homework === null ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
+              <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+              <span style={{ ...BODY_STYLE, color: MUTED }}>Looking for follow-up work…</span>
+            </div>
+          ) : homework.length === 0 ? (
+            <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
+          ) : (
+            <div>
+              {homework.map(item => (
+                <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
+              ))}
+            </div>
+          )}
         </div>
 
-        <style>{`
-          .reading-shell { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 56px; align-items: start; }
-          /* The rail holds position while the walkthrough scrolls past it, and
-             the thread scrolls inside its own frame so the composer never
-             leaves the viewport. */
-          .reading-aside { position: sticky; top: 8px; }
-          .reading-ask { max-height: calc(100vh - 100px); }
-          @media (max-width: 1060px) {
-            .reading-shell { grid-template-columns: 1fr; gap: 0; }
-            .reading-aside { position: static; margin-top: 56px; }
-            .reading-ask { max-height: none; }
-          }
-        `}</style>
+        {/* ── Ask this paper, in the rail ── */}
+        <aside className="reading-aside">
+          {companionPending ? (
+            // The rail used to render nothing at all until the companion landed,
+            // which is a minute or two of dead air in the widest column on the
+            // page. Say what is happening instead.
+            <div style={{ border: BORDER, boxShadow: SHADOW, background: SURFACE }}>
+              <div style={{ ...washStyle, padding: "16px 18px 14px", borderBottom: BORDER }}>
+                <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
+              </div>
+              <p style={{ ...BODY_STYLE, color: MUTED, margin: 0, padding: "16px 18px" }}>
+                Your librarian is still reading — ask anything once it&rsquo;s done.
+              </p>
+            </div>
+          ) : (
+            <AskThread
+              threads={askThreads(threads)}
+              starters={companion?.questions ?? []}
+              headerWash={washStyle}
+              quote={quote}
+              onClearQuote={() => setQuote(null)}
+              onAsk={(q, quoted) => { setQuote(null); ask({ question: q, selection: quoted }); }}
+              onFollowUp={(threadId, q) => ask({ question: q, threadId })}
+              streaming={!!streamingTurn}
+              failed={askError}
+            />
+          )}
+        </aside>
       </div>
+
+      {pick && (
+        <SelectionMenu
+          pick={pick}
+          onDig={() => dig(pick.text, pick.section)}
+          onAsk={() => {
+            setQuote(pick.text);
+            setPick(null);
+            window.getSelection()?.removeAllRanges();
+            document.getElementById("ask-this-paper")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }}
+        />
+      )}
+
+      <style>{`
+        .reading-shell { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 56px; align-items: start; }
+        /* The rail holds position while the walkthrough scrolls past it, and
+           the thread scrolls inside its own frame so the composer never
+           leaves the viewport. */
+        .reading-aside { position: sticky; top: 8px; }
+        .reading-ask { max-height: calc(100vh - 100px); }
+        /* The one sanctioned fill use of acid green — see SELECTION_FILL. It is
+           scoped to the walkthrough, because that is the only text a dig can
+           act on. */
+        .reading-shell [data-section]::selection { background: ${SELECTION_FILL}; }
+        /* Desktop selects; touch taps the beat's own affordance, because touch
+           selection loses to the native callout. */
+        .reading-beat-dig { display: none; }
+        @media (max-width: 1060px) {
+          .reading-shell { grid-template-columns: 1fr; gap: 0; }
+          .reading-aside { position: static; margin-top: 56px; }
+          .reading-ask { max-height: none; }
+        }
+        @media (max-width: 720px) {
+          .reading-beat-dig { display: block; }
+        }
+      `}</style>
     </div>
   );
+}
 
-  if (!mounted) return null;
-  return createPortal(detail, document.body);
+/** Server rows and fixtures arrive slightly differently shaped. */
+function normalizeTurn(pair: QaPair): ThreadTurn {
+  return {
+    id: pair.id,
+    question: pair.question,
+    answer: pair.answer,
+    threadId: pair.threadId ?? null,
+    selection: pair.selection ?? null,
+    sectionKey: pair.sectionKey ?? null,
+    createdAt: pair.createdAt ?? null,
+  };
+}
+
+/**
+ * One line of why this paper is in front of you: the question that surfaced it
+ * and the interests that seeded that question.
+ *
+ * It costs nothing — the digest already stores its theme and its seed
+ * interests — and it is the seed of the librarian's voice: a shelf of titles
+ * with no memory of why they were pulled is just a folder.
+ */
+function WhyLine({ provenance, paper }: { provenance?: Provenance | null; paper: PaperItem }) {
+  const theme = provenance?.theme ?? paper.digestTheme ?? null;
+  const seeds = provenance?.seedInterests ?? [];
+  if (!theme && seeds.length === 0) return <div style={{ height: 24 }} />;
+
+  return (
+    <p style={{ ...BODY_SM, color: MUTED, margin: "0 0 26px" }}>
+      {theme && <>Pulled in for &ldquo;{theme}&rdquo;</>}
+      {theme && seeds.length > 0 && " — "}
+      {seeds.length > 0 && <>because you follow {seeds.join(", ")}.</>}
+    </p>
+  );
 }

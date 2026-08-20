@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { digestJobs, digests, interests, papers, users } from "@/lib/db/schema";
 import { sendDigestEmail, type DigestEmailData } from "@/lib/email";
-import { AIConfig } from "@/lib/ai/provider";
+import { AIConfig, aiConfigFor } from "@/lib/ai/provider";
 import { generateDigest } from "@/lib/pipeline/digest";
 import { postDigestToX } from "@/lib/twitter";
 
@@ -20,14 +20,9 @@ export function digestJobId(date: string, userId: string): string {
   return `${date}:${userId}`;
 }
 
+/** @deprecated Kept as the pipeline's name for `aiConfigFor("digest")`. */
 export function getCronAiConfig(): AIConfig {
-  const provider = (process.env.CRON_AI_PROVIDER || "gemini") as AIConfig["provider"];
-  return {
-    apiKey: process.env.CRON_AI_KEY || "",
-    provider,
-    model: process.env.CRON_AI_MODEL || "gemini-2.5-flash",
-    baseUrl: process.env.CRON_AI_BASE_URL || "",
-  };
+  return aiConfigFor("digest");
 }
 
 async function hasInterests(userId: string): Promise<boolean> {

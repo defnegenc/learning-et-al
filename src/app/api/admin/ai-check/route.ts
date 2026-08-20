@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/get-user";
-import { aiComplete } from "@/lib/ai/provider";
-import { getCronAiConfig } from "@/lib/pipeline/digest-jobs";
+import { aiComplete, aiConfigFor } from "@/lib/ai/provider";
 
 const ADMIN_ID = process.env.ADMIN_USER_ID || "";
 
@@ -11,7 +10,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const aiConfig = getCronAiConfig();
+  // The digest task, not the healthcheck one: the point of this route is to
+  // prove the credentials the pipeline will actually use.
+  const aiConfig = aiConfigFor("digest");
   const model = aiConfig.model || "(provider default)";
 
   if (!aiConfig.apiKey) {
