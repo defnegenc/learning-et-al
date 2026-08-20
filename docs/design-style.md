@@ -55,26 +55,27 @@ Retired: `#7700ff` purple (link hover became an ink underline), `#ffcc00`,
 `#ff5500`. The chart ramp was the five acids; it now reads spectrum slots
 00/02/04/06/08, which is hue-ordered and a better ramp.
 
-**One amendment, 2026-08-19: `SELECTION_FILL`.** Acid green gains exactly one
-sanctioned fill use — the live dig-deeper selection in the reading view
-(`::selection` anywhere inside `.reading-shell`, at `rgb(56 176 0 / 30%)`). It
-marks the passage the agent is about to act on for the seconds between selecting
-text and the dig firing, and it collapses the moment the dig fires. Alpha, not
-the flat hex, because a marker stroke you can't read the sentence through isn't
-a marker.
+**The one amendment (`SELECTION_FILL`, 2026-08-19) is withdrawn, 2026-08-20.**
+Acid green briefly had one sanctioned fill use, the live selection in the
+reading view at `rgb(56 176 0 / 30%)`. The rule is absolute again: acid is ink,
+never a fill. Green is this product's word for "that worked", and it was saying
+it about a passage nothing had yet happened to; it was also the same green on
+every paper, in the one view whose whole colour scheme is the hue that paper
+owns.
 
-Two corrections, 2026-08-20, same colour both times. It is written as
-`rgb(… / 30%)` and **not** `color-mix()`: `::selection` accepts a narrower set of
-values than an ordinary background, engines drop the whole declaration when it
-carries a `color-mix()`, and a dropped declaration means the UA default — which
-is why the marker kept coming back system blue. And it is scoped to the reading
-column rather than to `[data-section]`, because a drag that ends past a beat's
-last line selects the gap too, and that overhang was rendering blue beside the
-green.
+What replaces it uses only colours already in the system, and it is a handoff
+between two highlights rather than one highlight:
 
-It must not leak. The dig-deeper answer panel is the **paper's wash**, not green;
-the only other green in the interaction is ink — the confirmation tick and the
-word "Saved". Panels, chips and washes are unchanged.
+- **While the mouse is down**, the drag wears the ordinary ink `::selection`
+  from `globals.css`, exactly like every other selectable surface. No override
+  in the reading column at all.
+- **On release**, the range is collapsed on purpose and the page redraws the
+  same words as a `<mark>` in **the paper's own wash hue** (`washSlots(index)[0]`,
+  or `foundationalSlots()[0]`). Black while you are choosing, colour once it is
+  chosen, and the colour is the paper's.
+
+A passage already asked about wears the same hue, which is correct: both mean
+"this passage is one you pulled on". The answer panel is unchanged.
 
 ### Spectrum — ten slots, ordered by hue
 
@@ -223,7 +224,7 @@ the wash index can no longer drift between two files.
 
 | Component | What it is |
 |---|---|
-| `PageLoader` | The stamp — the ONE page-level loader. Shadow walks spectrum 0/3/6/9. `travelling` is its one variant (see §8) |
+| `PageLoader` | The stamp — the ONE loader in the product. Shadow walks spectrum 0/3/6/9. `travelling` is its one variant (see §8); `inline` is the same stamp centred in a box instead of the viewport, for a wait inside a page. No lucide spinners |
 | `SiteHeader` | The 52px bar: wordmark left, caller's controls right |
 | `Wordmark` | Display/SM at 0.12em tracking. A lockup, not a style |
 | `PageHeader` / `PageTitle` | Display/LG title + one Body line. No eyebrow above, no rule under |
@@ -252,7 +253,7 @@ are separate, honour `prefers-reduced-motion`.
 | Today (`today/`) | Digest column 760px. Question at Display/LG, ink-fill (see §8) — no colour. `PaperCard` size `digest`. No em dashes in static copy on this surface, and `METADATA_RULES` bans them in generated copy. Logged out, the eyebrow row's actions cluster carries the `WhatIsThis` `i` beside Share |
 | Classic (`?classic=1`) | `synthesis-banner.tsx`. Paper names are ink underlines, not coloured highlights; `[N]` citations take the cited card's wash slot |
 | Vault | Digest history (rail + pane) and the reading list — `PaperCard` size `compact` |
-| Reading detail | 680px column. Title, byline, gist, then what's happened since; the glossary sits in the rail above Ask. Hard words are the dotted rule, never a fill. Fill means a passage you chose: `SELECTION_FILL` while selecting, the paper's hue once dug into, marked in place in the paragraph. A dig is an aside behind one 2px ink rule, collapsible, never a box |
+| Reading detail | 680px column. Title, byline, gist, then what's happened since; the glossary sits in the rail above Ask. Hard words are the dotted rule, never a fill. Fill means a passage you chose: ink `::selection` while the mouse is down, the paper's own hue the moment it is released, marked in place in the paragraph. One verb, "Ask", and an empty field asks "What does this mean?". An answer is an aside behind one 2px ink rule, collapsible, never a box |
 | Settings / Onboarding | Full-screen sheet below `md`, nav rail above it. `InterestLedger` for both. Onboarding's footer reaches the same `WhatIsThis` popup as the logged-out surfaces, in its `onboarding` variant |
 | `/prototype/interests` | Live, unauthenticated, rendering the shipping `InterestLedger` at full width and in a 375px phone frame, so it can't drift from what ships. A harness, not a candidate picker — it stays |
 | Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards. Header carries the `WhatIsThis` `i` plus Share plus Sign in/Open app; bookmarks save to the account or wait on-device until sign-in. A shared link is most readers' first contact with the product, which is why the explainer is in that cluster |

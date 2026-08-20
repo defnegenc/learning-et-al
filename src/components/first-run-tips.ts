@@ -22,7 +22,7 @@ export const FIRST_RUN_TIPS = [
   "Every paper in your library can take questions. “Ask this paper” compares its claims with current web sources.",
   "Dotted-underlined words in a digest are jargon — hover for a plain definition.",
   "Paper names in the synthesis are clickable — they open that paper's card.",
-  "Highlight any sentence while reading a paper to dig deeper into it or ask about it.",
+  "Highlight any sentence while reading a paper to ask about it.",
   "Don't like a digest? The regenerate button at the end takes a reason and tries again.",
   "Digests can land in your inbox — daily, twice a week, or weekly, set in settings.",
   "A gold-framed card is a foundational paper — an older classic the day's question stands on.",
