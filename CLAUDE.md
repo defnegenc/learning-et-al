@@ -27,6 +27,7 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `RESEND_API_KEY` — Resend API key for digest emails
 - `INVITE_CODE` — Optional invite code for gated access
 - `EMBEDDING_MODEL` — Optional override (default: `all-MiniLM-L6-v2`, alt: `bge-small-en-v1.5`)
+- `AI_MODEL_DIGEST` / `AI_MODEL_COMPANION` / `AI_MODEL_DIG` / `AI_MODEL_CHAT` / `AI_MODEL_METADATA` / `AI_MODEL_HEALTHCHECK` — Optional per-task model overrides. Each falls back to `CRON_AI_MODEL`, then the provider default. Set one to move a single kind of work onto a cheaper or better model without a deploy. See `aiConfigFor()` in `src/lib/ai/provider.ts`.
 
 ## Architecture
 ```
@@ -34,10 +35,11 @@ src/
 ├── app/                    # Next.js App Router
 │   ├── page.tsx            # Main entry — renders today's digest or onboarding
 │   ├── api/                # API routes (digest, feedback, qa, vault, setup, etc.)
+│   ├── library/[paperId]/  # The reading view — canonical URL for a saved paper
 │   └── auth/               # NextAuth catch-all — DO NOT add routes here
 ├── components/
 │   ├── today/              # Digest view: synthesis, paper cards, dig deeper
-│   ├── vault/              # Vault archive grid + sidebar
+│   ├── vault/              # Vault archive grid + the reading view body
 │   ├── onboarding.tsx      # API key + interest setup
 │   ├── settings-dialog.tsx # Full-screen settings (API, interests, content mix)
 │   └── ui/                 # shadcn/ui primitives
@@ -128,7 +130,10 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
   can only substitute other properties on the same element. On `<body>` the chain
   resolves to invalid and every mono label silently falls back.
 - **`drizzle-kit push` fails on SQLite schema changes involving primary keys** — SQLite can't ALTER TABLE to drop/recreate PKs. For simple column additions, run `sqlite3 paper-processor.db "ALTER TABLE X ADD COLUMN Y TEXT;"` manually, then push schema to Turso prod separately.
-- **Digest-level Q&A was removed (July 2026)** — questions live on reading-list papers instead (reading companion + "Ask this paper" via `/api/papers/[id]/companion` and `/api/papers/[id]/qa`). `suggestedQuestions` are still stored for legacy rows; `suggestedAnswers` are no longer generated.
+- **Digest-level Q&A was removed (July 2026)** — questions live on saved papers instead (reading companion + "Ask this paper" via `/api/papers/[id]/companion` and `/api/papers/[id]/qa`). `suggestedQuestions` are still stored for legacy rows; `suggestedAnswers` are no longer generated.
+- **`qa_pairs` is one store for two interactions** — typed Ask questions AND highlight-to-dig-deeper. `thread_id` groups turns (null on pre-threading rows, which read as threads of one), `selection` is the quoted passage, `section_key` is which walkthrough beat it came from. A row with a `section_key` renders inline under that beat; everything else renders in the Ask rail. `/api/papers/[id]/qa` streams NDJSON when the body has `stream: true` and writes the row only when the stream completes.
+- **The reading view is `/library/[paperId]`, a real route** — not a portal overlay, and deliberately not an intercepted route (it was always full-bleed, and "vault" is a client-side tab inside `/`, not a route). The vault navigates there. `ReadingPaperDetail` renders inline as that page's body; `src/app/prototype/reading-list` does the same with a `ReadingFixture`.
+- **The save control has exactly one name** — "Save" / "Saved", landing in "your library". If you add a fourth string for it, you have re-created the bug that made the feature read as missing in production.
 - **Reading prep is bookmark-triggered** — starring a paper fires background POSTs to `/api/papers/[id]/companion` (full-text walkthrough, cached on `papers.companion`) and `/api/papers/[id]/homework` (OpenAlex citing works, cached on `papers.homework`). The vault detail view falls back to generating on open if the cache is empty.
 - **To manually trigger a digest locally**: POST `/api/digest/generate` with `{"force":true}` and a valid session cookie, or use the Generate button in the admin UI.
 

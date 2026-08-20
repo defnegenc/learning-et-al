@@ -53,6 +53,18 @@ Retired: `#7700ff` purple (link hover became an ink underline), `#ffcc00`,
 `#ff5500`. The chart ramp was the five acids; it now reads spectrum slots
 00/02/04/06/08, which is hue-ordered and a better ramp.
 
+**One amendment, 2026-08-19: `SELECTION_FILL`.** Acid green gains exactly one
+sanctioned fill use — the live dig-deeper selection in the reading view
+(`::selection` inside `[data-section]`, at
+`color-mix(in oklab, #38b000 30%, transparent)`). It marks the passage the agent
+is about to act on for the seconds between selecting text and the dig firing,
+and it collapses the moment the answer starts arriving. Alpha, not the flat hex,
+because a marker stroke you can't read the sentence through isn't a marker.
+
+It must not leak. The dig-deeper answer panel is the **paper's wash**, not green;
+the only other green in the interaction is ink — the confirmation tick and the
+word "Saved". Panels, chips and washes are unchanged.
+
 ### Spectrum — ten slots, ordered by hue
 
 `--color-spectrum-00` … `-09`: `#fecaca` `#fed7aa` `#fde68a` `#d9f99d` `#bbf7d0`

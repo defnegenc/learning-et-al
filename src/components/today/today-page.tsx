@@ -10,6 +10,7 @@ import { DigestHeader } from "./digest-header";
 import { PaperCard } from "@/components/paper-card";
 import { ShareDigestButton } from "./share-digest-button";
 import { FIRST_RUN_TIPS, FIRST_RUN_TIP_MS } from "@/components/first-run-tips";
+import { SaveTipStrip } from "@/components/save-nux";
 
 
 /*
@@ -209,6 +210,9 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  // The save tip is gated on server truth, so it must not flash while the count
+  // is still in flight — an empty Set is indistinguishable from "not loaded".
+  const [bookmarksLoaded, setBookmarksLoaded] = useState(false);
   const handleGenerateRef = useRef<((force?: boolean) => void) | null>(null);
   /* First-run: generation is already in flight from onboarding's `onComplete`, so
      the manual Generate button is hidden until polling gives up — otherwise the
@@ -320,7 +324,8 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
     fetch("/api/papers/bookmarks")
       .then(r => r.json())
       .then(data => setBookmarkedIds(new Set(data.ids ?? [])))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setBookmarksLoaded(true));
   }, [session?.userId]);
 
   useEffect(() => {
@@ -455,6 +460,10 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
 
         {/* ── Left: title + synthesis + dig deeper ── */}
         <main>
+          {/* What saving does, before anyone has done it. Retires on the first
+              save, and on dismissal. */}
+          <SaveTipStrip show={!!session?.userId && bookmarksLoaded && bookmarkedIds.size === 0} />
+
           {/* DigestTitleBlock — 28px below matches the tag→gist gap inside DigestHeader */}
           <div style={{ marginBottom: "28px" }}>
             <div style={{ marginBottom: "24px" }}>
