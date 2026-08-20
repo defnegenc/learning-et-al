@@ -110,6 +110,12 @@ export default function DigestPermalink() {
       <SiteHeader
         right={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* A shared link is most people's first contact with this product,
+                so the explainer belongs in this cluster, beside Share and the
+                Sign in it is trying to earn. */}
+            {authStatus === "unauthenticated" && (
+              <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
+            )}
             <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
             {loggedIn ? (
               <>
@@ -144,15 +150,7 @@ export default function DigestPermalink() {
         style={{ position: "relative", zIndex: 10, maxWidth: 760, margin: "0 auto" }}
       >
         <div style={{ marginBottom: 28 }}>
-          {/* A shared link is most people's first contact with this product, so
-              the explainer belongs here at least as much as it does on Today.
-              Same component, same eyebrow-row placement. */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-            <Label>{displayDate}</Label>
-            {authStatus === "unauthenticated" && (
-              <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
-            )}
-          </div>
+          <Label style={{ marginBottom: 16 }}>{displayDate}</Label>
 
           {displayTheme && (
             <h1
