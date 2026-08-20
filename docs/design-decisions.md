@@ -985,3 +985,35 @@ the new system" and "The foundational lane" as their own boards beside the menu,
 so the explainer is now **"Explainer — what is this?"** on the same pattern — the
 popup at its real 480px, the trigger in its eyebrow row, and the four calls
 above in a notes column. It introduces no tokens, so nothing upstream moved.
+
+---
+
+## 2026-08-20: Familiarity is a visible presentation control, never a taste signal
+
+The natural moment to ask how much background somebody has is after they ask
+the librarian to dig: the answer is already arriving, and the question has a
+clear benefit. The interleave is therefore one compact 1–5 row inside that dig
+panel, always with **Skip**. Its budget is server-side and reserved before the
+row paints: one topic once, and at most one topic per reader-local day across
+devices. A skipped topic counts as asked. This is product restraint, not a
+device NUX flag.
+
+The rating changes presentation only. It can change prose depth, jargon density,
+analogies, and how far an answer skips into the method. It cannot change paper
+retrieval, selection, ranking, or interest weights. A low rating means “explain
+this field to me,” not “show me less of this field.” The system never infers a
+replacement rating from behavior; correction is explicit.
+
+The glossary is generated once as a tiered superset and filtered when rendered:
+levels 1–2 see basic, working, and deep terms; level 3 sees working and deep;
+levels 4–5 see deep terms. Optional analogies appear only at levels 1–2. Missing
+tiers on older companions mean “show it,” so the migration cannot hide existing
+definitions. This render-time choice is what lets one correction re-tune every
+already-cached paper without regeneration.
+
+Every actual use is disclosed. `PITCHED FOR YOU` is a mono structural eyebrow;
+the sentence below it is body face and names the topic, rating, and consequence.
+The line is parsed out of generated text into UI rather than left for markdown
+or later model passes to swallow. Tapping it opens the same scale pre-filled at
+the stored value, so disclosure and correction are one control rather than a
+new settings screen.

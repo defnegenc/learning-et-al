@@ -164,6 +164,42 @@ export const qaPairs = sqliteTable("qa_pairs", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+/**
+ * A reader's self-reported familiarity with one OpenAlex topic. This is a
+ * presentation-time signal only: companion/answer depth and glossary density
+ * may read it, while digest selection and scoring must not.
+ */
+export const familiarity = sqliteTable("familiarity", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  topicId: text("topic_id").notNull(),
+  topicName: text("topic_name").notNull(),
+  level: integer("level").notNull(), // application-enforced Likert value, 1–5
+  source: text("source", { enum: ["interleave", "correction"] }).notNull().default("interleave"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => [
+  uniqueIndex("familiarity_user_topic_unique").on(table.userId, table.topicId),
+]);
+
+/**
+ * The interleaver's server-side annoyance budget. A unique user/day reserves
+ * the one daily ask before it is painted, and a unique user/topic means a
+ * skipped topic is never quietly asked again.
+ */
+export const familiarityPrompts = sqliteTable("familiarity_prompts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  topicId: text("topic_id").notNull(),
+  topicName: text("topic_name").notNull(),
+  day: text("day").notNull(),
+  status: text("status", { enum: ["offered", "answered", "skipped"] }).notNull().default("offered"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => [
+  uniqueIndex("familiarity_prompts_user_topic_unique").on(table.userId, table.topicId),
+  uniqueIndex("familiarity_prompts_user_day_unique").on(table.userId, table.day),
+]);
+
 export const feedback = sqliteTable("feedback", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   paperId: text("paper_id").notNull().references(() => papers.id),
