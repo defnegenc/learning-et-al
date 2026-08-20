@@ -14,6 +14,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const digest = await db.query.digests.findFirst({
       where: eq(digests.id, id),
+      columns: {
+        id: true,
+        date: true,
+        theme: true,
+        synthesisContent: true,
+        keyConcepts: true,
+        seedInterests: true,
+        gist: true,
+      },
     });
 
     if (!digest) {

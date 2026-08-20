@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { papers, feedback, interests } from "@/lib/db/schema";
+import { db, ensureSchema } from "@/lib/db";
+import { papers, feedback, interests, digests, savedDigests } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
@@ -9,6 +9,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await ensureSchema();
   const userId = await getAuthUser(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -20,6 +21,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  await ensureSchema();
   const userId = await getAuthUser(req);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -41,24 +43,49 @@ export async function POST(
       return NextResponse.json({ error: "Paper not found" }, { status: 404 });
     }
 
-    // Record feedback
-    const [fb] = await db.insert(feedback).values({
+    // Bookmarking is idempotent. Apart from preventing duplicate reading-list
+    // rows, this matters when a signed-out save is replayed after sign-in.
+    const existingFeedback = type === "star"
+      ? await db.query.feedback.findFirst({
+          where: and(eq(feedback.paperId, id), eq(feedback.userId, userId), eq(feedback.type, type)),
+        })
+      : undefined;
+    const [insertedFeedback] = existingFeedback ? [] : await db.insert(feedback).values({
       paperId: id,
       userId,
       type,
       reason: reason || null,
     }).returning();
+    const fb = existingFeedback ?? insertedFeedback;
+
+    // Saving a paper from somebody else's public digest also adds the canonical
+    // digest to this reader's history. We link rather than clone, so its public
+    // permalink, paper ids, and future metadata remain one coherent object.
+    if (type === "star") {
+      const digest = await db.query.digests.findFirst({
+        where: eq(digests.id, paper.digestId),
+        columns: { userId: true },
+      });
+      if (digest && digest.userId !== userId) {
+        const existingSave = await db.query.savedDigests.findFirst({
+          where: and(eq(savedDigests.userId, userId), eq(savedDigests.digestId, paper.digestId)),
+        });
+        if (!existingSave) {
+          await db.insert(savedDigests)
+            .values({ userId, digestId: paper.digestId })
+            .onConflictDoNothing();
+        }
+      }
+    }
 
     // Update interest weights based on paper keywords
     const paperKeywords: string[] = paper.keywords ? JSON.parse(paper.keywords) : [];
     // Small weight changes — engagement should nudge, not dominate
     const weightDelta = type === "star" ? 0.1 : -0.05;
-    const source = type === "star" ? "star" : "dislike";
-
     // Only boost EXISTING interests — don't create new ones from paper keywords.
     // Creating new interests from engagement caused random topics (like "emoji communication")
     // to pollute the user's feed when they were never intentionally selected.
-    for (const keyword of paperKeywords) {
+    for (const keyword of existingFeedback ? [] : paperKeywords) {
       const existing = await db.query.interests.findFirst({
         where: and(eq(interests.userId, userId), eq(interests.keyword, keyword)),
       });
@@ -74,7 +101,7 @@ export async function POST(
 
     // Store contextual features with feedback for richer learning (audit 3.6)
     const isCrossDomain = paper.category === "recent" && paper.source !== "rss";
-    trackEvent(userId, "paper_feedback", {
+    if (!existingFeedback) trackEvent(userId, "paper_feedback", {
       paperId: id,
       digestId: paper.digestId,
       metadata: {

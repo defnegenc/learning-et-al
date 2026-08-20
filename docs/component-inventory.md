@@ -50,6 +50,7 @@ one overrides Paper.
 | `today/brief-digest.tsx` | The prose, the paper chips, the term chips | ✅ card extracted to `paper-card.tsx`; highlights are ink underlines |
 | `today/digest-header.tsx` | The gist and the addable topic tags | ✅ its local `TopicChip` renamed `AddableTopic` and now uses `Tag` |
 | `today/regenerate-cta.tsx` | End-of-digest "don't like this?" | ✅ |
+| `today/share-digest-button.tsx` | Native share sheet with clipboard fallback for the canonical digest URL | ✅ |
 | `today/palettes.ts` | Thin re-export of the design system's stride | ✅ four tables deleted |
 | `today/synthesis-text.ts` | Pure parsing helpers, no styling | ✅ |
 
@@ -69,7 +70,8 @@ one overrides Paper.
 | Component | Serves | Status |
 |-----------|--------|--------|
 | `app-shell.tsx` | Signed-in chrome | ✅ |
-| `providers.tsx` | SessionProvider with server-primed session | ✅ no styling |
+| `providers.tsx` | SessionProvider with server-primed session; flushes device-backed shared saves after sign-in | ✅ no styling |
+| `pending-shared-saves.tsx` | Invisible post-sign-in bridge from local shared saves to account bookmarks/history | ✅ no styling |
 | `noise-overlay.tsx` | Paper grain | ✅ no colour of its own |
 | `settings-dialog.tsx` | Full-screen settings | ✅ Label eyebrow + Display/LG title, "All changes saved" in acid green, "Save interests" |
 | `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton` |
@@ -82,7 +84,7 @@ one overrides Paper.
 | Route | Status |
 |---|---|
 | `app/page.tsx` | ✅ |
-| `app/digest/[id]` | ✅ `SiteHeader` + `PaperCard` compact; its own `PaperSourceTab` and two colour tables deleted |
+| `app/digest/[id]` | ✅ `SiteHeader` + `PaperCard` compact; Share + Sign in/Open app actions; account or device-backed bookmarks; digest-specific social metadata |
 | `app/auth/error` | ✅ was raw monospace on a white page; now on the menu |
 | `app/prototype/interests` | ✅ the only prototype left — a live harness for the shipping `InterestLedger`, so it can't drift. The two candidate pickers were deleted once their decisions landed |
 | `app/opengraph-image.tsx` (+ `twitter-image`) | ✅ Satori limits documented in design-style.md §7 |

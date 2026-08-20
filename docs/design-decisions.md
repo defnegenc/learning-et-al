@@ -740,3 +740,29 @@ paywalled one silently gets the abstract, and the two look identical in the
 reading view. The rail's subtitle was changed from "read out of the full text, not
 the abstract" to "from the paper itself, not from the digest" because the original
 claim could be false.
+
+---
+
+## 2026-08-17: Shared digests stay canonical; signed-out saves wait on the device
+
+The permanent unit of sharing is the existing `/digest/[id]` row. Share never
+creates a snapshot or a second paper collection: it opens the native share sheet
+(with a copy fallback) around that canonical URL. The permalink gets its title
+and description from the digest, but keeps the product's one generic share-card
+image.
+
+Saving a paper from somebody else's digest adds a `saved_digests` relationship
+to the reader's Vault history. It does not copy the digest or change its owner.
+That makes the paper's digest attribution, the public link, and any cached
+reading companion all refer to the same ids. Removing the paper later does not
+remove the digest from history; those are two different promises once the
+digest has been imported.
+
+A signed-out reader has no server identity to attach a history row to. Their
+bookmark therefore lands in local storage together with the parent digest id,
+and the page says exactly that it is saved on this device. A provider-level
+bridge replays pending saves after any later sign-in. The ordinary bookmark
+endpoint is idempotent and creates the history relationship, so a refresh or an
+OAuth retry cannot duplicate either effect. This is deliberately not an
+anonymous-account system: cross-device persistence begins when the reader signs
+in.
