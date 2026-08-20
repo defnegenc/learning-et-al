@@ -762,3 +762,69 @@ endpoint is idempotent and creates the history relationship, so a refresh or an
 OAuth retry cannot duplicate either effect. This is deliberately not an
 anonymous-account system: cross-device persistence begins when the reader signs
 in.
+
+---
+
+## 2026-08-19: The first wait is a show, not a sentence
+
+A new user's first digest takes ~90 seconds and the landing they got for it was
+"Today's digest is brewing / Check back soon. A fresh research digest is
+generated every day." — generic, addressed to nobody, and sitting above a
+**"Generate today's digest" button that double-fired the run already in flight**
+from onboarding's `onComplete`. The one moment where somebody has just told us
+what they're curious about and is actively waiting on us was the emptiest screen
+in the product.
+
+`justOnboarded` (set in `page.tsx`, cleared by `TodayPage` when a digest lands,
+persisted in the local session so a refresh mid-wait doesn't drop back to the
+generic copy) splits that state in two. The first-run branch says *"Your first
+digest is brewing"* and that we're reading papers across **their** topics right
+now. The non-first-run branch is untouched — a returning reader whose cron run
+hasn't landed genuinely should just check back.
+
+**The travelling stamp.** `PageLoader` gains its one variant. The shipped stamp
+turns 90° in place while its shadow steps four spectrum slots; the travelling
+one walks a 269px track, one 26px hop per step, its shadow stepping the **full
+spectrum in hue order 00 → 09**. Rotating 90° per hop lands on 900° at the wrap,
+which for a square is the same face as 0°, so the turn reads continuous across
+the carriage return back to the left. The loop is meant to be visible as a loop.
+
+It stays honest: ten hops are ten hops, not ten percent each — the pipeline's
+percent-done is genuinely unknown, and "no fake progress" is binding. One
+indicator for one wait; it doesn't morph when the digest arrives, the whole
+state is replaced. `steps(1, end)`, 2s, inside the menu's 1.5–2s loop range.
+`prefers-reduced-motion` falls back to the static stamp on slot 00.
+
+This introduces **no new tokens** — 2px ink border, the one 5px offset, ten
+existing spectrum slots, white surface. It is the sanctioned colour-beside-ink
+move (colour falls behind a white ink-bordered object) and not a swatch: the
+slots appear one at a time, as one object's shadow, never as a row. The Paper
+board carries the values but has no motion or components section, so there was
+nothing to sketch there; motion lives in `design-style.md` §8.
+
+**Tips while it brews.** Under the loader, a `Label` eyebrow "While it brews"
+over one Body-face tip, rotating every 7s with the `briefRise` entrance. They
+teach the seven things a brand-new reader has no way to discover — that saving a
+paper starts its reading companion, that jargon is hoverable, that paper names
+in the synthesis are clickable. The line reserves its height so the copy above
+doesn't jump on rotation, and the loop is passive: when the digest lands nothing
+has to finish first.
+
+The list is a **maintained surface** (`src/components/first-run-tips.ts`), with
+the keep-current rule in its header comment and in CLAUDE.md's Context
+Maintenance Rules. A tip pointing at a feature that no longer ships is worse
+than no tip.
+
+**The Generate button is hidden during the first-run wait.** Generation is
+already running; the button only invited a double-fire. It returns as "Try
+again" when the existing 4-minute poll deadline passes (`pollTimedOut`) or the
+manual generate errors — the recovery path, not the default.
+
+**Considered and dropped: per-interest expertise prompts during the wait.**
+Asking "how well do you know Computer Science?" per picked field, with answer
+chips in that field's spectrum slot, is charming but makes the wait a blocking
+mini-survey racing generation (digest ready before they finish → hold the
+reveal? handle abandonment?) — and the answers can't inform the digest already
+being written. Interests already carry a `level` field; expertise would inform
+the reading companion's tone. If revived it belongs in settings or the reading
+view, as its own feature.
