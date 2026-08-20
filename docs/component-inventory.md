@@ -75,7 +75,7 @@ one overrides Paper.
 | `SelectionMenu` / `DigPanel` / `DigThisBeat` (internal to `reading-paper-detail.tsx`) | Highlight to dig deeper: the floating **Dig deeper** · **Ask about this** pair, the wash panel the streamed answer lands in under its beat, and the per-beat touch affordance | ✅ new — the selection is the one sanctioned acid fill (`SELECTION_FILL`); the panel is the paper's wash |
 | `FamiliarityScale` / `PitchedForYouLine` (internal to `reading-paper-detail.tsx`) | The skippable 1–5 interleave inside a dig and the tappable structured disclosure/correction control on personalized companion and Q&A output | ✅ composes existing Body/SM, Label, border and ink tokens; no new visual primitive |
 | `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — a 372px framed rail: companion starters as rows, scrolling threads with follow-ups, composer pinned to the foot. Persisted per user, threaded, streamed | ✅ the only typed Q&A surface; digest-level Q&A is gone |
-| `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words | ✅ |
+| `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words. Closed by default, opened by the same chevron the interests accordion uses | ✅ |
 | ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 
 ## Shell, settings, onboarding
