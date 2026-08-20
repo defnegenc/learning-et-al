@@ -1045,9 +1045,9 @@ confusion the fill exists to prevent.
 
 So the terms go back to the **dotted rule**, the same one the synthesis uses,
 and `DefinitionTerm`'s `tint` opt-in is now unused on this surface. Fill on the
-reading page means one thing: what you are highlighting right now. The paper's
-hue is not gone — it still carries the dig panels and the `Remember this` frame,
-where nothing competes with it.
+reading page means a passage you chose: acid green while you are choosing it,
+the paper's own hue once you have dug into it (see the next entry). Nothing
+else on the page is filled.
 
 The glossary's disclosure also becomes the chevron the interests accordion uses.
 It was already collapsible and closed by default, but a bare `+` / `–` was
@@ -1075,3 +1075,50 @@ The web fetcher keeps news as its default because the digest pipeline depends on
 that vertical. Reading Q&A opts into Serper's general-search endpoint explicitly,
 with the existing broad DuckDuckGo fallback. The rail says what it does in one
 Body/SM line and adds no new component or visual token.
+
+---
+
+## 2026-08-20: A dig is an aside, not a document
+
+Digging into a passage produced a washed, bordered, shadowed panel that
+reprinted the passage at the top and then answered it. Three things were wrong
+with that at once. It was a second frame in the middle of a page that already
+has real frames, so a detour looked heavier than the read it interrupted. It
+said the same thing twice: the sentence you highlighted was still sitting in the
+paragraph above, with a copy of it below. And it never went away, so three digs
+under one beat buried the beat.
+
+**The passage stays marked where it is.** `annotateBeat` finds each dug
+selection in the beat's own text and wraps it in the paper's first wash hue, so
+the paragraph itself shows which of its sentences you have already pulled on.
+That is what the panel's quote block was for, and the original does it better,
+because it keeps the sentence in its sentence. Matching is first-exact-occurrence
+and non-overlapping; a selection that no longer appears (a regenerated
+companion) simply doesn't mark, and the thread is still anchored to its section
+either way.
+
+**The panel is an indent behind one 2px ink rule.** No wash, no border box, no
+shadow — the aside shape, which the menu already has. It is **collapsible and
+open on arrival**: you want the answer the moment it lands and you want the beat
+back once you have read it. Collapsed, the header carries the passage it came
+from, so two digs under one beat stay distinguishable — the only place the quote
+is repeated, and only when the answer isn't visible to identify itself.
+
+**The menu leads with a question box.** "Ask about this" used to throw the
+passage across the page into the rail's composer, which made asking about a
+sentence a journey; a question about a sentence belongs at the sentence. Typing
+in the menu posts inline under the same beat a dig lands in, so passage,
+question and answer stay in one place. The watcher had to learn to ignore events
+originating inside the menu: focusing an input necessarily collapses the DOM
+selection, and without that the menu closed the instant it was clicked into.
+The passage is already in state by then, so nothing is lost.
+
+**The glossary moves to the rail.** In series with the walkthrough it read as a
+sixth beat and put a closed drawer between "Remember this" and what has happened
+since. A glossary is a thing you look across at, not a thing you read through;
+in a 372px rail its rows stack term-over-definition rather than running a 150px
+term column beside a 200px gutter.
+
+This is the first half of a larger move — the rail is meant to go entirely, or
+to become half the screen while a passage is selected. The inline question box
+is what makes that possible: it is now the only thing you need the rail for.
