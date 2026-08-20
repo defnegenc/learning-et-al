@@ -231,6 +231,47 @@ terms, use analogies" / "4/5 — skip the basics, go to method details"). Later,
 the digest `focusLevel` can derive from the familiarity map instead of one
 global setting — synthesis-side only, per the focusLevel gotcha.
 
+### The visible-use contract (hard requirement, not a nice-to-have)
+
+Whenever a stored familiarity level shapes an output, the agent **must say so,
+in one line, every time that subtopic comes up again**. Not silently adapt —
+disclose:
+
+> *Pitched for you: you rated yourself 2/5 on social computing, so I'm defining
+> terms as I go.*
+> *Pitched for you: you're 4/5 on social computing — skipping the basics,
+> straight to the method.*
+
+Spec:
+
+- **Placement**: one line at the top of any companion, dig-deeper panel, or Ask
+  answer whose prompt consumed a familiarity level. Mono eyebrow `PITCHED FOR
+  YOU` + body-face sentence naming the subtopic, the level, and the consequence.
+- **Enforcement**: this is a prompt contract like the `[Source N]` rule — the
+  generating prompt requires the line in a fixed format, and the route strips it
+  out of the body and renders it as structured UI (so revision/critique steps
+  can't eat it). If the level wasn't used, the line must not appear.
+- **The line is also the correction affordance.** Tapping it opens the same
+  Likert row pre-filled at the stored value: *"Not right anymore? Adjust."*
+  Updating re-stamps `familiarity.createdAt` and takes effect on the next
+  generation. This is the entire "settings UI" for familiarity — no separate
+  page needed.
+
+**What if the user doesn't like the adapted output?** Resolved: that's fine,
+and the design must keep two things separate —
+
+- **Familiarity ≠ interest.** A 2/5 on social computing must never lower how
+  often social computing is *selected*. Familiarity is consumed **only at
+  presentation time** (companion tone, jargon density, dig-deeper depth), never
+  by the pipeline's selection/scoring chain. Disliking how a topic was explained
+  doesn't mean the user stopped loving the topic.
+- **Familiarity is self-reported and correctable, not inferred and sticky.**
+  If the user dislikes the pitch, the remedy is one tap on the disclosure line
+  to change the level — not a hidden model update. The agent never silently
+  revises a user's self-rating based on behavior; at most it may *re-ask* after
+  ~6 months or heavy engagement ("you've read 6 papers on this since — still
+  2/5?"), through the Interleaver's normal budget.
+
 ---
 
 ## 4 · The librarian agent
@@ -305,16 +346,24 @@ loyalty; env-overridable per task (`AI_MODEL_QA=…`) so we can A/B harnesses:
   workstream — this plan only needs the routing seam to exist so that swap is
   one env var, not a code change.
 
-### 4d · Honest assessment of the familiarity idea
+### 4d · The familiarity caution, stated plainly
 
-Good idea, right moment, one caution. Asking *during* the dig-deeper wait is
-clever — the user is already paused and the question visibly buys them
-something. The caution: interleaved questions burn trust fast if they feel like
-a survey. Hence the Interleaver owning a hard budget (≤1/day, never repeat,
-always skippable) and the answer *visibly changing the product* (the very next
-companion should read differently, and ideally say so: *"kept this
-non-technical — you said you're new to social computing"*). A signal the user
-can see being used is a signal they'll keep giving.
+Good idea, right moment, **one caution that is a build requirement, not a
+footnote**: interleaved questions burn trust fast if they feel like a survey —
+i.e. if the user answers and nothing visibly changes. So the deal the product
+makes is explicit: *you tell me your level once, and every time this subtopic
+comes back I'll show you that I remembered and tell you what I did about it.*
+That's the visible-use contract in §3 — the disclosure line is mandatory
+whenever the level is consumed, and it doubles as the correction control.
+The Interleaver enforces the other half (≤1 question/day, never repeat, always
+skippable). A signal the user can see being used is a signal they'll keep
+giving; a signal that disappears into a black box is the last one they'll give.
+
+And the failure case is already handled by the separation of concerns: if the
+user dislikes the adapted explanation, their *interest* in the topic and its
+selection weight are untouched — they just tap the disclosure line and reset
+their level. Nothing about what the librarian *finds* for them changes; only
+how it *talks* to them.
 
 ---
 
@@ -334,10 +383,23 @@ can see being used is a signal they'll keep giving.
    scout's 3-item shelf. Decide fate of the dislike endpoint and start
    *reading* `digestFeedback`.
 
-**Open questions for Defne**
+**Decisions taken as defaults** *(discussed 2026-08-19; flag if any feel wrong)*
 
-- Green panel vs. wash panel (§2b.4) — amend the menu in Paper, or keep wash?
-- Reading view as a real route (`/library/[paperId]`) — worth it for email
-  deep-links in phase 2, or defer?
-- Show the taste dossier in settings ("what your librarian thinks you like")?
-- Dislike endpoint: build a UI for it or delete it?
+- **Dig-deeper panel is wash-filled, not green-filled.** The menu says acid
+  green `#38b000` is ink only — text, icons, the bookmark fill — never a
+  background. So the panel takes the paper's wash (same hue as its card), and
+  green appears only as the "Digging deeper ✓" confirmation text. No Paper-board
+  amendment needed.
+- **Reading view stays an overlay for now; real route deferred.** Today the
+  reading view has no URL (it's a full-screen portal), so nothing outside the
+  app — a digest email, a shared link, the NUX confirmation — can link directly
+  *into* a specific paper's reading view. A `/library/[paperId]` route fixes
+  that, but it's a chunk of routing work orthogonal to the revamp. Deferred to
+  phase 4+; phase 1–2 use the cheap unburying fixes (vault default-tab, "Open →"
+  on saved cards, in-app link from the confirmation panel).
+- **Taste dossier gets a surface in settings** ("what your librarian thinks you
+  like") in phase 4 — inspectable, trust-building, and the cheapest way to debug
+  taste. Read-only first; editing can come later.
+- **Dislike endpoint: keep, don't build UI yet.** It becomes a ledger input for
+  the dossier keeper in phase 4; if we haven't wired a UI to it by then, delete
+  it rather than let it rot further.
