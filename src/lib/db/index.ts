@@ -42,6 +42,17 @@ const MICRO_MIGRATIONS = [
   "ALTER TABLE papers ADD COLUMN homework TEXT",
   "ALTER TABLE digests ADD COLUMN working_theme TEXT",
   "ALTER TABLE digests ADD COLUMN theme_candidates TEXT",
+  `CREATE TABLE IF NOT EXISTS taste_dossiers (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    dossier TEXT,
+    centroids TEXT,
+    signal_count INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER,
+    updated_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS taste_dossiers_user_unique ON taste_dossiers(user_id)",
 ];
 let migrated: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {
