@@ -19,7 +19,7 @@ import {
 import {
   ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
   HAIRLINE, INK, LABEL_STYLE, MUTED, SELECTION_FILL, SHADOW, SURFACE, TextInput,
-  foundationalWash, wash,
+  foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
 type Jargon = {
@@ -201,6 +201,71 @@ async function runFixtureAsk(
  * and fill on this page means exactly one thing — what you are highlighting
  * right now.
  */
+/**
+ * Mark the passages that have been dug into, in place, in the paper's own hue,
+ * and annotate everything around them.
+ *
+ * A dig used to reprint its passage at the top of a panel. That said the same
+ * thing twice and broke the read: the sentence you highlighted was still up
+ * there in the paragraph, and a copy of it sat below in a box. Now the original
+ * is what carries the mark, so a beat shows you at a glance which of its
+ * sentences you have already pulled on, and the panel underneath is nothing but
+ * the answer.
+ *
+ * Matching is by first exact occurrence, non-overlapping. A selection that no
+ * longer appears (a regenerated companion) simply doesn't mark — the thread is
+ * still anchored to its section, so nothing is lost but the highlight.
+ */
+function annotateBeat(
+  text: string,
+  jargon: Jargon[],
+  used: Set<string>,
+  selections: string[],
+  hue: string,
+): React.ReactNode[] {
+  const ranges: { start: number; end: number }[] = [];
+  for (const raw of selections) {
+    const sel = raw.trim();
+    if (!sel) continue;
+    const i = text.indexOf(sel);
+    if (i < 0) continue;
+    const end = i + sel.length;
+    if (ranges.some(r => i < r.end && end > r.start)) continue;
+    ranges.push({ start: i, end });
+  }
+  if (!ranges.length) return annotateText(text, jargon, used);
+  ranges.sort((a, b) => a.start - b.start);
+
+  const out: React.ReactNode[] = [];
+  let cursor = 0;
+  let key = 0;
+  for (const r of ranges) {
+    if (r.start > cursor) {
+      out.push(<React.Fragment key={key++}>{annotateText(text.slice(cursor, r.start), jargon, used)}</React.Fragment>);
+    }
+    out.push(
+      <mark
+        key={key++}
+        style={{
+          background: hue,
+          color: INK,
+          // `clone` so a passage spanning a line break carries the mark on both
+          // lines rather than stretching one box behind the break.
+          boxDecorationBreak: "clone",
+          WebkitBoxDecorationBreak: "clone",
+        }}
+      >
+        {annotateText(text.slice(r.start, r.end), jargon, used)}
+      </mark>,
+    );
+    cursor = r.end;
+  }
+  if (cursor < text.length) {
+    out.push(<React.Fragment key={key++}>{annotateText(text.slice(cursor), jargon, used)}</React.Fragment>);
+  }
+  return out;
+}
+
 function annotateText(text: string, jargon: Jargon[], used: Set<string>): React.ReactNode[] {
   const sorted = [...jargon].sort((a, b) => b.term.length - a.term.length);
   const out: React.ReactNode[] = [];
@@ -260,7 +325,14 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
   useEffect(() => {
     if (!enabled) return;
 
-    const read = () => {
+    const read = (event?: Event) => {
+      // Anything that happens inside the menu is the reader using the menu, not
+      // re-selecting. Focusing the question box necessarily collapses the DOM
+      // selection, and without this the menu would close the instant it was
+      // clicked into. The passage is already captured in state by then.
+      const target = event?.target as Element | null;
+      if (target?.closest?.("[data-selection-menu]")) return;
+
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setPick(null);
       const text = sel.toString().trim();
@@ -301,30 +373,66 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
 }
 
 /**
- * The floating pair. Hard border, the one shadow, no radius — it is the same
- * object as every other frame, just small and following the cursor.
+ * The floating menu. Hard border, the one shadow, no radius — the same object as
+ * every other frame, just small and following the cursor.
+ *
+ * It leads with a question box rather than a second button. "Ask about this"
+ * used to throw the passage across the page into the rail's composer, which
+ * made asking about a sentence a journey; the question about a sentence belongs
+ * at the sentence. Typing here posts inline under the same beat a dig lands in,
+ * so the passage, the question and the answer stay in one place.
  */
 function SelectionMenu({ pick, onDig, onAsk }: {
   pick: Pick;
   onDig: () => void;
-  onAsk: () => void;
+  onAsk: (question: string) => void;
 }) {
-  const WIDTH = 232;
+  const [draft, setDraft] = useState("");
+  const WIDTH = 320;
   const left = Math.min(Math.max(12, pick.x - WIDTH / 2), window.innerWidth - WIDTH - 12);
-  const top = Math.min(pick.y + 10, window.innerHeight - 60);
+  const top = Math.min(pick.y + 10, window.innerHeight - 110);
+  const submit = () => { if (draft.trim()) { onAsk(draft.trim()); setDraft(""); } };
 
   return (
     <div
-      // mousedown, not click: clicking anywhere collapses the selection, and by
-      // the time click fires the passage we were about to send is gone.
-      onMouseDown={e => e.preventDefault()}
+      data-selection-menu
+      // mousedown, not click, on the buttons: clicking anywhere collapses the
+      // selection, and by the time click fires the passage is gone. The input
+      // is the exception — it has to be allowed to take focus.
+      onMouseDown={e => {
+        if (!(e.target as HTMLElement).closest("input")) e.preventDefault();
+      }}
       style={{
-        position: "fixed", left, top, zIndex: 10040,
-        display: "flex", border: BORDER, boxShadow: SHADOW, background: SURFACE,
+        position: "fixed", left, top, zIndex: 10040, width: WIDTH,
+        display: "flex", flexDirection: "column", border: BORDER, boxShadow: SHADOW, background: SURFACE,
       }}
     >
-      <button onMouseDown={onDig} style={menuButton}>Dig deeper</button>
-      <button onMouseDown={onAsk} style={{ ...menuButton, borderLeft: BORDER }}>Ask about this</button>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        <input
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+          }}
+          placeholder="Ask about this…"
+          aria-label="Ask a question about the selected passage"
+          autoFocus
+          style={{
+            ...BODY_SM, flex: 1, minWidth: 0, background: SURFACE, color: INK,
+            border: "none", outline: "none", padding: "10px 12px",
+          }}
+        />
+        <button
+          onMouseDown={submit}
+          disabled={!draft.trim()}
+          style={{ ...menuButton, borderLeft: BORDER, opacity: draft.trim() ? 1 : 0.4, cursor: draft.trim() ? "pointer" : "not-allowed" }}
+        >
+          Ask
+        </button>
+      </div>
+      <button onMouseDown={onDig} style={{ ...menuButton, borderTop: BORDER, textAlign: "left" }}>
+        Dig deeper
+      </button>
     </div>
   );
 }
@@ -423,16 +531,23 @@ function PitchedForYouLine({ pitch, topic, currentLevel, onSelect }: {
 }
 
 /**
- * A dig, answered — the wash panel that lands directly under the beat the
- * passage came from.
+ * A dig, answered — an aside under the beat the passage came from.
  *
- * The panel is the paper's own wash, never green: green lives in the live
- * selection and in the confirmation tick, and nowhere else. The quoted passage
- * wears the same ink underline a paper name wears in the synthesis.
+ * Not a box. It was a washed, bordered, shadowed panel that reprinted the
+ * passage at the top, which made a dig look like a second document dropped into
+ * the middle of the read. The passage is now marked in place in the paragraph
+ * above (see `annotateBeat`), so this is only the answer: an indent behind one
+ * 2px ink rule, which is the aside shape the menu already has, and no second
+ * frame competing with the page's real frames.
+ *
+ * Collapsible, and open when it arrives. A dig is a detour: once you have read
+ * it you want the beat back, and three open detours under one paragraph is not
+ * a read any more. Collapsed, the header carries the passage it came from, so
+ * two digs under the same beat stay distinguishable without reprinting anything
+ * while open.
  */
-function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity }: {
+function DigPanel({ thread, streaming, onFollowUp, error, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity }: {
   thread: ReadingThread;
-  washStyle: React.CSSProperties;
   streaming: boolean;
   error?: string | null;
   onFollowUp: (question: string) => void;
@@ -442,11 +557,31 @@ function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarity
   onSkipFamiliarity: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(true);
 
   return (
-    <div style={{ ...washStyle, border: BORDER, boxShadow: SHADOW, padding: "18px 20px", marginTop: 22 }}>
-      <div style={{ ...LABEL_STYLE, marginBottom: 10 }}>Deeper</div>
+    <div style={{ borderLeft: BORDER, paddingLeft: 18, marginTop: 22 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+      >
+        <span style={{ ...LABEL_STYLE, flexShrink: 0 }}>Deeper</span>
+        {/* Only when closed: while it is open the answer is right there, and the
+            passage is marked in the paragraph above either way. */}
+        {!open && thread.selection && (
+          <span style={{ ...BODY_SM, color: MUTED, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {thread.selection}
+          </span>
+        )}
+        <ChevronDown
+          size={16}
+          style={{ color: MUTED, flexShrink: 0, marginLeft: "auto", transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+        />
+      </button>
 
+      {!open ? null : (
+      <div style={{ marginTop: 12 }}>
       {familiarityOffer && (
         <FamiliarityScale
           topic={familiarityOffer}
@@ -454,21 +589,6 @@ function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarity
           onSelect={onFamiliarity}
           onSkip={onSkipFamiliarity}
         />
-      )}
-
-      {thread.selection && (
-        <p
-          style={{
-            ...BODY_STYLE,
-            fontStyle: "italic",
-            margin: "0 0 14px",
-            textDecoration: "underline",
-            textDecorationColor: INK,
-            textUnderlineOffset: 4,
-          }}
-        >
-          {thread.selection}
-        </p>
       )}
 
       {thread.turns.map((turn, i) => (
@@ -514,6 +634,8 @@ function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarity
           Ask
         </ActionButton>
       </div>
+      </div>
+      )}
     </div>
   );
 }
@@ -609,15 +731,19 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
 }
 
 /**
- * The closing recap of every hard word. The chips in the prose define each term
- * where you meet it; this catches the ones the companion flagged but never used
- * in its own copy, and gives you somewhere to look back to. Closed by default —
- * it is a reference, not part of the read.
+ * The recap of every hard word. The chips in the prose define each term where
+ * you meet it; this catches the ones the companion flagged but never used in
+ * its own copy, and gives you somewhere to look back to.
+ *
+ * It lives in the rail, not in the column. In series with the walkthrough it
+ * read as a sixth beat of the read and put a closed drawer between "Remember
+ * this" and what has happened since. A glossary is a thing you look across at.
+ * Closed by default for the same reason: reference, not read.
  */
 function Glossary({ terms }: { terms: Jargon[] }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ marginTop: 40, borderTop: HAIRLINE, paddingTop: 18 }}>
+    <div style={{ border: BORDER, background: SURFACE, padding: "14px 16px" }}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
@@ -632,11 +758,13 @@ function Glossary({ terms }: { terms: Jargon[] }) {
         />
       </button>
       {open && (
-        <dl style={{ margin: "16px 0 0" }}>
+        // A 150px term column left the definitions in a 200px gutter. In the
+        // rail the term leads and the definition sits under it.
+        <dl style={{ margin: "12px 0 0", maxHeight: 320, overflowY: "auto" }}>
           {terms.map(g => (
-            <div key={g.term} style={{ display: "flex", gap: 12, padding: "10px 0", borderTop: HAIRLINE }}>
-              <dt style={{ ...BODY_STYLE, fontWeight: 600, width: 150, flexShrink: 0 }}>{g.term}</dt>
-              <dd style={{ ...BODY_STYLE, color: DIM, margin: 0, flex: 1 }}>{g.def}</dd>
+            <div key={g.term} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+              <dt style={{ ...BODY_SM, fontWeight: 600 }}>{g.term}</dt>
+              <dd style={{ ...BODY_SM, color: DIM, margin: "2px 0 0" }}>{g.def}</dd>
             </div>
           ))}
         </dl>
@@ -903,6 +1031,10 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
 }) {
   const byline = paperByline(paper);
   const foundational = paper.category === "foundational";
+  // The card's first wash hue — what a dug passage wears in the prose, and what
+  // the "Remember this" frame is washed in. Never GOLD: that is a line colour,
+  // and behind a word it is too dark to read the word through.
+  const hue = foundational ? foundationalSlots()[0] : washSlots(index)[0];
   const washStyle = foundational ? foundationalWash() : wash(index);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
@@ -1083,6 +1215,15 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     ask({ selection: text, sectionKey: section });
   }, [ask, reserveFamiliarityOffer, setPick, tipSeen]);
 
+  /** A typed question about a passage. Same landing place as a dig. */
+  const askHere = useCallback((question: string, text: string, section: SectionKey) => {
+    window.getSelection()?.removeAllRanges();
+    setPick(null);
+    if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
+    reserveFamiliarityOffer();
+    ask({ question, selection: text, sectionKey: section });
+  }, [ask, reserveFamiliarityOffer, setPick, tipSeen]);
+
   /* ── Prose ── */
 
   // One shared "already defined" set for the whole walkthrough, rebuilt on each
@@ -1103,7 +1244,13 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       }
     : null;
   const defined = new Set<string>();
-  const mark = (text: string) => annotateText(text, glossary, defined);
+  const mark = (text: string, key: SectionKey) => annotateBeat(
+    text,
+    glossary,
+    defined,
+    digsForSection(threads, key).map(t => t.selection ?? "").filter(Boolean),
+    hue,
+  );
 
   const sectionText: Record<SectionKey, string> = {
     gist: companion?.gist ?? "",
@@ -1117,7 +1264,6 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     <DigPanel
       key={thread.id}
       thread={thread}
-      washStyle={washStyle}
       streaming={thread.turns.some(t => t.id === streamingTurn)}
       error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
       onFollowUp={q => ask({ question: q, threadId: thread.id })}
@@ -1195,7 +1341,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             </div>
           ) : companion?.gist ? (
             <>
-              <p data-section="gist" style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist)}</p>
+              <p data-section="gist" style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist, "gist")}</p>
               {beatDig("gist")}
               {digs("gist")}
             </>
@@ -1217,21 +1363,21 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
           {/* ── The walkthrough — the beats after the gist ── */}
           {companion?.did && (
             <>
-              <Beat heading="What they did" sectionKey="did">{mark(companion.did)}</Beat>
+              <Beat heading="What they did" sectionKey="did">{mark(companion.did, "did")}</Beat>
               {beatDig("did")}
               {digs("did")}
             </>
           )}
           {companion?.found && (
             <>
-              <Beat heading="What they found" sectionKey="found">{mark(companion.found)}</Beat>
+              <Beat heading="What they found" sectionKey="found">{mark(companion.found, "found")}</Beat>
               {beatDig("found")}
               {digs("found")}
             </>
           )}
           {companion?.caveats && (
             <>
-              <Beat heading="Where it's shaky" sectionKey="caveats">{mark(companion.caveats)}</Beat>
+              <Beat heading="Where it's shaky" sectionKey="caveats">{mark(companion.caveats, "caveats")}</Beat>
               {beatDig("caveats")}
               {digs("caveats")}
             </>
@@ -1259,8 +1405,6 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             </>
           )}
 
-          {/* ── The glossary ── */}
-          {glossary.length > 0 && <Glossary terms={glossary} />}
 
           {/* ── What's happened since ── */}
           <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
@@ -1283,8 +1427,14 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
           )}
         </div>
 
-        {/* ── Ask this paper, in the rail ── */}
-        <aside className="reading-aside">
+        {/* ── The rail: the glossary, then Ask this paper ── */}
+        <aside className="reading-aside" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* The glossary is a reference, not a beat. Sitting in series with the
+              walkthrough it read as a sixth section of the read, and put a
+              closed drawer between "Remember this" and what has happened since.
+              In the rail it is a thing you look across at, which is what a
+              glossary is for. */}
+          {glossary.length > 0 && <Glossary terms={glossary} />}
           {companionPending ? (
             // The rail used to render nothing at all until the companion landed,
             // which is a minute or two of dead air in the widest column on the
@@ -1319,12 +1469,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
         <SelectionMenu
           pick={pick}
           onDig={() => dig(pick.text, pick.section)}
-          onAsk={() => {
-            setQuote(pick.text);
-            setPick(null);
-            window.getSelection()?.removeAllRanges();
-            document.getElementById("ask-this-paper")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }}
+          onAsk={question => askHere(question, pick.text, pick.section)}
         />
       )}
 
