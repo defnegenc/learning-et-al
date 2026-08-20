@@ -8,6 +8,7 @@ import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
 import { PaperCard } from "@/components/paper-card";
+import { ShareDigestButton } from "./share-digest-button";
 
 
 /*
@@ -403,8 +404,11 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
                   )}
                 </div>
               )}
-              <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
-                Daily digest
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+                <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
+                  Daily digest
+                </div>
+                <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
               </div>
               {generateError && (
                 <span style={{ ...BODY_SM, color: ACID_PINK, display: "block", marginTop: 4 }} title={generateError}>

@@ -12,6 +12,15 @@ const client = createClient({
 // start: the ALTER fails silently once the column exists. Remove entries once
 // they're known to have run in prod.
 const MICRO_MIGRATIONS = [
+  `CREATE TABLE IF NOT EXISTS saved_digests (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    digest_id TEXT NOT NULL,
+    created_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (digest_id) REFERENCES digests(id) ON DELETE CASCADE
+  )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS saved_digests_user_digest_unique ON saved_digests(user_id, digest_id)",
   `CREATE TABLE IF NOT EXISTS digest_jobs (
     id TEXT PRIMARY KEY NOT NULL,
     user_id TEXT NOT NULL,

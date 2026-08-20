@@ -5,11 +5,6 @@ bottom (dates live in `docs/changelog.md`).
 
 ## Open
 
-### Share Digest (partially shipped)
-Public logged-out viewing already works via `public-digest.tsx` + the `/api/digest/[id]`
-route. **Remaining:** a per-digest "copy share link" affordance so any digest can be
-shared to social/Slack without the sign-in modal popping up.
-
 ### Consolidate to one digest UX (scrap the extra modes)
 Brief is the default and the direction. The alternate modes — `?papers=1` (PapersMode),
 `?papersog=1` (PapersModeOg), `?classic=1` (original synthesis + rail) — were comparison
@@ -86,6 +81,10 @@ to seed the central question/theme, instead of (or alongside) the user's standin
 
 ## Shipped (see `docs/changelog.md` for dates)
 
+- **Share Digest** — every Today digest has a stable `/digest/[id]` share action;
+  the public page supports account bookmarks, device-backed signed-out saves,
+  and automatic import of the shared digest into Vault history after sign-in.
+  *(2026-08-17)*
 - **Working cron** — daily auto-generation for all users via `vercel.json` crons +
   `/api/cron` (processes most-stale-first, surfaces processed counts). *(was #2)*
 - **Delivery cadence** — daily / bi-weekly (Tue & Fri) / weekly (Sunday recap), with
