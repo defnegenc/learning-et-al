@@ -1045,10 +1045,167 @@ confusion the fill exists to prevent.
 
 So the terms go back to the **dotted rule**, the same one the synthesis uses,
 and `DefinitionTerm`'s `tint` opt-in is now unused on this surface. Fill on the
-reading page means one thing: what you are highlighting right now. The paper's
-hue is not gone — it still carries the dig panels and the `Remember this` frame,
-where nothing competes with it.
+reading page means a passage you chose: acid green while you are choosing it,
+the paper's own hue once you have dug into it (see the next entry). Nothing
+else on the page is filled.
 
 The glossary's disclosure also becomes the chevron the interests accordion uses.
 It was already collapsible and closed by default, but a bare `+` / `–` was
 carrying the whole signal and read as punctuation rather than a control.
+
+---
+
+## 2026-08-20: Ask is a paper-plus-web comparison
+
+“Ask this paper” should not behave like search inside a PDF. The paper remains
+the primary object in the reading view, but each question now triggers a general
+web search using the question, its immediate thread context, and the paper title.
+The answer must keep the two bodies of evidence distinct and state whether the
+outside material agrees, disagrees, or adds later context. Naming the online
+source is part of that contract; a generic “other research says” is not.
+
+Search snippets are supporting evidence, not authoritative full text. They are
+bounded before entering the model, explicitly marked as untrusted data, and the
+prompt forbids claims beyond what a snippet supports. An empty or failed search
+does not block the paper answer, but the answer must disclose that the online
+check was inconclusive. This preserves a useful failure mode without silently
+falling back to the old paper-only behavior.
+
+The web fetcher keeps news as its default because the digest pipeline depends on
+that vertical. Reading Q&A opts into Serper's general-search endpoint explicitly,
+with the existing broad DuckDuckGo fallback. The rail says what it does in one
+Body/SM line and adds no new component or visual token.
+
+---
+
+## 2026-08-20: A dig is an aside, not a document
+
+Digging into a passage produced a washed, bordered, shadowed panel that
+reprinted the passage at the top and then answered it. Three things were wrong
+with that at once. It was a second frame in the middle of a page that already
+has real frames, so a detour looked heavier than the read it interrupted. It
+said the same thing twice: the sentence you highlighted was still sitting in the
+paragraph above, with a copy of it below. And it never went away, so three digs
+under one beat buried the beat.
+
+**The passage stays marked where it is.** `annotateBeat` finds each dug
+selection in the beat's own text and wraps it in the paper's first wash hue, so
+the paragraph itself shows which of its sentences you have already pulled on.
+That is what the panel's quote block was for, and the original does it better,
+because it keeps the sentence in its sentence. Matching is first-exact-occurrence
+and non-overlapping; a selection that no longer appears (a regenerated
+companion) simply doesn't mark, and the thread is still anchored to its section
+either way.
+
+**The panel is an indent behind one 2px ink rule.** No wash, no border box, no
+shadow — the aside shape, which the menu already has. It is **collapsible and
+open on arrival**: you want the answer the moment it lands and you want the beat
+back once you have read it. Collapsed, the header carries the passage it came
+from, so two digs under one beat stay distinguishable — the only place the quote
+is repeated, and only when the answer isn't visible to identify itself.
+
+**The menu leads with a question box.** "Ask about this" used to throw the
+passage across the page into the rail's composer, which made asking about a
+sentence a journey; a question about a sentence belongs at the sentence. Typing
+in the menu posts inline under the same beat a dig lands in, so passage,
+question and answer stay in one place. The watcher had to learn to ignore events
+originating inside the menu: focusing an input necessarily collapses the DOM
+selection, and without that the menu closed the instant it was clicked into.
+The passage is already in state by then, so nothing is lost.
+
+**The glossary moves to the rail.** In series with the walkthrough it read as a
+sixth beat and put a closed drawer between "Remember this" and what has happened
+since. A glossary is a thing you look across at, not a thing you read through;
+in a 372px rail its rows stack term-over-definition rather than running a 150px
+term column beside a 200px gutter.
+
+This is the first half of a larger move — the rail is meant to go entirely, or
+to become half the screen while a passage is selected. The inline question box
+is what makes that possible: it is now the only thing you need the rail for.
+
+---
+
+## 2026-08-20: The dig is a fold, and the wait is where the questions live
+
+Three things were wrong with the dig-deeper panel the first time, and they were
+all the same mistake: the panel was treated as a document rather than as an
+answer to something you can still see.
+
+**The passage is not quoted back.** The panel lands directly under the paragraph
+the highlight came from, so printing the sentence again inside it was the same
+words twice, two inches apart. The position is the citation.
+
+**Digs fold.** Four digs down one walkthrough buried the paper under the
+reader's own back-catalogue. A closed dig is one line — the mono `Deeper`
+eyebrow, the glossary's chevron, and the first clause of the answer clamped to
+the line. Digs
+made in this session open; digs rehydrated from the thread store on load start
+folded, because on the second visit the paper is the thing you came back for.
+
+**The wait is a surface, not a gap.** The interleave used to sit inside the
+answer panel as a bordered block with a heading, a caption and a footnote — a
+survey card dropped into the middle of a paper, which is exactly how it read.
+Now: while a dig is running there is **no box at all**. A loader, and under it
+one thing at a time — the familiarity question if it is owed, then, only if the
+reader answers it and the dig is still going, how much they liked the paper,
+then a rotating tip. If the answer lands first, none of it was ever in the way.
+Both questions are the same object (`ScaleRow`): one sentence, five boxes, a
+label at each end, a skip. Two arrangements of one idea is what "busy" was.
+
+**The one-question-a-day budget is not spent on a wait nobody saw.** The offer
+is reserved 1.2 seconds into a dig, not at its start, and only if the dig is
+still running. A fast answer costs the reader nothing.
+
+**Paper ratings go in `events`, not `feedback`.** `feedback` is a two-value enum
+that the interest weights read directly, and a five-point opinion is not a save:
+somebody can rate a paper 2/5 and still have been right to be sent it. As an
+event it reaches the taste ledger without changing what a star means.
+
+---
+
+## 2026-08-20: The librarian keeps a note, and the reader gets to read it
+
+The digest finder stays a pipeline. It is deterministic, it is tuned, and every
+attempt to make it "learn" by adding signals to the scoring chain has moved
+outcomes less than it has cost. The librarian is a separate thing that owns
+everything after a paper enters the reader's orbit, and its memory is a **taste
+dossier**: ~300 words of prose rewritten from what the reader saves, walks past,
+asks about and complains about.
+
+**Why prose and not a feature vector.** Three reasons, in order of how much they
+mattered. It can be shown to the reader, which is the whole trust argument
+below. It is the form the LLM selection step can actually use — that step is
+where the real quality call is made, and it takes an argument, not a number. And
+it survives schema changes: a vector of hand-tuned features rots the moment the
+features change, a paragraph does not.
+
+**Two places, and no others.** The dossier goes into the Step 3b selection
+prompt. The centroids become a ≤0.02 nudge on `score` in Step 3. Taste never
+touches search, never touches `relSim`, and never touches the thresholds — an
+on-taste paper that is off-theme is still out. This is the "upstream scoring is
+a filter, not a ranker" rule from CLAUDE.md, respected rather than argued with:
+the filter stays exactly as strict, and taste only reorders what already passed.
+
+**Shown in settings, on purpose.** A taste model nobody can inspect is one
+nobody can correct, and a wrong one is invisible until the digests have been
+quietly bad for a month. `Settings → Librarian` renders the note verbatim, with
+its cluster labels and how many signals it was written from. Read-only for now:
+the way to change it is to save, skip and complain, which is also the way it was
+built. An editable dossier is a different feature and would need to answer what
+happens when the reader's account of themselves and their behaviour disagree.
+
+**Dislike endpoint: kept, still no UI.** It has no caller, but it is now a
+ledger input rather than a dead route, which is the condition the plan set for
+keeping it. If nothing has wired a UI to it by the time the next reading-view
+pass lands, delete it instead of letting it rot further.
+
+**`digest_feedback` is finally read.** Rows have gone in since it shipped and
+nothing has ever read one. Somebody typing why a digest was wrong is the
+strongest negative signal in the product, so it now forces a rewrite on its own
+rather than waiting for the five-signal threshold.
+
+**The scout builds a shelf, not a list.** "What's happened since" used to be up
+to four works that cite the paper, ranked by date. It is now at most three
+standing in different relations to what you just read — one that came after, one
+arguing from somewhere else on the same ground, one it was built on — each with
+a one-line "why for you". Three papers you can tell apart beat four you can't.
