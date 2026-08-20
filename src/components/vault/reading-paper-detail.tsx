@@ -581,7 +581,7 @@ const DIG_WAIT_TIPS = [
   "Highlight anything else while you wait — digs queue under the passage they came from.",
   "“Ask about this” sends the passage to the thread on the right instead of answering inline.",
   "Underlined words carry a definition. Hover or tap one.",
-  "Every answer here is read out of the paper's full text, not its abstract.",
+  "Answers read the paper's full text, then check it against what current web sources say.",
   "What you dig into teaches your librarian what to send you next.",
 ];
 
@@ -1003,7 +1003,7 @@ function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, 
           <div>
             <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
             <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
-              Answered from the paper itself, not from the digest.
+              Compares the paper with what current web sources say.
             </p>
           </div>
           <button
