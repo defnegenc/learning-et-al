@@ -103,15 +103,25 @@ companion/homework background generation.
 **Recommendation: A + C.** The strip teaches before, the confirmation teaches
 after, and neither needs anchoring. Skip B.
 
-### Do alongside (the actual bug fix)
+### Do alongside (the actual bug fix — in scope, phase 1)
 
-- **One name: "Save."** Unify the tooltip, foundational label, and vault empty
-  state. Verb on the control: *Save* / *Saved*; the destination is "your library."
-- **Give the digest-card bookmark a visible mono-ish text label or at minimum a
-  hover label** — an icon-only bookmark is why the feature reads as missing in
-  production. Smallest fix: render `Save` in Body/SM next to the icon on digest
-  cards (it already supports `label`, `paper-card.tsx:104`); decide in Paper first
-  per the design rule.
+**One name: "Save." One destination: "your library."** Every string that names
+this action, exhaustively (grep `bookmark|reading list|read later|save` before
+shipping in case more have appeared):
+
+| Where | Today | Becomes |
+|---|---|---|
+| `paper-card.tsx:86-87` tooltip/aria | "Save to your reading list" / "Remove from your reading list" | "Save to your library" / "Remove from your library" |
+| `paper-card.tsx:265` foundational label | "Save for later" → "Saved for later" | "Save" → "Saved" |
+| `vault-page.tsx:66-71` empty state | "Hit "Read later" on any paper…" | "Hit "Save" on any paper in a digest and it lands here." |
+| Vault tab label (`vault-page.tsx:55`) | "Saved papers" | keep — consistent with "Saved" |
+| NUX strip + confirmation (§1) | — | written with "Save"/"library" from day one |
+
+**And make the control visible**: render the `Save`/`Saved` text label next to
+the bookmark icon on digest and compact cards, not just foundational ones —
+`BookmarkToggle` already supports `label` (`paper-card.tsx:104`), so this is
+passing a prop, plus a Paper-board check that the label sits in Body/SM. An
+icon-only bookmark is why the feature reads as missing in production.
 
 ---
 
@@ -130,12 +140,17 @@ problems are hierarchy and dead air, not content:
   "Ask ↓" affordance) into the top region on narrow layouts.
 - **No error surface** — if companion generation fails, sections silently vanish.
   Add a retry row.
-- **It's two clicks deep.** Fixes, cheapest first: (1) vault defaults to the
-  **Saved papers** tab when the user has saves and no unread digest history;
-  (2) after saving, the card's bookmark area gains an **"Open →"** affordance
-  that jumps straight into the reading view; (3) the NUX confirmation panel
-  (§1C) deep-links to it. Consider a real route (`/library/[paperId]`) instead of
-  a portal overlay so it's linkable from email — bigger lift, do later.
+- **It's two clicks deep.** Fixes: (1) **give it a real URL** —
+  `/library/[paperId]` replaces the portal overlay as the canonical reading
+  view *(decided 2026-08-19, in scope for phase 2)*. Everything becomes
+  linkable: digest emails ("your walkthrough is ready →"), the NUX confirmation
+  panel, shared links. The overlay component becomes the route's page body;
+  opening from the vault can still animate as an overlay but pushes the URL
+  (Next.js parallel/intercepted route, same pattern as modern photo-modal
+  routing) so back-button and refresh both work. (2) Vault defaults to the
+  **Saved papers** tab when the user has saves and no unread digest history.
+  (3) After saving, the card's bookmark area gains an **"Open →"** affordance
+  linking to `/library/[paperId]`.
 - **What's missing content-wise**: a one-line *"why you're reading this"* — which
   digest/question surfaced it and which of the user's interests it fed. Cheap
   (we have `digests.seedInterests` + the paper's digest), and it's the seed of
@@ -160,19 +175,23 @@ DOM offsets).
    pattern as §1): mono `TIP` eyebrow + *"Highlight any passage to have the
    agent dig deeper on it."* Retires after the first successful dig.
 2. **Select.** User selects text inside gist/beats/remember. The selection
-   tints in the **paper's wash hue** (the view already knows its slot,
-   `reading-paper-detail.tsx:404` — scoped `::selection` or a temporary mark).
-   Not a new color: same wash, third index rule respected.
+   tints **acid green** — the marker stroke, the one moment of "the agent is
+   about to act on exactly this." *(Decided 2026-08-19; this is a menu
+   amendment — acid green is currently ink-only. Record in Paper first: acid
+   green gains exactly one sanctioned fill use, the live dig-deeper selection.
+   Probably at reduced alpha over text so ink stays legible. It must not leak
+   anywhere else — panels, chips, and washes stay as they are.)* Once the dig
+   fires, the green mark collapses; the passage reappears quoted inside the
+   wash panel below.
 3. **The button.** A small floating pair near the selection endpoint, hard
    border + the one shadow: **Dig deeper** · **Ask about this**. "Dig deeper"
    fires immediately with a canned intent; "Ask about this" drops the quoted
    passage into the Ask composer as context and focuses it.
 4. **Confirmation.** The button collapses into an inline chip:
    *"Digging deeper ✓ — keep reading, it'll be below."* Check and text in
-   acid-green **ink**. ⚠️ The user's instinct was "a little green panel" —
-   the menu says acid green is *ink only, never a fill*. So: confirmation text
-   in acid green, the eventual panel filled with the **paper's wash**. If we
-   want a green *panel*, that's a Paper-board conversation first.
+   acid-green **ink**. *(Decided: the panel itself is NOT green — green lives
+   only in the selection highlight (step 2) and confirmation ink. The panel is
+   the paper's wash.)*
 5. **The panel.** The answer arrives as a **"Deeper" block** rendered inline
    directly after the section the highlight came from (fallback: a "Deep dives"
    section above the glossary). Wash-filled, hard border. Contents: the quoted
@@ -230,6 +249,34 @@ per day across the whole product; always skippable; answering is optimistic
 terms, use analogies" / "4/5 — skip the basics, go to method details"). Later,
 the digest `focusLevel` can derive from the familiarity map instead of one
 global setting — synthesis-side only, per the focusLevel gotcha.
+
+### Wiring familiarity into what actually gets defined
+
+Answering the direct question — *does familiarity change how many terms get
+defined and which ones?* Today, **no**: the companion prompt generates one
+fixed glossary per paper, `annotateText` chips every glossary term it finds,
+and nothing about the user conditions it. The plan makes it adapt, without
+regenerating cached companions:
+
+- **Generate a tiered superset, filter at render.** The companion prompt asks
+  for a *generous* glossary where every term carries a tier:
+  `basic` (anyone outside the field needs it), `working` (practitioners know
+  it), `deep` (specialists only). Stored once on `papers.companion` as today,
+  just with a `tier` field per term.
+- **Render-time filter by familiarity level** for the paper's subtopic:
+  1–2/5 → chip all three tiers; 3/5 → `working` + `deep`; 4–5/5 → `deep` only.
+  Because filtering happens at render, **changing your level via the disclosure
+  line re-tunes the glossary instantly** — no regeneration, no cache
+  invalidation, works retroactively on every already-saved paper.
+- **Prose depth adapts at generation time.** Gist/beats tone and dig-deeper
+  answer depth are baked in when generated, so those consume the familiarity
+  level in the prompt (§ above). Companions generated *before* a level existed
+  keep their prose but still get the adaptive glossary; regeneration only on
+  explicit user request ("re-pitch this for me" — later, optional).
+- **Definition style can adapt cheaply too**: the tooltip definition text is
+  part of the glossary entry, so low familiarity can also mean *longer,
+  analogy-first definitions* — ask the prompt for a one-line definition plus an
+  optional `analogy` field, show the analogy only at levels 1–2.
 
 ### The visible-use contract (hard requirement, not a nice-to-have)
 
@@ -369,34 +416,35 @@ how it *talks* to them.
 
 ## 5 · Sequencing
 
-1. **Phase 1 — name the thing** (small): unify "Save" naming, visible label on
-   the digest-card bookmark, NUX strip (§1A) + first-save confirmation (§1C).
-   Paper board first for the label + strip.
-2. **Phase 2 — the reading view** (the meat): reading tip, highlight →
-   dig-deeper → wash panel + threads, `aiChat` with history + streaming,
-   `qaPairs` extension, rail pending/error states, vault default-tab fix.
-   Prototype at `/prototype/reading-list`.
-3. **Phase 3 — the interleave**: familiarity table, the Likert moment,
-   companion/QA prompts consume it.
+1. **Phase 1 — name the thing** (small): unify "Save" naming (string table in
+   §1), visible label on the digest-card bookmark, NUX strip (§1A) +
+   first-save confirmation (§1C). Paper board first for the label + strip.
+2. **Phase 2 — the reading view** (the meat): `/library/[paperId]` route
+   (overlay becomes the page; intercepted route for in-app opens), reading tip,
+   green highlight (Paper amendment first) → dig-deeper → wash panel + threads,
+   `aiChat` with history + streaming, `qaPairs` extension, rail pending/error
+   states, vault default-tab fix. Prototype at `/prototype/reading-list`.
+3. **Phase 3 — the interleave**: familiarity table, the Likert moment, tiered
+   glossary + render-time filter, disclosure line ("pitched for you") with
+   inline correction, companion/QA prompts consume the level.
 4. **Phase 4 — the librarian proper**: `aiConfigFor` refactor, dossier keeper +
    ledger, dossier into `selectionSkeletonPrompt`, centroid prior in MMR,
    scout's 3-item shelf. Decide fate of the dislike endpoint and start
    *reading* `digestFeedback`.
 
-**Decisions taken as defaults** *(discussed 2026-08-19; flag if any feel wrong)*
+**Decisions** *(discussed with Defne 2026-08-19)*
 
-- **Dig-deeper panel is wash-filled, not green-filled.** The menu says acid
-  green `#38b000` is ink only — text, icons, the bookmark fill — never a
-  background. So the panel takes the paper's wash (same hue as its card), and
-  green appears only as the "Digging deeper ✓" confirmation text. No Paper-board
-  amendment needed.
-- **Reading view stays an overlay for now; real route deferred.** Today the
-  reading view has no URL (it's a full-screen portal), so nothing outside the
-  app — a digest email, a shared link, the NUX confirmation — can link directly
-  *into* a specific paper's reading view. A `/library/[paperId]` route fixes
-  that, but it's a chunk of routing work orthogonal to the revamp. Deferred to
-  phase 4+; phase 1–2 use the cheap unburying fixes (vault default-tab, "Open →"
-  on saved cards, in-app link from the confirmation panel).
+- **Green lives in the highlight, not the panel.** The dig-deeper *selection
+  highlight* is acid green — a menu amendment (acid gains exactly one fill use,
+  the live selection; record in Paper first, §2b.2). The answer panel is the
+  paper's wash; the confirmation ✓ is green ink. Green appears nowhere else.
+- **The reading view gets a real URL**: `/library/[paperId]`, in phase 2
+  (§2a). Digest emails, shared links, and the NUX confirmation all deep-link
+  into it; overlay presentation preserved via an intercepted route.
+- **Familiarity wires into the glossary**, not just tone: tiered glossary
+  generated once, filtered at render by level, so adjusting the level re-tunes
+  every saved paper instantly (§3).
+- **The save-naming cleanup is in scope, phase 1** — string table in §1.
 - **Taste dossier gets a surface in settings** ("what your librarian thinks you
   like") in phase 4 — inspectable, trust-building, and the cheapest way to debug
   taste. Read-only first; editing can come later.
