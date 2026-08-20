@@ -177,11 +177,25 @@ async function runFixtureAsk(
     sectionKey: payload.sectionKey ?? null,
   });
   const words = fixture.answer(payload.question || "", payload.selection).split(" ");
+  // A real model takes a couple of seconds to say its first word, and that gap
+  // is now a designed surface — the loader, then the one question the
+  // interleave owes, then a tip. Streaming the fixture's first token in 24ms
+  // would make the prototype flash past the whole thing, and the prototype
+  // exists precisely so these states are reviewable without an account.
+  await new Promise(r => setTimeout(r, FIXTURE_FIRST_TOKEN_MS));
   for (let i = 0; i < words.length; i++) {
     await new Promise(r => setTimeout(r, 24));
     on.delta(id, (i === 0 ? "" : " ") + words[i]);
   }
 }
+
+/**
+ * Long enough to see the loader and the question under it; short enough to be
+ * an honest impression of the wait. Each successive dig shows the next rung of
+ * the ladder — answer the familiarity question and the next dig asks how much
+ * you liked the paper, then the one after that shows tips.
+ */
+const FIXTURE_FIRST_TOKEN_MS = 2600;
 
 /* ── Prose ───────────────────────────────────────────────────────────────── */
 
@@ -237,6 +251,9 @@ interface Pick {
 
 /** A word is not a passage. Below this, the reader is probably just reading. */
 const MIN_SELECTION = 16;
+
+/** How long a dig has to be running before the interleave is allowed to ask anything. */
+const OFFER_AFTER_MS = 1200;
 
 /**
  * Watch for a selection inside the walkthrough and report where it ended.
@@ -331,33 +348,45 @@ const menuButton: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-function FamiliarityScale({ topic, currentLevel, onSelect, onSkip }: {
-  topic: FamiliarityTopic;
-  currentLevel?: number | null;
+/**
+ * One question, five boxes, an end label at each end and a skip.
+ *
+ * Both interleaved questions are this object — familiarity and "how much did
+ * you like it". They used to be two arrangements of the same idea inside a
+ * framed block with a heading, a caption and a footnote, which read as a survey
+ * card dropped into the middle of a paper. One row, no frame: the question is a
+ * sentence in the reading column, not a form.
+ */
+function ScaleRow({ question, lowLabel, highLabel, value, onSelect, onSkip, note, ariaPrefix }: {
+  question: React.ReactNode;
+  lowLabel: string;
+  highLabel: string;
+  value?: number | null;
   onSelect: (level: number) => void;
   onSkip?: () => void;
+  /** The trust line. Shown where the reader is correcting a stored level, not mid-wait. */
+  note?: string;
+  ariaPrefix: string;
 }) {
   return (
-    <div style={{ borderTop: HAIRLINE, marginTop: 12, marginBottom: 12, paddingTop: 12 }}>
-      <p style={{ ...BODY_SM, margin: "0 0 10px" }}>
-        {onSkip ? "While I dig — how" : "How"} familiar are you with <strong>{topic.name}</strong>?
-      </p>
+    <div>
+      <p style={{ ...BODY_SM, margin: "0 0 8px" }}>{question}</p>
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 7 }}>
-        <span style={{ ...BODY_SM, color: DIM }}>new to it</span>
+        <span style={{ ...BODY_SM, color: DIM }}>{lowLabel}</span>
         {[1, 2, 3, 4, 5].map(level => (
           <button
             key={level}
             onClick={() => onSelect(level)}
-            aria-label={`${level} out of 5 familiar with ${topic.name}`}
-            aria-pressed={currentLevel === level}
+            aria-label={`${level} out of 5 — ${ariaPrefix}`}
+            aria-pressed={value === level}
             style={{
               ...BODY_SM,
               width: 28,
               height: 28,
               padding: 0,
               border: BORDER,
-              background: currentLevel === level ? INK : SURFACE,
-              color: currentLevel === level ? SURFACE : INK,
+              background: value === level ? INK : SURFACE,
+              color: value === level ? SURFACE : INK,
               cursor: "pointer",
               fontWeight: 600,
             }}
@@ -365,7 +394,7 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip }: {
             {level}
           </button>
         ))}
-        <span style={{ ...BODY_SM, color: DIM }}>I work on this</span>
+        <span style={{ ...BODY_SM, color: DIM }}>{highLabel}</span>
         {onSkip && (
           <button
             onClick={onSkip}
@@ -375,9 +404,123 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip }: {
           </button>
         )}
       </div>
-      <p style={{ ...BODY_SM, color: MUTED, margin: "9px 0 0" }}>
-        This helps pitch future reading companions. It never changes what gets selected.
-      </p>
+      {note && <p style={{ ...BODY_SM, color: MUTED, margin: "9px 0 0" }}>{note}</p>}
+    </div>
+  );
+}
+
+function FamiliarityScale({ topic, currentLevel, onSelect, onSkip, lead }: {
+  topic: FamiliarityTopic;
+  currentLevel?: number | null;
+  onSelect: (level: number) => void;
+  onSkip?: () => void;
+  /** Mid-dig the question opens with "While I dig —"; as a correction it just asks. */
+  lead?: string;
+}) {
+  return (
+    <ScaleRow
+      question={<>{lead ?? "How"} familiar are you with <strong>{topic.name}</strong>?</>}
+      lowLabel="new to it"
+      highLabel="I work on this"
+      value={currentLevel}
+      onSelect={onSelect}
+      onSkip={onSkip}
+      note={onSkip ? undefined : "This changes how things are explained to you. It never changes what gets selected."}
+      ariaPrefix={`familiar with ${topic.name}`}
+    />
+  );
+}
+
+/**
+ * The second question, asked only in the dead air of a dig and only once per
+ * paper. It is a taste signal — how much a paper was worth someone's evening is
+ * exactly what the librarian cannot infer from a save alone.
+ */
+function PaperRating({ value, onSelect, onSkip }: {
+  value?: number | null;
+  onSelect: (level: number) => void;
+  onSkip: () => void;
+}) {
+  return (
+    <ScaleRow
+      question="While I dig — how much did you like this paper?"
+      lowLabel="not for me"
+      highLabel="loved it"
+      value={value}
+      onSelect={onSelect}
+      onSkip={onSkip}
+      ariaPrefix="liked this paper"
+    />
+  );
+}
+
+/**
+ * What to say while a dig is running, in order of how much it is worth.
+ *
+ * A maintained content surface, like the first-run tips: these name real
+ * features, so update them when one is added, renamed or removed.
+ */
+const DIG_WAIT_TIPS = [
+  "Highlight anything else while you wait — digs queue under the passage they came from.",
+  "“Ask about this” sends the passage to the thread on the right instead of answering inline.",
+  "Underlined words carry a definition. Hover or tap one.",
+  "Every answer here is read out of the paper's full text, not its abstract.",
+  "What you dig into teaches your librarian what to send you next.",
+];
+
+const TIP_ROTATE_MS = 6000;
+
+/**
+ * The wait, which is the whole point of the interleave.
+ *
+ * The loader comes first and never moves. Underneath it, one thing at a time:
+ * the familiarity question if it is owed, then — only if the reader answered
+ * and the dig is still running — how much they liked the paper, then a tip. If
+ * the answer lands first, none of it was ever in the way. Nothing here is
+ * framed: a box would make a two-second wait look like a task.
+ */
+function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating }: {
+  familiarityOffer?: FamiliarityTopic | null;
+  familiarityValue?: FamiliarityValue | null;
+  onFamiliarity: (level: number) => void;
+  onSkipFamiliarity: () => void;
+  ratingOffer: boolean;
+  ratingValue?: number | null;
+  onRating: (level: number) => void;
+  onSkipRating: () => void;
+}) {
+  const [tip, setTip] = useState(0);
+  const showTips = !familiarityOffer && !ratingOffer;
+
+  useEffect(() => {
+    if (!showTips) return;
+    const id = setInterval(() => setTip(t => (t + 1) % DIG_WAIT_TIPS.length), TIP_ROTATE_MS);
+    return () => clearInterval(id);
+  }, [showTips]);
+
+  return (
+    <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+        <span style={{ ...BODY_STYLE, color: MUTED }}>Digging into that passage&hellip;</span>
+      </div>
+
+      {familiarityOffer ? (
+        <FamiliarityScale
+          topic={familiarityOffer}
+          currentLevel={familiarityValue?.level}
+          onSelect={onFamiliarity}
+          onSkip={onSkipFamiliarity}
+          lead="While I dig — how"
+        />
+      ) : ratingOffer ? (
+        <PaperRating value={ratingValue} onSelect={onRating} onSkip={onSkipRating} />
+      ) : (
+        <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+          <span style={LABEL_STYLE}>Tip</span>
+          <span style={{ ...BODY_SM, color: DIM }}>{DIG_WAIT_TIPS[tip]}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -421,46 +564,79 @@ function PitchedForYouLine({ pitch, topic, currentLevel, onSelect }: {
  * selection and in the confirmation tick, and nowhere else. The quoted passage
  * wears the same ink underline a paper name wears in the synthesis.
  */
-function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity }: {
+function DigPanel({ thread, washStyle, streaming, onFollowUp, error, defaultOpen, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating }: {
   thread: ReadingThread;
   washStyle: React.CSSProperties;
   streaming: boolean;
   error?: string | null;
   onFollowUp: (question: string) => void;
+  /** Fresh digs open; ones rehydrated on load stay folded so the walkthrough reads. */
+  defaultOpen: boolean;
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
   onFamiliarity: (level: number) => void;
   onSkipFamiliarity: () => void;
+  ratingOffer: boolean;
+  ratingValue?: number | null;
+  onRating: (level: number) => void;
+  onSkipRating: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(defaultOpen);
+
+  // Nothing has arrived yet: no frame, just the loader and whatever the
+  // interleave has to offer under it. The box is the answer's container, so it
+  // should not exist before there is an answer.
+  const empty = thread.turns.every(turn => !turn.answer);
+  if (empty && streaming) {
+    return (
+      <DigWait
+        familiarityOffer={familiarityOffer}
+        familiarityValue={familiarityValue}
+        onFamiliarity={onFamiliarity}
+        onSkipFamiliarity={onSkipFamiliarity}
+        ratingOffer={ratingOffer}
+        ratingValue={ratingValue}
+        onRating={onRating}
+        onSkipRating={onSkipRating}
+      />
+    );
+  }
+
+  // Folded, a dig is one line: enough to remember what you asked, small enough
+  // that four of them down a page don't bury the paper.
+  const preview = thread.turns.find(turn => turn.answer)?.answer.replace(/\s+/g, " ").trim() ?? "";
 
   return (
     <div style={{ ...washStyle, border: BORDER, boxShadow: SHADOW, padding: "18px 20px", marginTop: 22 }}>
-      <div style={{ ...LABEL_STYLE, marginBottom: 10 }}>Deeper</div>
+      <button
+        onClick={() => setOpen(value => !value)}
+        aria-expanded={open}
+        style={{
+          display: "flex", alignItems: "baseline", gap: 8, width: "100%",
+          background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <span style={{ ...LABEL_STYLE, color: MUTED }}>{open ? "–" : "+"}</span>
+        <span style={LABEL_STYLE}>Deeper</span>
+        {!open && preview && (
+          <span
+            style={{
+              ...BODY_SM, color: DIM, marginLeft: 4, minWidth: 0,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}
+          >
+            {preview}
+          </span>
+        )}
+      </button>
 
-      {familiarityOffer && (
-        <FamiliarityScale
-          topic={familiarityOffer}
-          currentLevel={familiarityValue?.level}
-          onSelect={onFamiliarity}
-          onSkip={onSkipFamiliarity}
-        />
-      )}
+      {!open ? null : <>
+      <div style={{ marginTop: 12 }} />
 
-      {thread.selection && (
-        <p
-          style={{
-            ...BODY_STYLE,
-            fontStyle: "italic",
-            margin: "0 0 14px",
-            textDecoration: "underline",
-            textDecorationColor: INK,
-            textUnderlineOffset: 4,
-          }}
-        >
-          {thread.selection}
-        </p>
-      )}
+      {/* The passage itself is not repeated here. The panel sits directly under
+          the paragraph it came from, so quoting it back was the same words
+          twice, two inches apart. */}
 
       {thread.turns.map((turn, i) => (
         <div key={turn.id} style={{ borderTop: i === 0 ? "none" : HAIRLINE, paddingTop: i === 0 ? 0 : 14, marginTop: i === 0 ? 0 : 14 }}>
@@ -505,6 +681,7 @@ function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarity
           Ask
         </ActionButton>
       </div>
+      </>}
     </div>
   );
 }
@@ -908,6 +1085,21 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   const [quote, setQuote] = useState<string | null>(null);
   const [tipSeen, setTipSeen] = useState(true);
 
+  // How much they liked the paper. Asked at most once per paper, only in the
+  // dead air of a dig, and only after the familiarity question is out of the
+  // way — two questions in one wait is a survey.
+  const [rating, setRating] = useState<number | null>(null);
+  const [ratingDeclined, setRatingDeclined] = useState(false);
+
+  // Digs made in this session open; ones rehydrated from the thread store on
+  // load stay folded, so re-opening a paper you have dug into four times shows
+  // you the paper rather than your own back-catalogue.
+  const freshThreads = useRef(new Set<string>());
+  const offerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The streaming flag as a ref too — the deferred offer has to read it at fire
+  // time, not close over whatever it was when the dig started.
+  const streamingRef = useRef<string | null>(null);
+
   const proseRef = useRef<HTMLDivElement>(null);
   const [pick, setPick] = useSelectionPick(proseRef, !companionPending);
 
@@ -966,6 +1158,15 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
         }
       } catch { /* an empty thread is the right fallback */ }
     })();
+    (async () => {
+      // Whether they have already told us. Cheap, and it is the difference
+      // between asking once and asking every time they dig.
+      try {
+        const res = await fetch(`/api/papers/${paper.id}/rating`);
+        const data = await res.json();
+        if (!cancelled && typeof data.level === "number") setRating(data.level);
+      } catch { /* unknown reads as un-rated, which only costs one question */ }
+    })();
     return () => { cancelled = true; };
   }, [paper.id, fixture, loadCompanion]);
 
@@ -977,7 +1178,11 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     const handlers = {
       start: (e: StartEvent) => {
         setStreamingTurn(e.id);
-        if (e.selection) setLastDigThreadId(e.threadId);
+        streamingRef.current = e.id;
+        if (e.selection) {
+          setLastDigThreadId(e.threadId);
+          freshThreads.current.add(e.threadId);
+        }
         const turn: ThreadTurn = {
           id: e.id, question: e.question, answer: "",
           threadId: e.threadId, selection: e.selection, sectionKey: e.sectionKey,
@@ -1011,6 +1216,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       setAskError(e instanceof Error ? e.message : "That one didn't come back. Try again.");
     } finally {
       setStreamingTurn(null);
+      streamingRef.current = null;
     }
   }, [paper.id, fixture, streamingTurn]);
 
@@ -1049,6 +1255,19 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     });
   }, [fixture, paper.id]);
 
+  const submitRating = useCallback((level: number) => {
+    const previous = rating;
+    setRating(level); // optimistic: a rating is one tap and must feel like one
+    if (fixture) return;
+    void fetch(`/api/papers/${paper.id}/rating`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level }),
+    }).catch(() => setRating(previous));
+  }, [fixture, paper.id, rating]);
+
+  const skipRating = useCallback(() => setRatingDeclined(true), []);
+
   const reserveFamiliarityOffer = useCallback(() => {
     if (familiarityValue || familiarityOffer || !companion?.topic) return;
     if (fixture) {
@@ -1065,12 +1284,24 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   }, [companion?.topic, familiarityOffer, familiarityValue, fixture, paper.id]);
 
   const dig = useCallback((text: string, section: SectionKey) => {
+    // Clear the marker the moment the dig fires. The green said "the agent is
+    // about to act on exactly this"; once it is acting, the sentence goes back
+    // to being a sentence.
     window.getSelection()?.removeAllRanges();
     setPick(null);
     if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
-    reserveFamiliarityOffer();
+    // The interleave lives in the wait, and the reader is allowed exactly one
+    // question a day across the whole product. Reserving it the instant a dig
+    // starts would spend that question on a two-second wait nobody read. Wait
+    // for the dig to prove it is slow first.
+    if (offerTimer.current) clearTimeout(offerTimer.current);
+    offerTimer.current = setTimeout(() => {
+      if (streamingRef.current) reserveFamiliarityOffer();
+    }, OFFER_AFTER_MS);
     ask({ selection: text, sectionKey: section });
   }, [ask, reserveFamiliarityOffer, setPick, tipSeen]);
+
+  useEffect(() => () => { if (offerTimer.current) clearTimeout(offerTimer.current); }, []);
 
   /* ── Prose ── */
 
@@ -1110,10 +1341,18 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       streaming={thread.turns.some(t => t.id === streamingTurn)}
       error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
       onFollowUp={q => ask({ question: q, threadId: thread.id })}
+      defaultOpen={freshThreads.current.has(thread.id)}
       familiarityOffer={thread.id === lastDigThreadId ? familiarityOffer : null}
       familiarityValue={activeFamiliarity}
       onFamiliarity={setFamiliarity}
       onSkipFamiliarity={skipFamiliarity}
+      // Second in the queue, and only in this dig's own wait: never asked
+      // before the familiarity question has been answered or waved off, never
+      // twice, never once they have told us.
+      ratingOffer={thread.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
+      ratingValue={rating}
+      onRating={submitRating}
+      onSkipRating={skipRating}
     />
   ));
 
@@ -1324,10 +1563,12 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
            leaves the viewport. */
         .reading-aside { position: sticky; top: 8px; }
         .reading-ask { max-height: calc(100vh - 100px); }
-        /* The one sanctioned fill use of acid green — see SELECTION_FILL. It is
-           scoped to the walkthrough, because that is the only text a dig can
-           act on. */
-        .reading-shell [data-section]::selection { background: ${SELECTION_FILL}; }
+        /* The one sanctioned fill use of acid green — see SELECTION_FILL.
+           Scoped to the reading column rather than to [data-section] alone: a
+           drag that starts in a beat and ends past its last line selects the
+           gap too, and with the narrower rule that overhang rendered in system
+           blue beside the green. One column, one marker colour. */
+        .reading-shell ::selection { background: ${SELECTION_FILL}; }
         /* Desktop selects; touch taps the beat's own affordance, because touch
            selection loses to the native callout. */
         .reading-beat-dig { display: none; }
