@@ -82,7 +82,10 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ force: true }),
           }).catch(() => {});
-          updateSession({ userId, isSetUp: true, contentMix });
+          // `justOnboarded` is what turns TodayPage's no-digest state into the
+          // first-run brewing state — this generation is the one it's waiting on.
+          // TodayPage clears the flag when the digest lands.
+          updateSession({ userId, isSetUp: true, contentMix, justOnboarded: true });
         }}
       />
     );
