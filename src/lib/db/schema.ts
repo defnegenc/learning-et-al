@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -74,6 +74,21 @@ export const digests = sqliteTable("digests", {
   hidden: integer("hidden", { mode: "boolean" }).$default(() => false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+/**
+ * A digest can appear in more than its author's history after it is shared.
+ * Keep that relationship separate from `digests.userId`: the original row and
+ * its papers remain the canonical public copy, while each reader can add it to
+ * their own Vault without cloning content.
+ */
+export const savedDigests = sqliteTable("saved_digests", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  digestId: text("digest_id").notNull().references(() => digests.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => [
+  uniqueIndex("saved_digests_user_digest_unique").on(table.userId, table.digestId),
+]);
 
 export const digestJobs = sqliteTable("digest_jobs", {
   id: text("id").primaryKey(),

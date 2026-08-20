@@ -232,7 +232,7 @@ are separate, honour `prefers-reduced-motion`.
 | Reading detail | 680px column. Title, byline, gist, then what's happened since |
 | Settings / Onboarding | Full-screen sheet below `md`, nav rail above it. `InterestLedger` for both |
 | `/prototype/interests` | Live, unauthenticated, rendering the shipping `InterestLedger` at full width and in a 375px phone frame, so it can't drift from what ships. A harness, not a candidate picker — it stays |
-| Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards |
+| Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards. Header carries Share plus Sign in/Open app; bookmarks save to the account or wait on-device until sign-in |
 | Share card | `opengraph-image.tsx`. No `filter: blur()` and no woff2 — Satori limits. See §7 |
 | Email | `src/lib/email.ts`. See §7 |
 

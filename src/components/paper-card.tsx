@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Bookmark, Info, Sparkles } from "lucide-react";
+import { Bookmark, Info } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import {
@@ -37,13 +37,18 @@ export function paperByline(paper: PaperItem): string {
 }
 
 /** The bookmark — the acid green fill is the only colour on the card's chrome. */
-function BookmarkToggle({ paper, initial, onUnsaved, label }: {
+function BookmarkToggle({ paper, initial, onUnsaved, label, onSignedOutSaveChange }: {
   paper: PaperItem;
   initial?: boolean;
   onUnsaved?: (id: string) => void;
   label?: string;
+  onSignedOutSaveChange?: (paper: PaperItem, saved: boolean) => void | Promise<void>;
 }) {
   const [saved, setSaved] = useState(!!initial);
+
+  // Bookmark ids often arrive just after the digest. Reflect that hydration,
+  // including device-backed saves on a public permalink.
+  useEffect(() => setSaved(!!initial), [initial]);
 
   async function toggle(e: React.MouseEvent) {
     e.preventDefault();
@@ -51,11 +56,17 @@ function BookmarkToggle({ paper, initial, onUnsaved, label }: {
     const next = !saved;
     setSaved(next);
     try {
-      await fetch(`/api/papers/${paper.id}/feedback`, {
-        method: next ? "POST" : "DELETE",
-        headers: next ? { "Content-Type": "application/json" } : undefined,
-        body: next ? JSON.stringify({ type: "star" }) : undefined,
-      });
+      if (onSignedOutSaveChange) {
+        await onSignedOutSaveChange(paper, next);
+        if (!next) onUnsaved?.(paper.id);
+        return;
+      }
+      const response = await fetch(`/api/papers/${paper.id}/feedback`, {
+          method: next ? "POST" : "DELETE",
+          headers: next ? { "Content-Type": "application/json" } : undefined,
+          body: next ? JSON.stringify({ type: "star" }) : undefined,
+        });
+      if (!response.ok) throw new Error("Bookmark failed");
       if (next) {
         // Reading prep runs in the background so the companion and the citing
         // work are ready by the time the reading list is opened.
@@ -162,6 +173,8 @@ export interface PaperCardProps {
   size?: "digest" | "compact";
   loggedIn?: boolean;
   initialBookmarked?: boolean;
+  /** Public permalink only: persist a signed-out bookmark on this device. */
+  onSignedOutSaveChange?: (paper: PaperItem, saved: boolean) => void | Promise<void>;
   onUnsaved?: (id: string) => void;
   /** Compact only: what a click does. Falls back to opening the source. */
   onOpen?: (p: PaperItem) => void;
@@ -199,7 +212,7 @@ export function PaperCard(props: PaperCardProps) {
  * takeaway's claim is the only place colour lands on type, marked in the same
  * hue as the card's own wash so the mark is wayfinding, not decoration.
  */
-function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: PaperCardProps) {
+function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSaveChange, expandTick }: PaperCardProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -245,7 +258,14 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
       {foundational && (
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
           <FoundationalMark />
-          {loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} label="Save for later" />}
+          {(loggedIn || onSignedOutSaveChange) && (
+            <BookmarkToggle
+              paper={paper}
+              initial={initialBookmarked}
+              label="Save for later"
+              onSignedOutSaveChange={onSignedOutSaveChange}
+            />
+          )}
         </div>
       )}
 
@@ -254,7 +274,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
           <h3 style={{ ...DISPLAY_SM, margin: 0, flex: 1 }}>
             {paper.plainName || paper.title}
           </h3>
-          {!foundational && loggedIn && <BookmarkToggle paper={paper} initial={initialBookmarked} />}
+          {!foundational && (loggedIn || onSignedOutSaveChange) && (
+            <BookmarkToggle paper={paper} initial={initialBookmarked} onSignedOutSaveChange={onSignedOutSaveChange} />
+          )}
         </div>
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
         {hero && <p style={{ fontFamily: DISPLAY, fontSize: foundational ? 22 : 18, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: foundational ? "28px" : "26px", color: INK, margin: foundational ? "4px 0 0" : "14px 0 0" }}>{hero}</p>}
@@ -330,7 +352,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, expandTick }: P
  * of them is worth an evening. The preview is clamped to three lines so a grid
  * row stays even; the card lifts on hover like every other clickable frame.
  */
-function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsaved, compareMode, isSelected, onSelect, preview, footnote }: PaperCardProps) {
+function CompactCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSaveChange, onOpen, onUnsaved, compareMode, isSelected, onSelect, preview, footnote }: PaperCardProps) {
   const foundational = paper.category === "foundational";
   const byline = paperByline(paper);
 
@@ -364,8 +386,13 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onOpen, onUnsa
             aria-hidden
             style={{ width: 18, height: 18, border: BORDER, background: isSelected ? INK : "transparent", flexShrink: 0 }}
           />
-        ) : loggedIn ? (
-          <BookmarkToggle paper={paper} initial={initialBookmarked} onUnsaved={onUnsaved} />
+        ) : (loggedIn || onSignedOutSaveChange) ? (
+          <BookmarkToggle
+            paper={paper}
+            initial={initialBookmarked}
+            onUnsaved={onUnsaved}
+            onSignedOutSaveChange={onSignedOutSaveChange}
+          />
         ) : null}
       </div>
 
@@ -402,7 +429,6 @@ function FoundationalMark() {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start", position: "relative" }}>
-      <Sparkles size={14} strokeWidth={2} style={{ color: GOLD, flexShrink: 0 }} aria-hidden />
       <span style={{ ...LABEL_STYLE, color: INK }}>Foundational text</span>
       <button
         onMouseEnter={() => setOpen(true)}
