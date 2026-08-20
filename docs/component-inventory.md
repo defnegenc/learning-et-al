@@ -18,7 +18,7 @@ one overrides Paper.
 | Component | What it is | Status |
 |-----------|-----------|--------|
 | `SPECTRUM` / `wash` / `washSlots` / `wordSlot` | The ten slots and their three indexes — field (fixed), keyword (by hash), card (by position) | ✅ replaced 5 palette tables |
-| `PageLoader` | The stamp: 30px square turning in 90° steps, shadow walking spectrum 0/3/6/9. The only page-level loader | ✅ |
+| `PageLoader` | The stamp: 30px square turning in 90° steps, shadow walking spectrum 0/3/6/9. The only page-level loader. `travelling` is its one variant — walks a 269px track, shadow stepping the full spectrum 00 → 09, for the first-digest wait | ✅ |
 | `SiteHeader` | The 52px bar — wordmark left, caller's controls right | ✅ |
 | `Wordmark` | Display/SM at 0.12em tracking. A lockup, not a type style | ✅ Space Grotesk retired with it |
 | `PageHeader` / `PageTitle` | Display/LG + one Body line | ✅ |
@@ -56,7 +56,8 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ `InkTitle` at Display/LG (1px stroke), notepad is square, rail renders `PaperCard` compact |
+| `today/today-page.tsx` | Orchestrator for brief + classic | ✅ `InkTitle` at Display/LG (1px stroke), notepad is square, rail renders `PaperCard` compact; local `BrewingTips` + the first-run no-digest state |
+| `first-run-tips.ts` | The eight tips shown while a new user's first digest generates. **Not a component — a maintained content surface**: update it whenever a user-facing feature is added, removed or renamed (rule is in CLAUDE.md too) | ✅ new |
 | `today/brief-digest.tsx` | The prose, the paper chips, the term chips | ✅ card extracted to `paper-card.tsx`; highlights are ink underlines |
 | `today/digest-header.tsx` | The gist and the addable topic tags | ✅ its local `TopicChip` renamed `AddableTopic` and now uses `Tag` |
 | `today/regenerate-cta.tsx` | End-of-digest "don't like this?" | ✅ |
@@ -89,6 +90,7 @@ one overrides Paper.
 | `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton` |
 | `interest-ledger.tsx` | The interests panel | ✅ matches the Paper board's vocabulary on the accordion |
 | `keyword-tag.tsx` | A keyword anywhere on white | ✅ wraps `Tag` + `InkTip` |
+| `what-is-this.tsx` | The logged-out explainer — trigger plus popup, three beats, closing on Sign in. Rendered only from the Today eyebrow row when there's no session | ✅ composition only, no new tokens: the Card frame on `ui/dialog`, Display/LG title, Display/SM beats, and real selected `TopicChip`s taking their fill from `FIELD_HIERARCHY` |
 | `admin-dashboard.tsx` | Admin only | ✅ on-system; event kinds take hashed slots rather than a colour table |
 
 ## Pages
