@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Settings, Menu, X } from "lucide-react";
 import { AdminDashboard } from "@/components/admin-dashboard";
+import { FirstSaveConfirmation, useOpenLibrary } from "@/components/save-nux";
 import { TodayPage } from "@/components/today/today-page";
 import { VaultPage } from "@/components/vault/vault-page";
 import { SettingsDialog } from "@/components/settings-dialog";
@@ -13,6 +14,8 @@ import { BORDER, DISPLAY_SM, HAIRLINE, INK, MUTED, NavTab, SiteHeader, SURFACE }
 interface Session {
   userId: string | null;
   isSetUp: boolean;
+  /** Set by `page.tsx` on onboarding completion — see TodayPage's first-run state. */
+  justOnboarded?: boolean;
 }
 
 /** A row in the mobile slide-down menu — Display/SM, 52px tall, thumb-sized. */
@@ -56,6 +59,10 @@ export function AppShell({ session, updateSession }: AppShellProps) {
     if (!session.userId) return;
     fetch("/api/admin/check").then(r => { if (r.ok) setAdminVerified(true); }).catch(() => {});
   }, [session.userId]);
+
+  // "Go to library →" on the first-save confirmation. The vault listens for the
+  // same event and opens on the saved shelf rather than the digest archive.
+  useOpenLibrary(useCallback(() => setActiveTab("vault"), []));
 
   const refreshDigestRef = useRef<(() => void) | null>(null);
 
@@ -149,6 +156,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             session={session}
             isAdmin={adminVerified}
             onRegisterRefresh={(fn) => { refreshDigestRef.current = fn; }}
+            onFirstDigestLanded={() => updateSession({ justOnboarded: false })}
           />
         </div>
         <div style={{ display: activeTab === "vault" ? "contents" : "none" }}>
@@ -161,6 +169,10 @@ export function AppShell({ session, updateSession }: AppShellProps) {
         )}
       </main>
 
+      {/* The first save, confirmed — and the only place the background reading
+          prep is ever mentioned. Mounted on the shell so it survives the tab a
+          reader happened to save from. */}
+      <FirstSaveConfirmation />
     </div>
   );
 }

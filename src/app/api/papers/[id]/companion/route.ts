@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { papers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { aiComplete, type AIConfig } from "@/lib/ai/provider";
+import { aiComplete, aiConfigFor, type AIConfig } from "@/lib/ai/provider";
 import { downloadAndParsePdf, textForPrompt, FULL_TEXT_CAP } from "@/lib/fetchers/pdf";
 import { getAuthUser } from "@/lib/get-user";
 
@@ -29,12 +29,8 @@ export interface Companion {
 }
 
 function cronConfig(): AIConfig | null {
-  const provider = (process.env.CRON_AI_PROVIDER || "gemini") as AIConfig["provider"];
-  const model =
-    process.env.CRON_AI_MODEL ||
-    (provider === "anthropic" ? "claude-sonnet-4-6" : provider === "openai" ? "gpt-4o" : "gemini-2.5-flash");
-  if (!process.env.CRON_AI_KEY) return null;
-  return { apiKey: process.env.CRON_AI_KEY, provider, model, baseUrl: process.env.CRON_AI_BASE_URL || "" };
+  const config = aiConfigFor("companion");
+  return config.apiKey ? config : null;
 }
 
 const COMPANION_SYSTEM = `You are preparing a reading companion for a curious non-expert who just saved this paper to their reading list. Work from the full text provided. Sound like a sharp friend explaining it over coffee — plain language, no hedging boilerplate, define nothing with jargon.
