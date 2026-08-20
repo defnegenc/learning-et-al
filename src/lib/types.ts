@@ -28,6 +28,8 @@ export interface PaperItem {
   methodType?: string | null;
   methodFacts?: string[];
   claim?: string | null;
+  /** Position in the digest that surfaced it — the wash index off the shelf. */
+  sourceIndex?: number | null;
   dinnerLine?: string | null;
   relatesLine?: string | null;
   digestTheme?: string | null; // reading list only: theme of the digest this paper came from

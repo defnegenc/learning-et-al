@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import type { PaperItem } from "@/lib/types";
 import { PaperCard } from "@/components/paper-card";
 import { BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, NavTab, PageHeader, PageLoader } from "@/components/design-system";
 import { useOpenLibrary } from "@/components/save-nux";
-import { ReadingPaperDetail } from "./reading-paper-detail";
 import { DigestHistory } from "./digest-history";
 
 /** How long between checks for prep that was still running when the list loaded. */
@@ -34,9 +34,7 @@ export function VaultPage() {
   // "Go to library →" from the first-save confirmation lands on the shelf, not
   // on the digest archive.
   useOpenLibrary(useCallback(() => setView("list"), []));
-  // The shelf position travels with the paper, because the reading view wears
-  // the hue of the card it was opened from.
-  const [detail, setDetail] = useState<{ paper: PaperItem; index: number } | null>(null);
+  const router = useRouter();
   const loaded = useRef(false);
 
   const fetchPapers = useCallback(async () => {
@@ -105,7 +103,10 @@ export function VaultPage() {
                 initialBookmarked
                 preview={paper.companionRemember}
                 footnote={<ShelfFootnote paper={paper} />}
-                onOpen={p => setDetail({ paper: p, index: idx })}
+                // The reading view is a page with an address now, not an
+                // overlay the shelf covers itself with — so back works, refresh
+                // works, and the walkthrough is linkable from anywhere.
+                onOpen={p => router.push(`/library/${p.id}`)}
                 onUnsaved={id => setPapers(prev => prev.filter(p => p.id !== id))}
               />
             ))}
@@ -113,13 +114,6 @@ export function VaultPage() {
         </>
       )}
 
-      {detail && (
-        <ReadingPaperDetail
-          paper={detail.paper}
-          index={detail.index}
-          onClose={() => setDetail(null)}
-        />
-      )}
     </div>
   );
 }

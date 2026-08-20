@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   ACID_GREEN, BODY_SM, BODY_STYLE, BORDER, DIM, INK, LABEL_STYLE, MUTED, SHADOW, SURFACE,
 } from "@/components/design-system";
 import {
   FIRST_SAVE_EVENT, OPEN_LIBRARY_EVENT, dismissSaveTip, openLibrary, saveTipDismissed,
-  type FirstSaveDetail,
+  subscribeSaveTip, type FirstSaveDetail,
 } from "@/lib/save-nux";
 
 /*
@@ -28,17 +28,11 @@ import {
  * rather than filing a link.
  */
 export function SaveTipStrip({ show }: { show: boolean }) {
-  // Start hidden and read localStorage after mount: rendering the strip on the
-  // server and pulling it away on hydration is worse than a beat of nothing.
-  const [dismissed, setDismissed] = useState(true);
-
-  useEffect(() => {
-    setDismissed(saveTipDismissed());
-    // The first save retires the strip from under it — saving IS the dismissal.
-    const retire = () => setDismissed(true);
-    window.addEventListener(FIRST_SAVE_EVENT, retire);
-    return () => window.removeEventListener(FIRST_SAVE_EVENT, retire);
-  }, []);
+  // localStorage is an external store, and both things that retire the tip —
+  // the × and the first save — happen outside React. The server snapshot is
+  // "dismissed", so the strip never renders on the server and gets pulled away
+  // on hydration; it fades in on the client or not at all.
+  const dismissed = useSyncExternalStore(subscribeSaveTip, saveTipDismissed, () => true);
 
   if (!show || dismissed) return null;
 
@@ -63,7 +57,7 @@ export function SaveTipStrip({ show }: { show: boolean }) {
         </p>
       </div>
       <button
-        onClick={() => { dismissSaveTip(); setDismissed(true); }}
+        onClick={dismissSaveTip}
         aria-label="Dismiss tip"
         style={{
           background: "none", border: "none", cursor: "pointer", padding: 0,

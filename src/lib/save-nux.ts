@@ -19,6 +19,8 @@
  * only records "they told us to stop showing it here".
  */
 
+import { markNuxSeen, nuxSeen } from "./nux";
+
 const TIP_KEY = "nux_save_tip";
 const FIRST_SAVE_KEY = "nux_first_save";
 
@@ -32,29 +34,32 @@ export interface FirstSaveDetail {
   title: string;
 }
 
-function read(key: string): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    return localStorage.getItem(key) === "1";
-  } catch {
-    return true; // private mode: fail quiet rather than nag every load
-  }
-}
-
-function write(key: string) {
-  try {
-    localStorage.setItem(key, "1");
-  } catch {
-    /* nothing to do — the tip just reappears next visit */
-  }
-}
+const read = nuxSeen;
+const write = markNuxSeen;
 
 export function saveTipDismissed(): boolean {
   return read(TIP_KEY) || read(FIRST_SAVE_KEY);
 }
 
+/**
+ * The strip subscribes rather than reading in an effect: localStorage is an
+ * external store, and the two things that retire the tip — the × and the first
+ * save — both happen outside React.
+ */
+const TIP_CHANGED = "letal:save-tip-changed";
+
+export function subscribeSaveTip(onChange: () => void): () => void {
+  window.addEventListener(TIP_CHANGED, onChange);
+  window.addEventListener(FIRST_SAVE_EVENT, onChange);
+  return () => {
+    window.removeEventListener(TIP_CHANGED, onChange);
+    window.removeEventListener(FIRST_SAVE_EVENT, onChange);
+  };
+}
+
 export function dismissSaveTip() {
   write(TIP_KEY);
+  window.dispatchEvent(new CustomEvent(TIP_CHANGED));
 }
 
 /**
