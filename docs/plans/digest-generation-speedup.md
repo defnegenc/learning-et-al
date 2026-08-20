@@ -8,7 +8,12 @@ Three phases, in landing order. Each is independently shippable and verifiable. 
 
 ---
 
-## Phase 0 — Instrumentation (land with Phase 1)
+## Phase 0 — Instrumentation (land with Phase 1) — **LANDED 2026-08-20**
+
+Implemented as specified, with `logStage()` calls at: setup, step 1 theme, step 2 search (per theme attempt), step 3 scoring (per theme attempt), selection, step 4 news + fills, step 4b re-rank, step 5 headline, step 4c foundational merge, stage A+B, stage C draft, fact check + revision, stage D critique + revision, coverage gate + format enforcement, gist, db insert.
+
+No baseline was captured before landing — there is no local env for a real run, so the first preview run after this lands *is* the baseline, and Phase 2's numbers get compared against it.
+
 
 Add a stage timer so the wins are measurable in Vercel logs instead of vibes.
 
@@ -28,7 +33,12 @@ Call `logStage(...)` after: Step 1 (theme), Step 2 (search), Step 3 (scoring), s
 
 ---
 
-## Phase 1 — Parallelize independent work (no prompt changes, no quality change)
+## Phase 1 — Parallelize independent work (no prompt changes, no quality change) — **LANDED 2026-08-20**
+
+All four sub-changes implemented as specified. Two deltas worth recording:
+- 1.3's tier-2 verification loop, in addition to losing its `await delay(300)`, now runs its ≤3 OpenAlex lookups via `Promise.all`.
+- 1.4's `.catch(() => [])` on the news web search is a small behavior *improvement*: the old `await webSearch(...)` was unguarded, so a Serper/DDG outage threw out of `generateDigest` entirely. It now degrades to the RSS fallback.
+
 
 ### 1.1 Run the three search queries concurrently
 
