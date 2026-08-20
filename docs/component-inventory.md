@@ -69,13 +69,13 @@ one overrides Paper.
 
 | Component | Serves | Status |
 |-----------|--------|--------|
-| `vault/vault-page.tsx` | Shell + library grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running; opens on Saved papers when the reader has any, and navigates to `/library/[paperId]` rather than covering itself |
+| `vault/vault-page.tsx` | Shell + library grid | ✅ renders `PaperCard` compact with the companion's "remember" as `preview` and a `ShelfFootnote`; polls while prep is still running; opens on Saved papers when the reader has any, and navigates to `/library/[paperId]` rather than covering itself. Digests / Saved papers is a `Segmented` toggle, not the shell's `NavTab` strip |
 | `vault/digest-history.tsx` | Two-pane history | ✅ |
 | `vault/reading-paper-detail.tsx` | The reading view — the body of `/library/[paperId]` | ✅ 1240px two-column, a page rather than a portal overlay. Left: title, the why-you're-reading-this line, five companion beats each selectable for a dig, inline `DigPanel`s, the `Remember this` card frame, `Glossary`, the citing work. Right: `AskThread` in a sticky rail, with a pending state instead of dead air. `Read the full paper` sits opposite Back in a top bar. Takes `index` for the paper's hue |
 | `SelectionMenu` / `DigPanel` / `DigThisBeat` (internal to `reading-paper-detail.tsx`) | Highlight to dig deeper: the floating **Dig deeper** · **Ask about this** pair, the wash panel the streamed answer lands in under its beat, and the per-beat touch affordance | ✅ new — the selection is the one sanctioned acid fill (`SELECTION_FILL`); the panel is the paper's wash |
 | `FamiliarityScale` / `PitchedForYouLine` (internal to `reading-paper-detail.tsx`) | The skippable 1–5 interleave inside a dig and the tappable structured disclosure/correction control on personalized companion and Q&A output | ✅ composes existing Body/SM, Label, border and ink tokens; no new visual primitive |
 | `AskThread` (internal to `reading-paper-detail.tsx`) | The Q&A thread — a 372px framed rail: companion starters as rows, scrolling threads with follow-ups, composer pinned to the foot. Persisted per user, threaded, streamed | ✅ the only typed Q&A surface; digest-level Q&A is gone |
-| `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words | ✅ |
+| `Glossary` (internal to `reading-paper-detail.tsx`) | Collapsed `dl` of the companion's hard words. Closed by default, opened by the same chevron the interests accordion uses | ✅ |
 | ~~`vault/reading-list-card.tsx`~~ | 💀 deleted — the vault renders the digest card |
 
 ## Shell, settings, onboarding
@@ -90,7 +90,7 @@ one overrides Paper.
 | `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton`; the subtitle carries all three verbs and the footer reaches `WhatIsThis` |
 | `interest-ledger.tsx` | The interests panel | ✅ matches the Paper board's vocabulary on the accordion |
 | `keyword-tag.tsx` | A keyword anywhere on white | ✅ wraps `Tag` + `InkTip` |
-| `what-is-this.tsx` | The one explainer — trigger plus popup, three beats. Two variants: `public` (Today's eyebrow row, Today's no-digest state and the shared permalink, all logged-out only; closes on Sign in) and `onboarding` ("What happens next?" in the interest-step footer; closes on how long the first digest takes). Only the trigger words and that last line differ | ✅ composition only, no new tokens: the Card frame on `ui/dialog`, Display/LG title, Display/SM beats, and real selected `TopicChip`s taking their fill from `FIELD_HIERARCHY` |
+| `what-is-this.tsx` | The one explainer — trigger plus popup, three beats. Two variants: `public` is an `i` icon beside Share (Today's eyebrow row and the permalink header, logged out only) closing on Sign in; `onboarding` is a text "What happens next?" in the interest-step footer, closing on how long the first digest takes. Same three beats either way | ✅ composition only, no new tokens: the Card frame on `ui/dialog`, Display/LG title, Display/SM beats, and real selected `TopicChip`s taking their fill from `FIELD_HIERARCHY` |
 | `admin-dashboard.tsx` | Admin only | ✅ on-system; event kinds take hashed slots rather than a colour table |
 
 ## Pages
