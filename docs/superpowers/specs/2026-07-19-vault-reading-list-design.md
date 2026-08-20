@@ -39,8 +39,8 @@ List; a **"Digest History"** button top-right switches to the history view.
 - Storage: new nullable text columns on `papers` (JSON for annotations, text for
   gist). Column additions via manual `sqlite3 ALTER TABLE` locally + push to Turso
   (per the drizzle-kit SQLite gotcha).
-- Uses the same AI provider resolution as the rest of the app (server-side
-  `CRON_AI_*` for signed-in users, BYOK if configured).
+- Uses the same AI provider resolution as the rest of the app: server-side
+  `CRON_AI_*` for signed-in users.
 
 ## 2. Digest History
 

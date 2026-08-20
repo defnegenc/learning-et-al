@@ -100,8 +100,8 @@ SSE over a ReadableStream; `maxDuration = 60`. Implemented in `src/lib/ai/agent.
   live), `result` (final `{answer, seeds, sources}`). The answer carries `[N]` citation
   markers indexing the `sources` array; **the client paces the reveal** at reading speed
   (no server token streaming — the reveal animation already lives client-side).
-- **Auth/config:** `getAuthUser` (live agent requires sign-in); BYOK body override → server
-  `CRON_AI_*` fallback, mirroring `/api/digest/chat`.
+- **Auth/config:** `getAuthUser` (live agent requires sign-in); use server
+  `CRON_AI_*` configuration, mirroring `/api/digest/chat`.
 - **Guardrails:** max 3 tool calls per expansion. Per-day budget + per-trail depth limits:
   deferred to wiring.
 

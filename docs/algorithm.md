@@ -275,7 +275,7 @@ picturable noun, so titles are graspable, not just punchy.
 | 14 | Self-critique revision | 6 | If any score <4 | ~2000 | ~400 |
 | 15 | Final coverage revision | 6 | If paper missing in bold | ~1500 | ~400 |
 
-**Typical: 12-14 calls.** Calls 2, 3, 3c, 4, 7c, 12, 14, 15 are conditional. The cold-reader gate adds 2 always-on small completions (+1 on repair, +1 on re-angle) and a few local embeddings. Cost: ~$0.01-0.02 per digest at Gemini Flash pricing.
+**Typical: 12-14 calls.** Calls 2, 3, 3c, 4, 7c, 12, 14, 15 are conditional. The cold-reader gate adds 2 always-on small completions (+1 on repair, +1 on re-angle) and a few local embeddings. Cost depends on the deployed `CRON_AI_PROVIDER`/`CRON_AI_MODEL`; Gemini Flash pricing is only one example, not proof of the live production model.
 
 ---
 

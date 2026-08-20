@@ -160,7 +160,10 @@ const HOMEWORK: Record<string, HomeworkItem[]> = {
 };
 
 /** A stand-in for the model — enough shape to review the thread, no pretence. */
-function cannedAnswer(question: string): string {
+function cannedAnswer(question: string, selection?: string | null): string {
+  if (selection) {
+    return `Sample dig on "${selection.slice(0, 60)}${selection.length > 60 ? "…" : ""}". In the product this comes from /api/papers/[id]/qa with the highlighted passage as the anchor, streamed a token at a time so the panel is filling in by the time you scroll to it. This page has no model behind it, so what arrives is fixed — it is here to show the shape of a dig, not the quality of one.`;
+  }
   return `Sample answer for "${question.replace(/\s+$/, "")}". In the product this comes from /api/papers/[id]/qa, which reads the paper's full text and is told to lead with the answer in two to four sentences and cite a specific number where it can. This page has no model behind it, so the text you're reading is fixed — it's here to show the shape of a reply, not the quality of one.`;
 }
 
@@ -185,6 +188,20 @@ function fixtureFor(id: string): ReadingFixture {
 export default function ReadingListPrototype() {
   const [view, setView] = useState<"history" | "list">("list");
   const [detail, setDetail] = useState<{ paper: PaperItem; index: number } | null>(null);
+
+  // The reading view is a page now rather than an overlay, so the prototype
+  // swaps to it the way the router does in production.
+  if (detail) {
+    return (
+      <ReadingPaperDetail
+        paper={detail.paper}
+        index={detail.index}
+        provenance={{ theme: detail.paper.digestTheme ?? null, seedInterests: ["sleep", "motor learning"] }}
+        onBack={() => setDetail(null)}
+        fixture={fixtureFor(detail.paper.id)}
+      />
+    );
+  }
 
   return (
     <div style={{ maxWidth: 1400, margin: "0 auto" }} className="px-4 md:px-8 pt-8 pb-20">
@@ -242,14 +259,6 @@ export default function ReadingListPrototype() {
         </>
       )}
 
-      {detail && (
-        <ReadingPaperDetail
-          paper={detail.paper}
-          index={detail.index}
-          onClose={() => setDetail(null)}
-          fixture={fixtureFor(detail.paper.id)}
-        />
-      )}
     </div>
   );
 }

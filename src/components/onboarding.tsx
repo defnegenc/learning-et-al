@@ -126,7 +126,7 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
             {step === 1 ? "Connect an AI provider" : "What are you curious about?"}
           </h2>
           <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>
-            {step === 1 ? "We use an LLM to generate your daily digest." : "Pick at least 3 topics. We'll find papers and news that connect them."}
+            {step === 1 ? "We use an LLM to generate your daily digest." : "Pick at least 3 topics. We'll turn them into a daily digest that connects papers, news, and ideas."}
           </p>
         </div>
 
@@ -199,7 +199,7 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
                     ? <><Loader2 size={15} className="animate-spin" /> Setting up…</>
                     : selectedTopics.length < 3
                       ? `Pick ${3 - selectedTopics.length} more topic${selectedTopics.length === 2 ? "" : "s"}`
-                      : "Start exploring"}
+                      : "Create my first digest"}
                 </ActionButton>
               </div>
             </div>
