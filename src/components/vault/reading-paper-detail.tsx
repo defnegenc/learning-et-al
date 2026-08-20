@@ -711,7 +711,7 @@ function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, 
           <div>
             <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
             <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
-              Answered from the paper itself, not from the digest.
+              Compares the paper with what current web sources say.
             </p>
           </div>
           <button

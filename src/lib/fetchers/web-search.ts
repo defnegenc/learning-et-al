@@ -5,12 +5,18 @@ export interface WebSearchResult {
   source: string;
 }
 
+export type WebSearchKind = "news" | "web";
+
 // Serper.dev — Google search results via API
 // Free tier: 2,500 queries/month
-export async function webSearch(query: string, numResults = 5): Promise<WebSearchResult[]> {
+export async function webSearch(
+  query: string,
+  numResults = 5,
+  kind: WebSearchKind = "news",
+): Promise<WebSearchResult[]> {
   const serperKey = process.env.SERPER_API_KEY;
   if (serperKey) {
-    const results = await serperSearch(query, numResults, serperKey);
+    const results = await serperSearch(query, numResults, serperKey, kind);
     if (results.length > 0) return results;
     // Serper returned empty — fall through to DDG
     console.log(`[WebSearch] Serper returned 0 results, trying DuckDuckGo`);
@@ -19,9 +25,14 @@ export async function webSearch(query: string, numResults = 5): Promise<WebSearc
   return duckDuckGoSearch(query, numResults);
 }
 
-export async function serperSearch(query: string, numResults: number, apiKey: string): Promise<WebSearchResult[]> {
+export async function serperSearch(
+  query: string,
+  numResults: number,
+  apiKey: string,
+  kind: WebSearchKind = "news",
+): Promise<WebSearchResult[]> {
   try {
-    const res = await fetch("https://google.serper.dev/news", {
+    const res = await fetch(`https://google.serper.dev/${kind === "web" ? "search" : "news"}`, {
       method: "POST",
       headers: {
         "X-API-KEY": apiKey,
@@ -36,7 +47,9 @@ export async function serperSearch(query: string, numResults: number, apiKey: st
     }
 
     const data = await res.json();
-    const results = data.news || data.organic || [];
+    const results = kind === "web"
+      ? data.organic || data.news || []
+      : data.news || data.organic || [];
 
     return results.map((r: { title?: string; link?: string; snippet?: string; source?: string }) => ({
       title: r.title || "",
