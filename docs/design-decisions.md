@@ -1052,3 +1052,26 @@ where nothing competes with it.
 The glossary's disclosure also becomes the chevron the interests accordion uses.
 It was already collapsible and closed by default, but a bare `+` / `–` was
 carrying the whole signal and read as punctuation rather than a control.
+
+---
+
+## 2026-08-20: Ask is a paper-plus-web comparison
+
+“Ask this paper” should not behave like search inside a PDF. The paper remains
+the primary object in the reading view, but each question now triggers a general
+web search using the question, its immediate thread context, and the paper title.
+The answer must keep the two bodies of evidence distinct and state whether the
+outside material agrees, disagrees, or adds later context. Naming the online
+source is part of that contract; a generic “other research says” is not.
+
+Search snippets are supporting evidence, not authoritative full text. They are
+bounded before entering the model, explicitly marked as untrusted data, and the
+prompt forbids claims beyond what a snippet supports. An empty or failed search
+does not block the paper answer, but the answer must disclose that the online
+check was inconclusive. This preserves a useful failure mode without silently
+falling back to the old paper-only behavior.
+
+The web fetcher keeps news as its default because the digest pipeline depends on
+that vertical. Reading Q&A opts into Serper's general-search endpoint explicitly,
+with the existing broad DuckDuckGo fallback. The rail says what it does in one
+Body/SM line and adds no new component or visual token.
