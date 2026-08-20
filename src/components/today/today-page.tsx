@@ -9,6 +9,7 @@ import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
 import { PaperCard } from "@/components/paper-card";
 import { ShareDigestButton } from "./share-digest-button";
+import { WhatIsThis } from "@/components/what-is-this";
 
 
 /*
@@ -405,8 +406,15 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn }: TodayPagePro
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
-                  Daily digest
+                {/* The eyebrow row carries the one explainer affordance a
+                    logged-out visitor gets. Nothing else on this page says the
+                    digest was generated from somebody's interests, and this is
+                    where their eye already is. */}
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, lineHeight: "20px", color: INK }}>
+                    Daily digest
+                  </div>
+                  {!session && <WhatIsThis onSignIn={onSignIn} />}
                 </div>
                 <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
               </div>

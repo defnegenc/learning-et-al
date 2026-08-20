@@ -77,6 +77,7 @@ one overrides Paper.
 | `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton` |
 | `interest-ledger.tsx` | The interests panel | ✅ matches the Paper board's vocabulary on the accordion |
 | `keyword-tag.tsx` | A keyword anywhere on white | ✅ wraps `Tag` + `InkTip` |
+| `what-is-this.tsx` | The logged-out explainer — trigger plus popup, three beats, closing on Sign in. Rendered only from the Today eyebrow row when there's no session | ✅ composition only, no new tokens: the Card frame on `ui/dialog`, Display/LG title, Display/SM beats, and real selected `TopicChip`s taking their fill from `FIELD_HIERARCHY` |
 | `admin-dashboard.tsx` | Admin only | ✅ on-system; event kinds take hashed slots rather than a colour table |
 
 ## Pages
