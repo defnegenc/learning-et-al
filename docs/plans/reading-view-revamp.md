@@ -69,14 +69,17 @@ self-retires permanently the moment the first save lands — saving *is* dismiss
 
 **Core copy** (draft, tune later):
 
-> **Tip —** Save a paper and your librarian starts reading it: a guided
+> **Tip:** Save a paper and your librarian starts reading it: a guided
 > walkthrough, key terms, and what's been published since, waiting in your
 > library.
 
-⚠️ **Typography rule for everything in this plan (Defne, 2026-08-20): no mono
-eyebrows, no all-caps little labels, anywhere.** Every lead-in ("Tip —",
-"Pitched for you:") is **bolded body face, sentence case**. Where earlier
-drafts of this doc said "mono `TIP` eyebrow," read this instead.
+⚠️ **Two copy rules for everything in this plan (Defne, 2026-08-20):**
+1. **No mono eyebrows, no all-caps little labels, anywhere.** Every lead-in
+   ("Tip:", "Pitched for you:") is **bolded body face, sentence case**. Where
+   earlier drafts of this doc said "mono `TIP` eyebrow," read this instead.
+2. **No em dashes in any user-visible text** (see the global copy rule section
+   below). Lead-ins end in a colon, not a dash; drafted copy in this doc has
+   been rewritten accordingly and new copy must comply.
 
 Short variant for tight surfaces: *"Save a paper — your librarian will prep it
 and find related work for you to browse later."*
@@ -85,7 +88,7 @@ and find related work for you to browse later."*
 
 **A. The strip** *(recommended as the "before" half)*
 A full-width band above the digest header: hard border, surface white, a bolded
-body-face **"Tip —"** lead-in, one sentence, `×` to dismiss. It's the calmest
+body-face **"Tip:"** lead-in, one sentence, `×` to dismiss. It's the calmest
 option, reads as part of the archive furniture, and doesn't chase the user
 around. Nothing new enters the menu — it's `BORDER` + `BODY_STYLE`.
 
@@ -98,7 +101,7 @@ Keep as fallback if the strip doesn't convert.
 
 **C. The confirmation moment** *(recommended as the "after" half)*
 On the **first-ever save**, a small fixed panel bottom-right (the `NotepadFloat`
-pattern): *"Saved ✓ — your librarian is reading it now. A walkthrough and
+pattern): *"Saved ✓. Your librarian is reading it now: a walkthrough and
 related work will be in your library in a minute or two."* with a **"Go to
 library →"** link. Acid-green is allowed here as ink (the ✓ and "Saved"), never
 as the panel fill. This is the highest-leverage piece: it explains the feature
@@ -206,7 +209,7 @@ DOM offsets).
 **Interaction spec** (prototype in `/prototype/reading-list` first):
 
 1. **The tip.** One line under the byline, first-visit only (same localStorage
-   pattern as §1): bolded body-face **"Tip —"** + *"highlight any passage and
+   pattern as §1): bolded body-face **"Tip:"** + *"highlight any passage and
    the agent will explain it, or answer a question about it."* Retires after
    the first successful explain.
 2. **Select.** User selects text inside gist/beats/remember. The selection
@@ -224,7 +227,7 @@ DOM offsets).
    anchored to the same selection (there is no rail composer anymore, §2c) —
    the typed question plus the quoted passage produce the same kind of section.
 4. **Confirmation.** The button collapses into an inline chip:
-   *"Explaining ✓ — keep reading, it'll be waiting below."* Check and text in
+   *"Explaining ✓. Keep reading, it'll be waiting below."* Check and text in
    acid-green **ink**. (The section itself is NOT green — green lives only in
    the selection highlight and confirmation ink. The section is the paper's wash.)
 5. **The section.** The answer arrives as its **own collapsible section**
@@ -281,7 +284,7 @@ its documents.
 When the user asks for an explain (§2b step 4), the confirmation chip is a
 natural pause — the agent is "off working." Use it, at most once, to ask:
 
-> *While I work on that — how familiar are you with **social computing**?*
+> *While I work on that: how familiar are you with **social computing**?*
 > `new to it · 1 2 3 4 5 · I work on this`
 > *This helps me pitch future reading companions.* — with a visible **skip**.
 
@@ -339,8 +342,8 @@ disclose:
 
 > *Pitched for you: you rated yourself 2/5 on social computing, so I'm defining
 > terms as I go.*
-> *Pitched for you: you're 4/5 on social computing — skipping the basics,
-> straight to the method.*
+> *Pitched for you: you're 4/5 on social computing, so I'm skipping the basics
+> and going straight to the method.*
 
 Spec:
 
@@ -468,11 +471,44 @@ how it *talks* to them.
 
 ---
 
+## Global copy rule: no em dashes
+
+*(Defne, 2026-08-20. Project-wide, not just the reading view. Also recorded in
+`CLAUDE.md` so every agent inherits it.)*
+
+The em dash (`—`) never appears in **user-visible text**: UI strings, AI-generated
+content, digest emails, OG images. Rewrite with a period, comma, colon, or
+parentheses. En dashes in numeric ranges (2019–2024) are fine; this rule is
+about the em dash as a rhetorical connector. Code comments and internal docs
+are out of scope (they're not user-visible).
+
+Three layers, all small:
+
+1. **Sweep the static strings.** ~490 raw `—` matches in `src/` (many are
+   comments; the user-facing subset is UI string literals plus `src/lib/email.ts`
+   and `src/app/opengraph-image.tsx`). One pass, rewrite each. The NUX/reading
+   copy in this plan is already em-dash-free.
+2. **Stop the model from producing them.** LLMs adore em dashes, so two guards:
+   (a) add "Never use em dashes; use a period, comma, or colon instead" to every
+   prompt builder in `src/lib/ai/prompts.ts` plus the inlined `COMPANION_SYSTEM`
+   and the qa/chat prompts; (b) the guarantee: a sanitizer at the single choke
+   point, `aiComplete`'s return in `provider.ts`, that normalizes any surviving
+   em dash (` — ` and `—` become `, `; leading/trailing cases become a period or
+   nothing). Prompt reduces weirdness, sanitizer makes it a hard invariant, and
+   it covers every current and future route for free. Safe on JSON outputs
+   (replacement happens inside string content).
+3. **Keep them out.** An ESLint `no-restricted-syntax` rule flagging `—` in
+   string literals and JSX text (comments exempt), so new copy can't reintroduce
+   them.
+
 ## 5 · Sequencing
 
 1. **Phase 1 — name the thing** (small): unify "Save" naming (string table in
    §1), visible label on the digest-card bookmark, NUX strip (§1A) +
    first-save confirmation (§1C). Paper board first for the label + strip.
+   **Parallel to phase 1, its own branch: the em-dash rule** (sweep + prompt
+   guard + sanitizer + lint) — it touches many files shallowly, so land it
+   separately to keep merge conflicts away from the feature branches.
 2. **Phase 2 — the reading view** (the meat): `/library/[paperId]` route
    (overlay becomes the page; intercepted route for in-app opens); left outline
    column, chat rail removed; green highlight (Paper amendment first) →
@@ -501,7 +537,9 @@ how it *talks* to them.
   the live selection; record in Paper first, §2b.2). The answer section is the
   paper's wash; the confirmation ✓ is green ink. Green appears nowhere else.
 - **No mono eyebrows, no all-caps labels, anywhere in this work** — every
-  lead-in ("Tip —", "Pitched for you:") is bolded body face, sentence case (§1).
+  lead-in ("Tip:", "Pitched for you:") is bolded body face, sentence case (§1).
+- **No em dashes in user-visible text, project-wide** — sweep + prompt guard +
+  `aiComplete` sanitizer + lint rule (see the global copy rule section).
 - **Numbers get a table, not display type.** `keyStats` rows (metric · value ·
   note), wash-tinted, between did and found; omitted for non-quantitative
   papers (§2a).
