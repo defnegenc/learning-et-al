@@ -21,6 +21,7 @@ export interface ThreadTurn {
   threadId: string | null;
   selection: string | null;
   sectionKey: string | null;
+  pitch?: import("@/lib/familiarity").PitchedForYou | null;
   createdAt?: string | number | Date | null;
 }
 

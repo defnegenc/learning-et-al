@@ -99,10 +99,17 @@ const COMPANIONS: Record<string, Companion> = {
     remember:
       "Practice writes the skill; sleep is what files it. Cut the night after a session and you keep the day's gain but lose most of the overnight one — and a good night later doesn't get it back.",
     glossary: [
-      { term: "consolidation", def: "The process that turns a fresh, fragile memory into a stable one, mostly while you are not using it." },
-      { term: "slow-wave sleep", def: "The deepest stage of non-dreaming sleep, concentrated in the first few hours of the night." },
-      { term: "criterion", def: "A fixed performance level everyone must reach, so people start the test equally trained rather than equally practised." },
+      { term: "consolidation", def: "The process that turns a fresh, fragile memory into a stable one, mostly while you are not using it.", tier: "basic", analogy: "Think of saving a draft so it survives after the app closes." },
+      { term: "slow-wave sleep", def: "The deepest stage of non-dreaming sleep, concentrated in the first few hours of the night.", tier: "working" },
+      { term: "criterion", def: "A fixed performance level everyone must reach, so people start the test equally trained rather than equally practised.", tier: "deep" },
     ],
+    topic: { id: "T101", name: "sleep and memory", subfield: "Cognitive Neuroscience", source: "openalex" },
+    pitchedForYou: {
+      topicId: "T101",
+      topicName: "sleep and memory",
+      level: 2,
+      consequence: "I'm defining terms and using analogies as I go.",
+    },
     questions: [
       "Does a nap the next afternoon do anything, or is it only the first night that counts?",
       "Was the restricted group just tired at retest, rather than worse at the skill?",
@@ -120,9 +127,10 @@ const COMPANIONS: Record<string, Companion> = {
     remember:
       "The limit isn't seven items, it's seven chunks — and how much a chunk holds is the part you can actually train.",
     glossary: [
-      { term: "chunk", def: "A group of items your mind is treating as one thing, like a familiar area code rather than three separate digits." },
-      { term: "recoding", def: "Deliberately regrouping information into bigger units before you try to hold on to it." },
+      { term: "chunk", def: "A group of items your mind is treating as one thing, like a familiar area code rather than three separate digits.", tier: "basic" },
+      { term: "recoding", def: "Deliberately regrouping information into bigger units before you try to hold on to it.", tier: "working" },
     ],
+    topic: { id: "T202", name: "working memory", subfield: "Cognitive Psychology", source: "openalex" },
     questions: [
       "Is seven still the accepted number, or has it been revised down?",
       "What actually makes something become a single chunk?",
@@ -170,6 +178,12 @@ function cannedAnswer(question: string, selection?: string | null): string {
 function fixtureFor(id: string): ReadingFixture {
   return {
     companion: COMPANIONS[id] ?? null,
+    familiarity: id === "p1" ? {
+      topicId: "T101",
+      topicName: "sleep and memory",
+      level: 2,
+      source: "interleave",
+    } : null,
     homework: HOMEWORK[id] ?? [],
     qa: id === "p1"
       ? [{
