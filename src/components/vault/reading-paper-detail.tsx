@@ -7,6 +7,12 @@ import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
 import { READING_TIP_KEY, markNuxSeen, nuxSeen } from "@/lib/nux";
 import {
+  pitchConsequence,
+  type FamiliarityTopic,
+  type FamiliarityValue,
+  type PitchedForYou,
+} from "@/lib/familiarity";
+import {
   askThreads, digsForSection, groupThreads,
   type ReadingThread, type SectionKey, type ThreadTurn,
 } from "@/lib/reading-thread";
@@ -16,7 +22,12 @@ import {
   foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
-type Jargon = { term: string; def: string };
+type Jargon = {
+  term: string;
+  def: string;
+  tier?: "basic" | "working" | "deep";
+  analogy?: string;
+};
 
 export interface Companion {
   gist: string;
@@ -26,6 +37,8 @@ export interface Companion {
   remember: string;
   glossary: Jargon[];
   questions: string[];
+  topic?: FamiliarityTopic;
+  pitchedForYou?: PitchedForYou;
 }
 
 export interface HomeworkItem {
@@ -47,6 +60,7 @@ export interface QaPair {
   threadId?: string | null;
   selection?: string | null;
   sectionKey?: string | null;
+  pitch?: PitchedForYou | null;
   createdAt?: string | number | Date | null;
 }
 
@@ -67,6 +81,7 @@ export interface Provenance {
  */
 export interface ReadingFixture {
   companion: Companion | null;
+  familiarity?: FamiliarityValue | null;
   homework: HomeworkItem[];
   qa: QaPair[];
   /** Stands in for the model when a question is asked or a passage is dug into. */
@@ -100,7 +115,11 @@ interface StartEvent {
 async function runAsk(
   paperId: string,
   payload: AskPayload,
-  on: { start: (e: StartEvent) => void; delta: (id: string, text: string) => void },
+  on: {
+    start: (e: StartEvent) => void;
+    delta: (id: string, text: string) => void;
+    pitch: (id: string, pitch: PitchedForYou) => void;
+  },
 ): Promise<void> {
   const res = await fetch(`/api/papers/${paperId}/qa`, {
     method: "POST",
@@ -129,6 +148,8 @@ async function runAsk(
         on.start(event as unknown as StartEvent);
       } else if (event.type === "delta") {
         on.delta(turnId, event.text as string);
+      } else if (event.type === "pitch") {
+        on.pitch(turnId, event.pitch as PitchedForYou);
       } else if (event.type === "error") {
         throw new Error((event.message as string) || "Ask failed");
       }
@@ -140,7 +161,11 @@ async function runAsk(
 async function runFixtureAsk(
   fixture: ReadingFixture,
   payload: AskPayload,
-  on: { start: (e: StartEvent) => void; delta: (id: string, text: string) => void },
+  on: {
+    start: (e: StartEvent) => void;
+    delta: (id: string, text: string) => void;
+    pitch: (id: string, pitch: PitchedForYou) => void;
+  },
 ): Promise<void> {
   const id = `fx-${Math.random().toString(36).slice(2)}`;
   const threadId = payload.threadId || id;
@@ -186,6 +211,19 @@ function annotateText(text: string, jargon: Jargon[], used: Set<string>, tint: s
     rest = rest.slice(best.i + best.len);
   }
   return out;
+}
+
+function glossaryForLevel(terms: Jargon[], value: FamiliarityValue | null): Jargon[] {
+  if (!value) return terms;
+  return terms.filter(term => {
+    if (!term.tier) return true; // companions cached before tiering
+    if (value.level <= 2) return true;
+    if (value.level === 3) return term.tier === "working" || term.tier === "deep";
+    return term.tier === "deep";
+  }).map(term => ({
+    ...term,
+    def: term.analogy && value.level <= 2 ? `${term.def} Analogy: ${term.analogy}` : term.def,
+  }));
 }
 
 /* ── Highlight to dig deeper ─────────────────────────────────────────────── */
@@ -293,6 +331,88 @@ const menuButton: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+function FamiliarityScale({ topic, currentLevel, onSelect, onSkip }: {
+  topic: FamiliarityTopic;
+  currentLevel?: number | null;
+  onSelect: (level: number) => void;
+  onSkip?: () => void;
+}) {
+  return (
+    <div style={{ borderTop: HAIRLINE, marginTop: 12, marginBottom: 12, paddingTop: 12 }}>
+      <p style={{ ...BODY_SM, margin: "0 0 10px" }}>
+        {onSkip ? "While I dig — how" : "How"} familiar are you with <strong>{topic.name}</strong>?
+      </p>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 7 }}>
+        <span style={{ ...BODY_SM, color: DIM }}>new to it</span>
+        {[1, 2, 3, 4, 5].map(level => (
+          <button
+            key={level}
+            onClick={() => onSelect(level)}
+            aria-label={`${level} out of 5 familiar with ${topic.name}`}
+            aria-pressed={currentLevel === level}
+            style={{
+              ...BODY_SM,
+              width: 28,
+              height: 28,
+              padding: 0,
+              border: BORDER,
+              background: currentLevel === level ? INK : SURFACE,
+              color: currentLevel === level ? SURFACE : INK,
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            {level}
+          </button>
+        ))}
+        <span style={{ ...BODY_SM, color: DIM }}>I work on this</span>
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            style={{ ...BODY_SM, marginLeft: "auto", background: "none", border: "none", padding: 0, textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer", color: DIM }}
+          >
+            Skip
+          </button>
+        )}
+      </div>
+      <p style={{ ...BODY_SM, color: MUTED, margin: "9px 0 0" }}>
+        This helps pitch future reading companions. It never changes what gets selected.
+      </p>
+    </div>
+  );
+}
+
+function PitchedForYouLine({ pitch, topic, currentLevel, onSelect }: {
+  pitch: PitchedForYou;
+  topic: FamiliarityTopic;
+  currentLevel: number;
+  onSelect: (level: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ margin: "0 0 18px" }}>
+      <button
+        onClick={() => setOpen(value => !value)}
+        aria-expanded={open}
+        style={{ display: "block", width: "100%", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
+      >
+        <span style={{ ...LABEL_STYLE, display: "block", marginBottom: 5 }}>Pitched for you</span>
+        <span style={{ ...BODY_SM, color: DIM }}>
+          You rated yourself {pitch.level}/5 on {pitch.topicName}, so {pitch.consequence.replace(/^I(?:'m| am)\s+/i, "I'm ")}
+          <span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}> Not right anymore? Adjust.</span>
+        </span>
+      </button>
+      {open && (
+        <FamiliarityScale
+          topic={topic}
+          currentLevel={currentLevel}
+          onSelect={level => { onSelect(level); setOpen(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
 /**
  * A dig, answered — the wash panel that lands directly under the beat the
  * passage came from.
@@ -301,18 +421,31 @@ const menuButton: React.CSSProperties = {
  * selection and in the confirmation tick, and nowhere else. The quoted passage
  * wears the same ink underline a paper name wears in the synthesis.
  */
-function DigPanel({ thread, washStyle, streaming, onFollowUp, error }: {
+function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity }: {
   thread: ReadingThread;
   washStyle: React.CSSProperties;
   streaming: boolean;
   error?: string | null;
   onFollowUp: (question: string) => void;
+  familiarityOffer?: FamiliarityTopic | null;
+  familiarityValue?: FamiliarityValue | null;
+  onFamiliarity: (level: number) => void;
+  onSkipFamiliarity: () => void;
 }) {
   const [draft, setDraft] = useState("");
 
   return (
     <div style={{ ...washStyle, border: BORDER, boxShadow: SHADOW, padding: "18px 20px", marginTop: 22 }}>
       <div style={{ ...LABEL_STYLE, marginBottom: 10 }}>Deeper</div>
+
+      {familiarityOffer && (
+        <FamiliarityScale
+          topic={familiarityOffer}
+          currentLevel={familiarityValue?.level}
+          onSelect={onFamiliarity}
+          onSkip={onSkipFamiliarity}
+        />
+      )}
 
       {thread.selection && (
         <p
@@ -334,6 +467,14 @@ function DigPanel({ thread, washStyle, streaming, onFollowUp, error }: {
           {/* The opener's question is the canned dig intent — the passage above
               already says what was asked. Follow-ups the reader typed do show. */}
           {i > 0 && <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>}
+          {turn.pitch && familiarityValue && (
+            <PitchedForYouLine
+              pitch={turn.pitch}
+              topic={{ id: familiarityValue.topicId, name: familiarityValue.topicName, source: "openalex" }}
+              currentLevel={familiarityValue.level}
+              onSelect={onFamiliarity}
+            />
+          )}
           <p style={{ ...READING_BODY, margin: 0 }}>
             {turn.answer}
             {streaming && i === thread.turns.length - 1 && !turn.answer && (
@@ -501,7 +642,7 @@ function Glossary({ terms }: { terms: Jargon[] }) {
  * "and the second one?" resolves against what was just said instead of being
  * answered blind, which is how every question here used to be answered.
  */
-function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, onFollowUp, streaming, failed }: {
+function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, onFollowUp, streaming, failed, familiarityValue, onFamiliarity }: {
   threads: ReadingThread[];
   starters: string[];
   headerWash: React.CSSProperties;
@@ -512,6 +653,8 @@ function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, 
   onFollowUp: (threadId: string, question: string) => void;
   streaming: boolean;
   failed: string | null;
+  familiarityValue: FamiliarityValue | null;
+  onFamiliarity: (level: number) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [fullScreen, setFullScreen] = useState(false);
@@ -579,6 +722,14 @@ function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, 
             {thread.turns.map((turn, i) => (
               <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 14 }}>
                 <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
+                {turn.pitch && familiarityValue && (
+                  <PitchedForYouLine
+                    pitch={turn.pitch}
+                    topic={{ id: familiarityValue.topicId, name: familiarityValue.topicName, source: "openalex" }}
+                    currentLevel={familiarityValue.level}
+                    onSelect={onFamiliarity}
+                  />
+                )}
                 <div style={{ display: "flex", gap: 10 }}>
                   <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
                   <p style={{ ...BODY_STYLE, margin: 0 }}>
@@ -744,6 +895,9 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   const washStyle = foundational ? foundationalWash() : wash(index);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
+  const [familiarityValue, setFamiliarityValue] = useState<FamiliarityValue | null>(null);
+  const [familiarityOffer, setFamiliarityOffer] = useState<FamiliarityTopic | null>(null);
+  const [lastDigThreadId, setLastDigThreadId] = useState<string | null>(null);
   const [companionPending, setCompanionPending] = useState(true);
   const [companionFailed, setCompanionFailed] = useState(false);
   const [homework, setHomework] = useState<HomeworkItem[] | null>(null);
@@ -770,6 +924,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
         data = await gen.json();
       }
       setCompanion(data.companion ?? null);
+      setFamiliarityValue(data.familiarity ?? null);
       // A null companion after an explicit generate is a failure, not an empty
       // state — the sections used to just silently not exist.
       setCompanionFailed(!data.companion);
@@ -783,6 +938,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   useEffect(() => {
     if (fixture) {
       setCompanion(fixture.companion);
+      setFamiliarityValue(fixture.familiarity ?? null);
       setCompanionPending(false);
       setHomework(fixture.homework);
       setThreads(groupThreads(fixture.qa.map(normalizeTurn)));
@@ -821,6 +977,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     const handlers = {
       start: (e: StartEvent) => {
         setStreamingTurn(e.id);
+        if (e.selection) setLastDigThreadId(e.threadId);
         const turn: ThreadTurn = {
           id: e.id, question: e.question, answer: "",
           threadId: e.threadId, selection: e.selection, sectionKey: e.sectionKey,
@@ -840,6 +997,12 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
           turns: t.turns.map(turn => turn.id === id ? { ...turn, answer: turn.answer + text } : turn),
         })));
       },
+      pitch: (id: string, pitch: PitchedForYou) => {
+        setThreads(prev => prev.map(thread => ({
+          ...thread,
+          turns: thread.turns.map(turn => turn.id === id ? { ...turn, pitch } : turn),
+        })));
+      },
     };
     try {
       if (fixture) await runFixtureAsk(fixture, payload, handlers);
@@ -851,18 +1014,83 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     }
   }, [paper.id, fixture, streamingTurn]);
 
+  const setFamiliarity = useCallback((level: number) => {
+    const topic = companion?.topic ?? familiarityOffer;
+    if (!topic) return;
+    const previous = familiarityValue;
+    const optimistic: FamiliarityValue = {
+      topicId: topic.id,
+      topicName: topic.name,
+      level,
+      source: previous ? "correction" : "interleave",
+      createdAt: new Date().toISOString(),
+    };
+    setFamiliarityValue(optimistic);
+    setFamiliarityOffer(null);
+    if (fixture) return;
+    void fetch("/api/familiarity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paperId: paper.id, action: "set", level }),
+    }).then(async response => {
+      if (!response.ok) throw new Error("Familiarity update failed");
+      const data = await response.json();
+      if (data.familiarity) setFamiliarityValue(data.familiarity);
+    }).catch(() => setFamiliarityValue(previous));
+  }, [companion?.topic, familiarityOffer, familiarityValue, fixture, paper.id]);
+
+  const skipFamiliarity = useCallback(() => {
+    setFamiliarityOffer(null);
+    if (fixture) return;
+    void fetch("/api/familiarity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paperId: paper.id, action: "skip" }),
+    });
+  }, [fixture, paper.id]);
+
+  const reserveFamiliarityOffer = useCallback(() => {
+    if (familiarityValue || familiarityOffer || !companion?.topic) return;
+    if (fixture) {
+      setFamiliarityOffer(companion.topic);
+      return;
+    }
+    void fetch("/api/familiarity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paperId: paper.id, action: "offer" }),
+    }).then(response => response.ok ? response.json() : null)
+      .then(data => { if (data?.offered && data.topic) setFamiliarityOffer(data.topic); })
+      .catch(() => {});
+  }, [companion?.topic, familiarityOffer, familiarityValue, fixture, paper.id]);
+
   const dig = useCallback((text: string, section: SectionKey) => {
     window.getSelection()?.removeAllRanges();
     setPick(null);
     if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
+    reserveFamiliarityOffer();
     ask({ selection: text, sectionKey: section });
-  }, [ask, setPick, tipSeen]);
+  }, [ask, reserveFamiliarityOffer, setPick, tipSeen]);
 
   /* ── Prose ── */
 
   // One shared "already defined" set for the whole walkthrough, rebuilt on each
   // render so the chips land in the same places every time.
-  const glossary = companion?.glossary ?? [];
+  const activeFamiliarity = familiarityValue && companion?.topic?.id === familiarityValue.topicId
+    ? familiarityValue
+    : null;
+  const glossary = glossaryForLevel(companion?.glossary ?? [], activeFamiliarity);
+  const hasTieredGlossary = !!companion?.glossary.some(term => term.tier);
+  const companionDisclosure: PitchedForYou | null = activeFamiliarity && (hasTieredGlossary || companion?.pitchedForYou)
+    ? {
+        topicId: activeFamiliarity.topicId,
+        topicName: activeFamiliarity.topicName,
+        level: activeFamiliarity.level,
+        consequence: companion?.pitchedForYou?.level === activeFamiliarity.level
+          ? companion.pitchedForYou.consequence
+          : pitchConsequence(activeFamiliarity.level),
+      }
+    : null;
   const defined = new Set<string>();
   const mark = (text: string) => annotateText(text, glossary, defined, hue);
 
@@ -882,6 +1110,10 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       streaming={thread.turns.some(t => t.id === streamingTurn)}
       error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
       onFollowUp={q => ask({ question: q, threadId: thread.id })}
+      familiarityOffer={thread.id === lastDigThreadId ? familiarityOffer : null}
+      familiarityValue={activeFamiliarity}
+      onFamiliarity={setFamiliarity}
+      onSkipFamiliarity={skipFamiliarity}
     />
   ));
 
@@ -924,6 +1156,15 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
           {/* Why you're reading this — the digest question that surfaced it and
               the interests that seeded that question. */}
           <WhyLine provenance={provenance} paper={paper} />
+
+          {companionDisclosure && companion?.topic && (
+            <PitchedForYouLine
+              pitch={companionDisclosure}
+              topic={companion.topic}
+              currentLevel={activeFamiliarity!.level}
+              onSelect={setFamiliarity}
+            />
+          )}
 
           {/* Taught once. Retires on the first successful dig. */}
           {!tipSeen && !companionPending && companion && (
@@ -1056,6 +1297,8 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
               onFollowUp={(threadId, q) => ask({ question: q, threadId })}
               streaming={!!streamingTurn}
               failed={askError}
+              familiarityValue={activeFamiliarity}
+              onFamiliarity={setFamiliarity}
             />
           )}
         </aside>
@@ -1110,6 +1353,7 @@ function normalizeTurn(pair: QaPair): ThreadTurn {
     threadId: pair.threadId ?? null,
     selection: pair.selection ?? null,
     sectionKey: pair.sectionKey ?? null,
+    pitch: pair.pitch ?? null,
     createdAt: pair.createdAt ?? null,
   };
 }
