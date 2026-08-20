@@ -71,6 +71,19 @@ const MICRO_MIGRATIONS = [
   )`,
   "CREATE UNIQUE INDEX IF NOT EXISTS familiarity_prompts_user_topic_unique ON familiarity_prompts(user_id, topic_id)",
   "CREATE UNIQUE INDEX IF NOT EXISTS familiarity_prompts_user_day_unique ON familiarity_prompts(user_id, day)",
+  // Phase 4: the librarian's own memory. Independent of the phase 2/3 tables
+  // above — a reader with no dossier yet just gets the pipeline as it was.
+  `CREATE TABLE IF NOT EXISTS taste_dossiers (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    dossier TEXT,
+    centroids TEXT,
+    signal_count INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER,
+    updated_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS taste_dossiers_user_unique ON taste_dossiers(user_id)",
 ];
 let migrated: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {

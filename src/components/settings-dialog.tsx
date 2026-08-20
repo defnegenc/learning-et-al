@@ -14,10 +14,10 @@ import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
 import {
   ACID_GREEN, ActionButton, BODY_STYLE, DIM, DISPLAY_SM, FIELD, HAIRLINE, INK,
-  MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE,
+  MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE, Tag,
 } from "@/components/design-system";
 
-export type SettingsTab = "interests" | "account";
+export type SettingsTab = "interests" | "librarian" | "account";
 
 interface SelectedTopic {
   keyword: string;
@@ -41,6 +41,105 @@ const CADENCE = [
   { key: "biweekly" as const, label: "Bi-weekly", desc: "Tuesday and Friday mornings." },
   { key: "weekly" as const, label: "Weekly", desc: "One Sunday recap." },
 ];
+
+interface Dossier {
+  dossier: string | null;
+  updatedAt: string | null;
+  signalCount: number;
+  clusters: { label: string; count: number }[];
+}
+
+/**
+ * What your librarian thinks you like.
+ *
+ * The dossier is a working note the librarian rewrites from what you save, skip,
+ * ask about and complain about, and it is fed to the step that chooses each
+ * day's papers. Showing it is not a nicety: a reader who can see what the
+ * product concluded about them can tell when it is wrong, and a taste model
+ * nobody can inspect is one nobody can trust. Read-only for now — the way to
+ * correct it is to save, skip and complain, which is also the way it was built.
+ */
+function LibrarianPanel() {
+  const [data, setData] = useState<Dossier | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [rewriting, setRewriting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/librarian/dossier");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) setData(json);
+      } catch { /* an absent note is the empty state, not an error */ }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function rewrite() {
+    setRewriting(true);
+    try {
+      const res = await fetch("/api/librarian/dossier", { method: "POST" });
+      if (res.ok) setData(await res.json());
+    } catch { /* leave the old note on screen */ }
+    finally { setRewriting(false); }
+  }
+
+  const written = data?.updatedAt
+    ? new Date(data.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : null;
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-5 md:px-10 md:py-8">
+      <PageTitle style={{ marginBottom: 12 }}>Your librarian</PageTitle>
+      <p style={{ ...BODY_STYLE, color: DIM, maxWidth: 560, margin: "0 0 28px" }}>
+        A note it keeps on you, from what you save, what you scroll past, and what
+        you ask once you are reading. It is what breaks the tie when two papers
+        are equally good.
+      </p>
+
+      {loading ? (
+        <div className="flex items-center py-10"><Loader2 size={18} className="animate-spin" style={{ color: MUTED }} /></div>
+      ) : !data?.dossier ? (
+        <div style={{ paddingBottom: 24 }}>
+          <div style={{ ...DISPLAY_SM, marginBottom: 8 }}>Nothing written yet</div>
+          <p style={{ ...BODY_STYLE, color: MUTED, maxWidth: 520, margin: 0 }}>
+            Save a few papers and ask a few questions. Once there is enough to go
+            on, the note appears here — and starts shaping what you are sent.
+          </p>
+        </div>
+      ) : (
+        <>
+          {data.clusters.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {data.clusters.map(c => (
+                <Tag key={c.label} label={`${c.label} · ${c.count}`} />
+              ))}
+            </div>
+          )}
+
+          {data.dossier.split(/\n{2,}/).map((para, i) => (
+            <p key={i} style={{ ...BODY_STYLE, margin: i === 0 ? "0 0 16px" : "0 0 16px", maxWidth: 620 }}>
+              {para.trim()}
+            </p>
+          ))}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginTop: 24, paddingTop: 20, borderTop: HAIRLINE }}>
+            <span style={{ ...BODY_STYLE, color: MUTED }}>
+              From {data.signalCount} signal{data.signalCount === 1 ? "" : "s"}{written ? ` · ${written}` : ""}
+            </span>
+            <ActionButton variant="outline" shadow={false} disabled={rewriting} onClick={rewrite} style={{ marginLeft: "auto" }}>
+              {rewriting ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+              Rewrite it
+            </ActionButton>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, isAdmin, onRegenerate, updateSession: _updateSession }: SettingsDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -156,6 +255,7 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
 
   const navItems: { key: SettingsTab; label: string }[] = [
     { key: "interests", label: "Interests" },
+    { key: "librarian", label: "Librarian" },
     { key: "account", label: "Account" },
   ];
 
@@ -253,6 +353,9 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               </div>
             </div>
           )}
+
+          {/* ── Librarian tab — the working note, shown back to the reader ── */}
+          {tab === "librarian" && <LibrarianPanel />}
 
           {/* ── Account tab — who you are, when it arrives, and the two buttons ── */}
           {tab === "account" && (
@@ -363,9 +466,13 @@ export function SettingsDialog({ open: controlledOpen, onOpenChange, startTab, i
               Clear all
             </button>
           )}
-          <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : tab === "interests" ? "Save interests" : "Save"}
-          </ActionButton>
+          {/* The librarian panel is read-only — there is nothing on it to save,
+              and a live Save button would imply otherwise. */}
+          {tab !== "librarian" && (
+            <ActionButton variant="primary" disabled={saving} onClick={handleSave}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : tab === "interests" ? "Save interests" : "Save"}
+            </ActionButton>
+          )}
             </div>
           </main>
         </div>

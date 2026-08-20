@@ -1137,3 +1137,52 @@ still running. A fast answer costs the reader nothing.
 that the interest weights read directly, and a five-point opinion is not a save:
 somebody can rate a paper 2/5 and still have been right to be sent it. As an
 event it reaches the taste ledger without changing what a star means.
+
+---
+
+## 2026-08-20: The librarian keeps a note, and the reader gets to read it
+
+The digest finder stays a pipeline. It is deterministic, it is tuned, and every
+attempt to make it "learn" by adding signals to the scoring chain has moved
+outcomes less than it has cost. The librarian is a separate thing that owns
+everything after a paper enters the reader's orbit, and its memory is a **taste
+dossier**: ~300 words of prose rewritten from what the reader saves, walks past,
+asks about and complains about.
+
+**Why prose and not a feature vector.** Three reasons, in order of how much they
+mattered. It can be shown to the reader, which is the whole trust argument
+below. It is the form the LLM selection step can actually use — that step is
+where the real quality call is made, and it takes an argument, not a number. And
+it survives schema changes: a vector of hand-tuned features rots the moment the
+features change, a paragraph does not.
+
+**Two places, and no others.** The dossier goes into the Step 3b selection
+prompt. The centroids become a ≤0.02 nudge on `score` in Step 3. Taste never
+touches search, never touches `relSim`, and never touches the thresholds — an
+on-taste paper that is off-theme is still out. This is the "upstream scoring is
+a filter, not a ranker" rule from CLAUDE.md, respected rather than argued with:
+the filter stays exactly as strict, and taste only reorders what already passed.
+
+**Shown in settings, on purpose.** A taste model nobody can inspect is one
+nobody can correct, and a wrong one is invisible until the digests have been
+quietly bad for a month. `Settings → Librarian` renders the note verbatim, with
+its cluster labels and how many signals it was written from. Read-only for now:
+the way to change it is to save, skip and complain, which is also the way it was
+built. An editable dossier is a different feature and would need to answer what
+happens when the reader's account of themselves and their behaviour disagree.
+
+**Dislike endpoint: kept, still no UI.** It has no caller, but it is now a
+ledger input rather than a dead route, which is the condition the plan set for
+keeping it. If nothing has wired a UI to it by the time the next reading-view
+pass lands, delete it instead of letting it rot further.
+
+**`digest_feedback` is finally read.** Rows have gone in since it shipped and
+nothing has ever read one. Somebody typing why a digest was wrong is the
+strongest negative signal in the product, so it now forces a rewrite on its own
+rather than waiting for the five-signal threshold.
+
+**The scout builds a shelf, not a list.** "What's happened since" used to be up
+to four works that cite the paper, ranked by date. It is now at most three
+standing in different relations to what you just read — one that came after, one
+arguing from somewhere else on the same ground, one it was built on — each with
+a one-line "why for you". Three papers you can tell apart beat four you can't.
