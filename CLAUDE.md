@@ -28,6 +28,7 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `INVITE_CODE` — Optional invite code for gated access
 - `EMBEDDING_MODEL` — Optional override (default: `all-MiniLM-L6-v2`, alt: `bge-small-en-v1.5`)
 - `AI_MODEL_DIGEST` / `AI_MODEL_COMPANION` / `AI_MODEL_DIG` / `AI_MODEL_CHAT` / `AI_MODEL_METADATA` / `AI_MODEL_HEALTHCHECK` — Optional per-task model overrides. Each falls back to `CRON_AI_MODEL`, then the provider default. Set one to move a single kind of work onto a cheaper or better model without a deploy. See `aiConfigFor()` in `src/lib/ai/provider.ts`.
+- `AI_MODEL_DIGEST_JUDGE` — Optional. Model for the digest pipeline's *judgment and extraction* calls only (cold reads, the Step 4b re-rank, the foundational gate, Stage A metadata, the gist). Same provider and key as the run; model only. Unset = identical to the run's config, i.e. no change. Point it at a flash-class model **on the same provider as the live `CRON_AI_PROVIDER`** to cut judge latency; it is also the instant rollback. See `judgeConfigFrom()` in `src/lib/ai/provider.ts`.
 
 ## Architecture
 ```

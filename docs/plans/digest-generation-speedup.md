@@ -133,7 +133,14 @@ Step 5 already filters foundational items out of its headline sources, so it nev
 
 ---
 
-## Phase 2 — Fewer LLM round-trips (prompt consolidation, same judgments)
+## Phase 2 — Fewer LLM round-trips (prompt consolidation, same judgments) — **LANDED 2026-08-20**
+
+Implemented as specified, with three deltas worth recording:
+
+- **2.1** also folds the recent-theme list into the hypothesis prompt itself, so the model is told up front which vocabulary will get a candidate discarded rather than only being judged on it afterwards. A response in the old single-theme shape is accepted as a one-candidate list, so a model that ignores the new contract still ships a digest instead of falling back to the bare topic name. `themeProblems()` was split, with the paperless checks moving to `themeProblemsWithoutSources()` and the source-grounding check staying behind; Step 5 is unaffected.
+- **2.2 / 2.3 — the structure contract was WRONG in this plan, and in the code.** The plan said to re-state the contract as "1–3 sentences, hard max 3" and "no intro paragraph". Both were transcribed from the two repair prompts in `digest.ts`, and both are stale: commit a4a8866 added a required answer-first opening paragraph and capped bullets at 2, and only `synthesisFromSkeletonPrompt` and `synthesisRevisionPrompt` were updated. So the format-enforcement pass was actively deleting the opening paragraph a correct coverage repair had just preserved, and `synthesisFromSkeletonPrompt` contradicted itself two lines apart (STRUCTURE block asks for the opening paragraph; CRITICAL FORMAT RULES said "No intro paragraph"). Landed as one exported `synthesisStructureContract()` in `prompts.ts`, matching the draft prompt, shared by the Stage D revision and the merged final repair; the self-contradicting line in the draft prompt is fixed too.
+- **2.2** fires its revision on `minScore < 4 || factIssues.length > 0`, and `weakestPoint`/`revision` are passed as empty strings when fact issues alone triggered it — the revision prompt renders the editorial block only when it is non-empty.
+
 
 ### 2.1 Step 1: three theme candidates + one batched cold read
 
@@ -202,7 +209,12 @@ Delete the second call. Because 2.2's revision prompt now re-states the structur
 
 ---
 
-## Phase 3 — Route judge/extract calls to a fast model
+## Phase 3 — Route judge/extract calls to a fast model — **LANDED 2026-08-20** (env unset, so inert until set in Vercel)
+
+Implemented as specified. `judgeConfigFrom()` is in `provider.ts`; `generateDigest` derives one `judge` config and uses it for the Step 1 batched cold read, the Step 5 candidate cold read, the repair re-read, the Step 4b re-rank, the foundational gate, Stage A metadata and the gist. `findFoundationalItem()` takes both configs so tier-2 *naming* stays strong while the gate goes to the judge tier. CLAUDE.md documents the new variable. There is no `.env.example` in the repo despite CLAUDE.md referencing one, so only CLAUDE.md was updated.
+
+**Step 3.3 (rollout) is still outstanding** — the variable is deliberately unset, so this phase is currently a no-op in production. Setting it is the actual speedup.
+
 
 The plumbing half-exists (`aiConfigFor()` in `src/lib/ai/provider.ts`, `AI_MODEL_*` envs), but `generateDigest` uses one config for everything. About half the calls are structured-JSON judgment or grounded extraction where a flash-class model returns in ~1 s instead of 5–8 s, and every one already has a graceful fallback path.
 
