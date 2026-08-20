@@ -68,10 +68,11 @@ This means:
 The synthesis uses a multi-stage pipeline (implemented, not future work):
 
 ```
-Stage A: Metadata extraction (SYNTHESIS_SYSTEM)
-  → Per-paper summaries, keywords, findings, keyConcepts
-
-Stage B: Skeleton / argument structure (separate system prompt)
+Stage A: Metadata extraction (SYNTHESIS_SYSTEM)     ─┐ these two fire
+  → Per-paper summaries, keywords, findings,         │ CONCURRENTLY — no
+    keyConcepts                                      │ data dependency
+                                                     │
+Stage B: Skeleton / argument structure              ─┘
   → Cross-document relations (contradicts/agrees/extends)
   → Paper roles, core tension, argument arc
   → Tension hints from counter-query passed through
@@ -80,10 +81,23 @@ Stage C: Prose draft from skeleton (SYNTHESIS_PROSE_SYSTEM)
   → Full synthesis paragraph using skeleton as blueprint
   → Papers referenced by short names from skeleton
 
-Stage D: Self-critique and revision (critique → revision)
-  → Checks for: hallucinations, weak connections, missing papers
-  → Revises the draft based on self-critique
+Stage D: One review, one revision
+  → synthesisCritiquePrompt scores 7 dimensions AND checks the draft
+    against each paper's extracted findings, returning factIssues
+  → synthesisRevisionPrompt fires once if minScore < 4 OR any fact
+    issue, carrying both
+
+Final repair (conditional, deterministic trigger)
+  → Missing [Source N] tag and/or too few bullets → ONE rewrite
 ```
+
+**One structure contract** (`synthesisStructureContract()` in prompts.ts, added
+2026-08-20). Every prompt that *rewrites* a synthesis has to restate its shape, or the
+rewrite quietly flattens it. Four hand-written copies had drifted: two still demanded
+"NO intro paragraph" and a 3-sentence bullet cap, both stale since the answer-first
+opening paragraph landed, so a coverage repair could legally delete the opening
+paragraph the draft was told to write. Change the function, never restate a rule —
+same class of gotcha as the `shortName` rules living in two places.
 
 Papers with `tensionHint` (from counter-query search) get `[HINT: ...]` annotations in the formatted listing, helping Stage B identify intended tensions.
 

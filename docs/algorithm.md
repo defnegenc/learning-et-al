@@ -25,7 +25,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 
 **Timing instrumentation**: `generateDigest` logs `[Digest][timing] <stage>: +Xs (total Ys)` at every stage boundary. Grep Vercel logs for `[Digest][timing]` to see where a slow run actually went.
 
-### Step 1: Interest Selection & Central Question (AI calls 1-3)
+### Step 1: Interest Selection & Central Question (AI calls 1-3 in the table below)
 
 **Interest sampling** (lines ~140-200):
 - Fetch all user interests, **decay once per day** (`weight *= 0.95`). Skips decay if already decayed today (prevents double-decay on regeneration).
@@ -43,17 +43,18 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - Pass the topic name, description, subfield, and first 10 keywords into the hypothesis call as grounding. The prompt must find the human tension inside the topic, not copy its academic label. Search retries keep the topic and reformulate the angle/queries rather than abandoning it for generic AI.
 - Persist `digests.seed_topic` as `{id, name, interest, subfield, subfieldId}`. This is rotation memory and makes the choice auditable; it is not currently rendered.
 
-**Central question generation** (AI call 1, lines ~250-310):
+**Central question generation** (AI call 1, lines ~250-310 — three candidates in one call):
 - **Query memory**: the last ~12 search queries (from `digests.search_queries`, last 5 digests) are shown to the LLM with "do not reuse" — prevents near-identical queries hitting the same OpenAlex window day after day.
-- LLM builds around the topic-seeded interest, may add up to 2 naturally connected candidate interests, and generates a **working retrieval question** (aim for 8 words, hard max 10), 3 search queries, news query, and selected interests. It does **not** choose OpenAlex fields or taxonomy filters. `selectedInterests` is canonicalized against real user interests and the seed interest is forced into slot 0 so rotation memory cannot drift from the actual grounding.
+- LLM builds around the topic-seeded interest, may add up to 2 naturally connected candidate interests, and generates **three candidate working questions** — each a genuinely different angle *inside the same seed topic*, each with its own stakes, 3 search queries and news query. It does **not** choose OpenAlex fields or taxonomy filters. `selectedInterests` is canonicalized against real user interests and the seed interest is forced into slot 0 so rotation memory cannot drift from the actual grounding. (A response in the old single-theme shape is accepted as a one-candidate list, so a model that ignores the contract still ships a digest.)
 - Headline taste is calibrated to user-approved examples: recognizable subject + consequential tension + plain spoken English (for example, "Does AI help students learn or cheat?"). A bare capability question is not enough, and interrogative shape should vary across days.
-- **Theme validation**: if >10 words, a retry call (AI call 2, conditional) requests a shorter version without sacrificing the specific noun. The former 8-word hard edge rejected user-approved natural questions; 8 is now the target, not the guillotine.
-- **Theme novelty**: word-overlap check vs last 5 themes (≥2 shared non-stop words = too similar). If too similar, a fresh-angle call (AI call 3, conditional) generates a different question/tension within today's already-rotated topic. (Note: this is a word check, not embedding similarity — see Part 5.2 of algo-audit.md.)
+- **Candidate screening is deterministic and free** (changed 2026-08-20). Every candidate must clear `themeProblemsWithoutSources()` — the ≤10-word ceiling, the paraphrased-jargon tells, insider acronyms, stacked intensifiers — plus a non-empty `stakes` and the novelty check (≥2 shared non-stop words with any of the last 5 themes). A candidate that fails is **dropped**, not repaired. This replaces two conditional LLM round-trips: the >10-word shortener and the novelty fresh-angle retry. The bar is identical; only the remedy changed, and with three candidates on the table a rewrite is rarely the cheapest fix. (Novelty is still a word check, not embedding similarity — see Part 5.2 of algo-audit.md.)
+- **One batched cold read** over every candidate that survived screening (`coldRead()` has always taken an array; Step 5 uses it the same way). Among candidates with zero cold-read objections, the **highest `interest` score wins**. Only when nothing survives both filters does the single re-angle repair call fire, seeded with the least-broken candidate and its objections.
+- Worst case at Step 1 is now **2 calls** (hypothesis + cold read) plus a rare third; it used to be up to 5 serial calls.
 - **Lay stakes, enforced upstream** (added 2026-08-17): the hypothesis call must return a `stakes` field — what a normal person loses, gains, or misjudges if they never learn this. A headline polish is the last mile; whether a digest can interest a layman is mostly decided here, by which ANGLE of the seed topic gets picked. Empty stakes is an angle failure, not a topic failure.
-- **Cold read of the working question** (added 2026-08-17): the same context-free judge used in Step 5 (see below) reads the working question, and empty `stakes` or any cold-reader objection triggers ONE re-angle call inside the same seed. The seed rotation stays mechanical — the topic is never abandoned, only the angle moves. This matters beyond the headline: a study-shaped working question retrieves study-shaped papers, which caps how interesting Step 5 can honestly be.
+- **Cold read of the working question** (added 2026-08-17, batched 2026-08-20): the same context-free judge used in Step 5 (see below) reads the candidate working questions, and a candidate with any cold-reader objection is dropped. Only if *every* candidate is objected to does ONE re-angle call fire inside the same seed. The seed rotation stays mechanical — the topic is never abandoned, only the angle moves. This matters beyond the headline: a study-shaped working question retrieves study-shaped papers, which caps how interesting Step 5 can honestly be.
 - Fallback: if LLM fails, the OpenAlex topic name is used as the theme (or the seeded interest when topic lookup failed).
 
-**Shared taste block** (`THEME_TASTE_RULES`, added 2026-08-17): five prompts write or rewrite a theme — hypothesis, the >10-word shortener, the novelty retry, the not-enough-papers reframe, and Step 5 + its repair. The retry paths used to carry almost none of the taste rules, so a mangled theme from a retry degraded retrieval as well as the headline. All five now interpolate one constant (dinner-table test, name-the-object, placeholder ban, study-design rule, acronym rule, one-intensifier rule, length). Same class of gotcha as the `shortName` rules living in two places — change the constant, never restate a rule.
+**Shared taste block** (`THEME_TASTE_RULES`, added 2026-08-17): every prompt that writes or rewrites a theme interpolates it — hypothesis, the re-angle repair, the not-enough-papers reframe, and Step 5 + its repair. (The shortener and novelty-retry prompts were two of the original five; both were deleted on 2026-08-20 when Step 1 went to three candidates, since a failing candidate is now dropped rather than rewritten.) The retry paths used to carry almost none of the taste rules, so a mangled theme from a retry degraded retrieval as well as the headline. They all now interpolate one constant (dinner-table test, name-the-object, placeholder ban, study-design rule, acronym rule, one-intensifier rule, length). Same class of gotcha as the `shortName` rules living in two places — change the constant, never restate a rule.
 
 **Theme retry loop** (up to 2 retries): If the theme produces too few qualifying papers, the pipeline changes the researchable angle and queries while keeping the OpenAlex topic, then re-searches. Each retry is an additional AI call.
 
@@ -83,6 +84,7 @@ Quality boosts (scaled to RRF range):
 - `recencyBonus`: +0.0035 current year, +0.0015 last year
 - `venueBoost`: `venueQualityBoost(venue, domain) * 0.03` (0 to ~0.0024)
 - `instBoost`: `institutionBoost(institutions) * 0.03` (0 to ~0.0015)
+- `tasteBoost`: 0 to 0.02 — cosine to the nearest **saved-paper centroid** (`lib/librarian/dossier.ts`), ramped from 0.30 to 0.65 similarity. Applied to `score` only, **never to `relSim`**, so it reorders the qualified pool and can never qualify an off-theme paper. Max over clusters, not mean: one strong match to a cluster is the signal, and averaging it against the reader's other interests would erase it. Absent (0) for any reader with no dossier yet.
 
 Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 
@@ -97,9 +99,11 @@ Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 
 **Wide pool via MMR** (λ=0.6): selects ~6 diverse papers from qualified candidates. MMR penalizes candidates similar to already-picked papers.
 
-### Step 3b: LLM Complementarity Selection (AI call 4, lines ~548-587)
+### Step 3b: LLM Complementarity Selection (AI call 5, lines ~548-587)
 
-If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the LLM to pick the best N for complementarity:
+If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the LLM to pick the best N for complementarity. When the reader has a **taste dossier**, it is injected here as a `WHO YOU ARE PICKING FOR` block — this step is where the real quality call is made, so it is the one place taste is allowed to argue. The prompt states explicitly that the note breaks ties only: it cannot relax the relevance gate, and if the note conflicts with the theme, the theme wins.
+
+Selection criteria:
 - Selects papers that each contribute something DIFFERENT
 - Creates genuine TENSION (supports + complicates + alternative mechanism)
 - Uses recency only as a tie-break when relevance, insight, and complementarity are otherwise equal
@@ -129,7 +133,7 @@ If items < 3 after news search:
 
 Minimum target: 2 sources. 1 is acceptable if nothing else fits.
 
-### Step 4b: LLM Re-Ranking (AI call 5, lines ~830-900)
+### Step 4b: LLM Re-Ranking (AI call 6, judge tier, lines ~830-900)
 
 After all items are assembled, papers are scored on two dimensions:
 - **Relevance** (1-3): does the paper directly address the theme question?
@@ -170,7 +174,7 @@ most days — scarcity is what keeps the gold treatment meaningful (~1-2 per wee
 Note: `category: "foundational"` used to be slapped on wide-pool slot 0 (just the top MMR
 pick) — that mislabel is fixed; the category is now exclusive to this lane.
 
-### Step 5: Final-Source Editorial Pass (AI call 6, conditional repair call)
+### Step 5: Final-Source Editorial Pass (AI call 7, conditional repair call)
 
 The working question is retrieval scaffolding, not the displayed headline. Once selection, fills, re-ranking, and the optional foundational lane are finished, the editor sees up to 900 abstract characters from each **final main source** and works evidence-outward:
 - State the one real editorial thread the sources reveal together and provide a connection for every kept source.
@@ -210,23 +214,27 @@ The `guess` is embedded (local MiniLM) against the editorial `thread`, logged pe
 
 **Debug trail**: `digests.working_theme` and `digests.theme_candidates` (JSON: each candidate's problems, cold-read verdict, guess↔thread similarity, and which one was chosen, plus any repair) are persisted so the next weird headline is diagnosable from its own row rather than by memory and a manual DB trawl.
 
-### Step 6: Multi-Stage Synthesis (AI calls 7-13)
+### Step 6: Multi-Stage Synthesis
 
-Six stages based on research (Radev 2000, Yao 2023, Madaan 2023):
+Five stages based on research (Radev 2000, Yao 2023, Madaan 2023). Stages A and B fire
+concurrently; the factual pass is folded into Stage D, and the coverage gate and format
+enforcement are one repair (both merged 2026-08-20).
 
-**Stage A: Metadata** (AI call 7) — per-paper summaries, keywords, findings, connectionToTheme, **plainName** (plain-language paper name shown on cards above the academic title), **takeaway** (`hook` = the one surprise, `stat` = concrete anchor or null, `line` = a distinct conversational implication — powers Conversational Papers; hook/stat/line may not paraphrase one another), **methodType/methodFacts/claim** (what the source IS — "Field study", "Opinion piece", "News feature" — plus 2-3 short how-they-did-it facts and the one-sentence central claim; these fill the card's themed See-more tiles), keyConcepts, suggestedQuestions. `plainName` must distinguish the source rather than restate the digest headline or takeaway. Scripted-casual filler ("So you'd think", "Turns out", "It's kind of like", "which sounds obvious") is explicitly banned; clarity and evidence supply the voice. Uses `metadataPrompt`. keyConcepts now aggressively captures jargon a non-expert trips on — model/system names (RoBERTa, DistilBERT), technical methods (subword tokenization, self-attention), and acronyms (EEG, NLP) — so the synthesis hover-definitions actually fire on scary words.
+**Stage A: Metadata** (AI call 8, judge tier, fires **concurrently with Stage B**) — per-paper summaries, keywords, findings, connectionToTheme, **plainName** (plain-language paper name shown on cards above the academic title), **takeaway** (`hook` = the one surprise, `stat` = concrete anchor or null, `line` = a distinct conversational implication — powers Conversational Papers; hook/stat/line may not paraphrase one another), **methodType/methodFacts/claim** (what the source IS — "Field study", "Opinion piece", "News feature" — plus 2-3 short how-they-did-it facts and the one-sentence central claim; these fill the card's themed See-more tiles), keyConcepts, suggestedQuestions. `plainName` must distinguish the source rather than restate the digest headline or takeaway. Scripted-casual filler ("So you'd think", "Turns out", "It's kind of like", "which sounds obvious") is explicitly banned; clarity and evidence supply the voice. Uses `metadataPrompt`. keyConcepts now aggressively captures jargon a non-expert trips on — model/system names (RoBERTa, DistilBERT), technical methods (subword tokenization, self-attention), and acronyms (EEG, NLP) — so the synthesis hover-definitions actually fire on scary words.
 
-**Stage B: Argument Skeleton** (AI call 8, fires **concurrently with Stage A**) — cross-document relations (agrees/contradicts/extends/alternative_mechanism/unrelated), paper roles, core tension, argument arc. Uses `skeletonPrompt`.
+**Stage B: Argument Skeleton** (AI call 9, fires **concurrently with Stage A**) — cross-document relations (agrees/contradicts/extends/alternative_mechanism/unrelated), paper roles, core tension, argument arc. Uses `skeletonPrompt`.
 
-**Stage C: Synthesis Draft** (AI call 9) — writes the paragraph following skeleton's argument arc. Explicit list of papers that MUST appear in bold. Uses `synthesisFromSkeletonPrompt`.
+**Stage C: Synthesis Draft** (AI call 10) — writes the paragraph following skeleton's argument arc. Explicit list of papers that MUST appear in bold. Uses `synthesisFromSkeletonPrompt`.
 
-**Stage C.5: Factual Accuracy Check** (AI call 10) — verifies each paper's contribution is accurately represented in the synthesis. If issues found, a revision call (AI call 11, conditional) corrects them. All revision calls include "ALL papers MUST remain in bold" guard.
+**Stage D: Self-Critique + factual accuracy** (AI call 11, always fires) — one review call scoring 7 dimensions (argument, connection, accessibility, relatability, specificity, coverage, freshness; each 1-5) AND checking the draft against each paper's extracted findings, returning `factIssues`. A revision (AI call 12, conditional) fires when `minScore < 4` **or** any fact issue was flagged, and carries both. Uses `synthesisCritiquePrompt` + `synthesisRevisionPrompt`.
 
-**Stage D: Self-Critique** (AI call 12, always fires) — critiques synthesis on 5 dimensions: argument, connection, accessibility, specificity, coverage (each 1-5). If any score <4, revision call (AI call 13, conditional) fires. Uses `synthesisCritiquePrompt` + `synthesisRevisionPrompt`.
+  *Merged 2026-08-20.* The factual pass used to be its own call plus its own full-synthesis rewrite immediately before Stage D — two reviews of the same draft against the same papers, and a draft with both a weak argument and a misstated finding was regenerated **twice**. Long-output regenerations here drop from up to 2 to at most 1.
 
-**Final Coverage Gate** (AI call 14, conditional) — runs AFTER all revisions. Extracts all `**bold phrases**` from synthesis and checks each paper's shortName/title/author against them. If any paper is missing from bold text, a targeted revision adds it. This is the last synthesis modification — nothing overwrites after this.
+**Final repair** (AI call 13, conditional) — runs AFTER all revisions and is the last synthesis modification. Two **deterministic** checks run first and together: is any paper missing its `[Source N]` tag, and are there fewer `- **[Source N]` bullets than papers? If either fails, ONE repair call fixes both.
 
-### Step 6b: Digest Header — gist (AI call, always after final synthesis)
+  *Merged 2026-08-20.* These were two sequential rewrites, and the second regularly undid the first: the format-enforcement scaffold still demanded "NO intro paragraph" and a 3-sentence bullet cap, both stale since the answer-first opening paragraph landed, so a correct coverage repair got its opening paragraph stripped straight back out. The structure contract now lives in one function, `synthesisStructureContract()` in `prompts.ts`, shared by this repair and the Stage D revision.
+
+### Step 6b: Digest Header — gist (AI call 14, judge tier, always after final synthesis)
 
 Powers the zero-click header rendered under the central question (`DigestHeader` in
 `today-page.tsx`, shown in all modes). One JSON call over the FINAL synthesis returns:
@@ -262,31 +270,40 @@ picturable noun, so titles are graspable, not just punchy.
 
 ---
 
-## Total AI Calls Per Digest: 11-19
+## Total AI Calls Per Digest: 8-14
 
-| # | Call | Step | When | Input tokens (approx) | Output (approx) |
-|---|------|------|------|-----------------------|-----------------|
-| 1 | Hypothesis generation | 1 | Always | ~800 | ~100 |
-| 2 | Working-question shortening | 1 | If >10 words | ~100 | ~30 |
-| 3 | Theme novelty retry | 1 | If sim >0.5 to recent | ~400 | ~100 |
-| 3b | Cold read of working question | 1 | Always | ~500 | ~120 |
-| 3c | Working-question re-angle | 1 | If cold read or stakes fail | ~900 | ~120 |
-| 4 | Theme retry (bad papers) | 1 | Up to 2x if <2 papers | ~800 | ~100 |
-| 5 | Complementarity selection | 3b | If wide pool > target | ~2000 | ~200 |
-| 6 | LLM re-ranking | 4b | If ≥2 papers | ~600 | ~100 |
-| 7 | Final-source editorial pass | 5 | Always | ~4000 | ~500 |
-| 7b | Cold read of headline candidates | 5 | Always | ~600 | ~300 |
-| 7c | Cold read of repaired headline | 5 | If the repair call fired | ~500 | ~120 |
-| 8 | Metadata (Stage A) | 6 | Always | ~6000 | ~600 |
-| 9 | Skeleton (Stage B) | 6 | Always | ~4000 | ~300 |
-| 10 | Synthesis draft (Stage C) | 6 | Always | ~5000 | ~400 |
-| 11 | Factual accuracy check | 6 | Always | ~3000 | ~200 |
-| 12 | Factual accuracy revision | 6 | If issues found | ~2000 | ~400 |
-| 13 | Self-critique (Stage D) | 6 | Always | ~2000 | ~200 |
-| 14 | Self-critique revision | 6 | If any score <4 | ~2000 | ~400 |
-| 15 | Final coverage revision | 6 | If paper missing in bold | ~1500 | ~400 |
+"Tier" is which model the call runs on: **strong** = the run's `aiConfig` (taste- or
+knowledge-critical), **judge** = `judgeConfigFrom(aiConfig)`, i.e. `AI_MODEL_DIGEST_JUDGE`
+when set and the identical strong config when it isn't. Judge-tier calls are structured
+JSON judgment or grounded extraction, and every one already treats an absent verdict as
+non-blocking.
 
-**Typical: 12-14 calls.** Calls 2, 3, 3c, 4, 7c, 12, 14, 15 are conditional. The cold-reader gate adds 2 always-on small completions (+1 on repair, +1 on re-angle) and a few local embeddings. Cost depends on the deployed `CRON_AI_PROVIDER`/`CRON_AI_MODEL`; Gemini Flash pricing is only one example, not proof of the live production model.
+| # | Call | Step | When | Tier | Input tokens (approx) | Output (approx) |
+|---|------|------|------|------|-----------------------|-----------------|
+| 1 | Hypothesis (3 candidates) | 1 | Always | strong | ~900 | ~300 |
+| 2 | Cold read of candidate questions | 1 | If ≥1 survives screening | judge | ~500 | ~350 |
+| 3 | Working-question re-angle | 1 | Only if NO candidate clears both filters | strong | ~900 | ~120 |
+| 4 | Theme retry (bad papers) | 1 | Up to 2x if <2 papers | strong | ~800 | ~100 |
+| 5 | Complementarity selection | 3b | If wide pool > target | strong | ~2000 | ~200 |
+| 6 | LLM re-ranking | 4b | If ≥2 papers | judge | ~600 | ~100 |
+| 6b | Foundational tier-2 naming | 4c | If tier 1 found nothing | strong | ~800 | ~150 |
+| 6c | Foundational gate | 4c | If any candidate cleared the bars | judge | ~1200 | ~100 |
+| 7 | Final-source editorial pass | 5 | Always | strong | ~4000 | ~500 |
+| 7b | Cold read of headline candidates | 5 | Always | judge | ~600 | ~300 |
+| 7c | Cold read of repaired headline | 5 | If the repair call fired | judge | ~500 | ~120 |
+| 8 | Metadata (Stage A) | 6 | Always | judge | ~6000 | ~600 |
+| 9 | Skeleton (Stage B) | 6 | Always, concurrent with 8 | strong | ~4000 | ~300 |
+| 10 | Synthesis draft (Stage C) | 6 | Always | strong | ~5000 | ~400 |
+| 11 | Critique + fact check (Stage D) | 6 | Always | strong | ~4000 | ~350 |
+| 12 | Revision | 6 | If any score <4 OR any fact issue | strong | ~2500 | ~400 |
+| 13 | Final repair | 6 | If a paper is missing or bullets are short | strong | ~2000 | ~400 |
+| 14 | Gist | 6b | Always | judge | ~1500 | ~60 |
+
+**Typical: 9-11 calls** (was 12-14). Calls 3, 4, 6b, 6c, 7c, 12 and 13 are conditional.
+**Full-synthesis regenerations are now at most 2** (draft + one revision, plus a rare
+structural repair); before the 2026-08-20 merges the ceiling was 5. Cost depends on the
+deployed `CRON_AI_PROVIDER`/`CRON_AI_MODEL`; Gemini Flash pricing is only one example, not
+proof of the live production model.
 
 ---
 
@@ -331,6 +348,42 @@ When the local embedding model fails to load (e.g., Vercel cold starts):
 ## Learning System
 
 Engagement only boosts **existing** interests. Weight changes are intentionally tiny.
+
+### The taste dossier (2026-08-20)
+
+Alongside the weights there is now a second, slower memory: a per-reader
+**dossier** kept by `lib/librarian/dossier.ts` from the signal ledger in
+`lib/librarian/ledger.ts`.
+
+| Class | Signal | Source |
+|---|---|---|
+| Exemplars | papers saved (positive) vs. shown-and-walked-past (soft negative) | `feedback` + every paper in the reader's digests |
+| Engagement | questions asked, passages dug into | `qa_pairs.question`, `events` type `dig_deeper` |
+| Stated | interests and their weights; self-rated familiarity per subtopic | `interests`, `familiarity` |
+| Negative | dislikes, and the reasons typed at the regenerate CTA | `feedback` type `dislike`, `digest_feedback` |
+
+`digest_feedback` had been **write-only since it shipped** — rows went in and
+nothing ever read one. The keeper reads them, and a typed rejection forces a
+rewrite on its own.
+
+Two representations come out, used in two places and nowhere else:
+
+1. **~300 words of prose** → the Step 3b selection prompt. Prose because it is
+   inspectable, survives schema drift, and is the form the model can use.
+2. **Embedding centroids of saved papers**, greedily clustered (join at cosine
+   0.45, ≤5 clusters) → the `tasteBoost` in Step 3. Never one global average.
+
+**Rewrite policy**: five new signals since the last note, or seven days,
+whichever comes first — checked *before* any model call, so a save costs two
+queries in the common case. Below three signals total the keeper writes nothing:
+a confident invention would steer selection worse than silence. Fast tier
+(`aiConfigFor("chore")`). Triggered by saves/dislikes/rejections via `after()`,
+and by `/api/cron/dossier` on Sundays at 03:00 UTC, an hour before the digest
+cron.
+
+**What it is not allowed to do**: taste never touches search, the similarity
+thresholds, the news lane, or `relSim`. Upstream scoring is still a filter — the
+dossier is a nudge inside it and an argument at the one LLM call that decides.
 
 | Signal | Effect | Cap |
 |--------|--------|-----|

@@ -110,10 +110,24 @@ ${listing}`;
  * and plans the argument structure.
  * Research: Radev (2000) Cross-Document Structure Theory, Yao (2023) Tree of Thoughts.
  */
-export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number) {
+export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number, dossier?: string | null) {
   const listing = formatPapers(candidates, 1200);
 
+  // The librarian's working note on this reader, when it has one. It goes HERE
+  // and nowhere upstream: the candidates were already qualified on the theme, so
+  // taste breaks ties between good papers rather than deciding what qualifies.
+  // It must not override the relevance gate below — a paper this reader would
+  // love is still wrong if it isn't about the theme.
+  const taste = dossier?.trim()
+    ? `\nWHO YOU ARE PICKING FOR — a working note on this reader, from what they have saved, skipped, asked about and complained about:
+"""
+${dossier.trim()}
+"""
+Use this to break ties between papers that are equally relevant and equally complementary, and to avoid the specific things they have said they don't want. It does NOT relax any rule below: an on-taste paper that fails the relevance gate is still out, and a paper is never selected because it is familiar. If the note conflicts with the theme, the theme wins.\n`
+    : "";
+
   return `Theme: "${theme}"
+${taste}
 
 You have ${candidates.length} candidate papers. Your job is to pick the BEST ${targetCount} that COMPLEMENT each other for an interesting argument about the theme. Then plan the argument.
 
@@ -276,7 +290,7 @@ CRITICAL FORMAT RULES:
 - The [Source N] prefix is REQUIRED in every bold paper name: "**[Source 1] the polyphenols study**"
 - Each bullet is 1–2 sentences, HARD MAX 2. No line breaks within a bullet.
 - Each bridge (>) is exactly ONE short phrase, max 12 words. No bridge after the last bullet.
-- Structure is: alternating bullet/bridge, then closing. No intro paragraph — the gist already hooks the reader.
+- Structure is: the opening answer paragraph, then alternating bullet/bridge, then the closing sentence. The opening paragraph never names or bolds a source.
 - The closing must NOT restate the theme or summarize what the papers collectively show.
 
 STYLE RULES:
@@ -308,26 +322,65 @@ BANNED PATTERNS:
 }
 
 /**
- * Stage D-1: Self-critique of synthesis.
+ * The synthesis structure contract, restated compactly for the prompts that
+ * REWRITE a synthesis rather than write one.
+ *
+ * `synthesisFromSkeletonPrompt` above is where the structure is actually
+ * specified, with all its inline guidance. Every downstream repair has to repeat
+ * the shape or the rewrite quietly flattens it — and repeating it by hand is
+ * exactly how the four copies drifted apart: two of them still demanded "NO
+ * intro paragraph" and "1–3 sentences, HARD MAX 3" long after the answer-first
+ * opening paragraph landed (commit a4a8866) and bullets were capped at 2. So a
+ * fact-fix or a coverage repair could legally delete the opening paragraph the
+ * draft was told to write. One function now — same class of gotcha as the
+ * `shortName` rules living in two places.
+ */
+export function synthesisStructureContract(paperNames: string[]): string {
+  return `REQUIRED STRUCTURE — the rewrite must keep all four parts, in this order:
+1. The opening paragraph: 2-3 sentences answering the question directly. No paper names, no bold, no [Source N] in it.
+2. One bullet per paper, in order: "- **[Source N] name**" then 1–2 sentences (HARD MAX 2) starting with a conversational verb. No line breaks inside a bullet.
+3. A "> bridge" line between consecutive bullets, max 12 words. No bridge after the last bullet.
+4. One closing sentence: an unresolved tension, an open question, or a specific image. Not a summary, not a restatement of the theme.
+
+Every one of these papers must appear, in exactly this bold form: ${paperNames.join(", ")}
+The [Source N] prefix is REQUIRED in every bold paper name. The site uses it to map each mention to its paper, so a bold name without the prefix is broken.
+Never write that a source "doesn't address", "doesn't weigh in on", or "isn't about" the theme. No em dashes.`;
+}
+
+/**
+ * Stage D-1: Self-critique of synthesis, now including the factual-accuracy pass.
+ *
+ * These used to be two calls that read the same draft against the same papers,
+ * each followed by its own full-synthesis rewrite. Merging them halves the review
+ * round-trips and, more importantly, means a draft with both a weak argument and
+ * a misstated finding is regenerated ONCE instead of twice.
+ *
  * Research: Madaan et al. (2023) Self-Refine — ~20% quality improvement.
  */
 export function synthesisCritiquePrompt(
   synthesis: string,
   theme: string,
   paperTitles: string[],
-  shortNames?: string[]
+  shortNames?: string[],
+  paperFindings?: { index: number; findings: string[]; summary: string }[]
 ) {
   const paperList = paperTitles.map((t, i) => {
     const nick = shortNames?.[i] ? ` (might be called "${shortNames[i]}" in the text)` : "";
     return `[${i + 1}] "${t}"${nick}`;
   }).join(", ");
 
+  const findingsBlock = paperFindings && paperFindings.length > 0
+    ? `\nWhat each paper ACTUALLY found — check the synthesis against this, not against your own knowledge:\n${paperFindings.map(f =>
+        `[${f.index}] Findings: ${f.findings.join("; ") || "(none extracted)"}\n    Summary: ${f.summary}`
+      ).join("\n")}\n`
+    : "";
+
   return `You are a tough editor reviewing a research synthesis paragraph.
 
 Theme: "${theme}"
 Papers that MUST be referenced: ${paperList}
 Total papers: ${paperTitles.length}
-
+${findingsBlock}
 Synthesis:
 """
 ${synthesis}
@@ -335,7 +388,9 @@ ${synthesis}
 
 FIRST: Count how many of the ${paperTitles.length} papers appear in **bold** in the synthesis. A paper counts as "mentioned" if its title, short name, or any recognizable reference appears in bold.
 
-Score each dimension 1-5 and give specific, actionable feedback.
+SECOND: check the synthesis for FACTUAL ACCURACY against the findings above. Flag any paper whose contribution is misrepresented, exaggerated, or missing key nuance, and put it in "factIssues" with the fix. An empty array means the synthesis represents every paper honestly. Do not invent an issue to look thorough, and do not flag a claim merely for being brief.
+
+THEN: score each dimension 1-5 and give specific, actionable feedback.
 
 Return JSON (no markdown fences):
 {
@@ -350,6 +405,9 @@ Return JSON (no markdown fences):
   },
   "missingPapers": [],
   "bannedPhrasesFound": [],
+  "factIssues": [
+    { "paperIndex": 1, "problem": "what the synthesis gets wrong about this paper", "fix": "what it should say instead" }
+  ],
   "weakestPoint": "Which sentence is weakest and why, in 15 words",
   "revision": "Specific rewrite instruction in 1-2 sentences. Be concrete: 'Replace \"structural limitations\" in sentence 5 with the paper's specific barrier: only 12% of branches offer AI-assisted accounts.' NOT 'make it better'"
 }
@@ -379,19 +437,39 @@ CRITICAL CLOSING CHECK: Read the LAST sentence. Does it restate the theme or sum
 Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
 }
 
-/** Stage D-2: Revision based on critique feedback. */
+/**
+ * Stage D-2: the one revision call.
+ *
+ * It now carries the critique's editorial feedback AND the factual issues the
+ * same call flagged, so a draft with both problems is rewritten once rather than
+ * twice. `weakestPoint`/`revision` may be empty when fact issues alone triggered
+ * the rewrite.
+ */
 export function synthesisRevisionPrompt(
   originalSynthesis: string,
-  critique: { weakestPoint: string; revision: string; bannedPhrasesFound?: string[] },
+  critique: {
+    weakestPoint: string;
+    revision: string;
+    bannedPhrasesFound?: string[];
+    factIssues?: { paperIndex: number; problem: string; fix: string }[];
+  },
   theme: string,
   paperNames?: string[]
 ) {
-  const coverageRule = paperNames && paperNames.length > 0
-    ? `\n\nCRITICAL: ALL these papers MUST remain referenced in **bold**: ${paperNames.join(", ")}. Do NOT drop any paper from the synthesis.`
+  const structure = paperNames && paperNames.length > 0
+    ? `\n\n${synthesisStructureContract(paperNames)}`
     : "";
 
   const bannedBlock = critique.bannedPhrasesFound && critique.bannedPhrasesFound.length > 0
     ? `\n\nBANNED PHRASES FOUND — you MUST remove or rewrite every instance of these in the original. Do not just swap the words; rewrite the sentence so the meaning survives without the crutch:\n${critique.bannedPhrasesFound.map(p => `  • ${p}`).join("\n")}`
+    : "";
+
+  const factBlock = critique.factIssues && critique.factIssues.length > 0
+    ? `\n\nFIX THESE FACTS — the editor checked the synthesis against what each paper actually found:\n${critique.factIssues.map(i => `  • Paper ${i.paperIndex}: ${i.problem} → ${i.fix}`).join("\n")}\nCorrect exactly these claims. Do not expand a bullet past its 2-sentence cap to fit the correction, and do not turn the structure into prose.`
+    : "";
+
+  const editorialBlock = critique.weakestPoint || critique.revision
+    ? `\n\nEditor's feedback:\n- Weakest point: ${critique.weakestPoint}\n- Revision instruction: ${critique.revision}`
     : "";
 
   return `Revise this synthesis based on the editor's feedback.
@@ -402,12 +480,9 @@ Original:
 """
 ${originalSynthesis}
 """
+${editorialBlock}${bannedBlock}${factBlock}
 
-Editor's feedback:
-- Weakest point: ${critique.weakestPoint}
-- Revision instruction: ${critique.revision}${bannedBlock}
-
-Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Keep the EXACT same structure: the opening answer paragraph (2-3 sentences, no paper names, no [Source N]), then one bullet per paper (- **[Source N] name** [1–2 sentences, HARD MAX 2]), bridges between bullets, closing sentence. Never add paper references to the opening paragraph. Keep the EXACT same **[Source N] name** format for bold paper references. No em dashes in bullets. Never write that a source "doesn't weigh in on" or "doesn't address" the theme. Fix ONLY what the editor flagged — don't rewrite parts that already work.${coverageRule}
+Write the improved version. Return ONLY the revised synthesis (no JSON, no markdown fences). Fix ONLY what the editor flagged — don't rewrite parts that already work.${structure}
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
