@@ -20,6 +20,10 @@ ALTER TABLE qa_pairs ADD COLUMN selection TEXT;
 ALTER TABLE qa_pairs ADD COLUMN section_key TEXT;
 ```
 
+**Phases 3 and 4 have their own brief: `docs/plans/reading-view-handoff-3-4.md`.**
+Point the agent picking them up at that file — it restates §3 and §4 with the
+file paths, the seams phase 2 left, and what "done" means for each.
+
 ### What phases 3 and 4 should build on
 
 Seams that now exist, so the next two phases don't re-invent them:
