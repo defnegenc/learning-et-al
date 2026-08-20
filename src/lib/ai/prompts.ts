@@ -110,10 +110,24 @@ ${listing}`;
  * and plans the argument structure.
  * Research: Radev (2000) Cross-Document Structure Theory, Yao (2023) Tree of Thoughts.
  */
-export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number) {
+export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number, dossier?: string | null) {
   const listing = formatPapers(candidates, 1200);
 
+  // The librarian's working note on this reader, when it has one. It goes HERE
+  // and nowhere upstream: the candidates were already qualified on the theme, so
+  // taste breaks ties between good papers rather than deciding what qualifies.
+  // It must not override the relevance gate below — a paper this reader would
+  // love is still wrong if it isn't about the theme.
+  const taste = dossier?.trim()
+    ? `\nWHO YOU ARE PICKING FOR — a working note on this reader, from what they have saved, skipped, asked about and complained about:
+"""
+${dossier.trim()}
+"""
+Use this to break ties between papers that are equally relevant and equally complementary, and to avoid the specific things they have said they don't want. It does NOT relax any rule below: an on-taste paper that fails the relevance gate is still out, and a paper is never selected because it is familiar. If the note conflicts with the theme, the theme wins.\n`
+    : "";
+
   return `Theme: "${theme}"
+${taste}
 
 You have ${candidates.length} candidate papers. Your job is to pick the BEST ${targetCount} that COMPLEMENT each other for an interesting argument about the theme. Then plan the argument.
 

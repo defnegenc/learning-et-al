@@ -19,7 +19,7 @@ import {
 import {
   ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
   HAIRLINE, INK, LABEL_STYLE, MUTED, SELECTION_FILL, SHADOW, SURFACE, TextInput,
-  foundationalWash, wash,
+  foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
 type Jargon = {
@@ -177,11 +177,25 @@ async function runFixtureAsk(
     sectionKey: payload.sectionKey ?? null,
   });
   const words = fixture.answer(payload.question || "", payload.selection).split(" ");
+  // A real model takes a couple of seconds to say its first word, and that gap
+  // is now a designed surface — the loader, then the one question the interleave
+  // owes, then a tip. Streaming the fixture's first token in 24ms would flash
+  // past the whole thing, and the prototype exists precisely so these states are
+  // reviewable without an account.
+  await new Promise(r => setTimeout(r, FIXTURE_FIRST_TOKEN_MS));
   for (let i = 0; i < words.length; i++) {
     await new Promise(r => setTimeout(r, 24));
     on.delta(id, (i === 0 ? "" : " ") + words[i]);
   }
 }
+
+/**
+ * Long enough to see the loader and the question under it; short enough to be
+ * an honest impression of the wait. Each successive dig shows the next rung of
+ * the ladder — answer the familiarity question and the next dig asks how much
+ * you liked the paper, then the one after that shows tips.
+ */
+const FIXTURE_FIRST_TOKEN_MS = 2600;
 
 /* ── Prose ───────────────────────────────────────────────────────────────── */
 
@@ -201,6 +215,71 @@ async function runFixtureAsk(
  * and fill on this page means exactly one thing — what you are highlighting
  * right now.
  */
+/**
+ * Mark the passages that have been dug into, in place, in the paper's own hue,
+ * and annotate everything around them.
+ *
+ * A dig used to reprint its passage at the top of a panel. That said the same
+ * thing twice and broke the read: the sentence you highlighted was still up
+ * there in the paragraph, and a copy of it sat below in a box. Now the original
+ * is what carries the mark, so a beat shows you at a glance which of its
+ * sentences you have already pulled on, and the panel underneath is nothing but
+ * the answer.
+ *
+ * Matching is by first exact occurrence, non-overlapping. A selection that no
+ * longer appears (a regenerated companion) simply doesn't mark — the thread is
+ * still anchored to its section, so nothing is lost but the highlight.
+ */
+function annotateBeat(
+  text: string,
+  jargon: Jargon[],
+  used: Set<string>,
+  selections: string[],
+  hue: string,
+): React.ReactNode[] {
+  const ranges: { start: number; end: number }[] = [];
+  for (const raw of selections) {
+    const sel = raw.trim();
+    if (!sel) continue;
+    const i = text.indexOf(sel);
+    if (i < 0) continue;
+    const end = i + sel.length;
+    if (ranges.some(r => i < r.end && end > r.start)) continue;
+    ranges.push({ start: i, end });
+  }
+  if (!ranges.length) return annotateText(text, jargon, used);
+  ranges.sort((a, b) => a.start - b.start);
+
+  const out: React.ReactNode[] = [];
+  let cursor = 0;
+  let key = 0;
+  for (const r of ranges) {
+    if (r.start > cursor) {
+      out.push(<React.Fragment key={key++}>{annotateText(text.slice(cursor, r.start), jargon, used)}</React.Fragment>);
+    }
+    out.push(
+      <mark
+        key={key++}
+        style={{
+          background: hue,
+          color: INK,
+          // `clone` so a passage spanning a line break carries the mark on both
+          // lines rather than stretching one box behind the break.
+          boxDecorationBreak: "clone",
+          WebkitBoxDecorationBreak: "clone",
+        }}
+      >
+        {annotateText(text.slice(r.start, r.end), jargon, used)}
+      </mark>,
+    );
+    cursor = r.end;
+  }
+  if (cursor < text.length) {
+    out.push(<React.Fragment key={key++}>{annotateText(text.slice(cursor), jargon, used)}</React.Fragment>);
+  }
+  return out;
+}
+
 function annotateText(text: string, jargon: Jargon[], used: Set<string>): React.ReactNode[] {
   const sorted = [...jargon].sort((a, b) => b.term.length - a.term.length);
   const out: React.ReactNode[] = [];
@@ -247,6 +326,9 @@ interface Pick {
 /** A word is not a passage. Below this, the reader is probably just reading. */
 const MIN_SELECTION = 16;
 
+/** How long a dig has to be running before the interleave is allowed to ask anything. */
+const OFFER_AFTER_MS = 1200;
+
 /**
  * Watch for a selection inside the walkthrough and report where it ended.
  *
@@ -260,7 +342,14 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
   useEffect(() => {
     if (!enabled) return;
 
-    const read = () => {
+    const read = (event?: Event) => {
+      // Anything that happens inside the menu is the reader using the menu, not
+      // re-selecting. Focusing the question box necessarily collapses the DOM
+      // selection, and without this the menu would close the instant it was
+      // clicked into. The passage is already captured in state by then.
+      const target = event?.target as Element | null;
+      if (target?.closest?.("[data-selection-menu]")) return;
+
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setPick(null);
       const text = sel.toString().trim();
@@ -301,30 +390,66 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
 }
 
 /**
- * The floating pair. Hard border, the one shadow, no radius — it is the same
- * object as every other frame, just small and following the cursor.
+ * The floating menu. Hard border, the one shadow, no radius — the same object as
+ * every other frame, just small and following the cursor.
+ *
+ * It leads with a question box rather than a second button. "Ask about this"
+ * used to throw the passage across the page into the rail's composer, which
+ * made asking about a sentence a journey; the question about a sentence belongs
+ * at the sentence. Typing here posts inline under the same beat a dig lands in,
+ * so the passage, the question and the answer stay in one place.
  */
 function SelectionMenu({ pick, onDig, onAsk }: {
   pick: Pick;
   onDig: () => void;
-  onAsk: () => void;
+  onAsk: (question: string) => void;
 }) {
-  const WIDTH = 232;
+  const [draft, setDraft] = useState("");
+  const WIDTH = 320;
   const left = Math.min(Math.max(12, pick.x - WIDTH / 2), window.innerWidth - WIDTH - 12);
-  const top = Math.min(pick.y + 10, window.innerHeight - 60);
+  const top = Math.min(pick.y + 10, window.innerHeight - 110);
+  const submit = () => { if (draft.trim()) { onAsk(draft.trim()); setDraft(""); } };
 
   return (
     <div
-      // mousedown, not click: clicking anywhere collapses the selection, and by
-      // the time click fires the passage we were about to send is gone.
-      onMouseDown={e => e.preventDefault()}
+      data-selection-menu
+      // mousedown, not click, on the buttons: clicking anywhere collapses the
+      // selection, and by the time click fires the passage is gone. The input
+      // is the exception — it has to be allowed to take focus.
+      onMouseDown={e => {
+        if (!(e.target as HTMLElement).closest("input")) e.preventDefault();
+      }}
       style={{
-        position: "fixed", left, top, zIndex: 10040,
-        display: "flex", border: BORDER, boxShadow: SHADOW, background: SURFACE,
+        position: "fixed", left, top, zIndex: 10040, width: WIDTH,
+        display: "flex", flexDirection: "column", border: BORDER, boxShadow: SHADOW, background: SURFACE,
       }}
     >
-      <button onMouseDown={onDig} style={menuButton}>Dig deeper</button>
-      <button onMouseDown={onAsk} style={{ ...menuButton, borderLeft: BORDER }}>Ask about this</button>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        <input
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+          }}
+          placeholder="Ask about this…"
+          aria-label="Ask a question about the selected passage"
+          autoFocus
+          style={{
+            ...BODY_SM, flex: 1, minWidth: 0, background: SURFACE, color: INK,
+            border: "none", outline: "none", padding: "10px 12px",
+          }}
+        />
+        <button
+          onMouseDown={submit}
+          disabled={!draft.trim()}
+          style={{ ...menuButton, borderLeft: BORDER, opacity: draft.trim() ? 1 : 0.4, cursor: draft.trim() ? "pointer" : "not-allowed" }}
+        >
+          Ask
+        </button>
+      </div>
+      <button onMouseDown={onDig} style={{ ...menuButton, borderTop: BORDER, textAlign: "left" }}>
+        Dig deeper
+      </button>
     </div>
   );
 }
@@ -340,33 +465,45 @@ const menuButton: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-function FamiliarityScale({ topic, currentLevel, onSelect, onSkip }: {
-  topic: FamiliarityTopic;
-  currentLevel?: number | null;
+/**
+ * One question, five boxes, an end label at each end and a skip.
+ *
+ * Both interleaved questions are this object — familiarity and "how much did
+ * you like it". They were two arrangements of the same idea inside a framed
+ * block with a heading, a caption and a footnote, which read as a survey card
+ * dropped into the middle of a paper. One row, no frame: a question in the
+ * reading column, not a form.
+ */
+function ScaleRow({ question, lowLabel, highLabel, value, onSelect, onSkip, note, ariaPrefix }: {
+  question: React.ReactNode;
+  lowLabel: string;
+  highLabel: string;
+  value?: number | null;
   onSelect: (level: number) => void;
   onSkip?: () => void;
+  /** The trust line. Shown where the reader is correcting a stored level, not mid-wait. */
+  note?: string;
+  ariaPrefix: string;
 }) {
   return (
-    <div style={{ borderTop: HAIRLINE, marginTop: 12, marginBottom: 12, paddingTop: 12 }}>
-      <p style={{ ...BODY_SM, margin: "0 0 10px" }}>
-        {onSkip ? "While I dig — how" : "How"} familiar are you with <strong>{topic.name}</strong>?
-      </p>
+    <div>
+      <p style={{ ...BODY_SM, margin: "0 0 8px" }}>{question}</p>
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 7 }}>
-        <span style={{ ...BODY_SM, color: DIM }}>new to it</span>
+        <span style={{ ...BODY_SM, color: DIM }}>{lowLabel}</span>
         {[1, 2, 3, 4, 5].map(level => (
           <button
             key={level}
             onClick={() => onSelect(level)}
-            aria-label={`${level} out of 5 familiar with ${topic.name}`}
-            aria-pressed={currentLevel === level}
+            aria-label={`${level} out of 5 — ${ariaPrefix}`}
+            aria-pressed={value === level}
             style={{
               ...BODY_SM,
               width: 28,
               height: 28,
               padding: 0,
               border: BORDER,
-              background: currentLevel === level ? INK : SURFACE,
-              color: currentLevel === level ? SURFACE : INK,
+              background: value === level ? INK : SURFACE,
+              color: value === level ? SURFACE : INK,
               cursor: "pointer",
               fontWeight: 600,
             }}
@@ -374,7 +511,7 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip }: {
             {level}
           </button>
         ))}
-        <span style={{ ...BODY_SM, color: DIM }}>I work on this</span>
+        <span style={{ ...BODY_SM, color: DIM }}>{highLabel}</span>
         {onSkip && (
           <button
             onClick={onSkip}
@@ -384,9 +521,124 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip }: {
           </button>
         )}
       </div>
-      <p style={{ ...BODY_SM, color: MUTED, margin: "9px 0 0" }}>
-        This helps pitch future reading companions. It never changes what gets selected.
-      </p>
+      {note && <p style={{ ...BODY_SM, color: MUTED, margin: "9px 0 0" }}>{note}</p>}
+    </div>
+  );
+}
+
+function FamiliarityScale({ topic, currentLevel, onSelect, onSkip, lead }: {
+  topic: FamiliarityTopic;
+  currentLevel?: number | null;
+  onSelect: (level: number) => void;
+  onSkip?: () => void;
+  /** Mid-dig the question opens with "While I dig —"; as a correction it just asks. */
+  lead?: string;
+}) {
+  return (
+    <ScaleRow
+      question={<>{lead ?? "How"} familiar are you with <strong>{topic.name}</strong>?</>}
+      lowLabel="new to it"
+      highLabel="I work on this"
+      value={currentLevel}
+      onSelect={onSelect}
+      onSkip={onSkip}
+      note={onSkip ? undefined : "This changes how things are explained to you. It never changes what gets selected."}
+      ariaPrefix={`familiar with ${topic.name}`}
+    />
+  );
+}
+
+/**
+ * The second question, asked only in the dead air of a dig and only once per
+ * paper. How much a paper was worth someone's evening is exactly what the
+ * librarian cannot infer from a save alone.
+ */
+function PaperRating({ value, onSelect, onSkip }: {
+  value?: number | null;
+  onSelect: (level: number) => void;
+  onSkip: () => void;
+}) {
+  return (
+    <ScaleRow
+      question="While I dig — how much did you like this paper?"
+      lowLabel="not for me"
+      highLabel="loved it"
+      value={value}
+      onSelect={onSelect}
+      onSkip={onSkip}
+      ariaPrefix="liked this paper"
+    />
+  );
+}
+
+/**
+ * What to say while a dig is running, in order of how much it is worth.
+ *
+ * A maintained content surface, like the first-run tips: these name real
+ * features, so update them when one is added, renamed or removed.
+ */
+const DIG_WAIT_TIPS = [
+  "Highlight anything else while you wait — digs queue under the passage they came from.",
+  "“Ask about this” sends the passage to the thread on the right instead of answering inline.",
+  "Underlined words carry a definition. Hover or tap one.",
+  "Answers read the paper's full text, then check it against what current web sources say.",
+  "What you dig into teaches your librarian what to send you next.",
+];
+
+const TIP_ROTATE_MS = 6000;
+
+/**
+ * The wait, which is the whole point of the interleave.
+ *
+ * The loader comes first and never moves. Underneath it, one thing at a time:
+ * the familiarity question if it is owed, then — only if the reader answered it
+ * and the dig is still running — how much they liked the paper, then a tip. If
+ * the answer lands first, none of it was ever in the way. Nothing here is
+ * framed, and there is no rule down the side either: until there is an answer
+ * there is no aside to hang one on.
+ */
+function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating }: {
+  familiarityOffer?: FamiliarityTopic | null;
+  familiarityValue?: FamiliarityValue | null;
+  onFamiliarity: (level: number) => void;
+  onSkipFamiliarity: () => void;
+  ratingOffer: boolean;
+  ratingValue?: number | null;
+  onRating: (level: number) => void;
+  onSkipRating: () => void;
+}) {
+  const [tip, setTip] = useState(0);
+  const showTips = !familiarityOffer && !ratingOffer;
+
+  useEffect(() => {
+    if (!showTips) return;
+    const id = setInterval(() => setTip(t => (t + 1) % DIG_WAIT_TIPS.length), TIP_ROTATE_MS);
+    return () => clearInterval(id);
+  }, [showTips]);
+
+  return (
+    <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
+        <span style={{ ...BODY_STYLE, color: MUTED }}>Digging into that passage&hellip;</span>
+      </div>
+
+      {familiarityOffer ? (
+        <FamiliarityScale
+          topic={familiarityOffer}
+          currentLevel={familiarityValue?.level}
+          onSelect={onFamiliarity}
+          onSkip={onSkipFamiliarity}
+          lead="While I dig — how"
+        />
+      ) : ratingOffer ? (
+        <PaperRating value={ratingValue} onSelect={onRating} onSkip={onSkipRating} />
+      ) : (
+        <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+          <span style={LABEL_STYLE}>Tip</span>
+          <span style={{ ...BODY_SM, color: DIM }}>{DIG_WAIT_TIPS[tip]}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -423,53 +675,85 @@ function PitchedForYouLine({ pitch, topic, currentLevel, onSelect }: {
 }
 
 /**
- * A dig, answered — the wash panel that lands directly under the beat the
- * passage came from.
+ * A dig, answered — an aside under the beat the passage came from.
  *
- * The panel is the paper's own wash, never green: green lives in the live
- * selection and in the confirmation tick, and nowhere else. The quoted passage
- * wears the same ink underline a paper name wears in the synthesis.
+ * Not a box. It was a washed, bordered, shadowed panel that reprinted the
+ * passage at the top, which made a dig look like a second document dropped into
+ * the middle of the read. The passage is now marked in place in the paragraph
+ * above (see `annotateBeat`), so this is only the answer: an indent behind one
+ * 2px ink rule, which is the aside shape the menu already has, and no second
+ * frame competing with the page's real frames.
+ *
+ * Collapsible, and open when it arrives. A dig is a detour: once you have read
+ * it you want the beat back, and three open detours under one paragraph is not
+ * a read any more. Collapsed, the header carries the passage it came from, so
+ * two digs under the same beat stay distinguishable without reprinting anything
+ * while open.
  */
-function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity }: {
+function DigPanel({ thread, streaming, onFollowUp, error, defaultOpen, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating }: {
   thread: ReadingThread;
-  washStyle: React.CSSProperties;
   streaming: boolean;
   error?: string | null;
   onFollowUp: (question: string) => void;
+  /** Fresh digs open; ones rehydrated on load stay folded so the walkthrough reads. */
+  defaultOpen: boolean;
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
   onFamiliarity: (level: number) => void;
   onSkipFamiliarity: () => void;
+  ratingOffer: boolean;
+  ratingValue?: number | null;
+  onRating: (level: number) => void;
+  onSkipRating: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(defaultOpen);
+
+  // Nothing has arrived yet. The aside is the answer's container, so it should
+  // not exist before there is an answer — the wait is a loader and whatever the
+  // interleave owes, with no rule down the side of it.
+  const empty = thread.turns.every(turn => !turn.answer);
+  if (empty && streaming) {
+    return (
+      <DigWait
+        familiarityOffer={familiarityOffer}
+        familiarityValue={familiarityValue}
+        onFamiliarity={onFamiliarity}
+        onSkipFamiliarity={onSkipFamiliarity}
+        ratingOffer={ratingOffer}
+        ratingValue={ratingValue}
+        onRating={onRating}
+        onSkipRating={onSkipRating}
+      />
+    );
+  }
 
   return (
-    <div style={{ ...washStyle, border: BORDER, boxShadow: SHADOW, padding: "18px 20px", marginTop: 22 }}>
-      <div style={{ ...LABEL_STYLE, marginBottom: 10 }}>Deeper</div>
-
-      {familiarityOffer && (
-        <FamiliarityScale
-          topic={familiarityOffer}
-          currentLevel={familiarityValue?.level}
-          onSelect={onFamiliarity}
-          onSkip={onSkipFamiliarity}
+    <div style={{ borderLeft: BORDER, paddingLeft: 18, marginTop: 22 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+      >
+        <span style={{ ...LABEL_STYLE, flexShrink: 0 }}>Deeper</span>
+        {/* Only when closed: while it is open the answer is right there, and the
+            passage is marked in the paragraph above either way. */}
+        {!open && thread.selection && (
+          <span style={{ ...BODY_SM, color: MUTED, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {thread.selection}
+          </span>
+        )}
+        <ChevronDown
+          size={16}
+          style={{ color: MUTED, flexShrink: 0, marginLeft: "auto", transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
         />
-      )}
+      </button>
 
-      {thread.selection && (
-        <p
-          style={{
-            ...BODY_STYLE,
-            fontStyle: "italic",
-            margin: "0 0 14px",
-            textDecoration: "underline",
-            textDecorationColor: INK,
-            textUnderlineOffset: 4,
-          }}
-        >
-          {thread.selection}
-        </p>
-      )}
+      {!open ? null : (
+      <div style={{ marginTop: 12 }}>
+      {/* The interleave does not live here any more — it belongs to the wait,
+          where the reader has nothing else to do. Once there is an answer on
+          screen, a question about something else is an interruption. */}
 
       {thread.turns.map((turn, i) => (
         <div key={turn.id} style={{ borderTop: i === 0 ? "none" : HAIRLINE, paddingTop: i === 0 ? 0 : 14, marginTop: i === 0 ? 0 : 14 }}>
@@ -514,6 +798,8 @@ function DigPanel({ thread, washStyle, streaming, onFollowUp, error, familiarity
           Ask
         </ActionButton>
       </div>
+      </div>
+      )}
     </div>
   );
 }
@@ -609,15 +895,19 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
 }
 
 /**
- * The closing recap of every hard word. The chips in the prose define each term
- * where you meet it; this catches the ones the companion flagged but never used
- * in its own copy, and gives you somewhere to look back to. Closed by default —
- * it is a reference, not part of the read.
+ * The recap of every hard word. The chips in the prose define each term where
+ * you meet it; this catches the ones the companion flagged but never used in
+ * its own copy, and gives you somewhere to look back to.
+ *
+ * It lives in the rail, not in the column. In series with the walkthrough it
+ * read as a sixth beat of the read and put a closed drawer between "Remember
+ * this" and what has happened since. A glossary is a thing you look across at.
+ * Closed by default for the same reason: reference, not read.
  */
 function Glossary({ terms }: { terms: Jargon[] }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ marginTop: 40, borderTop: HAIRLINE, paddingTop: 18 }}>
+    <div style={{ border: BORDER, background: SURFACE, padding: "14px 16px" }}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
@@ -632,11 +922,13 @@ function Glossary({ terms }: { terms: Jargon[] }) {
         />
       </button>
       {open && (
-        <dl style={{ margin: "16px 0 0" }}>
+        // A 150px term column left the definitions in a 200px gutter. In the
+        // rail the term leads and the definition sits under it.
+        <dl style={{ margin: "12px 0 0", maxHeight: 320, overflowY: "auto" }}>
           {terms.map(g => (
-            <div key={g.term} style={{ display: "flex", gap: 12, padding: "10px 0", borderTop: HAIRLINE }}>
-              <dt style={{ ...BODY_STYLE, fontWeight: 600, width: 150, flexShrink: 0 }}>{g.term}</dt>
-              <dd style={{ ...BODY_STYLE, color: DIM, margin: 0, flex: 1 }}>{g.def}</dd>
+            <div key={g.term} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+              <dt style={{ ...BODY_SM, fontWeight: 600 }}>{g.term}</dt>
+              <dd style={{ ...BODY_SM, color: DIM, margin: "2px 0 0" }}>{g.def}</dd>
             </div>
           ))}
         </dl>
@@ -711,7 +1003,7 @@ function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, 
           <div>
             <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
             <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
-              Answered from the paper itself, not from the digest.
+              Compares the paper with what current web sources say.
             </p>
           </div>
           <button
@@ -903,6 +1195,10 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
 }) {
   const byline = paperByline(paper);
   const foundational = paper.category === "foundational";
+  // The card's first wash hue — what a dug passage wears in the prose, and what
+  // the "Remember this" frame is washed in. Never GOLD: that is a line colour,
+  // and behind a word it is too dark to read the word through.
+  const hue = foundational ? foundationalSlots()[0] : washSlots(index)[0];
   const washStyle = foundational ? foundationalWash() : wash(index);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
@@ -918,6 +1214,21 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   const [askError, setAskError] = useState<string | null>(null);
   const [quote, setQuote] = useState<string | null>(null);
   const [tipSeen, setTipSeen] = useState(true);
+
+  // How much they liked the paper. Asked at most once per paper, only in the
+  // dead air of a dig, and only after the familiarity question is out of the
+  // way — two questions in one wait is a survey.
+  const [rating, setRating] = useState<number | null>(null);
+  const [ratingDeclined, setRatingDeclined] = useState(false);
+
+  // Digs made in this session open; ones rehydrated from the thread store on
+  // load stay folded, so re-opening a paper you have dug into four times shows
+  // you the paper rather than your own back-catalogue.
+  const freshThreads = useRef(new Set<string>());
+  const offerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The streaming flag as a ref too — the deferred offer has to read it at fire
+  // time, not close over whatever it was when the dig started.
+  const streamingRef = useRef<string | null>(null);
 
   const proseRef = useRef<HTMLDivElement>(null);
   const [pick, setPick] = useSelectionPick(proseRef, !companionPending);
@@ -977,6 +1288,15 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
         }
       } catch { /* an empty thread is the right fallback */ }
     })();
+    (async () => {
+      // Whether they have already told us. Cheap, and it is the difference
+      // between asking once and asking every time they dig.
+      try {
+        const res = await fetch(`/api/papers/${paper.id}/rating`);
+        const data = await res.json();
+        if (!cancelled && typeof data.level === "number") setRating(data.level);
+      } catch { /* unknown reads as un-rated, which only costs one question */ }
+    })();
     return () => { cancelled = true; };
   }, [paper.id, fixture, loadCompanion]);
 
@@ -988,6 +1308,8 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     const handlers = {
       start: (e: StartEvent) => {
         setStreamingTurn(e.id);
+        streamingRef.current = e.id;
+        if (e.selection) freshThreads.current.add(e.threadId);
         if (e.selection) setLastDigThreadId(e.threadId);
         const turn: ThreadTurn = {
           id: e.id, question: e.question, answer: "",
@@ -1022,6 +1344,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       setAskError(e instanceof Error ? e.message : "That one didn't come back. Try again.");
     } finally {
       setStreamingTurn(null);
+      streamingRef.current = null;
     }
   }, [paper.id, fixture, streamingTurn]);
 
@@ -1075,12 +1398,50 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       .catch(() => {});
   }, [companion?.topic, familiarityOffer, familiarityValue, fixture, paper.id]);
 
+  const submitRating = useCallback((level: number) => {
+    const previous = rating;
+    setRating(level); // optimistic: a rating is one tap and must feel like one
+    if (fixture) return;
+    void fetch(`/api/papers/${paper.id}/rating`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level }),
+    }).catch(() => setRating(previous));
+  }, [fixture, paper.id, rating]);
+
+  const skipRating = useCallback(() => setRatingDeclined(true), []);
+
+  useEffect(() => () => { if (offerTimer.current) clearTimeout(offerTimer.current); }, []);
+
   const dig = useCallback((text: string, section: SectionKey) => {
     window.getSelection()?.removeAllRanges();
     setPick(null);
     if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
-    reserveFamiliarityOffer();
+    // The interleave lives in the wait, and the reader is allowed one question a
+    // day across the whole product. Reserving it the instant a dig starts would
+    // spend that question on a two-second wait nobody read. Make the dig prove
+    // it is slow first.
+    if (offerTimer.current) clearTimeout(offerTimer.current);
+    offerTimer.current = setTimeout(() => {
+      if (streamingRef.current) reserveFamiliarityOffer();
+    }, OFFER_AFTER_MS);
     ask({ selection: text, sectionKey: section });
+  }, [ask, reserveFamiliarityOffer, setPick, tipSeen]);
+
+  /** A typed question about a passage. Same landing place as a dig. */
+  const askHere = useCallback((question: string, text: string, section: SectionKey) => {
+    window.getSelection()?.removeAllRanges();
+    setPick(null);
+    if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
+    // The interleave lives in the wait, and the reader is allowed one question a
+    // day across the whole product. Reserving it the instant a dig starts would
+    // spend that question on a two-second wait nobody read. Make the dig prove
+    // it is slow first.
+    if (offerTimer.current) clearTimeout(offerTimer.current);
+    offerTimer.current = setTimeout(() => {
+      if (streamingRef.current) reserveFamiliarityOffer();
+    }, OFFER_AFTER_MS);
+    ask({ question, selection: text, sectionKey: section });
   }, [ask, reserveFamiliarityOffer, setPick, tipSeen]);
 
   /* ── Prose ── */
@@ -1103,7 +1464,13 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       }
     : null;
   const defined = new Set<string>();
-  const mark = (text: string) => annotateText(text, glossary, defined);
+  const mark = (text: string, key: SectionKey) => annotateBeat(
+    text,
+    glossary,
+    defined,
+    digsForSection(threads, key).map(t => t.selection ?? "").filter(Boolean),
+    hue,
+  );
 
   const sectionText: Record<SectionKey, string> = {
     gist: companion?.gist ?? "",
@@ -1117,14 +1484,21 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     <DigPanel
       key={thread.id}
       thread={thread}
-      washStyle={washStyle}
       streaming={thread.turns.some(t => t.id === streamingTurn)}
       error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
       onFollowUp={q => ask({ question: q, threadId: thread.id })}
+      defaultOpen={freshThreads.current.has(thread.id)}
       familiarityOffer={thread.id === lastDigThreadId ? familiarityOffer : null}
       familiarityValue={activeFamiliarity}
       onFamiliarity={setFamiliarity}
       onSkipFamiliarity={skipFamiliarity}
+      // Second in the queue, and only in this dig's own wait: never before the
+      // familiarity question has been answered or waved off, never twice, never
+      // once they have told us.
+      ratingOffer={thread.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
+      ratingValue={rating}
+      onRating={submitRating}
+      onSkipRating={skipRating}
     />
   ));
 
@@ -1195,7 +1569,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             </div>
           ) : companion?.gist ? (
             <>
-              <p data-section="gist" style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist)}</p>
+              <p data-section="gist" style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist, "gist")}</p>
               {beatDig("gist")}
               {digs("gist")}
             </>
@@ -1217,21 +1591,21 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
           {/* ── The walkthrough — the beats after the gist ── */}
           {companion?.did && (
             <>
-              <Beat heading="What they did" sectionKey="did">{mark(companion.did)}</Beat>
+              <Beat heading="What they did" sectionKey="did">{mark(companion.did, "did")}</Beat>
               {beatDig("did")}
               {digs("did")}
             </>
           )}
           {companion?.found && (
             <>
-              <Beat heading="What they found" sectionKey="found">{mark(companion.found)}</Beat>
+              <Beat heading="What they found" sectionKey="found">{mark(companion.found, "found")}</Beat>
               {beatDig("found")}
               {digs("found")}
             </>
           )}
           {companion?.caveats && (
             <>
-              <Beat heading="Where it's shaky" sectionKey="caveats">{mark(companion.caveats)}</Beat>
+              <Beat heading="Where it's shaky" sectionKey="caveats">{mark(companion.caveats, "caveats")}</Beat>
               {beatDig("caveats")}
               {digs("caveats")}
             </>
@@ -1259,8 +1633,6 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             </>
           )}
 
-          {/* ── The glossary ── */}
-          {glossary.length > 0 && <Glossary terms={glossary} />}
 
           {/* ── What's happened since ── */}
           <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
@@ -1283,8 +1655,14 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
           )}
         </div>
 
-        {/* ── Ask this paper, in the rail ── */}
-        <aside className="reading-aside">
+        {/* ── The rail: the glossary, then Ask this paper ── */}
+        <aside className="reading-aside" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* The glossary is a reference, not a beat. Sitting in series with the
+              walkthrough it read as a sixth section of the read, and put a
+              closed drawer between "Remember this" and what has happened since.
+              In the rail it is a thing you look across at, which is what a
+              glossary is for. */}
+          {glossary.length > 0 && <Glossary terms={glossary} />}
           {companionPending ? (
             // The rail used to render nothing at all until the companion landed,
             // which is a minute or two of dead air in the widest column on the
@@ -1319,12 +1697,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
         <SelectionMenu
           pick={pick}
           onDig={() => dig(pick.text, pick.section)}
-          onAsk={() => {
-            setQuote(pick.text);
-            setPick(null);
-            window.getSelection()?.removeAllRanges();
-            document.getElementById("ask-this-paper")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }}
+          onAsk={question => askHere(question, pick.text, pick.section)}
         />
       )}
 
@@ -1338,7 +1711,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
         /* The one sanctioned fill use of acid green — see SELECTION_FILL. It is
            scoped to the walkthrough, because that is the only text a dig can
            act on. */
-        .reading-shell [data-section]::selection { background: ${SELECTION_FILL}; }
+        .reading-shell ::selection { background: ${SELECTION_FILL}; }
         /* Desktop selects; touch taps the beat's own affordance, because touch
            selection loses to the native callout. */
         .reading-beat-dig { display: none; }

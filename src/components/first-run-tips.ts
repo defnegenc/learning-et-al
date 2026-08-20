@@ -19,7 +19,7 @@
  */
 export const FIRST_RUN_TIPS = [
   "Save a paper and your librarian gets to work — by the time you open it in your library, the walkthrough is already written.",
-  "Every paper in your library can take questions — “Ask this paper” answers from the paper itself, not from the digest.",
+  "Every paper in your library can take questions. “Ask this paper” compares its claims with current web sources.",
   "Dotted-underlined words in a digest are jargon — hover for a plain definition.",
   "Paper names in the synthesis are clickable — they open that paper's card.",
   "Highlight any sentence while reading a paper to dig deeper into it or ask about it.",
