@@ -1,8 +1,51 @@
 # Reading view revamp, save NUX, and the librarian agent — plan
 
-*Drafted 2026-08-19. Planning only — nothing here is built yet. Companion docs:
-`docs/design-style.md` (the menu), `docs/algorithm.md` (pipeline),
-`docs/design-decisions.md` (log decisions there once we commit).*
+*Drafted 2026-08-19. Companion docs: `docs/design-style.md` (the menu),
+`docs/algorithm.md` (pipeline), `docs/design-decisions.md` (decisions log).*
+
+## Status — 2026-08-19
+
+| Phase | Name | State |
+|---|---|---|
+| 1 | **Save NUX** — one name, a visible control, strip + confirmation | ✅ built (branch `yamoussoukro`) |
+| 2 | **The reading view** — `/library/[paperId]`, highlight to dig deeper, threads, streaming | ✅ built (branch `yamoussoukro`) |
+| 3 | **The familiarity interleave** — Likert moment, tiered glossary, "pitched for you" | ⬜ not started |
+| 4 | **The librarian proper** — taste dossier, ledger, centroids, scout's shelf | ⬜ not started |
+
+**Phase 2 leaves a migration to run before deploy** — three nullable columns:
+
+```sql
+ALTER TABLE qa_pairs ADD COLUMN thread_id TEXT;
+ALTER TABLE qa_pairs ADD COLUMN selection TEXT;
+ALTER TABLE qa_pairs ADD COLUMN section_key TEXT;
+```
+
+### What phases 3 and 4 should build on
+
+Seams that now exist, so the next two phases don't re-invent them:
+
+- **`aiConfigFor(task)`** in `src/lib/ai/provider.ts` — the routing seam §4c
+  asked for, already replacing the five copy-pasted config blocks. Tasks are
+  `digest | companion | dig | chat | metadata | healthcheck`, each overridable
+  via `AI_MODEL_*`. Adding the dossier keeper and the interleaver means adding
+  two task names. `aiChat(config, messages)` and `aiChatStream` are there too.
+- **`qa_pairs` is the engagement ledger** — `thread_id`, `selection`,
+  `section_key`. The passages a reader highlights are §4a's richest signal and
+  they are being written now.
+- **The companion prompt** is `COMPANION_SYSTEM` in
+  `src/app/api/papers/[id]/companion/route.ts`. The tiered glossary (§3) is a
+  change to its `glossary` contract plus a `tier` field; the render-time filter
+  belongs in `annotateText` / `Glossary` in
+  `src/components/vault/reading-paper-detail.tsx`.
+- **The dig / ask prompts** are `ASK_SYSTEM` and `DIG_SYSTEM` in
+  `src/app/api/papers/[id]/qa/route.ts`. The familiarity line (§3) goes in
+  there, and the visible-use contract's structured strip-and-render belongs in
+  the same route, next to where the row is persisted.
+- **The interleave moment** (§3) is the dig confirmation: `DigPanel` in
+  `reading-paper-detail.tsx`, which already knows when a dig fired and has the
+  paper in hand.
+- **First-visit flags** live in `src/lib/nux.ts` (`nuxSeen` /`markNuxSeen`).
+  The interleaver's annoyance budget needs a server-side counterpart, not this.
 
 This covers four things:
 
