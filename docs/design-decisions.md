@@ -942,20 +942,30 @@ code takes the slot and the wrong hexes never existed.
 
 **Click-only, no auto-open.** A modal that opens itself on first paint is the
 opposite of this product's calm, and it would meet a reader before the digest
-has had a chance to be interesting on its own. The trigger sits in the eyebrow
-row, directly above the question, which is where a confused visitor is already
-looking. A once-per-visitor `localStorage` auto-open was considered and dropped
-for that reason; it is a one-line change if the click-through rate says
-otherwise.
+has had a chance to be interesting on its own. A once-per-visitor
+`localStorage` auto-open was considered and dropped for that reason; it is a
+one-line change if the click-through rate says otherwise.
 
-**Three placements, not one.** Today's eyebrow row was the plan, and it turned
-out to be the smallest of the three cases. The **shared permalink** carries it
-too — a shared link is most people's first contact with this product, so an
-explainer that only exists on the home page misses the majority of first
-impressions. Today's **no-digest state** carries it as well: with no digest to
-explain itself, a stranger has nothing at all to go on. It stays out of the
-header, which already holds Share and Sign in and would make three competing
-asks on one bar.
+**The trigger is an `i`, and it travels with Share.** It shipped first as an
+ink-underlined line of body copy beside the "Daily digest" eyebrow, on the
+theory that the explainer should sit where a confused visitor is already
+looking. That was the wrong read: it put a second sentence directly above the
+question and made the reader choose between them before they had finished
+either, so the surface that exists to reduce confusion added some. As an icon in
+the actions cluster it asks for nothing. It is the same plain, frameless, 15px
+control Share already is, and it takes **ink at rest** for that reason — muted
+at 15px reads as disabled beside Share's ink, and a pair has to match to be a
+pair.
+
+**Two placements, both beside Share.** Today's eyebrow row, and the shared
+permalink's header cluster — where it lands next to Sign in as well, which is
+the other place it belongs. A shared link is most people's first contact with
+this product, so an explainer that only existed on the home page missed the
+majority of first impressions. Today's **no-digest state** deliberately has
+none: an `i` is legible as an action inside a cluster and cryptic as a lone
+glyph under a sentence, and that state has no cluster. The case is rare (the
+admin's digest is almost always there), and a bare icon would explain less than
+nothing.
 
 **Onboarding reaches the same popup** through a quiet "What happens next?" in
 the footer, rather than a second explanation that would drift. Only the trigger
@@ -1020,6 +1030,31 @@ new settings screen.
 
 ---
 
+## 2026-08-20: On the reading page, a fill means the selection
+
+Hard words in the walkthrough wore the paper's own wash hue. The argument for
+it was good at the time: inside a paper's own page every hard word belongs to
+that paper, so the fill was wayfinding rather than decoration, and it matched
+the card the reader had opened.
+
+Highlight-to-dig-deeper broke that argument. Selecting a passage fills it with
+acid green, and it is the one thing on the page that has to be unmistakable —
+it is the reader's own gesture, mid-gesture. A page already speckled with filled
+words makes their selection just one more coloured patch, which is exactly the
+confusion the fill exists to prevent.
+
+So the terms go back to the **dotted rule**, the same one the synthesis uses,
+and `DefinitionTerm`'s `tint` opt-in is now unused on this surface. Fill on the
+reading page means one thing: what you are highlighting right now. The paper's
+hue is not gone — it still carries the dig panels and the `Remember this` frame,
+where nothing competes with it.
+
+The glossary's disclosure also becomes the chevron the interests accordion uses.
+It was already collapsible and closed by default, but a bare `+` / `–` was
+carrying the whole signal and read as punctuation rather than a control.
+
+---
+
 ## 2026-08-20: The dig is a fold, and the wait is where the questions live
 
 Three things were wrong with the dig-deeper panel the first time, and they were
@@ -1032,7 +1067,8 @@ words twice, two inches apart. The position is the citation.
 
 **Digs fold.** Four digs down one walkthrough buried the paper under the
 reader's own back-catalogue. A closed dig is one line — the mono `Deeper`
-eyebrow, a `+`, and the first clause of the answer clamped to the line. Digs
+eyebrow, the glossary's chevron, and the first clause of the answer clamped to
+the line. Digs
 made in this session open; digs rehydrated from the thread store on load start
 folded, because on the second visit the paper is the thing you came back for.
 
