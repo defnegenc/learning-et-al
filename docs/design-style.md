@@ -234,7 +234,7 @@ the wash index can no longer drift between two files.
 | `Card` / `CardGrid` | The frame (2px + `5px 5px 0`) and the standard shelf |
 | `Tag` | Body-face tag, `glass` \| `solid` |
 | `TopicChip` / `AddChip` | Interest-picker units. Idle white + 2px dashed rule; selected = the field's slot behind a solid ink border |
-| `Segmented` | The one "pick exactly one" shape. Settings navigation is the nav rail, not this — a segmented control reads as a toggle |
+| `Segmented` | The one "pick exactly one" shape. Settings navigation is the nav rail, not this — a segmented control reads as a toggle, which is exactly why the vault's Digests / Saved papers switch *is* one |
 | `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye |
 | `TextInput` | The one input shape |
 | `wash` / `washSlots` / `wordSlot` / `SPECTRUM` | The three spectrum indexes |
@@ -249,13 +249,13 @@ are separate, honour `prefers-reduced-motion`.
 
 | Surface | Notes |
 |---|---|
-| Today (`today/`) | Digest column 760px. Question at Display/LG, ink-fill (see §8) — no colour. `PaperCard` size `digest`. No em dashes in static copy on this surface, and `METADATA_RULES` bans them in generated copy. Logged out, the eyebrow row and the no-digest state carry the `WhatIsThis` trigger |
+| Today (`today/`) | Digest column 760px. Question at Display/LG, ink-fill (see §8) — no colour. `PaperCard` size `digest`. No em dashes in static copy on this surface, and `METADATA_RULES` bans them in generated copy. Logged out, the eyebrow row's actions cluster carries the `WhatIsThis` `i` beside Share |
 | Classic (`?classic=1`) | `synthesis-banner.tsx`. Paper names are ink underlines, not coloured highlights; `[N]` citations take the cited card's wash slot |
 | Vault | Digest history (rail + pane) and the reading list — `PaperCard` size `compact` |
-| Reading detail | 680px column. Title, byline, gist, then what's happened since |
+| Reading detail | 680px column. Title, byline, gist, then what's happened since. Hard words are the dotted rule, never a fill: on this page fill means the reader's own selection (`SELECTION_FILL`) and nothing else. The paper's hue stays on the dig panels and the `Remember this` frame |
 | Settings / Onboarding | Full-screen sheet below `md`, nav rail above it. `InterestLedger` for both. Onboarding's footer reaches the same `WhatIsThis` popup as the logged-out surfaces, in its `onboarding` variant |
 | `/prototype/interests` | Live, unauthenticated, rendering the shipping `InterestLedger` at full width and in a 375px phone frame, so it can't drift from what ships. A harness, not a candidate picker — it stays |
-| Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards. Header carries Share plus Sign in/Open app; bookmarks save to the account or wait on-device until sign-in. The date eyebrow carries the `WhatIsThis` trigger when logged out — a shared link is most readers' first contact with the product |
+| Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards. Header carries the `WhatIsThis` `i` plus Share plus Sign in/Open app; bookmarks save to the account or wait on-device until sign-in. A shared link is most readers' first contact with the product, which is why the explainer is in that cluster |
 | Share card | `opengraph-image.tsx`. No `filter: blur()` and no woff2 — Satori limits. See §7 |
 | Email | `src/lib/email.ts`. See §7 |
 
