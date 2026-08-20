@@ -7,8 +7,8 @@
 This covers four things:
 
 1. **Save NUX** — teach a zero-saves user what saving does, before and after the act.
-2. **Reading view revamp** — unbury it, add a tip, and add highlight-to-dig-deeper.
-3. **Familiarity interleave** — one Likert question, asked at the dig-deeper moment.
+2. **Reading view revamp** — unbury it, add a tip, and add highlight-to-explain.
+3. **Familiarity interleave** — one Likert question, asked at the explain moment.
 4. **The librarian agent** — how taste gets defined, stored, and used; harness + model routing.
 
 ---
@@ -69,9 +69,14 @@ self-retires permanently the moment the first save lands — saving *is* dismiss
 
 **Core copy** (draft, tune later):
 
-> **TIP** — Save a paper and your librarian starts reading it: a guided
+> **Tip —** Save a paper and your librarian starts reading it: a guided
 > walkthrough, key terms, and what's been published since, waiting in your
 > library.
+
+⚠️ **Typography rule for everything in this plan (Defne, 2026-08-20): no mono
+eyebrows, no all-caps little labels, anywhere.** Every lead-in ("Tip —",
+"Pitched for you:") is **bolded body face, sentence case**. Where earlier
+drafts of this doc said "mono `TIP` eyebrow," read this instead.
 
 Short variant for tight surfaces: *"Save a paper — your librarian will prep it
 and find related work for you to browse later."*
@@ -79,10 +84,10 @@ and find related work for you to browse later."*
 ### Design directions (pick at prototype time)
 
 **A. The strip** *(recommended as the "before" half)*
-A full-width band above the digest header: hard border, surface white, mono
-`TIP` eyebrow, one body-face sentence, `×` to dismiss. It's the calmest option,
-reads as part of the archive furniture, and doesn't chase the user around.
-Nothing new enters the menu — it's `BORDER` + `LABEL_STYLE` + `BODY_STYLE`.
+A full-width band above the digest header: hard border, surface white, a bolded
+body-face **"Tip —"** lead-in, one sentence, `×` to dismiss. It's the calmest
+option, reads as part of the archive furniture, and doesn't chase the user
+around. Nothing new enters the menu — it's `BORDER` + `BODY_STYLE`.
 
 **B. The coachmark**
 An `InkTip`-styled ink tooltip anchored to the *first card's actual bookmark
@@ -133,11 +138,9 @@ Mostly yes — gist → what they did / found / where it's shaky → remember th
 glossary → what's happened since is a genuinely good walkthrough arc. The
 problems are hierarchy and dead air, not content:
 
-- **The rail is empty while the companion generates** (`AskThread` mounts only
-  after `!companionPending`). Fill it with a pending state: *"Your librarian is
-  still reading — ask anything once it's done."*
-- **On mobile, Ask falls below everything.** Move at least the composer (or a
-  "Ask ↓" affordance) into the top region on narrow layouts.
+- **The Ask rail is structurally cursed** — empty while the companion
+  generates, below everything on mobile. Resolved by removing it entirely:
+  §2c replaces it with a left outline and moves questions into the document.
 - **No error surface** — if companion generation fails, sections silently vanish.
   Add a retry row.
 - **It's two clicks deep.** Fixes: (1) **give it a real URL** —
@@ -156,7 +159,38 @@ problems are hierarchy and dead air, not content:
   (we have `digests.seedInterests` + the paper's digest), and it's the seed of
   the librarian's voice.
 
-### 2b · Highlight-to-dig-deeper — the core feature
+**Making the walkthrough scannable** *(decided 2026-08-20)*. The did/found/shaky
+structure and names stay — the top does **not** become "Summary," and the gist
+stays unlabeled (it's the lede). The problem is that the page is four
+same-weight paragraphs; fixes:
+
+- **The key-numbers table.** Not a giant display number — a table. New
+  companion field `keyStats: [{metric, value, note?}]` (2–4 rows max, only
+  numbers that carry the finding; omit the field entirely if the paper isn't
+  quantitative — an empty table is worse than none). Rendered between "What
+  they did" and "What they found" as hairline rows — metric name in body face
+  left, value bold right, optional note in `DIM` — **tinted in the paper's wash**
+  (same third-index hue as the card and the explain panels, so the page's color
+  says "this is yours/this paper," consistently). Genuinely useful, not
+  decorative: it's the row you screenshot.
+- **The lede gets weight.** The gist paragraph is set heavier/larger than body,
+  and the closing "Remember this" line gets the same bolder treatment — the
+  page opens and closes with emphasis. ⚠️ The menu has exactly five type styles
+  and none is a lede; this is a Paper-board addition first (e.g. one "Body/Lede"
+  style — heavier weight, maybe a step up in size), then `globals.css` +
+  `design-system.tsx`, then here.
+- **Each beat opens with a bolded first clause** — a prompt contract ("open
+  each section with a ≤6-word bolded claim"): *"**They followed 400 nurses for
+  a year.** Each was randomly…"*. Bold-within-body, costs nothing.
+- **"Where it's shaky" is set in `DIM`** — the one section that's a caution
+  reads visually as an aside, lower confidence.
+- **No mono eyebrows on any of this** (see §1) — beat headings stay Display/SM
+  plain-language, lead-ins are bolded body face.
+
+### 2b · Highlight-to-explain — the core feature
+
+*(Named **"Explain"** — decided 2026-08-20. Earlier drafts said "dig deeper";
+that name survives only for the legacy digest-level feature in §0.)*
 
 **Verdict: yes, build it.** It's the right interaction for three reasons:
 (1) zero-typing curiosity — the friction of formulating a question is exactly
@@ -165,70 +199,89 @@ passage plus surrounding context instead of a vague question, so answers get
 better for free; (3) it's the richest taste signal in the product — the exact
 sentences a user finds confusing or exciting beat any thumbs-up. Honest risks:
 mobile text selection fights the native selection menu (ship desktop-first,
-mobile gets a per-paragraph "¶ dig deeper" affordance instead); and selections
+mobile gets a per-paragraph "¶ Explain" affordance instead); and selections
 need anchoring to survive re-render (store the quoted text + section key, not
 DOM offsets).
 
 **Interaction spec** (prototype in `/prototype/reading-list` first):
 
 1. **The tip.** One line under the byline, first-visit only (same localStorage
-   pattern as §1): mono `TIP` eyebrow + *"Highlight any passage to have the
-   agent dig deeper on it."* Retires after the first successful dig.
+   pattern as §1): bolded body-face **"Tip —"** + *"highlight any passage and
+   the agent will explain it, or answer a question about it."* Retires after
+   the first successful explain.
 2. **Select.** User selects text inside gist/beats/remember. The selection
    tints **acid green** — the marker stroke, the one moment of "the agent is
    about to act on exactly this." *(Decided 2026-08-19; this is a menu
    amendment — acid green is currently ink-only. Record in Paper first: acid
-   green gains exactly one sanctioned fill use, the live dig-deeper selection.
+   green gains exactly one sanctioned fill use, the live explain selection.
    Probably at reduced alpha over text so ink stays legible. It must not leak
-   anywhere else — panels, chips, and washes stay as they are.)* Once the dig
-   fires, the green mark collapses; the passage reappears quoted inside the
-   wash panel below.
+   anywhere else — panels, chips, and washes stay as they are.)* Once the
+   explain fires, the green mark collapses; the passage reappears quoted inside
+   the wash section below.
 3. **The button.** A small floating pair near the selection endpoint, hard
-   border + the one shadow: **Dig deeper** · **Ask about this**. "Dig deeper"
-   fires immediately with a canned intent; "Ask about this" drops the quoted
-   passage into the Ask composer as context and focuses it.
+   border + the one shadow: **Explain** · **Ask about this**. "Explain" fires
+   immediately with a canned intent; "Ask about this" opens a one-line composer
+   anchored to the same selection (there is no rail composer anymore, §2c) —
+   the typed question plus the quoted passage produce the same kind of section.
 4. **Confirmation.** The button collapses into an inline chip:
-   *"Digging deeper ✓ — keep reading, it'll be below."* Check and text in
-   acid-green **ink**. *(Decided: the panel itself is NOT green — green lives
-   only in the selection highlight (step 2) and confirmation ink. The panel is
-   the paper's wash.)*
-5. **The panel.** The answer arrives as a **"Deeper" block** rendered inline
-   directly after the section the highlight came from (fallback: a "Deep dives"
-   section above the glossary). Wash-filled, hard border. Contents: the quoted
-   passage (italic, ink-underlined like paper names), the answer, and a
-   follow-up composer scoped to that thread. Multiple digs stack in reading order.
+   *"Explaining ✓ — keep reading, it'll be waiting below."* Check and text in
+   acid-green **ink**. (The section itself is NOT green — green lives only in
+   the selection highlight and confirmation ink. The section is the paper's wash.)
+5. **The section.** The answer arrives as its **own collapsible section**
+   rendered inline directly after the beat the highlight came from (fallback:
+   above the glossary). Same +/− toggle idiom as the glossary; **open when
+   fresh, collapsed on return visits** so a much-questioned paper stays
+   readable. Wash-filled, hard border. Header: the quoted passage (italic,
+   truncated when collapsed). Body: the answer + a follow-up composer scoped to
+   that thread. Multiple explains stack in reading order.
 6. **Persistence.** Extend `qaPairs` with nullable `selection` (quoted text),
-   `sectionKey`, and `threadId` — one table keeps Ask and digs unified, and the
-   reading view rehydrates panels on reopen. (Alternative: separate `digs`
-   table; not worth the split since §2c merges the models anyway.)
+   `sectionKey`, and `threadId` — one table keeps typed questions and explains
+   unified, and the reading view rehydrates the sections on reopen.
 
-**API**: new `POST /api/papers/[id]/dig` (or a mode on `/qa`): payload
-`{selection, sectionKey, threadId?}`; server builds the prompt from selection +
-surrounding section + companion + `fullText`, reusing the qa route's PDF
-self-heal. Should stream (see §4 model notes).
+**API**: new `POST /api/papers/[id]/explain` (or a mode on `/qa`): payload
+`{selection, sectionKey, question?, threadId?}`; server builds the prompt from
+selection + surrounding section + companion + `fullText`, reusing the qa
+route's PDF self-heal. Should stream (see §4 model notes).
 
-### 2c · Should there be a chat?
+### 2c · No chat rail — the document is the interface
 
-**One threaded conversation per paper, two entry points, ledger aesthetic.**
-Don't build a chat *UI* — the Q→A ledger look is right for the archive. But the
-*model* should become conversational: today every question is answered blind
-(`qa/route.ts:95` passes no history). Concretely:
+**Decided 2026-08-20: the Ask rail is gone. There is no chat pane anywhere in
+the reading view.** Every exchange becomes part of the document — marginalia,
+not conversation. A paper you interrogated last month comes back *richer*:
+annotated, questioned, explained. Chat logs are exhaust; an archive annotates
+its documents.
 
-- Ask-this-paper and dig-deeper share one thread store (§2b.6). A highlight
-  starts a thread; a typed question starts a thread; follow-ups continue one.
-- Pass prior turns to the model. Requires teaching `aiComplete` (or a sibling
-  `aiChat`) to accept a messages array — small, overdue change.
-- Keep answers short by default (the digest chat's "3-4 sentences max" trick
-  works); the follow-up composer is where depth happens.
+- **Everything is a collapsible section.** Explains land anchored after the
+  beat they came from (§2b.5). Typed questions land at the **end of the
+  document**: one composer under the walkthrough — *"Still curious? Ask."* —
+  and each answer appends as its own collapsible section ("You asked: …").
+  The companion's three starter questions are rows above that composer;
+  clicking one appends the same way. One idiom (+/− toggle, wash fill, hard
+  border) for every annotation on the page.
+- **The outline lives on the LEFT.** The old right rail becomes a left column:
+  the beats, the key-numbers table, each explain (by its quoted passage), each
+  question — jump links into the document. It exists the instant the page
+  loads (no empty state while the companion generates), shows at a glance how
+  much you've worked this paper, and collapses to a disclosure on mobile. Grid
+  flips from `minmax(0,1fr) 372px` to roughly `240px minmax(0,1fr)`.
+- **Threading is scoped, not global.** Follow-ups live inside their section's
+  composer and continue that thread only. The *model* is still conversational:
+  teach `aiComplete` (or a sibling `aiChat`) to accept a messages array and
+  stream — small, overdue change. Keep answers short by default (the digest
+  chat's "3-4 sentences max" trick); the follow-up composer is where depth
+  happens.
+- **The honest trade-off**, accepted: free-form multi-turn exploration ("help
+  me brainstorm applications") fits a chat pane better than marginalia. It's
+  rare enough here to live inside a section's follow-up thread.
 
 ---
 
 ## 3 · Familiarity interleave (the Likert moment)
 
-When the user digs deeper (§2b step 4), the confirmation chip is a natural
-pause — the agent is "off working." Use it, at most once, to ask:
+When the user asks for an explain (§2b step 4), the confirmation chip is a
+natural pause — the agent is "off working." Use it, at most once, to ask:
 
-> *While I dig — how familiar are you with **social computing**?*
+> *While I work on that — how familiar are you with **social computing**?*
 > `new to it · 1 2 3 4 5 · I work on this`
 > *This helps me pitch future reading companions.* — with a visible **skip**.
 
@@ -244,7 +297,7 @@ familiarity is per-subtopic, 5-point, and time-stamped (re-ask after ~6 months).
 
 **Rules so it never gets annoying**: never re-ask a subtopic; at most one ask
 per day across the whole product; always skippable; answering is optimistic
-(no spinner). **Consumption**: companion + dig-deeper + Ask prompts get a
+(no spinner). **Consumption**: companion + explain + question prompts get a
 `familiarity` line ("user rates themselves 2/5 on social computing — define
 terms, use analogies" / "4/5 — skip the basics, go to method details"). Later,
 the digest `focusLevel` can derive from the familiarity map instead of one
@@ -268,7 +321,7 @@ regenerating cached companions:
   Because filtering happens at render, **changing your level via the disclosure
   line re-tunes the glossary instantly** — no regeneration, no cache
   invalidation, works retroactively on every already-saved paper.
-- **Prose depth adapts at generation time.** Gist/beats tone and dig-deeper
+- **Prose depth adapts at generation time.** Gist/beats tone and explain
   answer depth are baked in when generated, so those consume the familiarity
   level in the prompt (§ above). Companions generated *before* a level existed
   keep their prose but still get the adaptive glossary; regeneration only on
@@ -291,9 +344,10 @@ disclose:
 
 Spec:
 
-- **Placement**: one line at the top of any companion, dig-deeper panel, or Ask
-  answer whose prompt consumed a familiarity level. Mono eyebrow `PITCHED FOR
-  YOU` + body-face sentence naming the subtopic, the level, and the consequence.
+- **Placement**: one line at the top of any companion, explain section, or
+  answer whose prompt consumed a familiarity level. Bolded body-face
+  **"Pitched for you:"** lead-in, sentence case — **no mono, no all-caps**
+  (§1 rule) — naming the subtopic, the level, and the consequence.
 - **Enforcement**: this is a prompt contract like the `[Source N]` rule — the
   generating prompt requires the line in a fixed format, and the route strips it
   out of the body and renders it as structured UI (so revision/critique steps
@@ -309,7 +363,7 @@ and the design must keep two things separate —
 
 - **Familiarity ≠ interest.** A 2/5 on social computing must never lower how
   often social computing is *selected*. Familiarity is consumed **only at
-  presentation time** (companion tone, jargon density, dig-deeper depth), never
+  presentation time** (companion tone, jargon density, explain depth), never
   by the pipeline's selection/scoring chain. Disliking how a topic was explained
   doesn't mean the user stopped loving the topic.
 - **Familiarity is self-reported and correctable, not inferred and sticky.**
@@ -326,7 +380,7 @@ and the design must keep two things separate —
 Framing: **the digest finder stays a pipeline** (it's deterministic, tuned, and
 the algorithm doc says don't deviate). The librarian is a *separate, per-user,
 event-driven agent* that owns everything after a paper enters the user's orbit:
-prepping saved papers, answering digs, maintaining taste, and deciding what
+prepping saved papers, answering explains, maintaining taste, and deciding what
 question to ask the user next. The pipeline consumes the librarian's outputs at
 exactly two sanctioned points (below) — it does not get new scoring signals,
 per the "upstream scoring is a filter" gotcha.
@@ -338,7 +392,7 @@ Taste = four signal classes, kept as a ledger (most already exist as rows):
 | Class | Signal | Status |
 |---|---|---|
 | **Exemplars** | saved papers (positive) vs. shown-but-never-saved papers (soft negative — we store every shown paper for dedup already) | data exists, unused as documents |
-| **Engagement** | questions asked (`qaPairs`), highlighted passages + dig topics (new, §2b), dig_deeper events | partly exists |
+| **Engagement** | questions asked (`qaPairs`), highlighted passages + explain topics (new, §2b), legacy dig_deeper events | partly exists |
 | **Stated** | interests + weights, familiarity map (§3), focus level | exists / new |
 | **Negative** | regenerate reasons (`digestFeedback` — currently write-only!), dislikes (endpoint has **no UI**; either add a UI or drop the endpoint) | rotting |
 
@@ -370,9 +424,9 @@ queue (or the existing cron), state in the DB.
 |---|---|---|---|
 | **Companion writer** | on save | walkthrough, glossary, remember-this — now conditioned on dossier + familiarity | ✅ `/companion` (personalize it) |
 | **Scout** | on save | today: citing works (`/homework`). Upgrade: a 3-item "shelf" — one citing, one contrasting, one foundational, each with a one-line *why for you* | ◑ |
-| **Answerer** | on dig/ask | threaded answers with selection context (§2b/2c) | ◑ `/qa` (make threaded) |
+| **Answerer** | on explain/ask | threaded answers with selection context (§2b/2c) | ◑ `/qa` (make threaded) |
 | **Dossier keeper** | weekly cron + after every ~5 signals | rewrites the taste dossier from the ledger; recomputes centroids | ✖ new |
-| **Interleaver** | on dig-deeper | picks *whether and what* one question to ask (familiarity first; later: "you saved 3 papers on X — want it as a standing interest?") — owns the annoyance budget | ✖ new (§3 is its v1) |
+| **Interleaver** | after an explain | picks *whether and what* one question to ask (familiarity first; later: "you saved 3 papers on X — want it as a standing interest?") — owns the annoyance budget | ✖ new (§3 is its v1) |
 
 ### 4c · Model routing
 
@@ -384,10 +438,10 @@ loyalty; env-overridable per task (`AI_MODEL_QA=…`) so we can A/B harnesses:
   glossary, homework annotation, dossier rewrites, interleaver decisions,
   embedding-adjacent chores. High volume, low stakes, latency-sensitive.
 - **Deep tier** (Gemini Pro-class / Claude Sonnet/Opus-class): synthesis stages,
-  companion walkthrough, dig-deeper answers. These are the product's voice —
+  companion walkthrough, explain answers. These are the product's voice —
   don't cheap out on them.
-- **Dig-deeper specifically wants streaming** — the "keep reading, it'll be
-  below" promise works best if the panel fills in as you arrive at it.
+- **Explain specifically wants streaming** — the "keep reading, it'll be
+  below" promise works best if the section fills in as you arrive at it.
   `aiComplete` is non-streaming; the `aiChat` addition (§2c) should stream.
 - Digest generation moving to Gemini Flash is being handled in a separate
   workstream — this plan only needs the routing seam to exist so that swap is
@@ -420,10 +474,13 @@ how it *talks* to them.
    §1), visible label on the digest-card bookmark, NUX strip (§1A) +
    first-save confirmation (§1C). Paper board first for the label + strip.
 2. **Phase 2 — the reading view** (the meat): `/library/[paperId]` route
-   (overlay becomes the page; intercepted route for in-app opens), reading tip,
-   green highlight (Paper amendment first) → dig-deeper → wash panel + threads,
-   `aiChat` with history + streaming, `qaPairs` extension, rail pending/error
-   states, vault default-tab fix. Prototype at `/prototype/reading-list`.
+   (overlay becomes the page; intercepted route for in-app opens); left outline
+   column, chat rail removed; green highlight (Paper amendment first) →
+   Explain → collapsible wash sections with scoped threads; end-of-document
+   composer + starter-question rows; key-numbers table + lede/closing type
+   (Paper first); reading tip; `aiChat` with history + streaming; `qaPairs`
+   extension; error states; vault default-tab fix. Prototype at
+   `/prototype/reading-list`.
 3. **Phase 3 — the interleave**: familiarity table, the Likert moment, tiered
    glossary + render-time filter, disclosure line ("pitched for you") with
    inline correction, companion/QA prompts consume the level.
@@ -432,12 +489,24 @@ how it *talks* to them.
    scout's 3-item shelf. Decide fate of the dislike endpoint and start
    *reading* `digestFeedback`.
 
-**Decisions** *(discussed with Defne 2026-08-19)*
+**Decisions** *(discussed with Defne 2026-08-19/20)*
 
-- **Green lives in the highlight, not the panel.** The dig-deeper *selection
+- **The feature is called "Explain"**, not "dig deeper" — the button, the API,
+  the copy. "Dig deeper" survives only as the legacy digest-level feature's name.
+- **The chat rail is dead.** Marginalia model: every explain and every typed
+  question is its own collapsible section *in* the document; end-of-document
+  composer; outline column on the **left** (§2c).
+- **Green lives in the highlight, not the panel.** The explain *selection
   highlight* is acid green — a menu amendment (acid gains exactly one fill use,
-  the live selection; record in Paper first, §2b.2). The answer panel is the
+  the live selection; record in Paper first, §2b.2). The answer section is the
   paper's wash; the confirmation ✓ is green ink. Green appears nowhere else.
+- **No mono eyebrows, no all-caps labels, anywhere in this work** — every
+  lead-in ("Tip —", "Pitched for you:") is bolded body face, sentence case (§1).
+- **Numbers get a table, not display type.** `keyStats` rows (metric · value ·
+  note), wash-tinted, between did and found; omitted for non-quantitative
+  papers (§2a).
+- **The gist and the closing get weight** — a lede treatment heavier/larger
+  than body, added to the menu in Paper first (§2a).
 - **The reading view gets a real URL**: `/library/[paperId]`, in phase 2
   (§2a). Digest emails, shared links, and the NUX confirmation all deep-link
   into it; overlay presentation preserved via an intercepted route.
