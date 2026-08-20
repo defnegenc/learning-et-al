@@ -17,7 +17,7 @@ import {
   type ReadingThread, type SectionKey, type ThreadTurn,
 } from "@/lib/reading-thread";
 import {
-  ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
+  ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, BORDER_HAIR, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
   HAIRLINE, INK, LABEL_STYLE, MUTED, SELECTION_FILL, SHADOW, SURFACE, TextInput,
   foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
@@ -229,23 +229,29 @@ const FIXTURE_FIRST_TOKEN_MS = 2600;
  * Matching is by first exact occurrence, non-overlapping. A selection that no
  * longer appears (a regenerated companion) simply doesn't mark — the thread is
  * still anchored to its section, so nothing is lost but the highlight.
+ *
+ * Each mark carries its own fill, because two different things are marked here.
+ * A passage already dug into wears the paper's hue. The passage being selected
+ * *right now* wears acid green, and it is drawn rather than left to the browser:
+ * clicking into the floating bar collapses the DOM selection, which used to take
+ * the green with it and leave the reader typing a question about a sentence they
+ * could no longer see.
  */
 function annotateBeat(
   text: string,
   jargon: Jargon[],
   used: Set<string>,
-  selections: string[],
-  hue: string,
+  marks: { text: string; fill: string }[],
 ): React.ReactNode[] {
-  const ranges: { start: number; end: number }[] = [];
-  for (const raw of selections) {
-    const sel = raw.trim();
+  const ranges: { start: number; end: number; fill: string }[] = [];
+  for (const mark of marks) {
+    const sel = mark.text.trim();
     if (!sel) continue;
     const i = text.indexOf(sel);
     if (i < 0) continue;
     const end = i + sel.length;
     if (ranges.some(r => i < r.end && end > r.start)) continue;
-    ranges.push({ start: i, end });
+    ranges.push({ start: i, end, fill: mark.fill });
   }
   if (!ranges.length) return annotateText(text, jargon, used);
   ranges.sort((a, b) => a.start - b.start);
@@ -261,7 +267,7 @@ function annotateBeat(
       <mark
         key={key++}
         style={{
-          background: hue,
+          background: r.fill,
           color: INK,
           // `clone` so a passage spanning a line break carries the mark on both
           // lines rather than stretching one box behind the break.
@@ -335,9 +341,26 @@ const OFFER_AFTER_MS = 1200;
  * Anchored to the section rather than to DOM offsets: what gets stored is the
  * quoted text and which beat it came from, so a panel survives a re-render, a
  * refresh, and a companion that was regenerated in between.
+ *
+ * Also reports whether the browser's own selection is still drawn. The moment
+ * the reader clicks into the floating bar the DOM selection collapses and the
+ * green goes with it, so the page draws the passage itself from that point on
+ * (see `annotateBeat`) — and only from that point, so the two greens never
+ * stack on the same words.
  */
 function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: boolean) {
   const [pick, setPick] = useState<Pick | null>(null);
+  const [nativeLive, setNativeLive] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const track = () => {
+      const sel = window.getSelection();
+      setNativeLive(!!sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length >= MIN_SELECTION);
+    };
+    document.addEventListener("selectionchange", track);
+    return () => document.removeEventListener("selectionchange", track);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -386,18 +409,19 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
     };
   }, [scope, enabled]);
 
-  return [pick, setPick] as const;
+  return [pick, setPick, nativeLive] as const;
 }
 
 /**
  * The floating menu. Hard border, the one shadow, no radius — the same object as
  * every other frame, just small and following the cursor.
  *
- * It leads with a question box rather than a second button. "Ask about this"
- * used to throw the passage across the page into the rail's composer, which
- * made asking about a sentence a journey; the question about a sentence belongs
- * at the sentence. Typing here posts inline under the same beat a dig lands in,
- * so the passage, the question and the answer stay in one place.
+ * One bar, not a choice. It used to offer "Ask" and "Dig deeper" as two
+ * separate controls, and nobody could say what the difference was — they land
+ * in the same place and produce the same shape of answer. So there is one text
+ * field: leave it empty and the button digs, type a question and the same
+ * button asks it. Either way the answer posts inline under the beat the passage
+ * came from, so the passage, the question and the answer stay in one place.
  */
 function SelectionMenu({ pick, onDig, onAsk }: {
   pick: Pick;
@@ -405,15 +429,19 @@ function SelectionMenu({ pick, onDig, onAsk }: {
   onAsk: (question: string) => void;
 }) {
   const [draft, setDraft] = useState("");
-  const WIDTH = 320;
+  const WIDTH = 340;
   const left = Math.min(Math.max(12, pick.x - WIDTH / 2), window.innerWidth - WIDTH - 12);
-  const top = Math.min(pick.y + 10, window.innerHeight - 110);
-  const submit = () => { if (draft.trim()) { onAsk(draft.trim()); setDraft(""); } };
+  const top = Math.min(pick.y + 10, window.innerHeight - 80);
+  const typed = draft.trim();
+  const submit = () => {
+    if (typed) { onAsk(typed); setDraft(""); }
+    else onDig();
+  };
 
   return (
     <div
       data-selection-menu
-      // mousedown, not click, on the buttons: clicking anywhere collapses the
+      // mousedown, not click, on the button: clicking anywhere collapses the
       // selection, and by the time click fires the passage is gone. The input
       // is the exception — it has to be allowed to take focus.
       onMouseDown={e => {
@@ -421,34 +449,25 @@ function SelectionMenu({ pick, onDig, onAsk }: {
       }}
       style={{
         position: "fixed", left, top, zIndex: 10040, width: WIDTH,
-        display: "flex", flexDirection: "column", border: BORDER, boxShadow: SHADOW, background: SURFACE,
+        display: "flex", alignItems: "stretch", border: BORDER, boxShadow: SHADOW, background: SURFACE,
       }}
     >
-      <div style={{ display: "flex", alignItems: "stretch" }}>
-        <input
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter") { e.preventDefault(); submit(); }
-          }}
-          placeholder="Ask about this…"
-          aria-label="Ask a question about the selected passage"
-          autoFocus
-          style={{
-            ...BODY_SM, flex: 1, minWidth: 0, background: SURFACE, color: INK,
-            border: "none", outline: "none", padding: "10px 12px",
-          }}
-        />
-        <button
-          onMouseDown={submit}
-          disabled={!draft.trim()}
-          style={{ ...menuButton, borderLeft: BORDER, opacity: draft.trim() ? 1 : 0.4, cursor: draft.trim() ? "pointer" : "not-allowed" }}
-        >
-          Ask
-        </button>
-      </div>
-      <button onMouseDown={onDig} style={{ ...menuButton, borderTop: BORDER, textAlign: "left" }}>
-        Dig deeper
+      <input
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") { e.preventDefault(); submit(); }
+        }}
+        placeholder="Ask about this, or just dig deeper…"
+        aria-label="Ask a question about the selected passage, or leave empty to dig deeper"
+        autoFocus
+        style={{
+          ...BODY_SM, flex: 1, minWidth: 0, background: SURFACE, color: INK,
+          border: "none", outline: "none", padding: "10px 12px",
+        }}
+      />
+      <button onMouseDown={submit} style={{ ...menuButton, borderLeft: BORDER }}>
+        {typed ? "Ask" : "Dig deeper"}
       </button>
     </div>
   );
@@ -643,22 +662,35 @@ function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFami
   );
 }
 
-function PitchedForYouLine({ pitch, topic, currentLevel, onSelect }: {
+/**
+ * Why the writing is pitched the way it is — a callout in the paper's own hue.
+ *
+ * It used to wear a mono "Pitched for you" eyebrow, which named the mechanism
+ * rather than the fact and made a one-line disclosure look like a section. The
+ * sentence already says what it is ("You rated yourself 3/5 on…"), so the label
+ * is gone and the paper's wash carries the "this is an aside" signal instead.
+ */
+function PitchedForYouLine({ pitch, topic, currentLevel, hue, style, onSelect }: {
   pitch: PitchedForYou;
   topic: FamiliarityTopic;
   currentLevel: number;
+  /** The paper's first wash hue — a blue paper gets a blue callout. */
+  hue: string;
+  style?: React.CSSProperties;
   onSelect: (level: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ margin: "0 0 18px" }}>
+    // The tag hairline, not the structural 2px: this is one quiet line about
+    // how the writing is pitched, and it must not read as a frame competing
+    // with "Remember this".
+    <div style={{ background: hue, border: BORDER_HAIR, padding: "12px 14px", margin: "0 0 18px", ...style }}>
       <button
         onClick={() => setOpen(value => !value)}
         aria-expanded={open}
         style={{ display: "block", width: "100%", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
       >
-        <span style={{ ...LABEL_STYLE, display: "block", marginBottom: 5 }}>Pitched for you</span>
-        <span style={{ ...BODY_SM, color: DIM }}>
+        <span style={{ ...BODY_SM, color: INK }}>
           You rated yourself {pitch.level}/5 on {pitch.topicName}, so {pitch.consequence.replace(/^I(?:'m| am)\s+/i, "I'm ")}
           <span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}> Not right anymore? Adjust.</span>
         </span>
@@ -733,11 +765,16 @@ function DigPanel({ thread, streaming, onFollowUp, error, defaultOpen, familiari
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
+        // Collapsed, the passage below is the button's own name, and it says
+        // far more than "expand" does. Only label it when there is no passage.
+        aria-label={open ? "Collapse this answer" : thread.selection ? undefined : "Expand this answer"}
         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer" }}
       >
-        <span style={{ ...LABEL_STYLE, flexShrink: 0 }}>Deeper</span>
-        {/* Only when closed: while it is open the answer is right there, and the
-            passage is marked in the paragraph above either way. */}
+        {/* No label. "Deeper" named the machinery of a thing that is already
+            unmistakable: an indented aside hanging off the sentence you just
+            highlighted. Only when closed does the header carry the passage —
+            while it is open the answer is right there, and the passage is
+            marked in the paragraph above either way. */}
         {!open && thread.selection && (
           <span style={{ ...BODY_SM, color: MUTED, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {thread.selection}
@@ -760,14 +797,8 @@ function DigPanel({ thread, streaming, onFollowUp, error, defaultOpen, familiari
           {/* The opener's question is the canned dig intent — the passage above
               already says what was asked. Follow-ups the reader typed do show. */}
           {i > 0 && <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>}
-          {turn.pitch && familiarityValue && (
-            <PitchedForYouLine
-              pitch={turn.pitch}
-              topic={{ id: familiarityValue.topicId, name: familiarityValue.topicName, source: "openalex" }}
-              currentLevel={familiarityValue.level}
-              onSelect={onFamiliarity}
-            />
-          )}
+          {/* The pitch disclosure is not part of the answer — it sits outside
+              this aside entirely, above it, in the paper's hue. See `digs()`. */}
           <p style={{ ...READING_BODY, margin: 0 }}>
             {turn.answer}
             {streaming && i === thread.turns.length - 1 && !turn.answer && (
@@ -948,10 +979,12 @@ function Glossary({ terms }: { terms: Jargon[] }) {
  * "and the second one?" resolves against what was just said instead of being
  * answered blind, which is how every question here used to be answered.
  */
-function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, onFollowUp, streaming, failed, familiarityValue, onFamiliarity }: {
+function AskThread({ threads, starters, headerWash, hue, quote, onClearQuote, onAsk, onFollowUp, streaming, failed, familiarityValue, onFamiliarity }: {
   threads: ReadingThread[];
   starters: string[];
   headerWash: React.CSSProperties;
+  /** The paper's first wash hue — what the pitch callout is filled with. */
+  hue: string;
   /** "Ask about this" dropped a passage in here — shown above the composer. */
   quote: string | null;
   onClearQuote: () => void;
@@ -1033,6 +1066,7 @@ function AskThread({ threads, starters, headerWash, quote, onClearQuote, onAsk, 
                     pitch={turn.pitch}
                     topic={{ id: familiarityValue.topicId, name: familiarityValue.topicName, source: "openalex" }}
                     currentLevel={familiarityValue.level}
+                    hue={hue}
                     onSelect={onFamiliarity}
                   />
                 )}
@@ -1231,7 +1265,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   const streamingRef = useRef<string | null>(null);
 
   const proseRef = useRef<HTMLDivElement>(null);
-  const [pick, setPick] = useSelectionPick(proseRef, !companionPending);
+  const [pick, setPick, nativeSelectionLive] = useSelectionPick(proseRef, !companionPending);
 
   useEffect(() => { setTipSeen(nuxSeen(READING_TIP_KEY)); }, []);
 
@@ -1464,13 +1498,17 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       }
     : null;
   const defined = new Set<string>();
-  const mark = (text: string, key: SectionKey) => annotateBeat(
-    text,
-    glossary,
-    defined,
-    digsForSection(threads, key).map(t => t.selection ?? "").filter(Boolean),
-    hue,
-  );
+  const marksFor = (key: SectionKey) => [
+    // The live selection first, so re-highlighting a passage you already dug
+    // into shows it as the current selection rather than as an old dig.
+    ...(pick && pick.section === key && !nativeSelectionLive
+      ? [{ text: pick.text, fill: SELECTION_FILL }]
+      : []),
+    ...digsForSection(threads, key)
+      .map(t => ({ text: t.selection ?? "", fill: hue }))
+      .filter(m => m.text),
+  ];
+  const mark = (text: string, key: SectionKey) => annotateBeat(text, glossary, defined, marksFor(key));
 
   const sectionText: Record<SectionKey, string> = {
     gist: companion?.gist ?? "",
@@ -1480,27 +1518,46 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     remember: companion?.remember ?? "",
   };
 
-  const digs = (key: SectionKey) => digsForSection(threads, key).map(thread => (
-    <DigPanel
-      key={thread.id}
-      thread={thread}
-      streaming={thread.turns.some(t => t.id === streamingTurn)}
-      error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
-      onFollowUp={q => ask({ question: q, threadId: thread.id })}
-      defaultOpen={freshThreads.current.has(thread.id)}
-      familiarityOffer={thread.id === lastDigThreadId ? familiarityOffer : null}
-      familiarityValue={activeFamiliarity}
-      onFamiliarity={setFamiliarity}
-      onSkipFamiliarity={skipFamiliarity}
-      // Second in the queue, and only in this dig's own wait: never before the
-      // familiarity question has been answered or waved off, never twice, never
-      // once they have told us.
-      ratingOffer={thread.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
-      ratingValue={rating}
-      onRating={submitRating}
-      onSkipRating={skipRating}
-    />
-  ));
+  const digs = (key: SectionKey) => digsForSection(threads, key).map(thread => {
+    // One disclosure per dig, above the aside rather than inside it: it is not
+    // part of the answer, it is why the answer sounds the way it does. It waits
+    // for the answer, though — the wait is deliberately a loader and one
+    // question, with no box in it, and this is neither of those things.
+    const pitch = thread.turns.find(turn => turn.pitch)?.pitch ?? null;
+    const answered = thread.turns.some(turn => turn.answer);
+    return (
+      <React.Fragment key={thread.id}>
+        {pitch && answered && activeFamiliarity && companion?.topic && (
+          <PitchedForYouLine
+            pitch={pitch}
+            topic={companion.topic}
+            currentLevel={activeFamiliarity.level}
+            hue={hue}
+            style={{ margin: "22px 0 0" }}
+            onSelect={setFamiliarity}
+          />
+        )}
+        <DigPanel
+          thread={thread}
+          streaming={thread.turns.some(t => t.id === streamingTurn)}
+          error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
+          onFollowUp={q => ask({ question: q, threadId: thread.id })}
+          defaultOpen={freshThreads.current.has(thread.id)}
+          familiarityOffer={thread.id === lastDigThreadId ? familiarityOffer : null}
+          familiarityValue={activeFamiliarity}
+          onFamiliarity={setFamiliarity}
+          onSkipFamiliarity={skipFamiliarity}
+          // Second in the queue, and only in this dig's own wait: never before the
+          // familiarity question has been answered or waved off, never twice, never
+          // once they have told us.
+          ratingOffer={thread.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
+          ratingValue={rating}
+          onRating={submitRating}
+          onSkipRating={skipRating}
+        />
+      </React.Fragment>
+    );
+  });
 
   const beatDig = (key: SectionKey) => (
     sectionText[key] ? <DigThisBeat onDig={() => dig(sectionText[key], key)} /> : null
@@ -1547,6 +1604,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
               pitch={companionDisclosure}
               topic={companion.topic}
               currentLevel={activeFamiliarity!.level}
+              hue={hue}
               onSelect={setFamiliarity}
             />
           )}
@@ -1625,8 +1683,12 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
                 }}
               >
                 <h2 style={{ ...DISPLAY_SM, color: DIM, margin: "0 0 12px" }}>Remember this</h2>
+                {/* Marks but no chips: a passage dug into here still shows it,
+                    and so does the one being highlighted right now, but the one
+                    line worth keeping is not the place to start defining
+                    words. */}
                 <p data-section="remember" style={{ ...READING_BODY, fontWeight: 600, margin: 0 }}>
-                  {companion.remember}
+                  {annotateBeat(companion.remember, [], defined, marksFor("remember"))}
                 </p>
               </div>
               {digs("remember")}
@@ -1680,6 +1742,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
               threads={askThreads(threads)}
               starters={companion?.questions ?? []}
               headerWash={washStyle}
+              hue={hue}
               quote={quote}
               onClearQuote={() => setQuote(null)}
               onAsk={(q, quoted) => { setQuote(null); ask({ question: q, selection: quoted }); }}
