@@ -174,3 +174,4 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - Keep a rolling "Top 3 Ideas to Improve" list in `docs/algorithm.md`
 - Log what worked AND what didn't work in the relevant docs
 - Update `docs/changelog.md` with dates for every new feature
+- **When a user-facing feature majorly changes (added, removed, renamed), update the first-run tips in `src/components/first-run-tips.ts`** — they're shown while a new user's first digest generates and are the only place we tell someone these features exist. A tip pointing at a feature that no longer ships is worse than no tip.
