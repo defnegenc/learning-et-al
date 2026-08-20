@@ -14,6 +14,8 @@ import { BORDER, DISPLAY_SM, HAIRLINE, INK, MUTED, NavTab, SiteHeader, SURFACE }
 interface Session {
   userId: string | null;
   isSetUp: boolean;
+  /** Set by `page.tsx` on onboarding completion — see TodayPage's first-run state. */
+  justOnboarded?: boolean;
 }
 
 /** A row in the mobile slide-down menu — Display/SM, 52px tall, thumb-sized. */
@@ -154,6 +156,7 @@ export function AppShell({ session, updateSession }: AppShellProps) {
             session={session}
             isAdmin={adminVerified}
             onRegisterRefresh={(fn) => { refreshDigestRef.current = fn; }}
+            onFirstDigestLanded={() => updateSession({ justOnboarded: false })}
           />
         </div>
         <div style={{ display: activeTab === "vault" ? "contents" : "none" }}>
