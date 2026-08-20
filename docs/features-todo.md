@@ -81,6 +81,10 @@ to seed the central question/theme, instead of (or alongside) the user's standin
 
 ## Shipped (see `docs/changelog.md` for dates)
 
+- **Familiarity interleave (Phase 3)** — one server-budgeted, skippable topic
+  rating after a dig; tiered render-time glossary; visible, tappable pitch
+  disclosure on every personalized companion or answer. Code complete; first
+  browser exercise and Vercel deployment still pending. *(2026-08-20)*
 - **Share Digest** — every Today digest has a stable `/digest/[id]` share action;
   the public page supports account bookmarks, device-backed signed-out saves,
   and automatic import of the shared digest into Vault history after sign-in.

@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { papers, qaPairs, interests } from "@/lib/db/schema";
+import { familiarity, papers, qaPairs, interests } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { aiChat, aiChatStream, aiConfigFor, type AIMessage } from "@/lib/ai/provider";
 import { downloadAndParsePdf, textForPrompt, FULL_TEXT_CAP } from "@/lib/fetchers/pdf";
 import { getAuthUser } from "@/lib/get-user";
 import { isSectionKey } from "@/lib/reading-thread";
+import {
+  ensurePitchedForYou, familiarityPrompt, pitchedForYou, stripPitchedForYou, topicFromCompanion,
+  type FamiliarityTopic,
+} from "@/lib/familiarity";
 
 // The whole paper reaches the model now, so a question about a long one is a
 // large prompt. This route had no declared duration at all and took Vercel's
@@ -79,7 +83,12 @@ export async function GET(
       orderBy: asc(qaPairs.createdAt),
     });
 
-    return NextResponse.json({ qaPairs: pairs });
+    return NextResponse.json({
+      qaPairs: pairs.map(pair => {
+        const parsed = stripPitchedForYou(pair.answer);
+        return { ...pair, answer: parsed.body, pitch: parsed.pitch };
+      }),
+    });
   } catch (error) {
     console.error("QA fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch Q&A pairs" }, { status: 500 });
@@ -151,6 +160,15 @@ export async function POST(
 
     const fullText = textForPrompt(await getFullText(paper));
 
+    const topic: FamiliarityTopic | null = paper.companion
+      ? topicFromCompanion(JSON.parse(paper.companion))
+      : null;
+    const storedFamiliarity = topic
+      ? await db.query.familiarity.findFirst({
+          where: and(eq(familiarity.userId, userId), eq(familiarity.topicId, topic.id)),
+        })
+      : null;
+
     // A new highlight or a new typed question opens its own thread; a follow-up
     // continues the one it was asked in.
     const threadId: string = typeof body.threadId === "string" && body.threadId
@@ -174,13 +192,16 @@ export async function POST(
       ? `The reader highlighted this passage${sectionKey ? ` in ${SECTION_NAMES[sectionKey] ?? "the walkthrough"}` : ""}:\n\n"${selection}"\n\n`
       : "";
 
+    const system = `${selection ? DIG_SYSTEM : ASK_SYSTEM}${
+      topic && storedFamiliarity ? familiarityPrompt(topic, storedFamiliarity.level) : ""
+    }`;
     const messages: AIMessage[] = [
-      { role: "system", content: selection ? DIG_SYSTEM : ASK_SYSTEM },
+      { role: "system", content: system },
       { role: "user", content: `Here is the paper you have read.\n\nTitle: ${paper.title}\n\n${fullText}` },
       { role: "assistant", content: "Understood — ask me anything about it." },
       ...history.flatMap((turn): AIMessage[] => [
         { role: "user", content: turn.question },
-        { role: "assistant", content: turn.answer },
+        { role: "assistant", content: stripPitchedForYou(turn.answer).body },
       ]),
       { role: "user", content: `${anchor}${question}` },
     ];
@@ -195,10 +216,16 @@ export async function POST(
     };
 
     if (!wantsStream) {
-      const answer = await aiChat(aiConfig, messages);
-      await persist(answer);
+      const modelAnswer = await aiChat(aiConfig, messages);
+      const rawAnswer = topic && storedFamiliarity
+        ? ensurePitchedForYou(modelAnswer, topic, storedFamiliarity.level)
+        : modelAnswer;
+      const parsed = stripPitchedForYou(rawAnswer, topic && storedFamiliarity
+        ? { topic, level: storedFamiliarity.level }
+        : undefined);
+      await persist(rawAnswer);
       return NextResponse.json({
-        qaPair: { id: pairId, question, answer, threadId, selection, sectionKey },
+        qaPair: { id: pairId, question, answer: parsed.body, pitch: parsed.pitch, threadId, selection, sectionKey },
       });
     }
 
@@ -210,13 +237,44 @@ export async function POST(
       async start(controller) {
         const line = (obj: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
         line({ type: "start", id: pairId, threadId, question, selection, sectionKey });
-        let answer = "";
+        let rawAnswer = "";
+        let disclosureBuffer = "";
+        let disclosureResolved = !(topic && storedFamiliarity);
         try {
           for await (const delta of aiChatStream(aiConfig, messages)) {
-            answer += delta;
-            line({ type: "delta", text: delta });
+            rawAnswer += delta;
+            if (disclosureResolved) {
+              line({ type: "delta", text: delta });
+              continue;
+            }
+
+            disclosureBuffer += delta;
+            // The prompt contract puts the disclosure on its own first line.
+            // Hold only that line, then stream the body normally.
+            if (!disclosureBuffer.includes("\n") && disclosureBuffer.length < 500) continue;
+            const parsed = stripPitchedForYou(disclosureBuffer, {
+              topic: topic!, level: storedFamiliarity!.level,
+            });
+            line({ type: "pitch", pitch: parsed.pitch ?? pitchedForYou(topic!, storedFamiliarity!.level) });
+            const firstNewline = disclosureBuffer.indexOf("\n");
+            const bodyText = parsed.pitch && firstNewline >= 0
+              ? disclosureBuffer.slice(firstNewline + 1).replace(/^\r?\n/, "")
+              : disclosureBuffer;
+            if (bodyText) line({ type: "delta", text: bodyText });
+            disclosureResolved = true;
+            disclosureBuffer = "";
           }
-          if (answer.trim()) await persist(answer);
+          if (!disclosureResolved && disclosureBuffer) {
+            const parsed = stripPitchedForYou(disclosureBuffer, {
+              topic: topic!, level: storedFamiliarity!.level,
+            });
+            line({ type: "pitch", pitch: parsed.pitch ?? pitchedForYou(topic!, storedFamiliarity!.level) });
+            if (parsed.body) line({ type: "delta", text: parsed.body });
+          }
+          const persistedAnswer = topic && storedFamiliarity
+            ? ensurePitchedForYou(rawAnswer, topic, storedFamiliarity.level)
+            : rawAnswer;
+          if (persistedAnswer.trim()) await persist(persistedAnswer);
           line({ type: "done" });
         } catch (e) {
           console.error("QA stream error:", e);

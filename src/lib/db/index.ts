@@ -42,6 +42,35 @@ const MICRO_MIGRATIONS = [
   "ALTER TABLE papers ADD COLUMN homework TEXT",
   "ALTER TABLE digests ADD COLUMN working_theme TEXT",
   "ALTER TABLE digests ADD COLUMN theme_candidates TEXT",
+  // Phase 2 engagement-ledger columns. Keep these before Phase 3 tables: the
+  // reading view can render without them, but Ask/dig reads cannot.
+  "ALTER TABLE qa_pairs ADD COLUMN thread_id TEXT",
+  "ALTER TABLE qa_pairs ADD COLUMN selection TEXT",
+  "ALTER TABLE qa_pairs ADD COLUMN section_key TEXT",
+  `CREATE TABLE IF NOT EXISTS familiarity (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    topic_id TEXT NOT NULL,
+    topic_name TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    source TEXT NOT NULL DEFAULT 'interleave',
+    created_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS familiarity_user_topic_unique ON familiarity(user_id, topic_id)",
+  `CREATE TABLE IF NOT EXISTS familiarity_prompts (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    topic_id TEXT NOT NULL,
+    topic_name TEXT NOT NULL,
+    day TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'offered',
+    created_at INTEGER,
+    updated_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS familiarity_prompts_user_topic_unique ON familiarity_prompts(user_id, topic_id)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS familiarity_prompts_user_day_unique ON familiarity_prompts(user_id, day)",
 ];
 let migrated: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {
