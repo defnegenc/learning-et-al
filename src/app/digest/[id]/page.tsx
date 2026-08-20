@@ -11,6 +11,7 @@ import { ShareDigestButton } from "@/components/today/share-digest-button";
 import type { PaperItem } from "@/lib/types";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { pendingPaperIds, setPendingSharedPaper } from "@/lib/shared-saves";
+import { FirstSaveConfirmation } from "@/components/save-nux";
 import { ACID_GREEN, ActionButton, BODY_SM, BODY_STYLE, BORDER, DISPLAY, INK, Label, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
 
 interface Digest {
@@ -194,6 +195,10 @@ export default function DigestPermalink() {
           />
         )}
       </main>
+
+      {/* A shared digest is where plenty of readers meet the save control for
+          the first time, so the confirmation has to reach here too. */}
+      <FirstSaveConfirmation />
     </div>
   );
 }
