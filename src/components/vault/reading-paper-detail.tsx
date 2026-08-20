@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, Loader2, Maximize2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, Loader2, Maximize2, X } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
@@ -19,7 +19,7 @@ import {
 import {
   ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
   HAIRLINE, INK, LABEL_STYLE, MUTED, SELECTION_FILL, SHADOW, SURFACE, TextInput,
-  foundationalSlots, foundationalWash, wash, washSlots,
+  foundationalWash, wash,
 } from "@/components/design-system";
 
 type Jargon = {
@@ -191,8 +191,17 @@ async function runFixtureAsk(
  * `used` is passed in rather than owned, so a term defined in the gist is not
  * defined again three paragraphs later — the walkthrough is one continuous read,
  * not five independent blocks.
+ *
+ * **No tint.** These terms used to wear the paper's own wash hue, on the
+ * argument that a filled word inside a paper's page is wayfinding rather than
+ * decoration. That argument lost to a newer feature: highlighting a passage to
+ * dig into it fills the selection with acid green, and a page already dotted
+ * with filled words makes the reader's own selection just one more coloured
+ * patch. So the dotted rule comes back here, the same one the synthesis uses,
+ * and fill on this page means exactly one thing — what you are highlighting
+ * right now.
  */
-function annotateText(text: string, jargon: Jargon[], used: Set<string>, tint: string): React.ReactNode[] {
+function annotateText(text: string, jargon: Jargon[], used: Set<string>): React.ReactNode[] {
   const sorted = [...jargon].sort((a, b) => b.term.length - a.term.length);
   const out: React.ReactNode[] = [];
   let rest = text;
@@ -207,7 +216,7 @@ function annotateText(text: string, jargon: Jargon[], used: Set<string>, tint: s
     if (!best) { out.push(<span key={key++}>{rest}</span>); break; }
     used.add(best.j.term.toLowerCase());
     if (best.i > 0) out.push(<span key={key++}>{rest.slice(0, best.i)}</span>);
-    out.push(<TermChip key={key++} text={rest.slice(best.i, best.i + best.len)} def={best.j.def} tint={tint} />);
+    out.push(<TermChip key={key++} text={rest.slice(best.i, best.i + best.len)} def={best.j.def} />);
     rest = rest.slice(best.i + best.len);
   }
   return out;
@@ -612,10 +621,15 @@ function Glossary({ terms }: { terms: Jargon[] }) {
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
-        style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+        style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
       >
-        <span style={{ color: MUTED }}>{open ? "–" : "+"}</span>
-        Glossary ({terms.length})
+        <span style={{ flex: 1 }}>Glossary ({terms.length})</span>
+        {/* The chevron the interests accordion uses. A bare +/- was carrying the
+            whole "this opens" signal, and it read as punctuation. */}
+        <ChevronDown
+          size={16}
+          style={{ color: MUTED, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+        />
       </button>
       {open && (
         <dl style={{ margin: "16px 0 0" }}>
@@ -876,9 +890,10 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   paper: PaperItem;
   /**
    * The paper's position on the shelf — its wash index, so this page wears the
-   * same hue as the card it was opened from. Highlights inside a paper's own
-   * page are wayfinding for once rather than decoration: every hard word here
-   * belongs to this paper, so colouring them says which paper you are inside.
+   * same hue as the card it was opened from: the dig panels and the "Remember
+   * this" frame. Hard words no longer take it (see `annotateText`) — on this
+   * page a filled word competes with the selection, which is the one thing here
+   * that has to be unmistakable.
    */
   index?: number;
   provenance?: Provenance | null;
@@ -888,10 +903,6 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
 }) {
   const byline = paperByline(paper);
   const foundational = paper.category === "foundational";
-  // The same mark the digest card's takeaway wears: the first of the card's two
-  // wash hues. Never GOLD — that is a line colour, and behind a word it is too
-  // dark to read the word through.
-  const hue = foundational ? foundationalSlots()[0] : washSlots(index)[0];
   const washStyle = foundational ? foundationalWash() : wash(index);
 
   const [companion, setCompanion] = useState<Companion | null>(null);
@@ -1092,7 +1103,7 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       }
     : null;
   const defined = new Set<string>();
-  const mark = (text: string) => annotateText(text, glossary, defined, hue);
+  const mark = (text: string) => annotateText(text, glossary, defined);
 
   const sectionText: Record<SectionKey, string> = {
     gist: companion?.gist ?? "",
