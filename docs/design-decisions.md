@@ -1123,6 +1123,95 @@ This is the first half of a larger move — the rail is meant to go entirely, or
 to become half the screen while a passage is selected. The inline question box
 is what makes that possible: it is now the only thing you need the rail for.
 
+---
+
+## 2026-08-20: The dig is a fold, and the wait is where the questions live
+
+Three things were wrong with the dig-deeper panel the first time, and they were
+all the same mistake: the panel was treated as a document rather than as an
+answer to something you can still see.
+
+**The passage is not quoted back.** The panel lands directly under the paragraph
+the highlight came from, so printing the sentence again inside it was the same
+words twice, two inches apart. The position is the citation.
+
+**Digs fold.** Four digs down one walkthrough buried the paper under the
+reader's own back-catalogue. A closed dig is one line — the mono `Deeper`
+eyebrow, the glossary's chevron, and the first clause of the answer clamped to
+the line. Digs
+made in this session open; digs rehydrated from the thread store on load start
+folded, because on the second visit the paper is the thing you came back for.
+
+**The wait is a surface, not a gap.** The interleave used to sit inside the
+answer panel as a bordered block with a heading, a caption and a footnote — a
+survey card dropped into the middle of a paper, which is exactly how it read.
+Now: while a dig is running there is **no box at all**. A loader, and under it
+one thing at a time — the familiarity question if it is owed, then, only if the
+reader answers it and the dig is still going, how much they liked the paper,
+then a rotating tip. If the answer lands first, none of it was ever in the way.
+Both questions are the same object (`ScaleRow`): one sentence, five boxes, a
+label at each end, a skip. Two arrangements of one idea is what "busy" was.
+
+**The one-question-a-day budget is not spent on a wait nobody saw.** The offer
+is reserved 1.2 seconds into a dig, not at its start, and only if the dig is
+still running. A fast answer costs the reader nothing.
+
+**Paper ratings go in `events`, not `feedback`.** `feedback` is a two-value enum
+that the interest weights read directly, and a five-point opinion is not a save:
+somebody can rate a paper 2/5 and still have been right to be sent it. As an
+event it reaches the taste ledger without changing what a star means.
+
+---
+
+## 2026-08-20: The librarian keeps a note, and the reader gets to read it
+
+The digest finder stays a pipeline. It is deterministic, it is tuned, and every
+attempt to make it "learn" by adding signals to the scoring chain has moved
+outcomes less than it has cost. The librarian is a separate thing that owns
+everything after a paper enters the reader's orbit, and its memory is a **taste
+dossier**: ~300 words of prose rewritten from what the reader saves, walks past,
+asks about and complains about.
+
+**Why prose and not a feature vector.** Three reasons, in order of how much they
+mattered. It can be shown to the reader, which is the whole trust argument
+below. It is the form the LLM selection step can actually use — that step is
+where the real quality call is made, and it takes an argument, not a number. And
+it survives schema changes: a vector of hand-tuned features rots the moment the
+features change, a paragraph does not.
+
+**Two places, and no others.** The dossier goes into the Step 3b selection
+prompt. The centroids become a ≤0.02 nudge on `score` in Step 3. Taste never
+touches search, never touches `relSim`, and never touches the thresholds — an
+on-taste paper that is off-theme is still out. This is the "upstream scoring is
+a filter, not a ranker" rule from CLAUDE.md, respected rather than argued with:
+the filter stays exactly as strict, and taste only reorders what already passed.
+
+**Shown in settings, on purpose.** A taste model nobody can inspect is one
+nobody can correct, and a wrong one is invisible until the digests have been
+quietly bad for a month. `Settings → Librarian` renders the note verbatim, with
+its cluster labels and how many signals it was written from. Read-only for now:
+the way to change it is to save, skip and complain, which is also the way it was
+built. An editable dossier is a different feature and would need to answer what
+happens when the reader's account of themselves and their behaviour disagree.
+
+**Dislike endpoint: kept, still no UI.** It has no caller, but it is now a
+ledger input rather than a dead route, which is the condition the plan set for
+keeping it. If nothing has wired a UI to it by the time the next reading-view
+pass lands, delete it instead of letting it rot further.
+
+**`digest_feedback` is finally read.** Rows have gone in since it shipped and
+nothing has ever read one. Somebody typing why a digest was wrong is the
+strongest negative signal in the product, so it now forces a rewrite on its own
+rather than waiting for the five-signal threshold.
+
+**The scout builds a shelf, not a list.** "What's happened since" used to be up
+to four works that cite the paper, ranked by date. It is now at most three
+standing in different relations to what you just read — one that came after, one
+arguing from somewhere else on the same ground, one it was built on — each with
+a one-line "why for you". Three papers you can tell apart beat four you can't.
+
+---
+
 ## 2026-08-20: One bar over the selection, no label over the answer
 
 Four small things in the reading companion, all the same complaint: the page was
@@ -1147,9 +1236,10 @@ stack on the same words and the colour never changes under you.
 
 **The dig aside loses its "Deeper" label.** An indented aside hanging off the
 sentence you just highlighted, in a page whose every other block is a beat with
-a Display/SM heading, does not need a mono eyebrow to announce what it is.
-Collapsed, the header still carries the passage — that is the only thing there
-that identifies one dig from another when the answer is hidden.
+a Display/SM heading, does not need a mono eyebrow to announce what it is. This
+retires the eyebrow the fold decision above still describes as part of a closed
+dig: folded, the row is now the passage and the chevron, and the passage is the
+only thing there that tells one dig from another when the answer is hidden.
 
 **"Pitched for you" becomes a callout in the paper's hue, outside the aside.**
 It was a mono eyebrow over a sentence that already says what it is ("You rated

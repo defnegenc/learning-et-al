@@ -7,12 +7,13 @@ import { searchOpenAlex, getReferencedWorkIds, getFoundationalCandidates, sample
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
-import { aiComplete, AIConfig } from "@/lib/ai/provider";
-import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
+import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
+import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
+import { getTasteContext, tasteSimilarity } from "@/lib/librarian/dossier";
 
 // See docs/algorithm.md for the full algorithm design.
 
@@ -182,6 +183,7 @@ Return JSON: {"pick": 1 | null, "reason": "one plain-English sentence on why thi
  */
 async function findFoundationalItem(
   aiConfig: AIConfig,
+  judgeConfig: AIConfig,
   theme: string,
   lanePapers: TaggedItem[],
   seenTitles: ReadonlySet<string>,
@@ -214,7 +216,7 @@ async function findFoundationalItem(
         .filter(a => !isPredatoryVenue(a.venueName))
         .slice(0, 3);
       if (ancestors.length > 0) {
-        foundational = await pickFoundational(aiConfig, theme, lanePapers, ancestors);
+        foundational = await pickFoundational(judgeConfig, theme, lanePapers, ancestors);
         if (!foundational) console.log(`[Digest] Foundational tier 1: ${ancestors.length} ancestor(s), LLM picked none`);
       } else {
         console.log(`[Digest] Foundational tier 1: no ancestor cleared the age/citation bar`);
@@ -267,7 +269,7 @@ Return JSON: {"works": [{"title": "exact title", "author": "lead author surname"
     }))).filter((w): w is OpenAlexPaper => w !== null);
 
     if (verified.length > 0) {
-      foundational = await pickFoundational(aiConfig, theme, lanePapers, verified);
+      foundational = await pickFoundational(judgeConfig, theme, lanePapers, verified);
       if (!foundational) console.log(`[Digest] Foundational tier 2: ${verified.length} verified candidate(s), LLM picked none`);
     } else if (namedWorks.length > 0) {
       console.log(`[Digest] Foundational tier 2: none of ${namedWorks.length} named work(s) verified`);
@@ -440,13 +442,28 @@ const INTENSIFIERS = /\b(anything|anyone|actually|truly|really|always|never|ever
  * without touching it?").
  */
 function themeProblems(theme: string, papers: { title: string; abstract?: string }[]): string[] {
+  const problems = themeProblemsWithoutSources(theme);
+  if (!themeNamesAThing(theme, papers)) {
+    problems.push("It is too VAGUE — it does not name the recognizable subject, object, group, or setting from the sources and could headline a hundred other digests.");
+  }
+  return problems;
+}
+
+/**
+ * The subset of `themeProblems` that needs no sources — everything except the
+ * grounding check, which can only be run against the papers a theme found.
+ *
+ * Step 1 runs before any search, so this is the whole deterministic bar a
+ * candidate working question has to clear there. It replaces two serial LLM
+ * repair calls: an over-long candidate used to earn a shortener round-trip, and
+ * a jargon-y one nothing at all. With three candidates on the table, a candidate
+ * that fails is simply dropped.
+ */
+function themeProblemsWithoutSources(theme: string): string[] {
   const problems: string[] = [];
   const wordCount = theme.trim().split(/\s+/).filter(Boolean).length;
   if (wordCount > MAX_THEME_WORDS) {
     problems.push(`It is ${wordCount} words; the hard maximum is ${MAX_THEME_WORDS}.`);
-  }
-  if (!themeNamesAThing(theme, papers)) {
-    problems.push("It is too VAGUE — it does not name the recognizable subject, object, group, or setting from the sources and could headline a hundred other digests.");
   }
   if (PARAPHRASED_JARGON.some(re => re.test(theme))) {
     problems.push("It is HARD TO READ — it describes what something isn't or doesn't do, instead of naming the thing. The reader has to decode the phrase before they can tell what is being asked.");
@@ -569,6 +586,19 @@ function isNewsRelevant(article: { title: string; abstract: string }, themeWords
 }
 
 // Embedding similarity thresholds for all-MiniLM-L6-v2
+/*
+ * The taste prior's ceiling, and the band it reads across.
+ *
+ * 0.02 is smaller than the venue signal (0.08 × 0.3 = 0.024) and much smaller
+ * than the spread of RRF scores, which is the point: it decides between two
+ * papers the pipeline already considers interchangeable and nothing more. Below
+ * 0.30 similarity to a saved cluster it contributes nothing at all — everything
+ * in the pool is on-theme by then, so a weak resemblance is noise.
+ */
+const TASTE_MAX_BOOST = 0.02;
+const TASTE_FLOOR = 0.30;
+const TASTE_RANGE = 0.35;
+
 const SIM_ONTOPIC  = 0.25; // strong match — clearly about the theme
 const SIM_MIDPOINT = 0.20; // moderate match — related but not directly on-topic
 const SIM_FALLBACK = 0.18; // last-resort fallback (raised from 0.15 — 0.15 lets in too much)
@@ -579,6 +609,12 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   // Stage timer. Generation is a long chain of network + LLM round-trips, and
   // without per-stage numbers in the Vercel logs there is no way to tell which
   // change actually moved the wall clock. Cheap enough to leave on permanently.
+  // The judgment/extraction tier. Identical to `aiConfig` unless
+  // AI_MODEL_DIGEST_JUDGE is set — see `judgeConfigFrom`. Used for the cold
+  // reads, the Step 4b re-rank, the foundational gate, Stage A metadata and the
+  // gist; never for selection, the headline, the skeleton or the synthesis.
+  const judge = judgeConfigFrom(aiConfig);
+
   const runStart = Date.now();
   let lastMark = runStart;
   const logStage = (name: string) => {
@@ -595,6 +631,17 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   if (existing && !force) return existing;
 
   // Don't delete old digests — they become history. Dedup will prevent repeats.
+
+  // The librarian's read on this reader. Loaded once, used in exactly two
+  // places — a soft prior on ranking inside the qualified pool (Step 3) and the
+  // LLM selection call (Step 3b), which is where the real quality decision is
+  // made. It is never consulted by search, by the similarity thresholds, or by
+  // the news lane. Reading it never blocks: a reader with no dossier gets the
+  // pipeline exactly as it was.
+  const taste = await getTasteContext(userId);
+  if (taste.dossier) {
+    console.log(`[Digest] Taste dossier loaded (${taste.signalCount} signals, ${taste.centroids.length} clusters: ${taste.centroids.map(c => c.label).join(", ") || "none"})`);
+  }
 
   const userInterests = await db.query.interests.findMany({
     where: eq(interests.userId, userId),
@@ -816,7 +863,10 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
 Build today's question around this seed. This is the grounding material, NOT a headline to copy. Find the live human tension, consequence, disagreement, or decision inside it and say that plainly. You may connect one other listed interest only when the connection is natural. Do not abandon this seed for an easier generic AI question.\n`
     : "";
 
-  const hypothesisPrompt = `You curate a daily research digest. Your job: pick 1-3 of these user interests and generate a central question with genuine surprise value.
+  const recentThemeTexts = recentDigestsForRotation
+    .map(d => d.theme).filter((value): value is string => Boolean(value));
+
+  const hypothesisPrompt = `You curate a daily research digest. Your job: pick 1-3 of these user interests and generate THREE candidate central questions, each with genuine surprise value.
 
 User interests (sorted by priority):
 ${interestList}
@@ -863,17 +913,26 @@ SEARCH QUERY RULES:
 - GOOD query: "design evaluation user experience measurement" (specific to the domain)
 - Each query should find papers that could plausibly appear in the same reading list
 
+THREE CANDIDATES:
+- Write exactly 3, each a GENUINELY DIFFERENT ANGLE inside the same seed topic — a different question, a different tension, a different subject in view. Not one question rephrased three ways, and not three different topics.
+- Every candidate gets its own stakes and its own 3 search queries, because the queries follow the angle.
+- Every candidate must independently obey every taste rule above. A weak third candidate is worse than useless: candidates that break a rule are discarded without a retry, so three careless lines can leave nothing to ship.
+${recentThemeTexts.length > 0 ? `- A candidate sharing two or more substantial words with any of these recent themes will be discarded, so avoid their vocabulary and their angles:\n${recentThemeTexts.map(t => `  - "${t}"`).join("\n")}\n` : ""}
 Return JSON only (no markdown):
 {
   "selectedInterests": ["interest1", "interest2"],
-  "stakes": "one sentence: what a normal person loses, gains, or misjudges if they never learn this. Never empty — if you cannot fill it, change the angle.",
-  "theme": "working research question, ideally 8 words and never over ${MAX_THEME_WORDS} — question or statement. If statement, NO question mark.",
-  "searchQueries": [
-    "core-evidence query using the interest or topic vocabulary, 3-6 words",
-    "tension/comparison query using the interest or topic vocabulary, 3-6 words",
-    "applied/real-world query using the interest or topic vocabulary, 3-6 words"
-  ],
-  "newsQuery": "2-4 keywords for a real-world news story on this theme"
+  "candidates": [
+    {
+      "stakes": "one sentence: what a normal person loses, gains, or misjudges if they never learn this. Never empty — if you cannot fill it, change the angle.",
+      "theme": "working research question, ideally 8 words and never over ${MAX_THEME_WORDS} — question or statement. If statement, NO question mark.",
+      "searchQueries": [
+        "core-evidence query using the interest or topic vocabulary, 3-6 words",
+        "tension/comparison query using the interest or topic vocabulary, 3-6 words",
+        "applied/real-world query using the interest or topic vocabulary, 3-6 words"
+      ],
+      "newsQuery": "2-4 keywords for a real-world news story on this theme"
+    }
+  ]
 }`;
 
   let theme = seedTopic?.name || seedInterestKeyword;
@@ -890,13 +949,11 @@ Return JSON only (no markdown):
       "You generate surprising, curiosity-provoking central questions for a daily research digest. Return only JSON.",
       hypothesisPrompt
     );
-    type HypothesisResult = { theme?: string; stakes?: string; searchQueries?: string[]; newsQuery?: string; selectedInterests?: string[] };
+    type ThemeCandidate = { theme?: string; stakes?: string; searchQueries?: string[]; newsQuery?: string };
+    type HypothesisResult = ThemeCandidate & { candidates?: ThemeCandidate[]; selectedInterests?: string[] };
     const parsed = extractJson<HypothesisResult>(hypothesisResp);
     if (!parsed) throw new Error("No JSON in hypothesis response");
-    if (parsed.theme) theme = parsed.theme;
-    let workingStakes = parsed.stakes?.trim() || "";
-    if (parsed.searchQueries && parsed.searchQueries.length > 0) searchQueries = parsed.searchQueries;
-    if (parsed.newsQuery) newsQuery = parsed.newsQuery;
+    let workingStakes = "";
     if (parsed.selectedInterests && parsed.selectedInterests.length > 0) {
       // Only persist real user interests, and keep the taxonomy seed first. This
       // makes rotation memory reflect what actually grounded the question even if
@@ -907,70 +964,85 @@ Return JSON only (no markdown):
       selectedInterestKeywords = [seedInterestKeyword, ...canonical.filter(keyword => keyword !== seedInterestKeyword)].slice(0, 3);
     }
 
-    // Theme validation: enforce the spoken-headline ceiling, retry once if violated
-    const wordCount = theme.split(/\s+/).length;
-    if (wordCount > MAX_THEME_WORDS) {
-      console.log(`[Digest] Theme "${theme}" is ${wordCount} words (max ${MAX_THEME_WORDS}), requesting shorter version...`);
-      try {
-        const retryResp = await aiComplete(aiConfig,
-          "You shorten headlines. Return only JSON.",
-          // Rule-free shortening used to undo the specificity work: the concrete
-          // noun is usually the longest token, so it got cut first and a generic
-          // one took its place. Cut hedges instead.
-          `Shorten this to MAX ${MAX_THEME_WORDS} WORDS. Cut hedges, qualifiers and abstractions FIRST. NEVER replace a specific thing, place or number with a generic word ("technology", "systems", "AI models") — the specific noun is the most valuable word in the headline.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "shorter version"}\n\nOriginal: "${theme}"`
-        );
-        const retryParsed = extractJson<{ theme?: string }>(retryResp);
-        if (retryParsed) {
-          if (retryParsed.theme && retryParsed.theme.split(/\s+/).length <= MAX_THEME_WORDS) {
-            console.log(`[Digest] Theme shortened: "${retryParsed.theme}"`);
-            theme = retryParsed.theme;
-          }
-        }
-      } catch { /* keep the original if retry fails */ }
+    // ─── Candidate selection: deterministic filters, then ONE batched cold read ──
+    // This replaces a serial ladder of up to four repair calls (shortener →
+    // novelty retry → cold read → re-angle), each of which rewrote the single
+    // theme the model happened to produce first. With three candidates on the
+    // table, a candidate that breaks a rule is simply DROPPED — no round-trip
+    // needed to fix a line we have two alternatives for. The bar is unchanged;
+    // only the remedy is.
+    const rawCandidates = (parsed.candidates && parsed.candidates.length > 0
+      ? parsed.candidates
+      // Tolerate the old single-theme shape, so a model that ignores the
+      // candidates contract still produces a digest rather than a fallback theme.
+      : [{ theme: parsed.theme, stakes: parsed.stakes, searchQueries: parsed.searchQueries, newsQuery: parsed.newsQuery }]
+    ).filter(c => c?.theme?.trim());
+
+    if (rawCandidates.length === 0) throw new Error("Hypothesis returned no usable candidate");
+
+    /** ≥2 substantial words shared with any recent theme. Was a retry; now a drop. */
+    const overlapsRecentTheme = (candidate: string) => {
+      const words = new Set(candidate.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w)));
+      return recentThemeTexts.some(recent =>
+        recent.toLowerCase().split(/\s+/)
+          .filter(w => w.length > 3 && !STOP_WORDS.has(w))
+          .filter(w => words.has(w)).length >= 2
+      );
+    };
+
+    const screened = rawCandidates.map(candidate => {
+      const value = candidate.theme!.trim();
+      const problems = themeProblemsWithoutSources(value);
+      if (!candidate.stakes?.trim()) {
+        problems.push("It came back with no answer to what a normal person loses, gains, or misjudges if they never learn this.");
+      }
+      if (overlapsRecentTheme(value)) {
+        problems.push("It shares two or more substantial words with a recent digest theme, so it is not a fresh angle.");
+      }
+      return { candidate, theme: value, problems };
+    });
+    for (const entry of screened) {
+      console.log(`[Digest] Step 1 candidate "${entry.theme}"${entry.problems.length > 0 ? `\n${entry.problems.map(p => `    ✗ ${p}`).join("\n")}` : " ✓"}`);
     }
 
-    // Theme novelty: skip if too many keywords overlap with a recent theme
-    const recentThemeTexts = recentDigestsForRotation
-      .map(d => d.theme).filter(Boolean) as string[];
-    if (recentThemeTexts.length > 0) {
-      const themeWords = new Set(theme.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w)));
-      const tooSimilar = recentThemeTexts.some(rt => {
-        const rtWords = rt.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
-        const overlap = rtWords.filter(w => themeWords.has(w)).length;
-        return overlap >= 2;
-      });
-      if (tooSimilar) {
-        console.log(`[Digest] Theme "${theme}" overlaps with a recent theme — requesting fresh angle...`);
-        try {
-          const noveltyResp = await aiComplete(aiConfig,
-            "You generate surprising research questions. Return only JSON.",
-            `This theme is too similar to a recent one. Generate a genuinely different QUESTION and tension, not just different wording.\n\nToo-similar theme: "${theme}"\nRecent themes (DO NOT repeat their angles): ${recentThemeTexts.map(t => `"${t}"`).join(", ")}\nInterests: ${interestList}\n${seedTopicBlock}\nStay grounded in today's OpenAlex seed; the topic is already rotated and should not be abandoned.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "fresh angle MAX ${MAX_THEME_WORDS} WORDS", "stakes": "what a normal person loses, gains, or misjudges without this", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
-          );
-          const noveltyParsed = extractJson<{ theme?: string; stakes?: string; searchQueries?: string[]; newsQuery?: string }>(noveltyResp);
-          if (noveltyParsed?.theme) {
-            theme = noveltyParsed.theme;
-            workingStakes = noveltyParsed.stakes?.trim() || "";
-            if (noveltyParsed.searchQueries && noveltyParsed.searchQueries.length > 0) searchQueries = noveltyParsed.searchQueries;
-            if (noveltyParsed.newsQuery) newsQuery = noveltyParsed.newsQuery;
-            console.log(`[Digest] Fresh theme: "${theme}"`);
-          }
-        } catch { /* keep original if novelty retry fails */ }
+    // One cold read over everything that survived the deterministic bar. `coldRead`
+    // already takes an array — Step 5 has always used it that way.
+    const survivors = screened.filter(entry => entry.problems.length === 0);
+    let coldVerdicts = new Map<string, ColdReadVerdict>();
+    if (survivors.length > 0) {
+      try {
+        coldVerdicts = await coldRead(judge, survivors.map(entry => entry.theme));
+      } catch (err) {
+        // A broken judge must not block a digest — the deterministic checks stay in charge.
+        console.log(`[Digest] Cold reader unavailable for the working questions (${err}) — continuing on deterministic checks only`);
       }
     }
+    const eligible = survivors
+      .map(entry => ({ ...entry, verdict: coldVerdicts.get(entry.theme), coldProblems: coldReadProblems(coldVerdicts.get(entry.theme)) }))
+      .filter(entry => entry.coldProblems.length === 0)
+      .sort((a, b) => (b.verdict?.interest ?? 0) - (a.verdict?.interest ?? 0));
 
-    // Cold-read the WORKING question too. This matters beyond the headline: the
-    // working question drives search, and a study-shaped question retrieves
-    // study-shaped papers, which caps how interesting Step 5 can honestly be.
-    // One re-angle retry, inside the same seed — the topic rotation is
-    // mechanical and stays; only the angle is allowed to move.
-    try {
-      const workingVerdict = (await coldRead(aiConfig, [theme])).get(theme);
+    const adopt = (candidate: ThemeCandidate) => {
+      theme = candidate.theme!.trim();
+      workingStakes = candidate.stakes?.trim() || "";
+      if (candidate.searchQueries && candidate.searchQueries.length > 0) searchQueries = candidate.searchQueries;
+      if (candidate.newsQuery) newsQuery = candidate.newsQuery;
+    };
+
+    if (eligible.length > 0) {
+      adopt(eligible[0].candidate);
+      console.log(`[Digest] Step 1: ${eligible.length}/${screened.length} candidates cleared every gate, picked "${theme}" (interest ${eligible[0].verdict ? `${eligible[0].verdict.interest}/5` : "unjudged"}, stakes: ${workingStakes || "n/a"})`);
+    } else {
+      // Nothing clean. Take the least-broken line as the repair's starting point;
+      // its objections drive the one remaining serial retry.
+      const best = [...screened].sort((a, b) => a.problems.length - b.problems.length)[0];
+      adopt(best.candidate);
       const objections = [
-        ...coldReadProblems(workingVerdict),
-        ...(workingStakes ? [] : ["It came back with no answer to what a normal person loses, gains, or misjudges if they never learn this."]),
+        ...best.problems,
+        ...coldReadProblems(coldVerdicts.get(best.theme)),
       ];
-      if (objections.length > 0) {
-        console.log(`[Digest] Working question "${theme}" failed the cold reader:\n${objections.map(o => `  - ${o}`).join("\n")}`);
+      console.log(`[Digest] Working question "${theme}" failed the cold reader:\n${objections.map(o => `  - ${o}`).join("\n")}`);
+      try {
         const reangleResp = await aiComplete(aiConfig,
           "You generate surprising research questions. Return only JSON.",
           `The working question "${theme}" was shown to a smart reader with no academic background and no other context. It failed:\n${objections.map(o => `- ${o}`).join("\n")}\n\nInterests: ${interestList}\n${seedTopicBlock}\nDo NOT abandon today's seed topic — it is already rotated. Change the ANGLE inside it: find the version of this literature a normal person has a stake in. Every seed topic came from the reader's own interests, so a human-stakes angle nearly always exists.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "re-angled question, MAX ${MAX_THEME_WORDS} WORDS", "stakes": "what a normal person loses, gains, or misjudges without this — never empty", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
@@ -985,11 +1057,9 @@ Return JSON only (no markdown):
         } else {
           console.log(`[Digest] Re-angle produced nothing usable — keeping "${theme}"`);
         }
-      } else {
-        console.log(`[Digest] Working question cleared the cold reader (stakes: ${workingStakes || "n/a"})`);
+      } catch (err) {
+        console.log(`[Digest] Re-angle call failed (${err}) — keeping "${theme}"`);
       }
-    } catch (err) {
-      console.log(`[Digest] Cold reader unavailable for the working question (${err}) — continuing`);
     }
 
     console.log(`[Digest] Central question: "${theme}"`);
@@ -1145,9 +1215,18 @@ Return JSON only (no markdown):
       // and foundational work enters later through its own deliberately old lane.
       const recencyBonus = age <= 0 ? 0.0035 : age === 1 ? 0.0015 : 0;
       const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
-      const score = rrfScore + recencyBonus + venueBoost;
+      // Taste prior: how near this sits to a cluster of papers the reader has
+      // actually saved. Deliberately capped BELOW the venue signal and applied
+      // to `score` only — `relSim` is what the qualification thresholds read, so
+      // taste can reorder the qualified pool but can never let an off-theme
+      // paper into it. Upstream scoring is a filter; this is a nudge inside it.
+      const tasteBoost = TASTE_MAX_BOOST * Math.min(1, Math.max(0, (tasteSimilarity(taste.centroids, resultEmbs[i]) - TASTE_FLOOR) / TASTE_RANGE));
+      const score = rrfScore + recencyBonus + venueBoost + tasteBoost;
       if (venueBoost !== 0) {
         console.log(`[Digest] Venue signal: "${p.title.slice(0, 50)}" ${venueBoost > 0 ? "+" : ""}${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
+      }
+      if (tasteBoost > 0.004) {
+        console.log(`[Digest] Taste signal: "${p.title.slice(0, 50)}" +${tasteBoost.toFixed(4)}`);
       }
       return { p, relSim, score };
     })
@@ -1299,7 +1378,8 @@ Return JSON only (no markdown):
         selectionSkeletonPrompt(
           widePool.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year })),
           theme,
-          targetPapers
+          targetPapers,
+          taste.dossier
         )
       );
       const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreInsight?: string }>(selectionResp);
@@ -1525,7 +1605,7 @@ Return JSON only (no markdown):
         `[${i + 1}] "${p.title}" — ${p.abstract.slice(0, 250)}`
       ).join("\n");
       console.log(`[Digest] LLM re-ranking ${paperItems.length} papers for "tool to think with" quality...`);
-      const rerankResp = await aiComplete(aiConfig,
+      const rerankResp = await aiComplete(judge,
         "You evaluate research papers. Return only JSON.",
         `Theme: "${theme}"
 
@@ -1624,7 +1704,8 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
   // LLM-gated foundational text for today's theme, so we keep it; the dedup at the
   // merge point below handles title collisions.
   const foundationalPromise = findFoundationalItem(
-    aiConfig,
+    aiConfig, // tier-2 NAMING needs real knowledge of the canon: strong model
+    judge,    // the "field-defining or just an old survey?" gate: judge tier
     theme,
     items.filter(i => i.category !== "news"),
     new Set(seenTitles),
@@ -1789,7 +1870,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
     // the only check in the pipeline that hears the headline the way the reader
     // will, rather than the way the model that wrote it meant it.
     try {
-      coldReads = await coldRead(aiConfig, uniqueThemes);
+      coldReads = await coldRead(judge, uniqueThemes);
     } catch (err) {
       console.log(`[Digest] Cold reader unavailable (${err}) — deterministic checks only`);
     }
@@ -1909,7 +1990,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
           // context-blind to its own line as the editor was.
           let repairedVerdict: ColdReadVerdict | undefined;
           try {
-            repairedVerdict = (await coldRead(aiConfig, [grounded])).get(grounded);
+            repairedVerdict = (await coldRead(judge, [grounded])).get(grounded);
           } catch (err) {
             console.log(`[Digest] Cold reader unavailable for the repair (${err})`);
           }
@@ -1970,7 +2051,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   // dependency between them — run them concurrently and pay for one round-trip.
   console.log(`[Digest] Stage A + B: generating metadata and argument skeleton...`);
   const [metadataResp, skeletonResp] = await Promise.all([
-    aiComplete(aiConfig, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx)),
+    aiComplete(judge, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx)),
     aiComplete(
       aiConfig,
       "You analyze relationships between research papers and plan argument structures. Return only JSON.",
@@ -2056,93 +2137,67 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   synthesis = stripFences(synthesis);
   logStage("stage C draft");
 
-  // Factual accuracy check: verify each paper's takeaway is reflected correctly
-  try {
-    const factCheckResp = await aiComplete(
-      aiConfig,
-      "You verify factual accuracy of research synthesis paragraphs. Return only JSON.",
-      `Check if this synthesis ACCURATELY reflects each paper's actual findings. Flag any paper whose contribution is misrepresented, exaggerated, or missing key nuance.
-
-Theme: "${finalTheme}"
-
-Papers and their actual findings:
-${items.map((p, i) => {
-  const aiItem = metadata.items.find(x => x.index === i + 1);
-  return `[${i + 1}] "${p.title}"\nFindings: ${(aiItem?.findings || []).join("; ")}\nSummary: ${aiItem?.summary || p.abstract.slice(0, 200)}`;
-}).join("\n\n")}
-
-Synthesis:
-"""
-${synthesis}
-"""
-
-Return JSON:
-{
-  "accurate": true,
-  "issues": [
-    { "paperIndex": 1, "problem": "what's wrong", "fix": "what the synthesis should say instead" }
-  ]
-}`
-    );
-    const factCheck = extractJson<{ accurate?: boolean; issues?: { paperIndex: number; problem: string; fix: string }[] }>(factCheckResp);
-    if (factCheck && factCheck.issues && factCheck.issues.length > 0 && !factCheck.accurate) {
-      const issueDesc = factCheck.issues.map(i => `Paper ${i.paperIndex}: ${i.problem} → ${i.fix}`).join("; ");
-      console.log(`[Digest] Factual issues found: ${issueDesc}`);
-      const paperNames = skeleton.paperRoles.map(r => `**${r.shortName}**`).join(", ");
-      const factRevision = await aiComplete(
-        aiConfig,
-        SYNTHESIS_PROSE_SYSTEM,
-        `Fix these factual accuracy issues in the synthesis. Keep the same tone and style.
-
-CRITICAL: ALL these papers MUST remain referenced in bold: ${paperNames}. Do NOT drop any paper.
-CRITICAL: Keep the EXACT structure of the original — one "- **[Source N] name**" bullet per paper (1–3 sentences each, HARD MAX 3), "> bridge" lines between bullets, one closing sentence. NO intro paragraph before the first bullet. Fix ONLY the flagged facts; do not expand bullets or turn the structure into prose. Never write that a source "doesn't address" or "doesn't weigh in on" the theme.
-
-Issues: ${issueDesc}
-
-Current synthesis:
-"""
-${synthesis}
-"""
-
-Return ONLY the corrected synthesis.`
-      );
-      const revised = stripFences(factRevision);
-      if (revised.length > 50) {
-        synthesis = revised;
-        console.log(`[Digest] Factual accuracy revision applied`);
-      }
-    } else {
-      console.log(`[Digest] Factual accuracy check passed`);
-    }
-  } catch (err) {
-    console.log(`[Digest] Factual accuracy check failed (${err}), proceeding`);
-  }
-  logStage("fact check + revision");
-
-  // Stage D: Self-Refine (critique → revision)
-  console.log(`[Digest] Stage D: self-critique...`);
+  // ─── Stage D: one review, one revision ──────────────────────────────────────
+  // The factual-accuracy pass used to be its own call plus its own full-synthesis
+  // rewrite, immediately before this one — two calls reading the same draft
+  // against the same papers, and a draft with both a weak argument and a
+  // misstated finding was regenerated TWICE. The critique now returns
+  // `factIssues` alongside its scores, and the single revision below carries
+  // both. Long-output regenerations drop from up to 2 here to at most 1.
+  console.log(`[Digest] Stage D: self-critique (quality + factual accuracy)...`);
   try {
     const critiqueResp = await aiComplete(
       aiConfig,
-      "You are a tough editor who evaluates research synthesis quality. Return only JSON.",
+      "You are a tough editor who evaluates research synthesis quality and factual accuracy. Return only JSON.",
       synthesisCritiquePrompt(
         synthesis, finalTheme, items.map(p => p.title),
-        skeleton.paperRoles.map(r => r.shortName)
+        skeleton.paperRoles.map(r => r.shortName),
+        items.map((p, i) => {
+          const aiItem = metadata.items.find(x => x.index === i + 1);
+          return {
+            index: i + 1,
+            findings: aiItem?.findings || [],
+            summary: aiItem?.summary || p.abstract.slice(0, 200),
+          };
+        })
       )
     );
-    const critique = extractJson<{ scores?: Record<string, number>; weakestPoint?: string; revision?: string; bannedPhrasesFound?: string[] }>(critiqueResp);
+    const critique = extractJson<{
+      scores?: Record<string, number>;
+      weakestPoint?: string;
+      revision?: string;
+      bannedPhrasesFound?: string[];
+      factIssues?: { paperIndex: number; problem: string; fix: string }[];
+    }>(critiqueResp);
     if (critique) {
       const scores = critique.scores || {};
       const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.relatability || 5, scores.specificity || 5, scores.coverage || 5, scores.freshness || 5);
       const banned = critique.bannedPhrasesFound || [];
+      const factIssues = (critique.factIssues || []).filter(i => i?.problem?.trim() && i?.fix?.trim());
       console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} rel=${scores.relatability} spec=${scores.specificity} cov=${scores.coverage} fresh=${scores.freshness}${banned.length ? ` bannedPhrases=[${banned.slice(0, 3).join(", ")}]` : ""}`);
+      if (factIssues.length > 0) {
+        console.log(`[Digest] Factual issues found: ${factIssues.map(i => `Paper ${i.paperIndex}: ${i.problem} → ${i.fix}`).join("; ")}`);
+      }
 
-      if (minScore < 4 && critique.weakestPoint && critique.revision) {
-        console.log(`[Digest] Revising (weakest: ${critique.weakestPoint})...`);
+      // Editorial feedback only counts when the critique actually supplied it;
+      // fact issues can trigger the rewrite on their own.
+      const hasEditorialFix = minScore < 4 && Boolean(critique.weakestPoint) && Boolean(critique.revision);
+      if (hasEditorialFix || factIssues.length > 0) {
+        console.log(`[Digest] Revising (${[hasEditorialFix ? `weakest: ${critique.weakestPoint}` : null, factIssues.length > 0 ? `${factIssues.length} factual issue(s)` : null].filter(Boolean).join("; ")})...`);
         const revised = await aiComplete(
           aiConfig,
           SYNTHESIS_PROSE_SYSTEM,
-          synthesisRevisionPrompt(synthesis, { weakestPoint: critique.weakestPoint!, revision: critique.revision!, bannedPhrasesFound: banned }, finalTheme, skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`))
+          synthesisRevisionPrompt(
+            synthesis,
+            {
+              weakestPoint: hasEditorialFix ? critique.weakestPoint! : "",
+              revision: hasEditorialFix ? critique.revision! : "",
+              bannedPhrasesFound: banned,
+              factIssues,
+            },
+            finalTheme,
+            skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`)
+          )
         );
         const cleanRevised = stripFences(revised);
         if (cleanRevised.length > 50) {
@@ -2150,7 +2205,7 @@ Return ONLY the corrected synthesis.`
           console.log(`[Digest] Revision applied (${cleanRevised.length} chars)`);
         }
       } else {
-        console.log(`[Digest] Synthesis passed critique (min score ${minScore}), no revision needed`);
+        console.log(`[Digest] Synthesis passed critique (min score ${minScore}, no factual issues), no revision needed`);
       }
     }
   } catch (err) {
@@ -2158,84 +2213,63 @@ Return ONLY the corrected synthesis.`
   }
   logStage("stage D critique + revision");
 
-  // ─── Final coverage gate: ensure ALL papers are mentioned with [Source N] ────
-  // Strictly require [Source N] prefix — shortName in bold without prefix doesn't count,
-  // because the frontend relies on the prefix to map highlights to the correct paper.
-  const findMissing = () => {
-    return skeleton.paperRoles.filter(r => {
-      const sourceTag = `[source ${r.index}]`;
-      return !synthesis.toLowerCase().includes(sourceTag);
-    });
-  };
+  // ─── Final repair: coverage gap and/or broken bullet structure, in ONE call ──
+  // Both deterministic checks are unchanged; they just run together now. They
+  // used to fire two sequential full-synthesis rewrites, and the second one
+  // regularly undid the first — its scaffold demanded "NO intro paragraph"
+  // (stale) and a 3-sentence bullet cap (also stale), so a coverage repair that
+  // had correctly kept the opening paragraph got it stripped right back out.
+  // One repair, one contract, from `synthesisStructureContract`.
+  //
+  // Strictly require the [Source N] prefix — a shortName in bold without it
+  // doesn't count, because the frontend relies on the prefix to map highlights
+  // to the correct paper.
+  const missingPapers = skeleton.paperRoles.filter(r => !synthesis.toLowerCase().includes(`[source ${r.index}]`));
+  const bulletCount = (synthesis.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length;
+  const structureBroken = bulletCount < skeleton.paperRoles.length;
 
-  const missingPapers = findMissing();
-  if (missingPapers.length > 0) {
-    const missingDesc = missingPapers.map(r => `"${r.shortName}" (Paper ${r.index}: ${r.coreContribution})`).join(", ");
-    console.log(`[Digest] Final coverage gap: ${missingPapers.length} paper(s) missing: ${missingDesc}`);
+  if (missingPapers.length > 0 || structureBroken) {
+    if (missingPapers.length > 0) {
+      console.log(`[Digest] Final coverage gap: ${missingPapers.length} paper(s) missing: ${missingPapers.map(r => `"${r.shortName}" (Paper ${r.index}: ${r.coreContribution})`).join(", ")}`);
+    }
+    if (structureBroken) {
+      console.log(`[Digest] Synthesis has ${bulletCount} bullets but expected ${skeleton.paperRoles.length}`);
+    }
+    const missingBlock = missingPapers.length > 0
+      ? `\nThese sources are MISSING from the synthesis and MUST be added, woven into the argument, using exactly these bold references:\n${missingPapers.map(r => `- **[Source ${r.index}] ${r.shortName}** — ${r.coreContribution}`).join("\n")}\n`
+      : "";
     try {
-      const coverageRevision = await aiComplete(
+      const repaired = await aiComplete(
         aiConfig,
         SYNTHESIS_PROSE_SYSTEM,
-        `This synthesis is MISSING ${missingPapers.length} paper(s). You MUST add them.
+        `The synthesis below breaks the required structure. Keep ALL of its content and tone; fix the structure${missingPapers.length > 0 ? " and add the missing sources" : ""}.
 
 Theme: "${finalTheme}"
-Missing papers — use EXACTLY these bold references:
-${missingPapers.map(r => `- **[Source ${r.index}] ${r.shortName}**`).join("\n")}
+${missingBlock}
+${synthesisStructureContract(skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`))}
 
 Current synthesis:
 """
 ${synthesis}
 """
 
-Rewrite to INCLUDE the missing paper(s) using the exact **[Source N] name** format above. Weave them into the argument naturally. Keep the same tone and length. Return ONLY the revised paragraph.`
+Return ONLY the repaired synthesis. No JSON, no fences.`
       );
-      const revised = stripFences(coverageRevision);
-      if (revised.length > 50) {
-        synthesis = revised;
-        console.log(`[Digest] Final coverage revision applied — added ${missingPapers.length} missing paper(s)`);
-      }
-    } catch (err) {
-      console.log(`[Digest] Final coverage revision failed (${err})`);
-    }
-  }
-
-  // ─── Format enforcement: ensure synthesis uses "- **[Source N]" bullet structure ─
-  const bulletCount = (synthesis.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length;
-  if (bulletCount < skeleton.paperRoles.length) {
-    console.log(`[Digest] Synthesis has ${bulletCount} bullets but expected ${skeleton.paperRoles.length} — reformatting...`);
-    try {
-      const reformatted = await aiComplete(
-        aiConfig,
-        SYNTHESIS_PROSE_SYSTEM,
-        `The synthesis below must be converted to the required structure. Keep ALL the content and tone — just reformat.
-
-REQUIRED STRUCTURE (NO intro paragraph — start directly with the first bullet):
-
-${skeleton.paperRoles.map((r, idx, arr) => {
-  const bullet = `- **[Source ${r.index}] ${r.shortName}** [1–3 sentences with a specific detail, HARD MAX 3]`;
-  const bridge = idx < arr.length - 1 ? `\n\n> [one short bridge, max 12 words]` : "";
-  return bullet + bridge;
-}).join("\n\n")}
-
-[One closing sentence]
-
-Current synthesis to reformat:
-"""
-${synthesis}
-"""
-
-Return ONLY the reformatted synthesis. No JSON, no fences.`
-      );
-      const cleaned = stripFences(reformatted);
-      if (cleaned.length > 100 && (cleaned.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length >= 1) {
+      const cleaned = stripFences(repaired);
+      const repairedBullets = (cleaned.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length;
+      // Same acceptance bar as before: don't swap in a repair that is itself
+      // structurally empty.
+      if (cleaned.length > 100 && repairedBullets >= 1) {
         synthesis = cleaned;
-        console.log(`[Digest] Format enforcement applied`);
+        console.log(`[Digest] Final repair applied (${repairedBullets} bullets${missingPapers.length > 0 ? `, added ${missingPapers.length} missing paper(s)` : ""})`);
+      } else {
+        console.log(`[Digest] Final repair returned nothing usable, keeping synthesis as-is`);
       }
     } catch (err) {
-      console.log(`[Digest] Format enforcement failed (${err}), keeping synthesis as-is`);
+      console.log(`[Digest] Final repair failed (${err}), keeping synthesis as-is`);
     }
   }
-  logStage("coverage gate + format enforcement");
+  logStage("final repair (coverage + format)");
 
   const parsedAI: DigestAIResponse = {
     items: metadata.items,
@@ -2272,7 +2306,7 @@ Return ONLY the reformatted synthesis. No JSON, no fences.`
       ? `\nPotentially unfamiliar terms used in the question (metadata grounded in today's sources):\n${headlineConcepts.map(concept => `- ${concept.term}${concept.definition ? `: ${concept.definition}` : ""}`).join("\n")}\nDefine them in plain language before interpreting the result.\n`
       : "";
     const gistResp = await aiComplete(
-      aiConfig,
+      judge,
       "You write punchy, plain-English digest headers that sound like a smart friend talking, not an AI. Return only JSON.",
       `Central question: "${finalTheme}"
 Seed interests: ${seedList}
