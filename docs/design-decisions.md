@@ -1122,3 +1122,38 @@ term column beside a 200px gutter.
 This is the first half of a larger move — the rail is meant to go entirely, or
 to become half the screen while a passage is selected. The inline question box
 is what makes that possible: it is now the only thing you need the rail for.
+
+## 2026-08-20: One bar over the selection, no label over the answer
+
+Four small things in the reading companion, all the same complaint: the page was
+naming its own machinery.
+
+**The selection menu is one text bar.** It offered "Ask" and "Dig deeper" as two
+controls and nobody could say what the difference was — they land in the same
+place, under the same beat, and produce the same shape of answer. There is now
+one field over the selection: leave it empty and the button digs, type a
+question and the same button asks it. The button's own word swaps ("Dig deeper"
+at rest, "Ask" once you have typed), so the default is taught without a second
+control to weigh against.
+
+**The highlight survives the click into that bar.** Focusing an input
+necessarily collapses the DOM selection, which took the acid green with it and
+left the reader typing a question about a sentence they could no longer see. The
+page now draws the passage itself — `annotateBeat` takes marks with their own
+fill, so a passage already dug into wears the paper's hue and the passage being
+selected right now wears `SELECTION_FILL`. It is drawn only once the browser's
+own selection has gone (tracked via `selectionchange`), so the two greens never
+stack on the same words and the colour never changes under you.
+
+**The dig aside loses its "Deeper" label.** An indented aside hanging off the
+sentence you just highlighted, in a page whose every other block is a beat with
+a Display/SM heading, does not need a mono eyebrow to announce what it is.
+Collapsed, the header still carries the passage — that is the only thing there
+that identifies one dig from another when the answer is hidden.
+
+**"Pitched for you" becomes a callout in the paper's hue, outside the aside.**
+It was a mono eyebrow over a sentence that already says what it is ("You rated
+yourself 3/5 on…"), sitting *inside* the dig, which made a disclosure about the
+writing look like part of the answer. It is now one hairline-bordered block
+filled with the paper's first wash hue — a blue paper gets a blue callout — and
+it sits above the aside, not in it. The wash does the work the label was doing.
