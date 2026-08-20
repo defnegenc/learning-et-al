@@ -202,10 +202,59 @@ export const SHADOW_GOLD = `5px 5px 0 0 ${GOLD}`;
  * content, so it pins to the viewport centre — auth → digest holds the stamp on
  * the same pixel across the handoff. Don't add a second page-level loader
  * shape, and don't animate it toward a percentage.
+ *
+ * `travelling` is the ONE variant, for the one wait long enough to deserve a
+ * show: a new user's first digest. Same stamp, same 90° turn, but it walks a
+ * track while the shadow steps the FULL spectrum in hue order, 00 → 09, one
+ * slot per hop. At the end it snaps back to the left like a carriage return —
+ * the loop is meant to be visible as a loop. It is still indeterminate: ten
+ * hops are ten hops, not ten percent each, and the pipeline's percent-done is
+ * genuinely unknown. Inline, not fixed, because it sits above a headline
+ * rather than owning the page.
  */
 const STAMP_SLOTS = [SPECTRUM[0], SPECTRUM[3], SPECTRUM[6], SPECTRUM[9]];
 
-export function PageLoader() {
+const STAMP = 30;                 // the stamp's edge
+const HOP = 26;                   // one step of the walk — just under the stamp's
+                                  // width, so it reads as walking, not jumping
+const SHADOW_OFFSET = 5;          // the one shadow, and the extra extent it paints
+const TRACK = HOP * (SPECTRUM.length - 1) + STAMP + SHADOW_OFFSET;
+
+/**
+ * Ten keyframes, one per spectrum slot. `steps(1, end)` holds each frame for its
+ * whole interval and never renders the 100% frame, so 100% only exists to close
+ * the loop. Rotating 90° per hop lands on 900° at the wrap, which for a square is
+ * the same face as 0° — the turn reads continuous across the carriage return.
+ */
+const travelFrames = SPECTRUM.map((hue, i) =>
+  `${(i / SPECTRUM.length) * 100}% { transform: translateX(${i * HOP}px) rotate(${i * 90}deg); box-shadow: ${SHADOW_OFFSET}px ${SHADOW_OFFSET}px 0 0 ${hue} }`
+).join("\n        ");
+
+export function PageLoader({ travelling = false }: { travelling?: boolean } = {}) {
+  const stamp = { width: STAMP, height: STAMP, border: BORDER, background: SURFACE };
+
+  if (travelling) {
+    return (
+      <div
+        role="status"
+        aria-label="Generating your first digest"
+        style={{ width: TRACK, maxWidth: "100%", height: STAMP + SHADOW_OFFSET }}
+      >
+        <style>{`
+        @keyframes dsStampWalk {
+        ${travelFrames}
+          100% { transform: translateX(0) rotate(0deg); box-shadow: ${SHADOW_OFFSET}px ${SHADOW_OFFSET}px 0 0 ${SPECTRUM[0]} }
+        }
+        .ds-stamp-walk { animation: dsStampWalk 2s steps(1, end) infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .ds-stamp-walk { animation: none; box-shadow: ${SHADOW_OFFSET}px ${SHADOW_OFFSET}px 0 0 ${SPECTRUM[0]}; }
+        }
+      `}</style>
+        <div className="ds-stamp-walk" style={stamp} />
+      </div>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-10 flex items-center justify-center pointer-events-none"
@@ -225,7 +274,7 @@ export function PageLoader() {
           .ds-stamp { animation: none; box-shadow: 5px 5px 0 0 ${STAMP_SLOTS[0]}; }
         }
       `}</style>
-      <div className="ds-stamp" style={{ width: 30, height: 30, border: BORDER, background: SURFACE }} />
+      <div className="ds-stamp" style={stamp} />
     </div>
   );
 }
