@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, ArrowRight } from "lucide-react";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { InterestLedger, useInterestLedger } from "@/components/interest-ledger";
+import { WhatIsThis } from "@/components/what-is-this";
 import {
   ACID_PINK, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_LG, HAIRLINE, INK,
   Label, MUTED, RULE, Segmented, SHADOW, SURFACE, TextInput,
@@ -126,7 +127,7 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
             {step === 1 ? "Connect an AI provider" : "What are you curious about?"}
           </h2>
           <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>
-            {step === 1 ? "We use an LLM to generate your daily digest." : "Pick at least 3 topics. We'll turn them into a daily digest that connects papers, news, and ideas."}
+            {step === 1 ? "We use an LLM to generate your daily digest." : "Pick at least 3 topics. We'll turn them into a daily digest that connects papers, news, and ideas. Save any paper to dig deeper later."}
           </p>
         </div>
 
@@ -189,6 +190,11 @@ export function Onboarding({ onComplete, skipApiKey, defaultApiKey, defaultProvi
                 {!skipApiKey && (
                   <ActionButton onClick={() => setStep(1)} disabled={submitting} shadow={false}>Back</ActionButton>
                 )}
+                {/* The same explainer the logged-out digest carries. The premise
+                    is delivered in one subtitle line here; anyone who wants the
+                    whole of it before committing gets the identical three beats
+                    rather than a second, drifting version of them. */}
+                <WhatIsThis variant="onboarding" />
                 <ActionButton
                   variant="primary"
                   onClick={handleSubmit}

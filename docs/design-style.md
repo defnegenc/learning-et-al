@@ -1,9 +1,11 @@
 # Design system — the short menu
 
 > **Paper is the source of truth.** The file is *Brilliant petal* → board
-> **"Design system — the short menu"**, with **"The foundational lane"** and
-> **"Interests panel — on the new system"** beside it, and **"Shipping the menu"**
-> recording what was ambiguous and how it was resolved.
+> **"Design system — the short menu"**, with **"The foundational lane"**,
+> **"Interests panel — on the new system"** and **"Explainer — what is this?"**
+> beside it, and **"Shipping the menu"** recording what was ambiguous and how it
+> was resolved. The menu board carries values; a composed product surface gets
+> its own board next to it, which is what the last three are.
 >
 > This page is a reader's copy of the menu plus the things only code can say
 > (which file holds what, which surfaces exist). If it disagrees with Paper,
@@ -238,13 +240,13 @@ are separate, honour `prefers-reduced-motion`.
 
 | Surface | Notes |
 |---|---|
-| Today (`today/`) | Digest column 760px. Question at Display/LG, ink-fill (see §8) — no colour. `PaperCard` size `digest`. No em dashes in static copy on this surface, and `METADATA_RULES` bans them in generated copy |
+| Today (`today/`) | Digest column 760px. Question at Display/LG, ink-fill (see §8) — no colour. `PaperCard` size `digest`. No em dashes in static copy on this surface, and `METADATA_RULES` bans them in generated copy. Logged out, the eyebrow row and the no-digest state carry the `WhatIsThis` trigger |
 | Classic (`?classic=1`) | `synthesis-banner.tsx`. Paper names are ink underlines, not coloured highlights; `[N]` citations take the cited card's wash slot |
 | Vault | Digest history (rail + pane) and the reading list — `PaperCard` size `compact` |
 | Reading detail | 680px column. Title, byline, gist, then what's happened since |
-| Settings / Onboarding | Full-screen sheet below `md`, nav rail above it. `InterestLedger` for both |
+| Settings / Onboarding | Full-screen sheet below `md`, nav rail above it. `InterestLedger` for both. Onboarding's footer reaches the same `WhatIsThis` popup as the logged-out surfaces, in its `onboarding` variant |
 | `/prototype/interests` | Live, unauthenticated, rendering the shipping `InterestLedger` at full width and in a 375px phone frame, so it can't drift from what ships. A harness, not a candidate picker — it stays |
-| Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards. Header carries Share plus Sign in/Open app; bookmarks save to the account or wait on-device until sign-in |
+| Permalink `/digest/[id]` | `SiteHeader` + synthesis + compact cards. Header carries Share plus Sign in/Open app; bookmarks save to the account or wait on-device until sign-in. The date eyebrow carries the `WhatIsThis` trigger when logged out — a shared link is most readers' first contact with the product |
 | Share card | `opengraph-image.tsx`. No `filter: blur()` and no woff2 — Satori limits. See §7 |
 | Email | `src/lib/email.ts`. See §7 |
 

@@ -86,10 +86,10 @@ one overrides Paper.
 | `pending-shared-saves.tsx` | Invisible post-sign-in bridge from local shared saves to account bookmarks/history | ✅ no styling |
 | `noise-overlay.tsx` | Paper grain | ✅ no colour of its own |
 | `settings-dialog.tsx` | Full-screen settings | ✅ Label eyebrow + Display/LG title, "All changes saved" in acid green, "Save interests" |
-| `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton` |
+| `onboarding.tsx` | Interests setup | ✅ provider tabs are `Segmented`, inputs are `TextInput`, buttons are `ActionButton`; the subtitle carries all three verbs and the footer reaches `WhatIsThis` |
 | `interest-ledger.tsx` | The interests panel | ✅ matches the Paper board's vocabulary on the accordion |
 | `keyword-tag.tsx` | A keyword anywhere on white | ✅ wraps `Tag` + `InkTip` |
-| `what-is-this.tsx` | The logged-out explainer — trigger plus popup, three beats, closing on Sign in. Rendered only from the Today eyebrow row when there's no session | ✅ composition only, no new tokens: the Card frame on `ui/dialog`, Display/LG title, Display/SM beats, and real selected `TopicChip`s taking their fill from `FIELD_HIERARCHY` |
+| `what-is-this.tsx` | The one explainer — trigger plus popup, three beats. Two variants: `public` (Today's eyebrow row, Today's no-digest state and the shared permalink, all logged-out only; closes on Sign in) and `onboarding` ("What happens next?" in the interest-step footer; closes on how long the first digest takes). Only the trigger words and that last line differ | ✅ composition only, no new tokens: the Card frame on `ui/dialog`, Display/LG title, Display/SM beats, and real selected `TopicChip`s taking their fill from `FIELD_HIERARCHY` |
 | `admin-dashboard.tsx` | Admin only | ✅ on-system; event kinds take hashed slots rather than a colour table |
 
 ## Pages

@@ -12,6 +12,7 @@ import type { PaperItem } from "@/lib/types";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { pendingPaperIds, setPendingSharedPaper } from "@/lib/shared-saves";
 import { FirstSaveConfirmation } from "@/components/save-nux";
+import { WhatIsThis } from "@/components/what-is-this";
 import { ACID_GREEN, ActionButton, BODY_SM, BODY_STYLE, BORDER, DISPLAY, INK, Label, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
 
 interface Digest {
@@ -143,7 +144,15 @@ export default function DigestPermalink() {
         style={{ position: "relative", zIndex: 10, maxWidth: 760, margin: "0 auto" }}
       >
         <div style={{ marginBottom: 28 }}>
-          <Label style={{ marginBottom: 16 }}>{displayDate}</Label>
+          {/* A shared link is most people's first contact with this product, so
+              the explainer belongs here at least as much as it does on Today.
+              Same component, same eyebrow-row placement. */}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <Label>{displayDate}</Label>
+            {authStatus === "unauthenticated" && (
+              <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
+            )}
+          </div>
 
           {displayTheme && (
             <h1
