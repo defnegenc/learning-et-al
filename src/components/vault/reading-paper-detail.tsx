@@ -336,6 +336,56 @@ const MIN_SELECTION = 16;
 const OFFER_AFTER_MS = 1200;
 
 /**
+ * Which beat a selection belongs to, forgivingly.
+ *
+ * The obvious answer, `commonAncestorContainer.closest("[data-section]")`, is
+ * why a multi-line drag used to do nothing at all. Drag across three lines and
+ * release a few pixels past the end of the last one and the selection has taken
+ * the gap under the paragraph with it, so the common ancestor is the section or
+ * the column, and `closest` looks *upwards* from there and never finds the beat
+ * sitting below it. The highlight looked perfect and produced no menu. It also
+ * killed any drag that ran from one beat into the next.
+ *
+ * So: the beat the drag started in, or failing that the first beat the range
+ * actually touches.
+ */
+function beatFor(range: Range, scope: HTMLElement): HTMLElement | null {
+  const from = (node: Node) => {
+    const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as Element | null;
+    return el?.closest("[data-section]") as HTMLElement | null;
+  };
+  const direct = from(range.startContainer) ?? from(range.endContainer);
+  if (direct && scope.contains(direct)) return direct;
+  const beats = Array.from(scope.querySelectorAll("[data-section]")) as HTMLElement[];
+  return beats.find(beat => range.intersectsNode(beat)) ?? null;
+}
+
+/**
+ * The part of the selection actually inside that beat.
+ *
+ * `annotateBeat` finds a passage by `indexOf` in the beat's own text, so a
+ * selection carrying the gap below the paragraph, or the first half of the next
+ * beat, would never be found in the string it is supposed to be part of and the
+ * mark would silently not draw. One passage, one beat.
+ */
+function clipToBeat(range: Range, beat: HTMLElement): Range | null {
+  const whole = document.createRange();
+  whole.selectNodeContents(beat);
+  const out = document.createRange();
+  if (range.compareBoundaryPoints(Range.START_TO_START, whole) >= 0) {
+    out.setStart(range.startContainer, range.startOffset);
+  } else {
+    out.setStart(whole.startContainer, whole.startOffset);
+  }
+  if (range.compareBoundaryPoints(Range.END_TO_END, whole) <= 0) {
+    out.setEnd(range.endContainer, range.endOffset);
+  } else {
+    out.setEnd(whole.endContainer, whole.endOffset);
+  }
+  return out.collapsed ? null : out;
+}
+
+/**
  * Watch for a selection inside the walkthrough and report where it ended.
  *
  * Anchored to the section rather than to DOM offsets: what gets stored is the
@@ -382,18 +432,22 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
 
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setPick(null);
-      const text = sel.toString().trim();
-      if (text.length < MIN_SELECTION) return setPick(null);
+      if (sel.toString().trim().length < MIN_SELECTION) return setPick(null);
 
       const range = sel.getRangeAt(0);
-      const node = range.commonAncestorContainer;
-      const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as HTMLElement | null;
-      const host = el?.closest("[data-section]") as HTMLElement | null;
-      // A selection spanning two beats resolves above both of them and gets no
-      // menu — one passage, one section, or nothing.
-      if (!host || !scope.current?.contains(host)) return setPick(null);
+      const scopeEl = scope.current;
+      if (!scopeEl) return setPick(null);
+      const host = beatFor(range, scopeEl);
+      if (!host) return setPick(null);
 
-      const rects = range.getClientRects();
+      const clipped = clipToBeat(range, host);
+      if (!clipped) return setPick(null);
+      const text = clipped.toString().trim();
+      if (text.length < MIN_SELECTION) return setPick(null);
+
+      // Zero-width rects turn up at the ends of a multi-line range, and putting
+      // the bar on one lands it at the left margin of a line nobody touched.
+      const rects = Array.from(clipped.getClientRects()).filter(r => r.width > 0 && r.height > 0);
       const last = rects[rects.length - 1];
       if (!last) return setPick(null);
 
@@ -1631,14 +1685,16 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             />
           )}
 
-          {/* Taught once. Retires on the first successful dig. */}
+          {/* Taught once, and retired on the first question. One line, a bolded
+              sentence-case lead-in rather than a mono eyebrow: it is a tip, not
+              a section. Pre-lighting a sentence or two in the paper's hue was
+              built and rejected (see docs/design-decisions.md) because it puts
+              the product's hand on which sentences matter before the reader has
+              read any of them. */}
           {!tipSeen && !companionPending && companion && (
-            <div style={{ display: "flex", gap: 10, alignItems: "baseline", margin: "0 0 26px" }}>
-              <span style={LABEL_STYLE}>Tip</span>
-              <span style={{ ...BODY_SM, color: DIM }}>
-                Highlight any passage to ask about it.
-              </span>
-            </div>
+            <p style={{ ...BODY_SM, color: DIM, margin: "0 0 26px", maxWidth: 620 }}>
+              <strong>Tip:</strong> highlight part of the text to ask more about it and dig deeper.
+            </p>
           )}
 
           {/* ── The gist ── */}
