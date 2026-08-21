@@ -85,11 +85,16 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **No NEW mono/all-caps eyebrow labels.** Defne dislikes the all-caps little-mono
   look; existing eyebrows stay, but new surfaces use bolded body-face,
   sentence-case lead-ins ("Tip:", "Pitched for you:") instead.
-- **No em dashes in user-visible text, ever** — UI strings, AI output, emails,
-  OG images. Use a period, comma, colon, or parentheses. Prompts must forbid
-  them and `aiComplete` sanitizes survivors (see docs/plans/reading-view-revamp.md,
-  "Global copy rule"). En dashes in numeric ranges are fine. Code comments and
-  docs are exempt.
+- **Never output the Unicode em dash character, U+2014, anywhere.** This applies
+  to chat responses, plans, summaries, source code strings, UI copy, AI output,
+  prompts, emails, OG images, documentation, comments, commit messages, review
+  feedback, citations, examples, and generated files. Rewrite naturally with a
+  comma, period, colon, semicolon, parentheses, or different sentence structure.
+  Before sending or saving generated text, scan for U+2014 and replace every
+  occurrence. Do not reproduce it inside quotations. There are no automatic
+  exceptions. En dashes in numeric ranges are still allowed. `aiComplete`
+  sanitizes survivors (see docs/plans/reading-view-revamp.md, "Global copy
+  rule").
 - **One paper card** (`src/components/paper-card.tsx`), two sizes. Today, the
   vault, the rail and the permalink all render it. Don't add a second card.
 - **The spectrum has three indexes and they never mix**: fields take a fixed
