@@ -1381,3 +1381,56 @@ The trade is between the first two and the third: pre-lighting shows the reader
 the outcome and gives them something to click, but it is a state they will never
 see again and it slightly implies the product picked those sentences as the
 important ones. The demo has no such implication and no clickable payoff.
+
+**Decided, same day: none of them.** All three were built and all three are out.
+The first run is one line above the read and nothing else:
+
+> **Tip:** highlight part of the text to ask more about it and dig deeper.
+
+A bolded sentence-case lead-in, not the mono eyebrow it used to wear, and it
+retires on the reader's first question. The objection to pre-lighting was the
+one the trade above already named and underrated: it puts the product's hand on
+which sentences matter before the reader has read any of them.
+
+---
+
+## 2026-08-20: A multi-line drag has to work, and it did not
+
+The bug that made the whole interaction feel broken, in one line of code:
+
+```js
+const host = range.commonAncestorContainer.closest("[data-section]")
+```
+
+Drag across three lines and release a few pixels past the end of the last one
+and the selection has taken the gap under the paragraph with it. The common
+ancestor is then the `<section>` or the reading column, and `closest` searches
+*upwards* from there, so it never finds the `[data-section]` paragraph sitting
+below it. The highlight looked perfect and produced nothing at all. The same
+line killed any drag that ran from one beat into the next, which the old comment
+described as intended behaviour ("one passage, one section, or nothing") when it
+was really the same defect wearing a rule.
+
+Two helpers replace it, in the reading view and in the prototype both:
+
+- **`beatFor(range, scope)`** takes the beat the drag *started* in, falling back
+  to the first beat the range actually intersects. A drag that runs off the end
+  of a paragraph, or into the next one, now resolves to a real beat.
+- **`clipToBeat(range, beat)`** intersects the selection with that beat, because
+  everything downstream finds a passage by `indexOf` in the beat's own text: a
+  selection carrying the gap, or half of the next beat, would never be found in
+  the string it is supposed to be part of, and the mark would silently not draw.
+
+Also: the anchor rect now skips zero-width rects. A multi-line range has them at
+its ends, and anchoring the bar to one put it at the left margin of a line the
+reader never touched.
+
+**Round three of the prototype, same day.** The whisper and the pinned cards win
+over the ledger, and they are one thing, so the merge is now the first tab.
+Every answer keeps a card in the rail, folded: a numeral and its passage in the
+paper's hue, which is a list of what you asked and nothing more. The reading
+stays a whisper, so pointing at a coloured sentence gives you the first breath of
+its answer over the page and adds nothing to the column. Click a sentence or its
+strip and that one card unfolds, alone. Each half fixes the other's flaw: the
+whisper's is that nothing says you asked anything, the rail's is that four open
+cards is too much furniture.

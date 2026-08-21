@@ -152,6 +152,56 @@ interface Pick {
 const MIN_SELECTION = 16;
 
 /**
+ * Which beat a selection belongs to, forgivingly.
+ *
+ * The obvious answer, `commonAncestorContainer.closest("[data-section]")`, is
+ * the reason a multi-line drag used to do nothing. Drag across three lines and
+ * release a few pixels past the end of the last one and the selection has
+ * swallowed the gap under the paragraph, so the common ancestor is the section
+ * or the column, and `closest` looks *upwards* from there and never finds the
+ * beat sitting below it. The selection looked perfect and produced nothing.
+ *
+ * So: the beat the drag *started* in, or failing that the first beat the range
+ * actually touches. A drag that runs off the end of a paragraph, or from one
+ * beat into the next, now resolves to a real beat instead of to nothing.
+ */
+function beatFor(range: Range, scope: HTMLElement): HTMLElement | null {
+  const from = (node: Node) => {
+    const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as Element | null;
+    return el?.closest("[data-section]") as HTMLElement | null;
+  };
+  const direct = from(range.startContainer) ?? from(range.endContainer);
+  if (direct && scope.contains(direct)) return direct;
+  const beats = Array.from(scope.querySelectorAll("[data-section]")) as HTMLElement[];
+  return beats.find(beat => range.intersectsNode(beat)) ?? null;
+}
+
+/**
+ * The part of the selection that is actually inside that beat.
+ *
+ * Everything downstream matches the passage against the beat's own text, so a
+ * selection carrying the gap below the paragraph, or the first half of the next
+ * one, has to be clipped or it will never be found in the string it is supposed
+ * to be part of. One passage, one beat.
+ */
+function clipToBeat(range: Range, beat: HTMLElement): Range | null {
+  const whole = document.createRange();
+  whole.selectNodeContents(beat);
+  const out = document.createRange();
+  if (range.compareBoundaryPoints(Range.START_TO_START, whole) >= 0) {
+    out.setStart(range.startContainer, range.startOffset);
+  } else {
+    out.setStart(whole.startContainer, whole.startOffset);
+  }
+  if (range.compareBoundaryPoints(Range.END_TO_END, whole) <= 0) {
+    out.setEnd(range.endContainer, range.endOffset);
+  } else {
+    out.setEnd(whole.endContainer, whole.endOffset);
+  }
+  return out.collapsed ? null : out;
+}
+
+/**
  * Capture the passage on mouse-up and hand the highlight over.
  *
  * The browser draws the drag in ink, the way it does everywhere else in the
@@ -174,18 +224,29 @@ function usePick(scope: React.RefObject<HTMLElement | null>, onCapture?: (pick: 
 
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return setPick(null);
-      const text = sel.toString().trim();
-      if (text.length < MIN_SELECTION) return setPick(null);
+      if (sel.toString().trim().length < MIN_SELECTION) return setPick(null);
 
       const range = sel.getRangeAt(0);
-      const node = range.commonAncestorContainer;
-      const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as HTMLElement | null;
+      const start = (range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? range.startContainer
+        : range.startContainer.parentElement) as HTMLElement | null;
       // Text inside an answer is not a passage of the paper.
-      if (el?.closest("[data-ask-ui]")) return setPick(null);
-      const host = el?.closest("[data-section]") as HTMLElement | null;
-      if (!host || !scope.current?.contains(host)) return setPick(null);
+      if (start?.closest("[data-ask-ui]")) return setPick(null);
 
-      const rects = range.getClientRects();
+      const scopeEl = scope.current;
+      if (!scopeEl) return setPick(null);
+      const host = beatFor(range, scopeEl);
+      if (!host) return setPick(null);
+
+      const clipped = clipToBeat(range, host);
+      if (!clipped) return setPick(null);
+      const text = clipped.toString().trim();
+      if (text.length < MIN_SELECTION) return setPick(null);
+
+      // Zero-width rects turn up at the ends of a multi-line range, and anchoring
+      // the bar to one puts it at the left margin of a line the reader never
+      // touched.
+      const rects = Array.from(clipped.getClientRects()).filter(r => r.width > 0 && r.height > 0);
       const first = rects[0];
       const last = rects[rects.length - 1];
       if (!first || !last) return setPick(null);
@@ -471,147 +532,22 @@ function useMarkTops(proseRef: React.RefObject<HTMLDivElement | null>, asks: Ask
 /* ── First run ───────────────────────────────────────────────────────────── */
 
 /**
- * Teaching the gesture, four ways, on top of whichever answer shape is showing.
+ * The whole of the first-run treatment: one line above the read.
  *
- * The problem is narrow and real: highlight-to-ask is invisible. Nothing on the
- * page says a sentence is a thing you can pull on, and a reader who never drags
- * across a line never finds out. The shipped answer is a line of small grey text
- * that says so, which is a caption asking you to take its word for it.
+ * The alternative, pre-lighting a sentence or two in the paper's colour to show
+ * the reader what a pulled-on passage looks like, was built and rejected. It
+ * puts the product's hand on which sentences matter before the reader has read
+ * any of them, and it is a state nobody ever sees twice. A tip is a tip.
  *
- * All three of the real options here say it in the paper's own colour instead,
- * inside the text, which is the only place the gesture exists. They retire the
- * moment the reader asks anything.
+ * It retires the moment the reader asks anything, because after that they know.
  */
-type NuxMode = "off" | "one" | "three" | "demo";
-
-interface Lit {
-  section: string;
-  text: string;
-  /** What clicking it asks. Shown on hover for the invitations. */
-  question: string;
-}
-
-/** The sentence the demo paints, and the one pre-lit for "one". */
-const NUX_ONE: Lit = {
-  section: "gist",
-  text: "It is built by the sleep, and the part that gets lost is not recoverable by sleeping in the following night.",
-  question: DEFAULT_QUESTION,
-};
-
-/** Three short phrases across the read, each worth a different kind of question. */
-const NUX_THREE: Lit[] = [
-  { section: "gist", text: "the gain arrives without any further practice", question: "How can you improve at something without practising it?" },
-  { section: "found", text: "Slow-wave sleep in the first two hours", question: "Why the first two hours specifically?" },
-  { section: "caveats", text: "Finger tapping is also the friendliest possible motor task", question: "What would a harder task change here?" },
-];
-
-function useNuxLayer(mode: NuxMode, hue: string, asks: Ask[], onPick: (lit: Lit) => void) {
-  const [phase, setPhase] = useState<"painting" | "bar" | "gone">("painting");
-  const [run, setRun] = useState(0);
-  const [barAt, setBarAt] = useState<{ left: number; top: number } | null>(null);
-
-  // The demo is a little film: the highlight paints itself across a sentence,
-  // the bar it produces appears under it, and both clear. It runs once and can
-  // be asked for again; it never loops, because a loop is an advertisement.
-  // Only the timeouts live in the effect, so nothing is set synchronously
-  // during it; a replay resets the phase in the click handler that asks for it.
-  useEffect(() => {
-    if (mode !== "demo") return;
-    const toBar = setTimeout(() => setPhase("bar"), 1500);
-    const toGone = setTimeout(() => setPhase("gone"), 4200);
-    return () => { clearTimeout(toBar); clearTimeout(toGone); };
-  }, [mode, run]);
-
-  useEffect(() => {
-    if (mode !== "demo" || phase !== "bar") return;
-    const rect = document.querySelector('[data-mark-id^="nux-demo"]')?.getBoundingClientRect();
-    // Where the painted sentence ended up is only knowable after it is painted.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (rect) setBarAt({ left: Math.max(12, rect.right - 180), top: rect.bottom + 10 });
-  }, [mode, phase, run]);
-
-  const replay = () => { setPhase("painting"); setBarAt(null); setRun(r => r + 1); };
-
-  const retired = asks.length > 0;
-  const taken = new Set(asks.map(a => a.selection));
-
-  const marks = (key: string): Mark[] => {
-    if (retired || mode === "off") return [];
-    if (mode === "demo") {
-      if (phase === "gone" || NUX_ONE.section !== key) return [];
-      // The fill is a gradient rather than a colour so the class has something
-      // to widen; a CSS animation outranks the inline background-size, which is
-      // what lets the highlight paint itself across the words. The id carries
-      // the run so "show me again" remounts the mark and restarts it.
-      return [{
-        id: `nux-demo-${run}`,
-        text: NUX_ONE.text,
-        fill: `linear-gradient(${hue}, ${hue}) no-repeat`,
-        className: "proto-paint",
-      }];
-    }
-    const lit = mode === "one" ? [NUX_ONE] : NUX_THREE;
-    return lit.filter(l => l.section === key && !taken.has(l.text)).map(l => ({
-      id: `nux-${l.text.slice(0, 12)}`,
-      text: l.text,
-      fill: hue,
-      title: mode === "three" ? l.question : "Ask about this sentence",
-      onClick: () => onPick(l),
-      trailing: mode === "three"
-        ? <sup style={{ ...BODY_SM, fontWeight: 600, fontSize: 11, padding: "0 2px" }}>?</sup>
-        : undefined,
-    }));
-  };
-
-  const lead = retired || mode === "off" ? null : (
-    <p style={{ ...BODY_SM, margin: "0 0 22px", maxWidth: 620 }}>
-      {mode === "one" && (
-        <>
-          <strong>One sentence is already highlighted.</strong> That is what asking looks
-          like. Click it, or drag across any other line and ask your own thing.
-        </>
-      )}
-      {mode === "three" && (
-        <>
-          <strong>Three things worth asking about are already highlighted.</strong> Click
-          one to ask it, or drag across any line of your own.
-        </>
-      )}
-      {mode === "demo" && (
-        <>
-          <strong>Like this.</strong> Drag across any sentence in the paper and ask
-          about it.{" "}
-          <button
-            data-ask-ui
-            onClick={replay}
-            style={{ ...BODY_SM, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}
-          >
-            Show me again
-          </button>
-        </>
-      )}
+function TipLine({ hide }: { hide: boolean }) {
+  if (hide) return null;
+  return (
+    <p style={{ ...BODY_SM, color: DIM, margin: "0 0 22px", maxWidth: 620 }}>
+      <strong>Tip:</strong> highlight part of the text to ask more about it and dig deeper.
     </p>
   );
-
-  // The ghost bar the demo produces. Not a real bar: it cannot be typed in and
-  // it does not take the pointer.
-  const ghost = mode === "demo" && phase === "bar" && barAt && !retired ? (
-    <div
-      aria-hidden
-      style={{
-        position: "fixed", zIndex: 59, width: 360, left: barAt.left, top: barAt.top,
-        display: "flex", border: BORDER, boxShadow: SHADOW, background: SURFACE,
-        pointerEvents: "none",
-      }}
-    >
-      <span style={{ ...BODY_SM, flex: 1, padding: "10px 12px", color: MUTED }}>
-        {DEFAULT_QUESTION}
-      </span>
-      <span style={{ ...BODY_SM, fontWeight: 600, borderLeft: BORDER, padding: "9px 14px" }}>Ask</span>
-    </div>
-  ) : null;
-
-  return { marks, lead, ghost };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -632,7 +568,7 @@ function useNuxLayer(mode: NuxMode, hue: string, asks: Ask[], onPick: (lit: Lit)
  * bottom corner while one is being written, showing the stamp and the count. It
  * is the only thing on the page that moves, and it is four words wide.
  */
-function Ledger({ hue, nuxMode }: VariantProps) {
+function Ledger({ hue }: VariantProps) {
   const proseRef = useRef<HTMLDivElement>(null);
   const [pick, setPick] = usePick(proseRef);
   const { asks, start, toggle, openOnly, forSection, streaming } = useAsks();
@@ -657,10 +593,7 @@ function Ledger({ hue, nuxMode }: VariantProps) {
     setTimeout(() => setFlash(null), 1100);
   };
 
-  const nux = useNuxLayer(nuxMode, hue, asks, lit => start(lit.text, lit.section, lit.question));
-
   const marksFor = (key: string): Mark[] => [
-    ...nux.marks(key),
     ...(pick && pick.section === key ? [{ id: "live", text: pick.text, fill: hue }] : []),
     ...forSection(key).map(a => ({
       id: a.id, text: a.selection, fill: hue, flash: flash === a.id, onClick: () => toRow(a.id),
@@ -680,8 +613,7 @@ function Ledger({ hue, nuxMode }: VariantProps) {
 
   return (
     <>
-      <Beats proseRef={proseRef} marksFor={marksFor} lead={nux.lead} />
-      {nux.ghost}
+      <Beats proseRef={proseRef} marksFor={marksFor} lead={<TipLine hide={asks.length > 0} />} />
 
       <div ref={ledgerRef} style={{ marginTop: 56 }}>
         <h2 style={{ ...DISPLAY_LG, margin: "0 0 6px" }}>What you asked this paper</h2>
@@ -765,7 +697,7 @@ function Ledger({ hue, nuxMode }: VariantProps) {
  * the other. The header carries the passage rather than the question, because
  * the passage is what you recognise.
  */
-function PinnedCards({ hue, nuxMode }: VariantProps) {
+function PinnedCards({ hue }: VariantProps) {
   const proseRef = useRef<HTMLDivElement>(null);
   const [pick, setPick] = usePick(proseRef);
   const { asks, start, toggle, forSection } = useAsks();
@@ -778,10 +710,7 @@ function PinnedCards({ hue, nuxMode }: VariantProps) {
     setPick(null);
   };
 
-  const nux = useNuxLayer(nuxMode, hue, asks, lit => start(lit.text, lit.section, lit.question));
-
   const marksFor = (key: string): Mark[] => [
-    ...nux.marks(key),
     ...(pick && pick.section === key ? [{ id: "live", text: pick.text, fill: hue }] : []),
     ...forSection(key).map(a => ({
       id: a.id, text: a.selection, fill: hue, active: linked === a.id,
@@ -793,8 +722,7 @@ function PinnedCards({ hue, nuxMode }: VariantProps) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 40, alignItems: "start" }}>
-      <Beats proseRef={proseRef} marksFor={marksFor} lead={nux.lead} />
-      {nux.ghost}
+      <Beats proseRef={proseRef} marksFor={marksFor} lead={<TipLine hide={asks.length > 0} />} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 12 }}>
         {asks.length === 0 && (
@@ -893,7 +821,7 @@ function PinnedCards({ hue, nuxMode }: VariantProps) {
  * You can read the whole paper with four answers behind that edge and never see
  * one until you want it.
  */
-function Spine({ hue, nuxMode }: VariantProps) {
+function Spine({ hue }: VariantProps) {
   const proseRef = useRef<HTMLDivElement>(null);
   const [pick, setPick] = usePick(proseRef);
   const { asks, start, forSection, streaming } = useAsks();
@@ -912,10 +840,7 @@ function Spine({ hue, nuxMode }: VariantProps) {
   const showing = hovered ?? pinned;
   const shown = asks.find(a => a.id === showing) ?? null;
 
-  const nux = useNuxLayer(nuxMode, hue, asks, lit => setPinned(start(lit.text, lit.section, lit.question)));
-
   const marksFor = (key: string): Mark[] => [
-    ...nux.marks(key),
     ...(pick && pick.section === key ? [{ id: "live", text: pick.text, fill: hue }] : []),
     ...forSection(key).map(a => ({
       id: a.id, text: a.selection, fill: hue, active: showing === a.id,
@@ -926,8 +851,7 @@ function Spine({ hue, nuxMode }: VariantProps) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 28, alignItems: "start" }}>
-      <Beats proseRef={proseRef} marksFor={marksFor} lead={nux.lead} />
-      {nux.ghost}
+      <Beats proseRef={proseRef} marksFor={marksFor} lead={<TipLine hide={asks.length > 0} />} />
 
       <div style={{ position: "relative", minHeight: 480, borderLeft: BORDER, paddingLeft: 0 }}>
         {asks.length === 0 && (
@@ -1007,7 +931,7 @@ function Spine({ hue, nuxMode }: VariantProps) {
  * there is nothing in the margin at all, so this is the only shape here that
  * survives a phone unchanged.
  */
-function Companion({ hue, nuxMode }: VariantProps) {
+function Companion({ hue }: VariantProps) {
   const proseRef = useRef<HTMLDivElement>(null);
   const { asks, start, forSection, streaming } = useAsks();
   const [open, setOpen] = useState(true);
@@ -1033,10 +957,7 @@ function Companion({ hue, nuxMode }: VariantProps) {
     setHeld(null);
   };
 
-  const nux = useNuxLayer(nuxMode, hue, asks, lit => { setOpen(true); start(lit.text, lit.section, lit.question); });
-
   const marksFor = (key: string): Mark[] => [
-    ...nux.marks(key),
     ...(held && held.section === key ? [{ id: "held", text: held.text, fill: hue }] : []),
     ...forSection(key).map(a => ({ id: a.id, text: a.selection, fill: hue })),
   ];
@@ -1044,8 +965,7 @@ function Companion({ hue, nuxMode }: VariantProps) {
   return (
     <>
       <div style={{ maxWidth: 680 }}>
-        <Beats proseRef={proseRef} marksFor={marksFor} lead={nux.lead} />
-      {nux.ghost}
+        <Beats proseRef={proseRef} marksFor={marksFor} lead={<TipLine hide={asks.length > 0} />} />
       </div>
 
       {!open ? (
@@ -1150,7 +1070,7 @@ function Companion({ hue, nuxMode }: VariantProps) {
  * the bottom of the page you are on. The cost is that an open drawer covers the
  * last few lines of the column while it is open.
  */
-function Drawer({ hue, nuxMode }: VariantProps) {
+function Drawer({ hue }: VariantProps) {
   const proseRef = useRef<HTMLDivElement>(null);
   const { asks, start, forSection, streaming } = useAsks();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -1169,10 +1089,7 @@ function Drawer({ hue, nuxMode }: VariantProps) {
 
   const shown = asks.find(a => a.id === openId) ?? null;
 
-  const nux = useNuxLayer(nuxMode, hue, asks, lit => setOpenId(start(lit.text, lit.section, lit.question)));
-
   const marksFor = (key: string): Mark[] => [
-    ...nux.marks(key),
     ...(held && held.section === key ? [{ id: "held", text: held.text, fill: hue }] : []),
     ...forSection(key).map(a => ({
       id: a.id, text: a.selection, fill: hue, active: openId === a.id,
@@ -1182,8 +1099,7 @@ function Drawer({ hue, nuxMode }: VariantProps) {
 
   return (
     <div style={{ position: "relative", maxWidth: 820 }}>
-      <Beats proseRef={proseRef} marksFor={marksFor} lead={nux.lead} />
-      {nux.ghost}
+      <Beats proseRef={proseRef} marksFor={marksFor} lead={<TipLine hide={asks.length > 0} />} />
       {/* Room under the read so the drawer never sits on the last line. */}
       <div style={{ height: 220 }} />
 
@@ -1289,7 +1205,7 @@ function Drawer({ hue, nuxMode }: VariantProps) {
  * answer and a way to keep it. Click the passage and it becomes a card, in
  * place, over the margin, until you dismiss it.
  */
-function Whisper({ hue, nuxMode }: VariantProps) {
+function Whisper({ hue }: VariantProps) {
   const proseRef = useRef<HTMLDivElement>(null);
   const [pick, setPick] = usePick(proseRef);
   const { asks, start, forSection, streaming } = useAsks();
@@ -1304,10 +1220,7 @@ function Whisper({ hue, nuxMode }: VariantProps) {
     setPick(null);
   };
 
-  const nux = useNuxLayer(nuxMode, hue, asks, lit => setKept(start(lit.text, lit.section, lit.question)));
-
   const marksFor = (key: string): Mark[] => [
-    ...nux.marks(key),
     ...(pick && pick.section === key ? [{ id: "live", text: pick.text, fill: hue }] : []),
     ...forSection(key).map(a => ({
       id: a.id, text: a.selection, fill: hue, active: hovered === a.id || kept === a.id,
@@ -1323,8 +1236,7 @@ function Whisper({ hue, nuxMode }: VariantProps) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 28, alignItems: "start" }}>
       <div style={{ position: "relative" }}>
-        <Beats proseRef={proseRef} marksFor={marksFor} lead={nux.lead} />
-      {nux.ghost}
+        <Beats proseRef={proseRef} marksFor={marksFor} lead={<TipLine hide={asks.length > 0} />} />
 
         {/* The whisper. Ink, small, and gone the moment you look away. */}
         {whispered && (
@@ -1391,11 +1303,145 @@ function Whisper({ hue, nuxMode }: VariantProps) {
   );
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   7. Whisper and cards
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The two favourites, which turn out to be one thing.
+ *
+ * The whisper's problem is that an answer you cannot see is an answer you can
+ * lose: nothing on the page says you asked four questions, so the fourth is
+ * findable only by remembering which sentence it was. The cards' problem is the
+ * opposite, that four open cards is a lot of furniture for a rail.
+ *
+ * Put them together and each fixes the other. Every answer keeps a card in the
+ * rail, but folded: a strip carrying its numeral and its passage in the paper's
+ * hue, which is a list of what you asked and nothing more. The reading itself
+ * stays a whisper, so pointing at a coloured sentence gives you the first breath
+ * of its answer over the page and nothing is added to the column. Click either
+ * the sentence or its strip and that one card unfolds, alone: one answer open at
+ * a time, which is the rule the rail was missing.
+ */
+function WhisperCards({ hue }: VariantProps) {
+  const proseRef = useRef<HTMLDivElement>(null);
+  const [pick, setPick] = usePick(proseRef);
+  const { asks, start, forSection, streaming } = useAsks();
+  const tops = useMarkTops(proseRef, asks);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const jump = useJump();
+
+  const submit = (question: string) => {
+    if (!pick) return;
+    setOpen(start(pick.text, pick.section, question));
+    setPick(null);
+  };
+
+  const marksFor = (key: string): Mark[] => [
+    ...(pick && pick.section === key ? [{ id: "live", text: pick.text, fill: hue }] : []),
+    ...forSection(key).map(a => ({
+      id: a.id, text: a.selection, fill: hue, active: hovered === a.id || open === a.id,
+      onEnter: () => setHovered(a.id),
+      onLeave: () => setHovered(null),
+      onClick: () => setOpen(p => p === a.id ? null : a.id),
+    })),
+  ];
+
+  // Never whisper about the card that is already open. Two copies of one answer
+  // on screen at once is the thing both halves of this were avoiding.
+  const whispered = asks.find(a => a.id === hovered && a.id !== open) ?? null;
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 28, alignItems: "start" }}>
+      <div style={{ position: "relative" }}>
+        <Beats proseRef={proseRef} marksFor={marksFor} lead={<TipLine hide={asks.length > 0} />} />
+
+        {whispered && (
+          <div
+            style={{
+              position: "absolute", left: 0, right: 0, top: (tops[whispered.id] ?? 0) + 26,
+              zIndex: 30, background: INK, color: SURFACE, padding: "10px 12px",
+              pointerEvents: "none", boxShadow: SHADOW,
+            }}
+          >
+            <p style={{ ...BODY_SM, color: SURFACE, margin: 0 }}>
+              {whispered.answer ? quoteLine(whispered.answer, 190) : "Still writing this one…"}
+            </p>
+            <p style={{ ...BODY_SM, color: RULE, margin: "6px 0 0" }}>Click the sentence for the rest.</p>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, position: "sticky", top: 12 }}>
+        {asks.length === 0 && (
+          <p style={{ ...BODY_SM, color: MUTED, margin: 0 }}>
+            Highlight a sentence on the left. What you asked lists out here as folded strips, and the answers stay in the sentences: point at a coloured one to hear it.
+          </p>
+        )}
+        {streaming && asks.length === 0 && <Waiting compact line="Writing…" />}
+
+        {asks.map(ask => {
+          const isOpen = open === ask.id;
+          return (
+            <div
+              key={ask.id}
+              data-ask-ui
+              onMouseEnter={() => setHovered(ask.id)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                border: isOpen ? BORDER : BORDER_HAIR,
+                background: SURFACE,
+                boxShadow: isOpen ? SHADOW : "none",
+                transform: hovered === ask.id && !isOpen ? "translate(-2px, -2px)" : "none",
+                transition: "transform 120ms",
+              }}
+            >
+              <button
+                onClick={() => setOpen(p => p === ask.id ? null : ask.id)}
+                aria-expanded={isOpen}
+                style={{
+                  display: "flex", alignItems: "flex-start", gap: 10, width: "100%", textAlign: "left",
+                  background: hue, border: "none", padding: "8px 10px", cursor: "pointer",
+                }}
+              >
+                <Numeral n={ask.n} size={17} />
+                <span style={{ ...BODY_SM, flex: 1, minWidth: 0 }}>
+                  {isOpen ? ask.selection : quoteLine(ask.selection, 54)}
+                </span>
+                <ChevronDown
+                  size={15}
+                  style={{ flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+                />
+              </button>
+              {isOpen && (
+                <div style={{ borderTop: BORDER, padding: "12px 12px 14px" }}>
+                  <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 8px" }}>{ask.question}</p>
+                  {ask.answer
+                    ? <p style={{ ...BODY_SM, margin: 0 }}>{ask.answer}</p>
+                    : <Waiting compact />}
+                  <button
+                    onClick={() => jump(ask.id)}
+                    style={{ ...BODY_SM, color: DIM, background: "none", border: "none", padding: "10px 0 0", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}
+                  >
+                    Back to the sentence
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {pick && <FloatingBar pick={pick} onSubmit={submit} onCancel={() => setPick(null)} />}
+    </div>
+  );
+}
+
 /* ── The page ────────────────────────────────────────────────────────────── */
 
 interface VariantProps {
   hue: string;
-  nuxMode: NuxMode;
 }
 
 interface VariantSpec {
@@ -1406,91 +1452,62 @@ interface VariantSpec {
   render: (props: VariantProps) => React.ReactNode;
 }
 
-interface NuxSpec {
-  key: NuxMode;
-  tab: string;
-  note: string;
-}
-
-/**
- * The four first-run options, orthogonal to the six answer shapes: pick one of
- * each. All three real ones say the same thing, in the paper's own colour,
- * inside the text, and all three retire on the reader's first question.
- */
-const NUXES: NuxSpec[] = [
-  {
-    key: "off",
-    tab: "None",
-    note: "Nothing. What a returning reader sees, and the control for judging the other three.",
-  },
-  {
-    key: "one",
-    tab: "One lit sentence",
-    note: "The most interesting sentence in the gist arrives already highlighted in the paper's colour, with one line above the read saying so. It is a worked example rather than an instruction: this is what a passage you have pulled on looks like, and clicking it asks the default question. Quietest of the three, and the only one that does not put a decision in front of a reader who just wants to read.",
-  },
-  {
-    key: "three",
-    tab: "Three invitations",
-    note: "Three short phrases lit across the paper, each carrying a question mark and, on hover, the question it would ask. They are chosen to be three different kinds of question: a mechanism, a number, a limit. It teaches the gesture and the range at once, which is the thing a single example cannot do.",
-  },
-  {
-    key: "demo",
-    tab: "The demo",
-    note: "Nothing is pre-lit. Instead a highlight paints itself across a sentence, the bar it produces appears underneath with the default question in it, and both clear. It shows the gesture rather than its result, which is the only one of the three that teaches the drag itself. Runs once, replayable, never loops.",
-  },
-];
-
 const VARIANTS: VariantSpec[] = [
   {
-    key: "ledger",
-    tab: "Ledger",
-    note: "Kept, and made two-way. The passage takes a numbered stamp and the answer goes to a numbered ledger at the foot of the page. Now a stamp takes you down to its row and a row's passage takes you back up to the sentence and blinks it once, and a small runner rides the bottom corner while an answer is being written, so you are never waiting on something you cannot see.",
-    cost: "The answer is a long way from the passage. The runner and the return tickets are what pay for that.",
-    render: props => <Ledger {...props} />,
+    key: "whisper-cards",
+    tab: "Whisper and cards",
+    note: "The two you liked, which turn out to be one thing. Every answer keeps a card in the rail but folded, so the rail is a list of what you asked and nothing more: a numeral and the passage in the paper's colour. The reading stays a whisper, so pointing at a coloured sentence gives you the first breath of its answer over the page and adds nothing to the column. Click a sentence or its strip and that one card unfolds, alone.",
+    cost: "One answer open at a time, which is a rule rather than a limitation but is still a rule. Long answers still live in a 340px rail.",
+    render: props => <WhisperCards {...props} />,
+  },
+  {
+    key: "whisper",
+    tab: "The whisper",
+    note: "The extreme case. The answer has no furniture at all: point at a sentence you asked about and it appears in the one ink tooltip, then vanishes. A paper you asked six questions about looks like a paper with six coloured sentences in it. Click a sentence to keep its answer open as a card.",
+    cost: "Nothing on the page says you asked anything, so an answer is findable only by remembering which sentence it was. That is what the merge above fixes.",
+    render: props => <Whisper {...props} />,
   },
   {
     key: "cards",
     tab: "Pinned cards",
-    note: "Kept, and the tie made physical. Each answer is a card in the rail headed by its passage in the paper's colour. Hover a card and its sentence darkens in the text; hover a sentence and its card lifts; click either to get to the other.",
+    note: "The tie made physical. Each answer is a card in the rail headed by its passage in the paper's colour. Hover a card and its sentence darkens in the text; hover a sentence and its card lifts; click either to get to the other.",
     cost: "The rail is a second column to watch, and four open cards is a lot of furniture.",
     render: props => <PinnedCards {...props} />,
   },
   {
+    key: "ledger",
+    tab: "Ledger",
+    note: "Two-way now. The passage takes a numbered stamp and the answer goes to a numbered ledger at the foot of the page. Now a stamp takes you down to its row and a row's passage takes you back up to the sentence and blinks it once, and a small runner rides the bottom corner while an answer is being written, so you are never waiting on something you cannot see.",
+    cost: "The answer is a long way from the passage. The runner and the return tickets are what pay for that.",
+    render: props => <Ledger {...props} />,
+  },
+  {
     key: "spine",
     tab: "The spine",
-    note: "New. A ruled edge down the column with one short tick per question, at exactly the height of the sentence it came from. That is the whole resting state. Point at a tick and the answer swings out into the margin, headed by the passage in colour; move away and it is gone. Click to keep it.",
+    note: "A ruled edge down the column with one short tick per question, at exactly the height of the sentence it came from. That is the whole resting state. Point at a tick and the answer swings out into the margin, headed by the passage in colour; move away and it is gone. Click to keep it.",
     cost: "Hover-first, so it wants a mouse. Two questions on neighbouring lines put their ticks close together.",
     render: props => <Spine {...props} />,
   },
   {
     key: "companion",
     tab: "The companion",
-    note: "New, and the friendly replacement for the bar you hated. Somebody is reading the paper with you and they sit in the bottom corner. Highlight a sentence and they take it: it arrives in their panel as a chip in the paper's colour with the cursor already in the field. Folded, they are one square with a count on it.",
+    note: "The friendly replacement for the bar you hated. Somebody is reading the paper with you and they sit in the bottom corner. Highlight a sentence and they take it: it arrives in their panel as a chip in the paper's colour with the cursor already in the field. Folded, they are one square with a count on it.",
     cost: "It is a chat panel, and a chat panel is a familiar thing rather than a surprising one. Nothing at all in the margin, so it is the only one here that works unchanged on a phone.",
     render: props => <Companion {...props} />,
   },
   {
     key: "drawer",
     tab: "The drawer",
-    note: "New. The ledger brought to you instead of waited for. A drawer is fixed to the bottom of the reading column, the width of the text, and its lip is a row of tabs carrying each question's numeral and a scrap of its passage. Pull one and the answer slides open; push it and you have the read back.",
+    note: "The ledger brought to you instead of waited for. A drawer is fixed to the bottom of the reading column, the width of the text, and its lip is a row of tabs carrying each question's numeral and a scrap of its passage. Pull one and the answer slides open; push it and you have the read back.",
     cost: "An open drawer covers the last few lines of the column. Fine while you are reading the answer, in the way the moment you are not.",
     render: props => <Drawer {...props} />,
-  },
-  {
-    key: "whisper",
-    tab: "The whisper",
-    note: "New, and the extreme case. The answer has no furniture at all: point at a sentence you asked about and it appears in the one ink tooltip, then vanishes. A paper you asked six questions about looks like a paper with six coloured sentences in it. Click a sentence to keep its answer open as a card.",
-    cost: "A whisper cannot hold a long answer, so it holds the first breath and asks you to click for the rest. Hover-first, so it wants a mouse.",
-    render: props => <Whisper {...props} />,
   },
 ];
 
 export default function HighlightAskPrototype() {
   const [variant, setVariant] = useState(VARIANTS[0].key);
-  const [nux, setNux] = useState<NuxMode>("one");
   const [paper, setPaper] = useState(0);
   const active = useMemo(() => VARIANTS.find(v => v.key === variant) ?? VARIANTS[0], [variant]);
-  const activeNux = useMemo(() => NUXES.find(n => n.key === nux) ?? NUXES[0], [nux]);
   const hue = washSlots(paper)[0];
 
   return (
@@ -1501,22 +1518,16 @@ export default function HighlightAskPrototype() {
           30%, 70% { box-shadow: 0 2px 0 0 ${INK} }
         }
         .proto-flash { animation: protoFlash 1s ease-in-out 1; }
-        @keyframes protoPaint { from { background-size: 0% 100% } to { background-size: 100% 100% } }
-        .proto-paint { background-size: 0% 100%; animation: protoPaint 1.4s ease-out forwards; }
-        @media (prefers-reduced-motion: reduce) {
-          .proto-flash { animation: none }
-          /* Important, because the inline background shorthand resets
-             background-size and there is no animation here to outrank it. */
-          .proto-paint { animation: none; background-size: 100% 100% !important }
-        }
+        @media (prefers-reduced-motion: reduce) { .proto-flash { animation: none } }
       `}</style>
 
-      <h1 style={{ ...DISPLAY_LG, margin: 0 }}>Highlight to ask, round two</h1>
+      <h1 style={{ ...DISPLAY_LG, margin: 0 }}>Highlight to ask</h1>
       <p style={{ ...BODY_STYLE, color: DIM, margin: "8px 0 0", maxWidth: 760 }}>
-        Two kept from the first round and four new ones built on why they worked:
-        the answer never cuts the read, and the passage always comes back to you
-        filled in the paper&rsquo;s own colour, so you never have to remember which
-        highlight this one was. Select any sentence below. Pressing Ask with an
+        The whisper and the cards lead, and the first tab is the two of them
+        merged, which is what they were always asking to be. All seven obey the
+        same rules: the answer never cuts the read, and the passage comes back to
+        you filled in the paper&rsquo;s own colour. A drag that runs across several
+        lines, or off the end of a paragraph, now works. Pressing Ask with an
         empty field asks &ldquo;{DEFAULT_QUESTION}&rdquo;. No model behind the page, so the
         answer is fixed and arrives on a timer.
       </p>
@@ -1554,40 +1565,10 @@ export default function HighlightAskPrototype() {
         </div>
       </div>
 
-      {/* The first run, which is a separate question from the answer shape: any
-          of these four can sit on any of the six above. */}
-      <div style={{ border: BORDER, background: SURFACE, marginTop: 22, padding: "14px 16px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 18 }}>
-          <span style={{ ...BODY_SM, fontWeight: 600 }}>First run:</span>
-          {NUXES.map(n => (
-            <button
-              key={n.key}
-              onClick={() => setNux(n.key)}
-              aria-pressed={nux === n.key}
-              style={{
-                ...BODY_SM,
-                fontWeight: nux === n.key ? 600 : 400,
-                background: nux === n.key ? hue : "transparent",
-                border: nux === n.key ? BORDER_HAIR : `1px solid ${RULE}`,
-                padding: "3px 8px", cursor: "pointer", color: INK,
-              }}
-            >
-              {n.tab}
-            </button>
-          ))}
-        </div>
-        <p style={{ ...BODY_SM, color: DIM, margin: "10px 0 0", maxWidth: 820 }}>{activeNux.note}</p>
-        <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
-          All three retire the moment you ask anything. Switch back to see one again.
-        </p>
-      </div>
-
       <div style={{ marginTop: 36 }}>
-        {/* Keyed on both, so changing either starts the surface clean rather than
+        {/* Keyed so switching tabs starts the variant clean rather than
             inheriting the last one's answers in a layout that never held them. */}
-        <React.Fragment key={`${active.key}-${nux}`}>
-          {active.render({ hue, nuxMode: nux })}
-        </React.Fragment>
+        <React.Fragment key={active.key}>{active.render({ hue })}</React.Fragment>
       </div>
     </div>
   );
