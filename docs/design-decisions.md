@@ -1317,3 +1317,67 @@ The axis they actually disagree on is whether an answer is allowed to move the
 text you were reading. Caption band, command bar and unfurl say yes; margin
 notes, pinned cards and the ledger say no, and pay for it in distance between
 the passage and its answer. Nothing is decided until one is picked.
+
+**Round two, same day.** Two survived, the ledger by a clear margin, and the
+reasons given are now the rules the surface is designed against:
+
+1. **The read is never cut.** An answer may not push the paragraph you are
+   reading down the page. Beside the text, under it, or over it. Never inside.
+2. **The passage comes back in colour.** Every answer repeats the passage it
+   came from, filled in the paper's hue. This is what makes an answer findable
+   from a distance, and it is why the ledger works at all.
+3. **Unobtrusive until wanted.** At rest, an answered passage is a coloured mark
+   and at most a small numeral.
+4. **Friendly, not system software.** The bottom-docked command bar was rejected
+   outright ("hideous"). The thing answering has read the paper and is sitting
+   next to you; it is not a command palette.
+
+The kept two were tuned rather than left alone. The **ledger** is two-way now: a
+stamp takes you down to its row, a row's passage takes you back up to the
+sentence and blinks it once, and a small runner rides the bottom corner while an
+answer is being written, because the ledger's one real flaw is that the answer
+arrives a long way from your eyes. **Pinned cards** now tie card and mark in both
+directions (hover either, the other responds) and the card's header carries the
+passage rather than the question, because the passage is what you recognise.
+
+Four replacements, all obeying the rules above: **the spine** (a ruled edge with
+one tick per question at the height of its own line; point at a tick and the
+answer swings out, nothing at rest), **the companion** (a friendly panel in the
+bottom corner that takes the passage as a chip, the honest replacement for the
+command bar, and the only shape that survives a phone), **the drawer** (the
+ledger fixed to the bottom of the reading column so you never travel to it), and
+**the whisper** (no furniture at all: point at a coloured sentence and its answer
+appears in the ink tooltip, click to keep it).
+
+---
+
+## 2026-08-20: Teaching the highlight, in the paper's own colour
+
+Highlight-to-ask is invisible. Nothing about a paragraph says a sentence is a
+thing you can pull on, and a reader who never drags across a line never learns
+that the product has this in it. What ships is a line of small grey text saying
+so, which asks the reader to take a caption's word for it.
+
+Three alternatives, on `/prototype/highlight-ask` as a second axis (any first-run
+option can sit on any answer shape), all of which say it **in the paper's own hue
+and inside the text**, because that is the only place the gesture exists. All
+three retire on the reader's first question.
+
+- **One lit sentence.** The most interesting sentence in the gist arrives already
+  highlighted, with one line above the read saying so. A worked example, not an
+  instruction: this is what a passage you have pulled on looks like. Clicking it
+  asks the default question. The quietest, and the only one that puts no decision
+  in front of a reader who just wants to read.
+- **Three invitations.** Three short phrases lit across the paper, each carrying
+  a question mark and, on hover, the question it would ask. Deliberately three
+  different kinds of question: a mechanism, a number, a limit. It teaches the
+  gesture and its range at once, which one example cannot.
+- **The demo.** Nothing pre-lit. A highlight paints itself across a sentence, the
+  bar appears under it with the default question in it, and both clear. The only
+  one that teaches the *drag* rather than its result. Runs once, replayable,
+  never loops, because a loop is an advertisement.
+
+The trade is between the first two and the third: pre-lighting shows the reader
+the outcome and gives them something to click, but it is a state they will never
+see again and it slightly implies the product picked those sentences as the
+important ones. The demo has no such implication and no clickable payoff.
