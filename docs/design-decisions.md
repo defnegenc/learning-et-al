@@ -1247,3 +1247,73 @@ yourself 3/5 on…"), sitting *inside* the dig, which made a disclosure about th
 writing look like part of the answer. It is now one hairline-bordered block
 filled with the paper's first wash hue — a blue paper gets a blue callout — and
 it sits above the aside, not in it. The wash does the work the label was doing.
+
+---
+
+## 2026-08-20: The highlight is a handoff, and there is one verb
+
+Three settled changes and one open question in the reading view.
+
+**Black while you choose, the paper's colour once you have chosen.** The acid
+green selection is gone. Two problems with it, and neither was the shade. Green
+is this product's word for *that worked* — the bookmark fill, the tag check,
+"All changes saved" — and it was being said about a passage that nothing had yet
+happened to. And it was the same green on every paper, on the one surface whose
+entire colour scheme is the single hue that paper owns.
+
+The interaction is now a handoff between two highlights the system already has.
+While the mouse is down the drag wears the ordinary ink `::selection` from
+`globals.css`, exactly like every other selectable surface in the product. The
+moment it is released, `useSelectionPick` collapses the range on purpose and the
+page redraws those same words as a `<mark>` in the paper's wash hue. The colour
+arriving *is* the confirmation that the passage has been taken.
+
+The cost is real and worth naming: a released selection can no longer be copied,
+because there is no longer a selection to copy. Keyboard selections are exempt
+(they are still being made, so they are never collapsed out from under you), and
+a highlight under `MIN_SELECTION` is left alone, so ordinary word-level copying
+is untouched.
+
+`SELECTION_FILL` is deleted from the design system and the acid rule is absolute
+again: acid is ink, never a fill.
+
+**One verb.** "Dig deeper" is out of the interface entirely. It was never
+distinguishable from "Ask" — same landing place, same shape of answer — and the
+last version papered over that by swapping the button's word, which taught the
+distinction it was trying to remove. The button always reads "Ask". Pressing it
+with an empty field sends `DEFAULT_QUESTION`, "What does this mean?", which is
+what the placeholder quotes, what the model is asked, and what is *stored* as
+the turn's question. The old stored value was `DIG_INTENT`, "Dig deeper on this
+passage." — a sentence no reader ever wrote, sitting in their own thread.
+
+The dig prompt (`DIG_SYSTEM`) is unchanged: it still tells the model to unpack
+the mechanism rather than restate the passage. That was always the good part of
+"dig deeper", and it is a prompt, not a label.
+
+**The wait is the stamp.** Inline waits were reaching for a lucide spinner
+pinned to the left of a line of text, where it reads as a bullet on the
+paragraph above. `PageLoader` gains `inline`: the same square, the same 90°
+steps, the same spectrum shadow, centred in whatever box it is dropped into.
+The answer wait is that, centred, over "Re-reading the paper for that…". Not a
+second loader shape — the same one, unpinned.
+
+**The open question: what an answer looks like.** The shipped answer is an
+indent behind one 2px ink rule with no caption on it, so a folded answer is a
+bare chevron hanging off a paragraph. `/prototype/highlight-ask` puts six models
+side by side, each fully interactive against canned text, each varying three
+things at once: where the bar appears, where the answer lands, and what the
+answer looks like folded.
+
+| | Bar | Answer | Folded |
+|---|---|---|---|
+| **Caption band** | Floats under the selection | Indent behind the 2px rule, unchanged | A head in the paper's hue carrying the question |
+| **Margin notes** | A single square at the end of the passage, opening a composer in the margin | A numbered note in the margin, level with its own line | Numeral and question, one line |
+| **Pinned cards** | A card holding the quoted passage above the field | A full card in the rail, hover lights its mark | The card's hue header alone |
+| **Command bar** | Docked to the bottom of the window, ink reversed, passage as a chip | Full-width band ruled top and bottom, question as a caption column | The caption column alone |
+| **Ledger** | Floats under the selection | A numbered row in a ledger at the foot of the page | A row: numeral, question, its passage |
+| **Unfurl in place** | Floats under the selection | Opens inside the paragraph, at the end of the passage | A chip sitting inline in the sentence |
+
+The axis they actually disagree on is whether an answer is allowed to move the
+text you were reading. Caption band, command bar and unfurl say yes; margin
+notes, pinned cards and the ledger say no, and pay for it in distance between
+the passage and its answer. Nothing is decided until one is picked.

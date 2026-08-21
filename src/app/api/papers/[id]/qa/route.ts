@@ -6,7 +6,7 @@ import { aiChat, aiChatStream, aiConfigFor, type AIMessage } from "@/lib/ai/prov
 import { downloadAndParsePdf, textForPrompt, FULL_TEXT_CAP } from "@/lib/fetchers/pdf";
 import { webSearch, type WebSearchResult } from "@/lib/fetchers/web-search";
 import { getAuthUser } from "@/lib/get-user";
-import { isSectionKey } from "@/lib/reading-thread";
+import { DEFAULT_QUESTION, isSectionKey } from "@/lib/reading-thread";
 import {
   ensurePitchedForYou, familiarityPrompt, pitchedForYou, stripPitchedForYou, topicFromCompanion,
   type FamiliarityTopic,
@@ -27,8 +27,13 @@ export const maxDuration = 300;
  * the reader they can keep reading while the answer arrives.
  */
 
-/** What the reader is asking for when they highlight rather than type. */
-const DIG_INTENT = "Dig deeper on this passage.";
+/**
+ * What the reader is asking for when they highlight and press Ask without
+ * typing. It used to be an internal intent string ("Dig deeper on this
+ * passage."), which is not a sentence any reader wrote — it is stored as their
+ * question, so it is now the plain question the bar offers them.
+ */
+const DIG_INTENT = DEFAULT_QUESTION;
 
 const ASK_SYSTEM = `You are the reader's librarian: you have read this paper closely and you are explaining it to a curious non-expert who is reading your walkthrough of it. You have also searched the web for outside evidence relevant to the reader's question.
 
