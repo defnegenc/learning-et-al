@@ -1,10 +1,20 @@
 /**
  * The reading thread — the shape a paper's conversation takes on both sides.
  *
- * "Ask this paper" and "dig deeper" are one store. A highlight starts a thread,
- * a typed question starts a thread, and a follow-up continues one. What differs
- * is only whether the opening turn quotes a passage.
+ * A highlight and a typed question are one store. A highlight starts a thread, a
+ * typed question starts a thread, and a follow-up continues one. What differs is
+ * only whether the opening turn quotes a passage.
  */
+
+/**
+ * What a highlight asks when the reader presses Ask without typing anything.
+ *
+ * There is no second verb in the interface any more, so this is not a mode — it
+ * is the question the reader was overwhelmingly going to type. Stored verbatim
+ * as the turn's question, so a thread reads back as a conversation rather than
+ * as an internal intent code, and it is what the placeholder in the bar quotes.
+ */
+export const DEFAULT_QUESTION = "What does this mean?";
 
 /** The walkthrough sections a highlight can come from, in reading order. */
 export const SECTION_KEYS = ["gist", "did", "found", "caveats", "remember"] as const;
