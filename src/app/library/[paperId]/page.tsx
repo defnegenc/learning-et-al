@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import type { PaperItem } from "@/lib/types";
 import { NoiseOverlay } from "@/components/noise-overlay";
-import { ReadingPaperDetail, type Provenance } from "@/components/vault/reading-paper-detail";
+import { ReadingPaperDetail } from "@/components/vault/reading-paper-detail";
 import {
   ActionButton, BODY_STYLE, DIM, DISPLAY_LG, PageLoader, SiteHeader, SURFACE,
 } from "@/components/design-system";
@@ -30,7 +30,6 @@ export default function LibraryPaperPage() {
   const { status } = useSession();
 
   const [paper, setPaper] = useState<PaperItem | null>(null);
-  const [provenance, setProvenance] = useState<Provenance | null>(null);
   const [index, setIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +44,6 @@ export default function LibraryPaperPage() {
         const data = await res.json();
         if (cancelled) return;
         setPaper(data.paper);
-        setProvenance(data.provenance ?? null);
         // The hue follows the paper's position in the digest it came from, so
         // the page wears the same wash as the card it was surfaced on.
         setIndex(data.paper?.sourceIndex ?? 0);
@@ -95,7 +93,6 @@ export default function LibraryPaperPage() {
     <ReadingPaperDetail
       paper={paper}
       index={index}
-      provenance={provenance}
       onBack={() => router.back()}
     />
   );
