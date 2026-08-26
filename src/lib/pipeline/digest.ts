@@ -10,6 +10,7 @@ import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
+import { abstractLead } from "@/lib/abstract";
 import { BANNED_WORDS_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
@@ -2056,8 +2057,15 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   // `finalTheme`, and the skeleton no longer drops papers, so there is no data
   // dependency between them — run them concurrently and pay for one round-trip.
   console.log(`[Digest] Stage A + B: generating metadata and argument skeleton...`);
+  // Stage A is the longest structured answer the pipeline ever asks for: a plain
+  // name, a summary, three findings, a takeaway triple, method facts and a claim
+  // for EVERY paper, plus the glossary, in one object. At the default 4096-token
+  // ceiling that runs out mid-array on a wordy model, and on a thinking-by-default
+  // judge model the reasoning is spent from the same budget before a single
+  // character of the answer is written. Size the ceiling to the paper count.
+  const metadataCeiling = Math.min(12000, 4000 + items.length * 1200);
   const [metadataResp, skeletonResp] = await Promise.all([
-    aiComplete(judge, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx)),
+    aiComplete(judge, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx), { maxTokens: metadataCeiling }),
     aiComplete(
       aiConfig,
       "You analyze relationships between research papers and plan argument structures. Return only JSON.",
@@ -2066,15 +2074,45 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   ]);
   logStage("stage A+B (metadata + skeleton)");
 
-  // Stage A: parse metadata
-  let metadata: { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
-  try {
-    const metaParsed = extractJson<typeof metadata>(metadataResp);
-    if (!metaParsed) throw new Error("No JSON");
-    metadata = metaParsed;
-  } catch {
-    console.log(`[Digest] Metadata parse failed, using empty defaults`);
-    metadata = { items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })), keyConcepts: [], suggestedQuestions: [] };
+  // Stage A: parse metadata.
+  //
+  // This is the single call the reader sees most of. Everything on a paper card
+  // except the title and byline comes from here, and the digest view REPLACES a
+  // source's synthesis paragraph with its card, so a card with no metadata is a
+  // raw abstract with nothing around it and the digest reads as three pasted
+  // abstracts. It used to fail to empty defaults on one `console.log`. Now a
+  // shortfall is retried once and reported at error level.
+  const emptyMetadata = () => ({
+    items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })),
+    keyConcepts: [] as string[],
+    suggestedQuestions: [] as string[],
+  });
+  type Metadata = { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
+  const parseMetadata = (raw: string): Metadata | null => {
+    const parsed = extractJson<Metadata>(raw);
+    return parsed && Array.isArray(parsed.items) ? parsed : null;
+  };
+  const covered = (m: Metadata | null) =>
+    m ? m.items.filter(it => it.index >= 1 && it.index <= items.length && !!it.summary?.trim()).length : 0;
+
+  let metadata: Metadata = parseMetadata(metadataResp) ?? emptyMetadata();
+  if (covered(metadata) < items.length) {
+    console.error(`[Digest] Stage A metadata covered ${covered(metadata)}/${items.length} papers (response ${metadataResp.length} chars). Retrying once.`);
+    try {
+      const retryResp = await aiComplete(judge, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx), { maxTokens: metadataCeiling });
+      const retry = parseMetadata(retryResp);
+      // Take the better run wholesale rather than splicing two glossaries
+      // together: keyConcepts and the summaries have to describe the same set of
+      // papers for the synthesis underlining to line up.
+      if (covered(retry) > covered(metadata)) metadata = retry!;
+    } catch (err) {
+      console.error(`[Digest] Stage A metadata retry failed (${err})`);
+    }
+    if (covered(metadata) === 0) {
+      console.error(`[Digest] Stage A metadata is empty after the retry. Cards will fall back to their abstracts.`);
+    } else if (covered(metadata) < items.length) {
+      console.error(`[Digest] Stage A metadata still short: ${covered(metadata)}/${items.length} papers have a summary.`);
+    }
   }
 
   // Sanity check: each summary must share content words with its paper's abstract+title.
@@ -2093,7 +2131,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
     const summaryWords = [...contentWords(aiItem.summary)];
     const overlap = summaryWords.filter(w => paperWords.has(w)).length;
     if (overlap < 2 && summaryWords.length >= 3) {
-      const fallback = (paper.abstract.match(/[^.!?]+[.!?]/)?.[0] ?? paper.abstract.slice(0, 180)).trim();
+      const fallback = abstractLead(paper.abstract);
       console.log(`[Digest] Summary for paper ${aiItem.index} looked disconnected from abstract (overlap=${overlap}). Falling back to abstract lead.`);
       return { ...aiItem, summary: fallback };
     }

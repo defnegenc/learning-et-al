@@ -123,6 +123,23 @@ export interface AIMessage {
   content: string;
 }
 
+/**
+ * The output ceiling most calls run under. Fine for prose and for the small
+ * verdict objects the judge tier returns; NOT fine for a call that has to emit
+ * a plain name, a summary, three findings, a takeaway, method facts and a claim
+ * for every paper in one object. Those pass an explicit `maxTokens`.
+ *
+ * Worth knowing when tuning it: on a thinking-by-default model (Gemini 2.5
+ * Flash, reasoning-enabled OpenAI models) the reasoning tokens are spent out of
+ * this same budget, so the visible answer gets whatever is left.
+ */
+const DEFAULT_MAX_TOKENS = 4096;
+
+export interface AICallOptions {
+  /** Raise the output ceiling for a call whose answer is genuinely long. */
+  maxTokens?: number;
+}
+
 /** Turn a provider failure into something a human can act on. */
 function readableError(config: AIConfig, model: string, e: unknown, maxRetries: number): Error {
   const err = e as { status?: number; message?: string; error?: { message?: string } };
@@ -152,15 +169,24 @@ function readableError(config: AIConfig, model: string, e: unknown, maxRetries: 
  * nothing to resolve against. This is the same call with the messages array
  * exposed; `aiComplete` is now the two-message case of it.
  */
-export async function aiChat(config: AIConfig, messages: AIMessage[]): Promise<string> {
+export async function aiChat(config: AIConfig, messages: AIMessage[], opts?: AICallOptions): Promise<string> {
   const client = new OpenAI(getClientConfig(config));
   const model = config.model || getDefaultModel(config.provider);
+  const maxTokens = opts?.maxTokens ?? DEFAULT_MAX_TOKENS;
 
   const maxRetries = 2;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const response = await client.chat.completions.create({ model, messages, max_tokens: 4096 });
-      return response.choices[0]?.message?.content || "";
+      const response = await client.chat.completions.create({ model, messages, max_tokens: maxTokens });
+      const choice = response.choices[0];
+      // A truncated response is not an error at the API layer: it comes back 200
+      // with a partial body, and the caller's `extractJson` then fails on JSON
+      // that simply stops. Say so, so the cause is in the log next to the
+      // symptom instead of being inferred from an empty digest.
+      if (choice?.finish_reason === "length") {
+        console.warn(`[AI] Response hit the ${maxTokens}-token ceiling and was cut off (model ${model}). The caller will see truncated output.`);
+      }
+      return choice?.message?.content || "";
     } catch (e: unknown) {
       const status = (e as { status?: number }).status;
       if (status === 429 && attempt < maxRetries - 1) {
@@ -204,10 +230,11 @@ export async function* aiChatStream(config: AIConfig, messages: AIMessage[]): As
 export async function aiComplete(
   config: AIConfig,
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  opts?: AICallOptions
 ): Promise<string> {
   return aiChat(config, [
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt },
-  ]);
+  ], opts);
 }

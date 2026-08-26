@@ -6,6 +6,7 @@ import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./s
 import { PaperCard, paperByline } from "@/components/paper-card";
 import { ActionButton, BODY_STYLE, DIM, INK, InkTip } from "@/components/design-system";
 import { DefinitionTerm, parseDefinitions } from "./definition-term";
+import { stripSectionLabel } from "@/lib/abstract";
 
 /* ---- verdict parsing: **[Source N] name** → paper chips, concept terms → hover defs ---- */
 
@@ -113,7 +114,7 @@ export function toLines(paragraphs: string[], defs: { term: string; def: string 
  */
 function PaperChip({ paper, label, cap, onOpen }: { paper: PaperItem; label: string; cap: boolean; onOpen: (p: PaperItem) => void }) {
   const [hover, setHover] = useState(false);
-  const summary = paper.summary || paper.abstract || "";
+  const summary = stripSectionLabel(paper.summary || paper.abstract || "");
   return (
     <span style={{ position: "relative", display: "inline" }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <button

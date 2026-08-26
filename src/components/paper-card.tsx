@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bookmark, Info } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
+import { stripSectionLabel } from "@/lib/abstract";
 import { announceSave } from "@/lib/save-nux";
 import {
   BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
@@ -244,7 +245,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
   // dark to read a highlight through. See `foundationalSlots`.
   const mark = foundational ? foundationalSlots()[0] : washSlots(index)[0];
 
-  const body = (paper.summary || paper.abstract || "").trim();
+  // The abstract is the fallback when the pipeline's summary is missing, and a
+  // structured abstract arrives pre-labelled ("BACKGROUND: …"). The label must
+  // not end up set in the hero line.
+  const body = stripSectionLabel(paper.summary || paper.abstract || "").trim();
   const hero = body.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || body;
   const byline = paperByline(paper);
 
