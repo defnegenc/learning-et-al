@@ -5,6 +5,16 @@ import { eq, and, desc, asc, inArray, or } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 import { LIST_COLUMNS, attachNewsFullText } from "@/lib/db/paper-payload";
 
+function parseArray<T>(value: string | null): T[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as T[] : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(req: NextRequest) {
   await ensureSchema();
   const userId = await getAuthUser(req);
@@ -88,9 +98,10 @@ export async function GET(req: NextRequest) {
 
     const parsedDigest = {
       ...digest,
-      keyConcepts: digest.keyConcepts ? JSON.parse(digest.keyConcepts) : [],
-      suggestedQuestions: digest.suggestedQuestions ? JSON.parse(digest.suggestedQuestions) : [],
-      seedInterests: digest.seedInterests ? JSON.parse(digest.seedInterests) : [],
+      keyConcepts: parseArray<string>(digest.keyConcepts),
+      suggestedQuestions: parseArray<string>(digest.suggestedQuestions),
+      suggestedAnswers: parseArray<string>(digest.suggestedAnswers),
+      seedInterests: parseArray<{ keyword: string; field: string }>(digest.seedInterests),
     };
     // A shared digest is readable, not co-owned. Keep its author's notes and
     // pipeline diagnostics out of the importing reader's authenticated payload.
@@ -110,10 +121,10 @@ export async function GET(req: NextRequest) {
       digest: responseDigest,
       papers: digestPapers.map((p) => ({
         ...p,
-        authors: p.authors ? JSON.parse(p.authors) : [],
-        keywords: p.keywords ? JSON.parse(p.keywords) : [],
-        keyFindings: p.keyFindings ? JSON.parse(p.keyFindings) : [],
-        methodFacts: p.methodFacts ? JSON.parse(p.methodFacts) : [],
+        authors: parseArray<string>(p.authors),
+        keywords: parseArray<string>(p.keywords),
+        keyFindings: parseArray<string>(p.keyFindings),
+        methodFacts: parseArray<string>(p.methodFacts),
         connectionReason: p.connectionReason || null,
       })),
     }, {
