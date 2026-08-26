@@ -988,7 +988,7 @@ function Glossary({ terms, pending, open, onToggle }: {
  * to keep pulling on the one you are on.
  */
 function Conversation({
-  threads, numberOf, starters, hue, headerWash, pending, streaming, failed, linked,
+  threads, numberOf, starters, hue, pending, streaming, failed, linked, open, onToggle,
   logRef, onLink, onJumpToPassage, onAsk,
   familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity,
   ratingOffer, ratingValue, onRating, onSkipRating, offerOn,
@@ -997,8 +997,11 @@ function Conversation({
   /** The numeral a passage-anchored thread wears, matching the prose. */
   numberOf: Map<string, number>;
   starters: string[];
+  /** The paper's flat colour. Not the wash: in this column colour is a fill. */
   hue: string;
-  headerWash: React.CSSProperties;
+  /** Folded until the reader highlights something or opens it. */
+  open: boolean;
+  onToggle: () => void;
   /** The companion is still reading the paper, so there is nothing to ask yet. */
   pending: boolean;
   streaming: boolean;
@@ -1033,15 +1036,50 @@ function Conversation({
     setDraft("");
   };
 
-  return (
-    <div className="reading-talk" style={{ border: BORDER, boxShadow: SHADOW, background: SURFACE, display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <div style={{ ...headerWash, padding: "14px 18px", borderBottom: BORDER, flexShrink: 0 }}>
-        <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Reading with you</h2>
-        <p style={{ ...BODY_SM, margin: "4px 0 0" }}>
-          Highlight anything in the paper, or just ask. I read the paper, then check it against current web sources.
-        </p>
-      </div>
+  const exchanges = threads.reduce((n, t) => n + t.turns.length, 0);
 
+  return (
+    <div
+      className="reading-talk"
+      style={{
+        border: BORDER, boxShadow: SHADOW, background: SURFACE,
+        display: "flex", flexDirection: "column", minHeight: 0,
+        // Folded, it is a bar. Open, it takes the rest of the rail.
+        flex: open ? "1 1 auto" : "0 0 auto",
+      }}
+    >
+      {/* Flat colour, not the card wash. A soft three-blob gradient behind a
+          20px heading in a 420px column reads as a smudge; the passages below
+          it are filled with the same colour flat, and a column should say one
+          thing one way. */}
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        style={{
+          background: hue, border: "none", borderBottom: open ? BORDER : "none",
+          padding: "14px 18px", cursor: "pointer", textAlign: "left", flexShrink: 0,
+          display: "flex", alignItems: "flex-start", gap: 12, width: "100%",
+        }}
+      >
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ ...DISPLAY_SM, display: "block" }}>Reading with you</span>
+          <span style={{ ...BODY_SM, display: "block", marginTop: 4 }}>
+            {open
+              ? "Highlight anything in the paper, or just ask. I read the paper, then check it against current web sources."
+              : exchanges > 0
+                ? `${exchanges} question${exchanges === 1 ? "" : "s"} so far. Highlight anything, or open this and ask.`
+                : "Highlight anything in the paper, or open this and ask."}
+          </span>
+        </span>
+        {streaming && !open && <PageLoader inline />}
+        <ChevronDown
+          size={18}
+          style={{ flexShrink: 0, marginTop: 2, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+        />
+      </button>
+
+      {!open ? null : (
+      <>
       <div ref={logRef} style={{ overflowY: "auto", padding: "0 18px", flex: 1, minHeight: 0 }}>
         {pending && (
           <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0" }}>
@@ -1058,24 +1096,23 @@ function Conversation({
               data-thread-id={thread.id}
               onMouseEnter={() => onLink(thread.id)}
               onMouseLeave={() => onLink(null)}
-              style={{
-                padding: "16px 0",
-                borderTop: ti === 0 ? "none" : HAIRLINE,
-                // Lit from either end: hovering the sentence in the prose, or
-                // clicking it to come here.
-                boxShadow: lit ? `inset 2px 0 0 0 ${INK}` : "none",
-                paddingLeft: lit ? 12 : 0,
-                transition: "padding-left 120ms",
-              }}
+              // Nothing here moves on hover and nothing grows a second rule.
+              // It used to slide right behind an inset ink line, which put two
+              // vertical rules beside one answer and shifted the text you were
+              // reading. The lit state lives on the passage instead.
+              style={{ padding: "16px 0", borderTop: ti === 0 ? "none" : HAIRLINE }}
             >
               {thread.selection && (
-                // The passage, in the paper's hue, and it is the way back.
+                // The passage, in the paper's flat colour, and it is the way
+                // back. Lit, it takes the ink underline a marked passage wears
+                // in the prose: same signal, both ends, no movement.
                 <button
                   onClick={() => onJumpToPassage(thread.id)}
                   title="Take me back to this sentence"
                   style={{
                     display: "flex", alignItems: "flex-start", gap: 8, width: "100%", textAlign: "left",
                     background: hue, border: "none", padding: "8px 10px", margin: "0 0 10px", cursor: "pointer",
+                    boxShadow: lit ? `0 2px 0 0 ${INK}` : "none",
                   }}
                 >
                   {n !== undefined && (
@@ -1198,6 +1235,8 @@ function Conversation({
         </div>
         {failed && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>}
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -1275,6 +1314,11 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // appear in the list you asked to keep it in.
   const [pendingTerms, setPendingTerms] = useState<string[]>([]);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  // Folded until it has something to say. The rail is beside a paper someone
+  // came here to read, and an open panel with three suggested questions in it
+  // is the product asking for attention before the reader has spent any. It
+  // opens itself the moment a question is asked, from anywhere.
+  const [talkOpen, setTalkOpen] = useState(false);
 
   // The one live tie between a passage and the part of the conversation about
   // it. Whichever end you point at, both respond, and clicking either end takes
@@ -1384,6 +1428,10 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const ask = useCallback(async (payload: AskPayload) => {
     if (streamingTurn) return;
     setAskError(null);
+    // Asking anything unfolds the conversation. The panel is closed by default,
+    // so this is the one thing that has to open it, and it has to happen before
+    // the first token rather than with it.
+    setTalkOpen(true);
     const handlers = {
       start: (e: StartEvent) => {
         setStreamingTurn(e.id);
@@ -1794,8 +1842,9 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
             numberOf={numberOf}
             starters={companion?.questions ?? []}
             hue={hue}
-            headerWash={washStyle}
             pending={companionPending}
+            open={talkOpen}
+            onToggle={() => setTalkOpen(v => !v)}
             streaming={!!streamingTurn}
             failed={askError}
             linked={linked}
