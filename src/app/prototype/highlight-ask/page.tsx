@@ -11,6 +11,12 @@ import {
 /*
  * Highlight to ask, six ways. /prototype/highlight-ask
  *
+ * DECIDED, 2026-08-20: the reading view ships the companion, widened into the
+ * rail and holding one conversation (see `Conversation` in
+ * `vault/reading-paper-detail.tsx`). This page stays as the record of what was
+ * tried and why, and as the place to try the next thing. It is not what the
+ * product does any more.
+ *
  * Round two. Round one put six shapes up and two of them survived, for reasons
  * that are now the brief for everything on this page:
  *
