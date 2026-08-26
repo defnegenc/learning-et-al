@@ -1577,3 +1577,23 @@ Three different answers, because it is three different questions.
   beat above its own answer is exactly what the old inline panel did wrong. The
   whole passage stays the anchor and stays marked in the paper, and the chip is
   the way back to reading it there.
+
+### Three corrections, same evening
+
+**Flat colour, not the wash.** The conversation's header wore the card wash, a
+three-blob radial gradient, which at 420px behind a 20px heading reads as a
+smudge rather than as a colour. It is the paper's flat hue now, the same fill the
+passages below it wear. One column, one way of saying one thing. (`Remember
+this` keeps the wash: it is the object the page opened from, and its background
+has to stay light enough to read a hue-marked passage through.)
+
+**Nothing moves on hover.** A hovered block used to slide right behind an inset
+ink rule, which put a second vertical line beside an answer that already has one,
+and shifted the text under the cursor. The lit state is now an ink underline on
+the passage chip: the same signal a marked passage wears in the prose, at both
+ends of the tie, with no movement at all.
+
+**Folded by default.** The glossary folds and the conversation did not, which
+made the one thing the reader has not used yet the loudest thing in the column.
+It opens the moment a question is asked from anywhere, and until then it is a bar
+saying what it is for.
