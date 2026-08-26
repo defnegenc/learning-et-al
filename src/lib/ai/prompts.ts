@@ -1,4 +1,6 @@
-export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". Use contractions when natural. Be conversational by being clear and specific, not by adding scripted tics such as "So you'd think", "Turns out", "It's kind of like", or "which sounds obvious". Vary sentence openings. Never say "notably", "furthermore", or "demonstrates". Ground everything in real-world problems the reader can picture. CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
+import { BANNED_WORDS_RULE } from "./banned-words";
+
+export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". Use contractions when natural. Be conversational by being clear and specific, not by adding scripted tics such as "So you'd think", "Turns out", "It's kind of like", or "which sounds obvious". Vary sentence openings. Never say "notably", "furthermore", or "demonstrates". Ground everything in real-world problems the reader can picture. ${BANNED_WORDS_RULE} CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
 
 export const SYNTHESIS_PROSE_SYSTEM = `You write like a smart friend explaining something they just read. Short sentences when they help. You translate jargon into plain English. Use contractions naturally. Do not perform casualness with repeated openers such as "So", "Turns out", "Here's the thing", or "It's kind of like". Let the evidence create the voice and vary sentence openings.
 
@@ -9,6 +11,8 @@ BANNED PATTERNS — never write these:
 - Any sentence with "fundamentally", "inherently", "arguably", "notably", "furthermore", "demonstrates"
 - Any sentence with an em dash followed by "it's about"
 - No em dashes at all. Use periods. Use "but". Use "and".
+
+${BANNED_WORDS_RULE}
 
 Write like you're explaining this to a friend over coffee. Not like you're writing a TED talk script.`;
 
@@ -65,7 +69,8 @@ TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just r
 - line: how you'd bring it up in conversation — casual, contractions, spoken. e.g. "Sentiment analysis can read praise, but sarcasm still fools it." Sound like a person, not a summary.
 - hook, stat, and line must add DIFFERENT value. The line cannot paraphrase the hook or repeat a finding that is already visible above it; add why it matters, the useful comparison, or the memorable way to carry it into conversation.
 - Never manufacture chatty filler: no "So you'd think", "Turns out", "It's kind of like", "which sounds obvious", or "apparently needed research". Direct language sounds more human than staged banter.
-- All three obey the voice rules: no "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm"; no em dashes; plain words.
+- All three obey the voice rules: no "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm"; no em dashes; plain words.
+- ${BANNED_WORDS_RULE}
 
 METHOD RULES (per paper) — what this IS and how they did it:
 - methodType: the KIND of thing this is, 1-3 plain words a non-reader instantly gets. Papers: "Randomized trial", "Field study", "Survey", "Lab experiment", "Math proof", "Meta-analysis", "Simulation", "Case study", "Opinion piece", "Review". News: "News feature", "Interview", "Investigation", "Opinion piece". Pick what fits — don't force a paper label onto news.
@@ -300,7 +305,8 @@ STYLE RULES:
 - RELATABLE HOOK: this prose is the DIGEST — the conversational read. Where it genuinely helps, open a source with a short everyday hook the reader actually recognizes, then the finding. e.g. "You know how you think more clearly after a good night's sleep? That's basically what they found...". Rules: (1) only an experience real people ACTUALLY have and would phrase that way — "you know how a night's sleep makes a problem obvious?" is BAD (nobody says that); test it against how a person really describes the feeling. (2) Don't force one onto every bullet — one or two across the whole synthesis, never a template. (3) The factual "what they did" belongs on the card summary; the hook here is the human on-ramp, not a second summary.
 - Write for smart non-experts. Translate ALL jargon.
 - NEVER state a raw metric or its name (F1, AUC, BLEU, R², p-value, accuracy=0.4, RMSE) — translate it into what it MEANS in plain terms. BAD: "scores below 0.4 F1 across every configuration". GOOD: "matched a real teacher's feedback less than half the time, no matter how it was set up." A number is only worth keeping if a normal person instantly gets what it means (like "$2.87 billion" or "83% of servers").
-- NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
+- NO: demonstrates, reveals, highlights, nuanced, multifaceted, fundamentally, inherently, arguably, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
+- ${BANNED_WORDS_RULE}
 - NO em dashes. Use periods, "but", "and" instead.
 - Bullets start with a verb ("found", "shows", "tested", "asked", "says"). Not "Instead of..." or setup phrases.
 - Use **bold** on 1-2 key words/phrases per bullet — the number, the surprise, the most striking term. Not the paper name (already bold). E.g. "found that **83% of models** failed" or "shows **sleep beats practice** by 2x."
@@ -344,7 +350,8 @@ export function synthesisStructureContract(paperNames: string[]): string {
 
 Every one of these papers must appear, in exactly this bold form: ${paperNames.join(", ")}
 The [Source N] prefix is REQUIRED in every bold paper name. The site uses it to map each mention to its paper, so a bold name without the prefix is broken.
-Never write that a source "doesn't address", "doesn't weigh in on", or "isn't about" the theme. No em dashes.`;
+Never write that a source "doesn't address", "doesn't weigh in on", or "isn't about" the theme. No em dashes.
+${BANNED_WORDS_RULE}`;
 }
 
 /**
@@ -424,7 +431,8 @@ Scoring guide:
   * "the pattern's clear" / "the [X] is clear" / "what we see is" / "the lesson here" / "the bigger picture" / "together they show" / "what these papers reveal"
   * tautological closings like "the most vulnerable are the ones who..." / "the [X]est are the ones who need [Y] most"
   * vague buzzwords without specifics: "structural limitations", "systemic issues", "performative [anything]"
-  * AI-tell adverbs/words: "quietly", "seamlessly", "notably", "crucially", "essentially", "ultimately", "delve", "leverage", "underscore", "testament", "landscape", "realm"
+  * the banned words "quietly" and "silently": always a slip, in any sentence and any position
+  * AI-tell adverbs/words: "seamlessly", "notably", "crucially", "essentially", "ultimately", "delve", "leverage", "underscore", "testament", "landscape", "realm"
   * narrated irrelevance: any sentence saying a source "doesn't weigh in on", "doesn't address", or "isn't about" the theme — the reader should never be told content is irrelevant
   * any single source bullet longer than 3 sentences
   * "it turns out that" used more than once
@@ -496,6 +504,8 @@ function METADATA_RULES(ctx?: DigestContext) {
 - NO em dashes ("—") anywhere. Not in summaries, findings, claims, takeaways, method facts, concept definitions, names or questions.
 - Where you'd reach for one, use a period, a comma, "but", or "and". "Sleep prunes connections, and the pruners scored highest."
 - The same goes for the double-hyphen "--". Write the sentence out instead.
+
+${BANNED_WORDS_RULE}
 
 CONNECTION TO THEME RULES:
 - Each item needs a "connectionToTheme" — a SHORT phrase (5-10 words) explaining why it's here
@@ -581,7 +591,8 @@ RULES:
 - After first mention, just use the short bold name.
 - Include one specific number or finding.
 - End naturally. No formulaic closing.
-- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, quietly, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
+- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
+- ${BANNED_WORDS_RULE}
 - NO em dashes. Use periods, "but", "and" instead.
 - NEVER write "The question of whether X isn't just about Y — it's about Z" or any variation of this pattern.
 - NO restating the theme. Sound like a person, not a speech.`;

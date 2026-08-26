@@ -32,14 +32,19 @@ This means:
 ## Hard Rules
 
 1. **No em dashes (—)** — use commas, periods, or "but" instead. Em dashes feel academic and formulaic.
-2. **Name papers conversationally** — the way you'd refer to them in conversation. "the McKinsey fashion report" not "Fashion 2026". "a Nigerian banking study" not "Driving Sustainable Growth (2026)".
-3. **Explain each paper enough** — the reader should understand what was studied, what was found, and why it matters. Not just "Paper X found Y" but "Paper X looked at Z, and discovered Y, which matters because W."
-4. **Cocktail party knowledge** — could someone repeat this at dinner and sound smart? If not, it's too abstract.
-5. **No academic language** — ban list: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, "it's deeply about", "This kind of", "This shows how", "The real lesson." ESPECIALLY banned: "The question of whether X isn't just about Y — it's about Z" and any "isn't merely/just X — it's fundamentally Y" pattern. These sound like TED talks, not humans.
-6. **No restating the theme** — don't start with "Today's question is..." or restate what was already in the title.
-7. **One paragraph** — keep it tight. If it needs two paragraphs, the second should be very short.
-8. **Include one specific number or finding** — concrete detail anchors the whole piece.
-9. **Only discuss what's in the papers** — never hallucinate connections or bring up topics not covered.
+2. **Never "quietly" or "silently"**: banned outright, in the headline and in
+   every sentence of the digest, no exceptions. Drop the adverb or say who
+   noticed. The rule text lives once in `src/lib/ai/banned-words.ts`
+   (`BANNED_WORDS_RULE`), goes into every prompt that writes copy, gates the
+   headline, and is stripped from the digest on its way into the database.
+3. **Name papers conversationally** — the way you'd refer to them in conversation. "the McKinsey fashion report" not "Fashion 2026". "a Nigerian banking study" not "Driving Sustainable Growth (2026)".
+4. **Explain each paper enough** — the reader should understand what was studied, what was found, and why it matters. Not just "Paper X found Y" but "Paper X looked at Z, and discovered Y, which matters because W."
+5. **Cocktail party knowledge** — could someone repeat this at dinner and sound smart? If not, it's too abstract.
+6. **No academic language** — ban list: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, "it's deeply about", "This kind of", "This shows how", "The real lesson." ESPECIALLY banned: "The question of whether X isn't just about Y — it's about Z" and any "isn't merely/just X — it's fundamentally Y" pattern. These sound like TED talks, not humans.
+7. **No restating the theme** — don't start with "Today's question is..." or restate what was already in the title.
+8. **One paragraph** — keep it tight. If it needs two paragraphs, the second should be very short.
+9. **Include one specific number or finding** — concrete detail anchors the whole piece.
+10. **Only discuss what's in the papers** — never hallucinate connections or bring up topics not covered.
 
 ## What Worked
 

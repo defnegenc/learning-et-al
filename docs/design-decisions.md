@@ -1317,3 +1317,44 @@ The axis they actually disagree on is whether an answer is allowed to move the
 text you were reading. Caption band, command bar and unfurl say yes; margin
 notes, pinned cards and the ledger say no, and pay for it in distance between
 the passage and its answer. Nothing is decided until one is picked.
+
+---
+
+## 2026-08-25: "Quietly" and "silently" are banned words, with a mechanism
+
+The ban was already given, verbally, more than once. It shipped anyway: "Will
+advertisers quietly corrupt how AI guides us?" ran as the 2026-08-25 headline.
+
+Reading the code explains why. "Quietly" appeared in four prompt bodies as one
+item in a long AI-tell list ("no quietly, seamlessly, notably, delve, leverage,
+underscore, landscape, realm"), which is a taste hint, not a rule: a model
+weighing fourteen soft preferences will trade one away for a sentence it likes.
+"Silently" was in none of them. And `THEME_TASTE_RULES`, the block that governs
+the headline, carried no word list at all, so the one line every reader sees
+first was the least protected string in the product.
+
+A verbal rule that lives only in a prompt is a preference. The em-dash ban had
+already established the shape a real rule takes here, so this one copies it:
+
+1. **One place.** `src/lib/ai/banned-words.ts` owns `BANNED_WORDS` and the
+   `BANNED_WORDS_RULE` prompt text. Every prompt that writes reader-facing copy
+   interpolates the rule instead of restating it, which is what stopped the
+   old list from drifting into four versions.
+2. **A gate on the headline.** `themeProblemsWithoutSources` rejects a candidate
+   containing a banned word, so the existing repair path rewrites it before the
+   cold reader ever sees it. Deterministic, no extra model call.
+3. **A scrub on the way to the database.** `stripBannedWords` runs over the
+   theme, the gist, the synthesis, the key concepts and every per-paper field at
+   the insert in `digest.ts`, plus the companion's parsed fields. Deleting an
+   adverb always leaves a grammatical sentence, which is what makes a mechanical
+   last resort safe (an em dash needs a judgement call about what replaces it;
+   "quietly" does not).
+
+**Where the scrub deliberately is not:** `aiChat`. Putting it at the provider
+choke point would strip the word from the critique's own `bannedPhrasesFound`
+array, so the revision prompt would list an empty bullet and the sentence would
+survive. The scrub belongs where text is known to be reader-facing.
+
+The one surface still on prompt-only enforcement is a streamed Ask or Explain
+answer, because the reader watches the tokens arrive and there is nothing to
+scrub before they see them.

@@ -10,6 +10,7 @@ import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
+import { BANNED_WORDS_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -328,6 +329,7 @@ const THEME_TASTE_RULES = `TASTE RULES — every question or headline you write 
   GOOD: "Can AI read emotion in text and brainwaves?" — same idea, but graspable.
 - DON'T IMPORT THE STUDY DESIGN. Papers examine one exhibit, one classroom, one app — because that's how studies work, not because that's the question. "Is one museum exhibit ever enough to teach anything?" is a study talking; "Are museums actually good at teaching us?" is a person talking. Import the subject, never the unit of analysis — unless the number itself is the surprise.
 - NO INSIDER ACRONYMS. If a smart non-expert can't expand it at the dinner table, spell out what it does in human terms: "TTOs" → "the university offices that decide which inventions become startups." AI and VC pass; TTO, HCI, RCT, LLM do not. Appearing in the sources does not make an acronym legible.
+- ${BANNED_WORDS_RULE}
 - ONE INTENSIFIER AT MOST. "ever", "actually", "truly", "really", "anything", "always", "never" — one can sharpen a line, but two stacked ("is one exhibit EVER enough to teach ANYTHING?") read as dismissive rhetoric rather than curiosity.
 - LENGTH: aim for 8 words; HARD MAX ${MAX_THEME_WORDS}. Keep a natural spoken sentence when it earns the extra words.`;
 
@@ -473,6 +475,10 @@ function themeProblemsWithoutSources(theme: string): string[] {
     .filter(acronym => !HOUSEHOLD_ACRONYMS.has(acronym));
   if (insiderAcronyms.length > 0) {
     problems.push(`It uses INSIDER ACRONYM${insiderAcronyms.length > 1 ? "S" : ""} ${[...new Set(insiderAcronyms)].map(a => `"${a}"`).join(", ")} that a smart non-expert cannot expand. Spell out the human meaning instead.`);
+  }
+  const banned = bannedWordsIn(theme);
+  if (banned.length > 0) {
+    problems.push(`It uses the BANNED WORD${banned.length > 1 ? "S" : ""} ${banned.map(w => `"${w}"`).join(", ")}. These are never allowed in a headline. Cut the adverb, or say who noticed and what they saw.`);
   }
   const intensifiers = theme.match(INTENSIFIERS) || [];
   if (intensifiers.length > 1) {
@@ -2315,7 +2321,9 @@ ${headlineConceptBlock}
 Today's synthesis:
 ${synthesis}
 
-VOICE: Sound like a real person talking to a friend. Use contractions. Plain words. NO AI-speak — never use "quietly", "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm", "testament", "at the frontier". No em dashes. No "the studies show".
+VOICE: Sound like a real person talking to a friend. Use contractions. Plain words. NO AI-speak — never use "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm", "testament", "at the frontier". No em dashes. No "the studies show".
+
+${BANNED_WORDS_RULE}
 
 EVIDENCE GUARD: Every claim in the gist must be supported by the synthesis. Do not invent a psychological mechanism to make the answer sound complete. Avoid "everyone", "every", "always", and "never" unless the sources actually establish that universal claim.
 
@@ -2350,12 +2358,30 @@ Return JSON (no markdown fences):
   }
   logStage("gist");
 
+  // Last line of defence for the banned words. Every prompt that writes copy
+  // carries the rule and the headline has a gate in front of it, but a model
+  // that ignores both would otherwise put "quietly" in front of the reader, on
+  // the site and in the email. Everything below this point reads from the row,
+  // so scrubbing on the way in covers the digest, the email and the OG image at
+  // once. Dropping the adverb is always grammatical, so there is nothing to
+  // repair afterwards.
+  const bannedInCopy = [
+    ...bannedWordsIn(finalTheme),
+    ...bannedWordsIn(parsedAI.synthesis),
+    ...bannedWordsIn(gist),
+  ];
+  if (bannedInCopy.length > 0) {
+    console.log(`[Digest] Banned word${bannedInCopy.length > 1 ? "s" : ""} survived every prompt (${[...new Set(bannedInCopy)].join(", ")}), stripping before save`);
+  }
+  finalTheme = stripBannedWords(finalTheme);
+  gist = stripBannedWords(gist);
+
   const [digest] = await db.insert(digests).values({
     userId, date: today,
     theme: finalTheme,
-    synthesisContent: parsedAI.synthesis,
-    keyConcepts: JSON.stringify(parsedAI.keyConcepts || []),
-    suggestedQuestions: JSON.stringify(suggestedQuestions),
+    synthesisContent: stripBannedWords(parsedAI.synthesis),
+    keyConcepts: JSON.stringify((parsedAI.keyConcepts || []).map(stripBannedWords)),
+    suggestedQuestions: JSON.stringify(suggestedQuestions.map(stripBannedWords)),
     suggestedAnswers: JSON.stringify(suggestedAnswers),
     seedInterests: JSON.stringify(seedInterests),
     seedTopic: seedTopic ? JSON.stringify({
@@ -2378,18 +2404,18 @@ Return JSON (no markdown fences):
         digestId: digest.id,
         title: item.title, authors: JSON.stringify(item.authors),
         abstract: item.abstract, fullText: item.abstract,
-        summary: aiItem.summary, plainName: aiItem.plainName || null,
-        takeawayHook: aiItem.takeaway?.hook || null,
-        takeawayStat: aiItem.takeaway?.stat || null,
-        takeawayLine: aiItem.takeaway?.line || null,
+        summary: stripBannedWords(aiItem.summary), plainName: stripBannedWordsMaybe(aiItem.plainName) || null,
+        takeawayHook: stripBannedWordsMaybe(aiItem.takeaway?.hook) || null,
+        takeawayStat: stripBannedWordsMaybe(aiItem.takeaway?.stat) || null,
+        takeawayLine: stripBannedWordsMaybe(aiItem.takeaway?.line) || null,
         methodType: aiItem.methodType || null,
-        methodFacts: aiItem.methodFacts?.length ? JSON.stringify(aiItem.methodFacts) : null,
-        claim: aiItem.claim || null,
+        methodFacts: aiItem.methodFacts?.length ? JSON.stringify(aiItem.methodFacts.map(stripBannedWords)) : null,
+        claim: stripBannedWordsMaybe(aiItem.claim) || null,
         source: item.source,
         sourceUrl: item.sourceUrl, pdfUrl: item.pdfUrl,
         keywords: JSON.stringify(aiItem.keywords),
-        keyFindings: JSON.stringify(aiItem.findings || []),
-        connectionReason: aiItem.connectionToTheme || null,
+        keyFindings: JSON.stringify((aiItem.findings || []).map(stripBannedWords)),
+        connectionReason: stripBannedWordsMaybe(aiItem.connectionToTheme) || null,
         category: item.category,
         foundationalReason: item.foundationalReason || null,
         year: item.year,
