@@ -81,7 +81,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - BM25 is computed against `theme + all 3 queries` for the same reason.
 
 Quality boosts (scaled to RRF range):
-- `recencyBonus`: +0.0035 current year, +0.0015 last year
+- `recencyBonus`: +0.007 current year, +0.003 last year. This only reorders papers that already cleared the relevance floor.
 - `venueBoost`: `venueQualityBoost(venue, domain) * 0.03` (0 to ~0.0024)
 - `instBoost`: `institutionBoost(institutions) * 0.03` (0 to ~0.0015)
 - `tasteBoost`: 0 to 0.02 — cosine to the nearest **saved-paper centroid** (`lib/librarian/dossier.ts`), ramped from 0.30 to 0.65 similarity. Applied to `score` only, **never to `relSim`**, so it reorders the qualified pool and can never qualify an off-theme paper. Max over clusters, not mean: one strong match to a cluster is the signal, and averaging it against the reader's other interests would erase it. Absent (0) for any reader with no dossier yet.
@@ -106,7 +106,8 @@ If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the
 Selection criteria:
 - Selects papers that each contribute something DIFFERENT
 - Creates genuine TENSION (supports + complicates + alternative mechanism)
-- Uses recency only as a tie-break when relevance, insight, and complementarity are otherwise equal
+- If a current-year candidate passes the relevance gate, keeps at least one; with three slots it prefers two when both add distinct evidence
+- Uses recency as a tie-break for the remaining choices
 - Returns `selectedIndices`, `selectionReasoning`, `coreTension`, `argumentArc`, `paperRoles`
 - Falls back to top-N by score if LLM fails.
 - Note: `argumentArc` and `paperRoles` from this step are currently discarded — Stage B re-derives them. Could be consolidated.
@@ -140,6 +141,8 @@ After all items are assembled, papers are scored on two dimensions:
 - **Insight** (1-3): does it offer a surprising or useful lens?
 
 Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** off-topic and weak-adjacent papers are dropped when ≥2 sources remain — 2 coherent sources beat 3 where the headline and synthesis have to stretch around filler. The rubric explicitly rejects generic neighboring work (for example, a general trustworthy-financial-app review does not belong in a dark-pattern digest merely because both mention UX and trust). Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
+
+**Current-evidence floor:** after re-ranking, if no academic source is from the current year but a current-year paper remains in the qualified pool, the pipeline adds it to an open slot or replaces the lowest-scored non-news paper. This is not a relevance override: the replacement must have passed the same theme and quality filters as the rest of `qualified`. The final-source editor is instructed to preserve one current-year academic source, and its exclusion list is constrained from removing all of them. If no current-year work qualifies, the digest degrades honestly instead of inserting an off-topic paper.
 
 ### Step 4c: Foundational Lane (1-2 OpenAlex calls + AI gate, conditional)
 
