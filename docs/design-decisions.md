@@ -1597,3 +1597,54 @@ ends of the tie, with no movement at all.
 made the one thing the reader has not used yet the loudest thing in the column.
 It opens the moment a question is asked from anywhere, and until then it is a bar
 saying what it is for.
+
+---
+
+## 2026-08-26: Highlighting puts the passage in the conversation
+
+The floating bar over the selection is gone. Highlighting now does one thing:
+the passage arrives in the conversation, the panel opens, and the cursor is in
+the field. This is the prototype's companion gesture, and it is better than a
+bar for a reason worth writing down: what you are about to ask about stays
+legible, in the paper's colour, in the place the answer will appear, while you
+type the question. A bar floating over the sentence covered the thing it was
+about.
+
+The passage is **held state** now, not the live selection. It stays until it is
+asked about or dropped with the ×, and the ordinary ink selection is collapsed
+the moment it is taken, so the words are marked in the paper's hue rather than
+by the browser.
+
+**This is also the fix for "highlighting stopped working after the first time",
+which was two bugs.** The passage used to live in a `pick` state cleared by a
+document-wide capture-phase `scroll` listener, so anything that scrolled between
+the release and the question threw it away, and the rail scrolls itself. And
+`ask()` opened with `if (streamingTurn) return`, so a second question asked
+while a five-second answer was still streaming did nothing at all, silently.
+Questions **queue** now: asked while another is being written, they run in order,
+and the log says how many are in line. The wait tip has said "highlight anything
+else while you wait" this whole time, which was a promise the code did not keep.
+
+`MIN_SELECTION` drops from 16 to 3. Sixteen characters was defensible when a
+highlight could only start a conversation, but a word is now something you can
+do something with: double-click "criterion" and the panel offers to define it
+and keep it.
+
+### Flatter, wider, and the questions are centred
+
+- **No numerals.** The tie between a passage and its block is the passage
+  itself, in colour, at both ends. A numbered square inside a filled chip inside
+  a block above an answer behind a rule is four frames deep for one answer.
+- **No rule down the answer** either. Passage in colour, question in bold,
+  answer in plain text.
+- **480px, not 372.** It is a conversation, not a stack of notes.
+- **Bottom-aligned.** Folded, the glossary and the conversation sit in the
+  bottom right corner of the screen instead of floating at the top of a column
+  of nothing. Open, the conversation grows upward into the space above them.
+- **The interleaved question has no rule above it and is centred** in its own
+  block, skip underneath. It is a question being asked *of* the reader, not
+  another section of the answer, and a left-aligned scale under a left-aligned
+  answer read as one more paragraph.
+- **The suggested questions are gone.** Three model-written questions sitting in
+  the panel before the reader has asked anything is the product filling its own
+  silence.
