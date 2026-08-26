@@ -605,6 +605,24 @@ const TASTE_MAX_BOOST = 0.02;
 const TASTE_FLOOR = 0.30;
 const TASTE_RANGE = 0.35;
 
+// Fresh evidence matters because the digest uses papers to describe the world as
+// it stands now. This is deliberately a ranking signal and a qualified floor,
+// not a way around relevance: only papers that already passed the normal theme
+// gates can satisfy it.
+const CURRENT_YEAR_RECENCY_BONUS = 0.007;
+const PREVIOUS_YEAR_RECENCY_BONUS = 0.003;
+
+function recencyBonus(year: number | undefined, currentYear: number): number {
+  const age = year ? currentYear - year : 2;
+  if (age <= 0) return CURRENT_YEAR_RECENCY_BONUS;
+  if (age === 1) return PREVIOUS_YEAR_RECENCY_BONUS;
+  return 0;
+}
+
+function isCurrentYearPaper(item: { category: TaggedItem["category"]; year?: number }, currentYear: number): boolean {
+  return item.category !== "news" && item.category !== "foundational" && item.year === currentYear;
+}
+
 const SIM_ONTOPIC  = 0.25; // strong match — clearly about the theme
 const SIM_MIDPOINT = 0.20; // moderate match — related but not directly on-topic
 const SIM_FALLBACK = 0.18; // last-resort fallback (raised from 0.15 — 0.15 lets in too much)
@@ -1216,10 +1234,9 @@ Return JSON only (no markdown):
     .map((p, i) => {
       const relSim = embeddingSims[i];
       const rrfScore = rrfScores[i];
-      const age = p.year ? currentYear - p.year : 2;
-      // A gentle current-year tie-break. Relevance still dominates qualification,
-      // and foundational work enters later through its own deliberately old lane.
-      const recencyBonus = age <= 0 ? 0.0035 : age === 1 ? 0.0015 : 0;
+      // Recency reorders only the already-qualified pool. Foundational work enters
+      // later through its own deliberately old lane.
+      const freshnessBoost = recencyBonus(p.year, currentYear);
       const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
       // Taste prior: how near this sits to a cluster of papers the reader has
       // actually saved. Deliberately capped BELOW the venue signal and applied
@@ -1227,7 +1244,7 @@ Return JSON only (no markdown):
       // taste can reorder the qualified pool but can never let an off-theme
       // paper into it. Upstream scoring is a filter; this is a nudge inside it.
       const tasteBoost = TASTE_MAX_BOOST * Math.min(1, Math.max(0, (tasteSimilarity(taste.centroids, resultEmbs[i]) - TASTE_FLOOR) / TASTE_RANGE));
-      const score = rrfScore + recencyBonus + venueBoost + tasteBoost;
+      const score = rrfScore + freshnessBoost + venueBoost + tasteBoost;
       if (venueBoost !== 0) {
         console.log(`[Digest] Venue signal: "${p.title.slice(0, 50)}" ${venueBoost > 0 ? "+" : ""}${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
       }
@@ -1605,6 +1622,7 @@ Return JSON only (no markdown):
   // aspectual relevance: "does this offer a useful, surprising lens on the question?"
   // LLM re-ranking on the shortlist bridges this gap (audit 4.1).
   const paperItems = items.filter(i => i.category !== "news");
+  const rejectedByEditorialRerank = new Set<string>();
   if (paperItems.length >= 2) {
     try {
       const rerankList = paperItems.map((p, i) =>
@@ -1661,6 +1679,7 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
             const isWeak = combined <= 3; // relevance=2 + insight=1 or similar
 
             if (isOffTopic || isWeak) {
+              rejectedByEditorialRerank.add(normTitle(items[itemIdx].title));
               const replacement = qualified.find(({ p, relSim }) =>
                 !seenTitles.has(normTitle(p.title)) &&
                 !items.some(it => it.title === p.title) &&
@@ -1698,6 +1717,56 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
     }
   }
   logStage("step4b re-rank");
+
+  // Keep at least one current-year academic source whenever the qualified pool
+  // contains one. Ranking and the model selector both prefer fresh work, but
+  // neither is a guarantee: MMR may trade it for diversity, and the editorial
+  // re-ranker may trade it for contrast. The replacement still comes from
+  // `qualified`, so freshness never bypasses the normal relevance gates.
+  const freshnessYear = new Date().getFullYear();
+  if (!items.some(item => isCurrentYearPaper(item, freshnessYear))) {
+    const selectedTitleKeys = new Set(items.map(item => normTitle(item.title)));
+    const freshCandidate = qualified.find(({ p }) =>
+      p.year === freshnessYear
+      && !selectedTitleKeys.has(normTitle(p.title))
+      && !rejectedByEditorialRerank.has(normTitle(p.title))
+    );
+
+    if (freshCandidate) {
+      const freshItem: TaggedItem = {
+        title: freshCandidate.p.title,
+        authors: freshCandidate.p.authors,
+        abstract: freshCandidate.p.abstract,
+        sourceUrl: freshCandidate.p.sourceUrl,
+        pdfUrl: freshCandidate.p.pdfUrl || undefined,
+        source: freshCandidate.p.source,
+        year: freshCandidate.p.year,
+        openAlexId: freshCandidate.p.openAlexId || undefined,
+        category: "recent",
+      };
+
+      if (items.length < TOTAL_ITEMS) {
+        items.push(freshItem);
+        console.log(`[Digest] Freshness floor: added current-year paper "${freshItem.title.slice(0, 60)}"`);
+      } else {
+        const scoreByTitle = new Map(qualified.map(candidate => [normTitle(candidate.p.title), candidate.score]));
+        const replaceIndex = items
+          .map((item, index) => ({ item, index, score: scoreByTitle.get(normTitle(item.title)) ?? -Infinity }))
+          .filter(({ item }) => item.category !== "news" && item.category !== "foundational")
+          .sort((a, b) => a.score - b.score || (a.item.year || 0) - (b.item.year || 0))[0]?.index;
+
+        if (replaceIndex != null) {
+          const replaced = items[replaceIndex];
+          items[replaceIndex] = freshItem;
+          console.log(`[Digest] Freshness floor: replaced "${replaced.title.slice(0, 45)}" (${replaced.year || "year unknown"}) with "${freshItem.title.slice(0, 45)}" (${freshItem.year})`);
+        }
+      }
+      seenTitles.add(normTitle(freshItem.title));
+    } else {
+      console.log(`[Digest] Freshness floor: no eligible current-year paper remained after relevance and editorial gates`);
+    }
+  }
+  logStage("freshness floor");
 
   // ─── Step 4c: Foundational lane, started here and merged after Step 5 ────────
   // Step 5 already filters foundational items out of its headline sources, so it
@@ -1768,6 +1837,7 @@ First identify the real editorial thread:
 - Can every source make an honest contribution to that same thread without a clever stretch?
 
 If a source only fits after climbing to a generic umbrella (for example, a generic financial-app UX review in a digest about manipulative dark patterns), put its index in excludeIndices. Disagreement is not a reason to exclude; adjacency without contribution is. Keep at least 2 sources.
+Keep at least one ${freshnessYear} academic paper when the source list contains one. The digest makes claims about the present, so its freshest qualified evidence cannot all be edited away.
 
 Then write the question a curious person would genuinely ask after seeing that thread. It should create an information gap: the reader understands the subject immediately, but wants the evidence before deciding the answer.
 
@@ -1837,8 +1907,20 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       theme?: string;
     }>(reviseResp);
 
-    const requestedExclusions = [...new Set(reviseParsed?.excludeIndices || [])]
+    let requestedExclusions = [...new Set(reviseParsed?.excludeIndices || [])]
       .filter(index => Number.isInteger(index) && index >= 1 && index <= sourcesForHeadline.length);
+    const currentYearAcademicIndices = sourcesForHeadline
+      .map((source, index) => ({ source, index: index + 1 }))
+      .filter(({ source }) => isCurrentYearPaper(source, freshnessYear))
+      .map(({ index }) => index);
+    if (
+      currentYearAcademicIndices.length > 0
+      && currentYearAcademicIndices.every(index => requestedExclusions.includes(index))
+    ) {
+      const protectedIndex = currentYearAcademicIndices[0];
+      requestedExclusions = requestedExclusions.filter(index => index !== protectedIndex);
+      console.log(`[Digest] Editorial exclusions preserved source ${protectedIndex}, the last current-year academic paper`);
+    }
     const mayApplyExclusions = requestedExclusions.length > 0
       && sourcesForHeadline.length - requestedExclusions.length >= Math.min(2, sourcesForHeadline.length);
     const excludedIndexSet = mayApplyExclusions ? new Set(requestedExclusions) : new Set<number>();
