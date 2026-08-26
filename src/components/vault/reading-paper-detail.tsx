@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, ChevronDown, Loader2, MessageCircle } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, Loader2 } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
@@ -12,7 +12,7 @@ import {
   type PitchedForYou,
 } from "@/lib/familiarity";
 import {
-  DEFAULT_QUESTION, askThreads, digThreads, digsForSection, groupThreads,
+  DEFAULT_QUESTION, digThreads, digsForSection, groupThreads,
   type ReadingThread, type SectionKey, type ThreadTurn,
 } from "@/lib/reading-thread";
 import {
@@ -529,14 +529,16 @@ function useSelectionPick(scope: React.RefObject<HTMLElement | null>, enabled: b
  * the beat the passage came from, so the passage, the question and the answer
  * stay in one place.
  */
-function SelectionMenu({ pick, onDig, onAsk }: {
+function SelectionMenu({ pick, onDig, onAsk, onDefine }: {
   pick: Pick;
   /** Ask with an empty field — sends `DEFAULT_QUESTION`. */
   onDig: () => void;
   onAsk: (question: string) => void;
+  /** Only offered for something term-shaped. See `looksLikeTerm`. */
+  onDefine: (() => void) | null;
 }) {
   const [draft, setDraft] = useState("");
-  const WIDTH = 340;
+  const WIDTH = onDefine ? 400 : 340;
   const left = Math.min(Math.max(12, pick.x - WIDTH / 2), window.innerWidth - WIDTH - 12);
   const top = Math.min(pick.y + 10, window.innerHeight - 80);
   const typed = draft.trim();
@@ -573,12 +575,41 @@ function SelectionMenu({ pick, onDig, onAsk }: {
           border: "none", outline: "none", padding: "10px 12px",
         }}
       />
+      {/* The second verb, and it is only here when it means something. A word is
+          a thing you look up and keep; a sentence is a thing you ask about. The
+          bar offers "keep" only for the first, which is why this is not the
+          "Ask" / "Dig deeper" pair again: those two did the same thing. */}
+      {onDefine && !typed && (
+        <button onMouseDown={onDefine} style={{ ...menuButton, borderLeft: BORDER }} title="Define this and keep it in the glossary">
+          + Glossary
+        </button>
+      )}
       <button onMouseDown={submit} style={{ ...menuButton, borderLeft: BORDER }}>
         Ask
       </button>
     </div>
   );
 }
+
+/**
+ * Is this highlight a word, or is it a passage?
+ *
+ * The honest answer to "what if someone highlights a really long section": you
+ * do not offer to define it. A definition is for something you could look up,
+ * so the glossary control appears for a short, punctuation-free run of a few
+ * words and nowhere else. Everything longer is a passage, and a passage is a
+ * thing you ask about.
+ */
+function looksLikeTerm(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > MAX_TERM_LENGTH) return false;
+  if (t.split(/\s+/).length > 5) return false;
+  // A clause, not a term.
+  return !/[.!?;:]/.test(t.slice(0, -1));
+}
+
+/** A term is a term. Past this it is a sentence. Mirrors the API's own cap. */
+const MAX_TERM_LENGTH = 60;
 
 const menuButton: React.CSSProperties = {
   ...BODY_SM,
@@ -795,174 +826,6 @@ function InterleaveQuestion({ familiarityOffer, familiarityValue, onFamiliarity,
   return null;
 }
 
-/**
- * An answer, as a card in the rail.
- *
- * It used to be an indent behind a 2px rule directly under the beat, which had
- * two problems the reader named at once. It cut the read: the paragraph you were
- * halfway through moved down the page the moment an answer arrived. And folded,
- * it was a bare chevron hanging off a paragraph with nothing on it to say what
- * it was.
- *
- * So the answer leaves the column. Each one is a card in the rail wearing the
- * full frame and the one shadow, headed by **the passage it came from, filled in
- * the paper's own hue** — which is the part that makes this work at a distance.
- * You never have to hold in your head which highlight this card was, so it does
- * not need to sit next to the sentence to be findable.
- *
- * The tie to the prose is a numeral and it runs both ways: hover a card and its
- * sentence darkens in the text, hover a sentence and its card lifts, click
- * either to be taken to the other.
- */
-function DigCard({
-  thread, n, index, hue, streaming, error, onFollowUp, defaultOpen, linked, onLink, onJumpToPassage,
-  familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity,
-  ratingOffer, ratingValue, onRating, onSkipRating,
-}: {
-  thread: ReadingThread;
-  /** What it wears in the prose. */
-  n: number;
-  /** Position in the rail, for the aria label only. */
-  index: number;
-  hue: string;
-  streaming: boolean;
-  error?: string | null;
-  onFollowUp: (question: string) => void;
-  /** Fresh answers open; ones rehydrated on load stay folded. */
-  defaultOpen: boolean;
-  linked: boolean;
-  onLink: (linked: boolean) => void;
-  onJumpToPassage: () => void;
-  familiarityOffer?: FamiliarityTopic | null;
-  familiarityValue?: FamiliarityValue | null;
-  onFamiliarity: (level: number) => void;
-  onSkipFamiliarity: () => void;
-  ratingOffer: boolean;
-  ratingValue?: number | null;
-  onRating: (level: number) => void;
-  onSkipRating: () => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const [open, setOpen] = useState(defaultOpen);
-  const empty = thread.turns.every(turn => !turn.answer);
-  const owed = !!familiarityOffer || ratingOffer;
-
-  return (
-    <div
-      data-card-id={thread.id}
-      onMouseEnter={() => onLink(true)}
-      onMouseLeave={() => onLink(false)}
-      style={{
-        border: BORDER, background: SURFACE, boxShadow: SHADOW,
-        transform: linked ? "translate(-2px, -2px)" : "none",
-        transition: "transform 120ms",
-      }}
-    >
-      <div style={{ background: hue, borderBottom: open ? BORDER : "none", padding: "10px 12px", display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <button
-          onClick={onJumpToPassage}
-          title="Take me back to this sentence"
-          aria-label={`Go back to passage ${n} in the paper`}
-          style={{
-            ...BODY_SM, fontWeight: 600, lineHeight: "18px",
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 20, height: 20, flexShrink: 0, border: BORDER_HAIR,
-            background: INK, color: SURFACE, cursor: "pointer", padding: 0,
-          }}
-        >
-          {n}
-        </button>
-        {/* The passage, not the question. The passage is what you recognise.
-            Folded it is clamped to two lines, because a card you have put away
-            should be the size of a label; open, it is the whole sentence. */}
-        <span
-          style={{
-            ...BODY_SM, flex: 1, minWidth: 0,
-            ...(open ? {} : {
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical" as const,
-              overflow: "hidden",
-            }),
-          }}
-        >
-          {thread.selection}
-        </span>
-        <button
-          onClick={() => setOpen(v => !v)}
-          aria-expanded={open}
-          aria-label={open ? `Fold answer ${index + 1}` : `Unfold answer ${index + 1}`}
-          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK, display: "flex", flexShrink: 0 }}
-        >
-          <ChevronDown size={16} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }} />
-        </button>
-      </div>
-
-      {open && (
-        <div style={{ padding: "12px 14px 14px" }}>
-          {/* The interleave's one question, above the answer and outliving the
-              wait. It used to live inside the wait and be replaced by the
-              answer, so a question you were half a second slow to reach for
-              disappeared under the thing you were waiting for. */}
-          {owed && (
-            <div style={{ paddingBottom: 14, marginBottom: 14, borderBottom: HAIRLINE }}>
-              <InterleaveQuestion
-                familiarityOffer={familiarityOffer}
-                familiarityValue={familiarityValue}
-                onFamiliarity={onFamiliarity}
-                onSkipFamiliarity={onSkipFamiliarity}
-                ratingOffer={ratingOffer}
-                ratingValue={ratingValue}
-                onRating={onRating}
-                onSkipRating={onSkipRating}
-                waiting={empty && streaming}
-              />
-            </div>
-          )}
-
-          {empty && streaming ? (
-            <DigWait showTips={!owed} />
-          ) : (
-            <>
-              {thread.turns.map((turn, i) => (
-                <div key={turn.id} style={{ borderTop: i === 0 ? "none" : HAIRLINE, paddingTop: i === 0 ? 0 : 14, marginTop: i === 0 ? 0 : 14 }}>
-                  <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
-                  <p style={{ ...BODY_SM, margin: 0 }}>
-                    {turn.answer}
-                    {streaming && i === thread.turns.length - 1 && !turn.answer && (
-                      <span style={{ color: MUTED, fontStyle: "italic" }}>Looking it up&hellip;</span>
-                    )}
-                  </p>
-                </div>
-              ))}
-
-              {error && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "12px 0 0" }}>{error}</p>}
-
-              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                <TextInput
-                  value={draft}
-                  onChange={setDraft}
-                  onKeyDown={e => { if (e.key === "Enter" && draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
-                  placeholder="Follow up on this…"
-                  ariaLabel="Follow up on this passage"
-                />
-                <ActionButton
-                  onClick={() => { if (draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
-                  shadow={false}
-                  disabled={!draft.trim() || streaming}
-                  style={{ flexShrink: 0 }}
-                >
-                  Ask
-                </ActionButton>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** One beat of the walkthrough: a Display/SM heading over a paragraph. */
 function Beat({ heading, sectionKey, children }: {
   heading: string;
@@ -1054,61 +917,45 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
 }
 
 /**
- * The recap of every hard word, in the top right corner and nowhere else.
+ * The recap of every hard word, above the conversation in the rail.
  *
- * The chips in the prose define each term where you meet it, so this is only for
- * the ones the companion flagged but never used, and for looking a word back up.
- * That is a corner-of-the-page job. It used to be a panel in the rail, which
- * gave a reference list the same weight as the answers the reader made
- * themselves, and the rail now holds nothing but those.
+ * The chips in the prose define each term where you meet it; this catches the
+ * ones the companion flagged but never used in its own copy, holds the ones the
+ * reader added themselves, and gives you somewhere to look a word back up.
  *
- * Closed by default, and it closes on Escape or on a click anywhere else, which
- * is what makes it safe to hang over the read rather than push it down.
+ * Collapsed by default, because it is reference and not read, and it opens in
+ * place rather than in a menu over the page: it belongs beside the conversation,
+ * which is the other thing in this column you build up as you go.
  */
-function GlossaryMenu({ terms }: { terms: Jargon[] }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("mousedown", away);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
-
+function Glossary({ terms, pending, open, onToggle }: {
+  terms: Jargon[];
+  /** Words the reader just added, still being defined. */
+  pending: string[];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const count = terms.length + pending.length;
   return (
-    <div ref={box} style={{ position: "relative", flexShrink: 0 }}>
+    <div style={{ border: BORDER, background: SURFACE, padding: "12px 16px", flexShrink: 0 }}>
       <button
-        onClick={() => setOpen(v => !v)}
+        onClick={onToggle}
         aria-expanded={open}
-        style={{
-          ...BODY_SM, display: "inline-flex", alignItems: "center", gap: 8,
-          background: SURFACE, color: INK, border: BORDER, padding: "10px 14px",
-          cursor: "pointer",
-        }}
+        style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
       >
-        Glossary ({terms.length})
+        <span style={{ flex: 1 }}>Glossary ({count})</span>
         <ChevronDown
-          size={15}
-          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+          size={16}
+          style={{ color: MUTED, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
         />
       </button>
       {open && (
-        <dl
-          style={{
-            position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 30,
-            width: 360, maxWidth: "calc(100vw - 40px)", maxHeight: 380, overflowY: "auto",
-            border: BORDER, boxShadow: SHADOW, background: SURFACE,
-            margin: 0, padding: "4px 16px 14px",
-          }}
-        >
+        <dl style={{ margin: "10px 0 0", maxHeight: "32vh", overflowY: "auto" }}>
+          {pending.map(term => (
+            <div key={`pending-${term}`} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+              <dt style={{ ...BODY_SM, fontWeight: 600 }}>{term}</dt>
+              <dd style={{ ...BODY_SM, color: MUTED, fontStyle: "italic", margin: "2px 0 0" }}>Looking it up&hellip;</dd>
+            </div>
+          ))}
           {terms.map(g => (
             <div key={g.term} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
               <dt style={{ ...BODY_SM, fontWeight: 600 }}>{g.term}</dt>
@@ -1122,42 +969,58 @@ function GlossaryMenu({ terms }: { terms: Jargon[] }) {
 }
 
 /**
- * Ask this paper — the companion, floating in the bottom right.
+ * The conversation. One panel, one thread of talk, filling the rail.
  *
- * It was a panel in the rail, which put a conversation you might never have and
- * a reference list you rarely open in the same column as the answers you made
- * yourself. Now the rail holds only your answers, and asking is a small square
- * in the corner that is there on every paper, at every scroll position, open or
- * folded, and never in the read.
+ * This replaces two things that were both trying to be it: a stack of answer
+ * cards in the rail and a separate "Ask this paper" panel in the corner. Two
+ * places to look for one conversation, split by whether a question happened to
+ * start from a highlight, which is not a distinction a reader holds.
  *
- * This is where a question that is not about any particular sentence goes: the
- * three the companion suggests, and anything you type. Questions anchored to a
- * highlighted passage are cards in the rail instead, because those have a place
- * in the paper to belong to and these do not.
+ * So: everything lands here, in the order it happened. A question that started
+ * from a passage carries that passage at the top of its block, filled in the
+ * paper's hue and clickable — press it and the read scrolls back to the sentence
+ * it came from. Clicking the sentence in the prose does the reverse and lights
+ * its block here. That two-way tie is the whole reason the answers can live in
+ * a column of their own without becoming a separate document.
  *
- * Threaded: a question and its follow-ups go to the model together, so "and the
- * second one?" resolves against what was just said.
+ * The composer at the bottom continues the conversation rather than starting a
+ * new one, which is what makes it a chat: highlight to change the subject, type
+ * to keep pulling on the one you are on.
  */
-function AskCompanion({ threads, starters, headerWash, pending, onAsk, onFollowUp, streaming, failed }: {
+function Conversation({
+  threads, numberOf, starters, hue, headerWash, pending, streaming, failed, linked,
+  logRef, onLink, onJumpToPassage, onAsk,
+  familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity,
+  ratingOffer, ratingValue, onRating, onSkipRating, offerOn,
+}: {
   threads: ReadingThread[];
+  /** The numeral a passage-anchored thread wears, matching the prose. */
+  numberOf: Map<string, number>;
   starters: string[];
+  hue: string;
   headerWash: React.CSSProperties;
   /** The companion is still reading the paper, so there is nothing to ask yet. */
   pending: boolean;
-  onAsk: (question: string) => void;
-  onFollowUp: (threadId: string, question: string) => void;
   streaming: boolean;
   failed: string | null;
+  /** The thread being pointed at, from either end. */
+  linked: string | null;
+  logRef: React.RefObject<HTMLDivElement | null>;
+  onLink: (threadId: string | null) => void;
+  onJumpToPassage: (threadId: string) => void;
+  onAsk: (question: string) => void;
+  familiarityOffer?: FamiliarityTopic | null;
+  familiarityValue?: FamiliarityValue | null;
+  onFamiliarity: (level: number) => void;
+  onSkipFamiliarity: () => void;
+  ratingOffer: boolean;
+  ratingValue?: number | null;
+  onRating: (level: number) => void;
+  onSkipRating: () => void;
+  /** Which thread the interleave's one question belongs to. */
+  offerOn: string | null;
 }) {
-  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
-  const log = useRef<HTMLDivElement>(null);
-
-  // A new question should not land below the fold of a panel this small.
-  useEffect(() => {
-    if (!open) return;
-    log.current?.scrollTo({ top: log.current.scrollHeight, behavior: "smooth" });
-  }, [threads.length, open]);
 
   const asked = new Set(threads.flatMap(t => t.turns.map(turn => turn.question)));
   const remaining = starters.filter(q => !asked.has(q));
@@ -1165,84 +1028,128 @@ function AskCompanion({ threads, starters, headerWash, pending, onAsk, onFollowU
 
   const submit = () => {
     const q = draft.trim();
-    if (!q || streaming) return;
+    if (!q || streaming || pending) return;
     onAsk(q);
     setDraft("");
   };
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Ask this paper"
-        title="Ask this paper"
-        className="reading-companion-tab"
-        style={{
-          position: "fixed", right: 24, bottom: 24, zIndex: 10020,
-          width: 52, height: 52, border: BORDER, boxShadow: SHADOW, background: SURFACE,
-          color: INK, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        }}
-      >
-        {streaming ? <PageLoader inline /> : <MessageCircle size={22} />}
-      </button>
-    );
-  }
-
   return (
-    <div
-      id="ask-this-paper"
-      className="reading-companion"
-      style={{
-        position: "fixed", right: 24, bottom: 24, zIndex: 10020,
-        width: 380, maxWidth: "calc(100vw - 32px)", maxHeight: "min(70vh, 620px)",
-        display: "flex", flexDirection: "column",
-        border: BORDER, boxShadow: SHADOW, background: SURFACE,
-      }}
-    >
-      <div style={{ ...headerWash, padding: "14px 16px", borderBottom: BORDER, flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
-          <p style={{ ...BODY_SM, margin: "4px 0 0" }}>
-            Anything at all. I read the paper, then check it against current web sources.
-          </p>
-        </div>
-        <button
-          onClick={() => setOpen(false)}
-          aria-label="Fold this away"
-          style={{ background: "none", border: "none", padding: 0, color: INK, cursor: "pointer", display: "flex", flexShrink: 0 }}
-        >
-          <ChevronDown size={18} />
-        </button>
+    <div className="reading-talk" style={{ border: BORDER, boxShadow: SHADOW, background: SURFACE, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div style={{ ...headerWash, padding: "14px 18px", borderBottom: BORDER, flexShrink: 0 }}>
+        <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Reading with you</h2>
+        <p style={{ ...BODY_SM, margin: "4px 0 0" }}>
+          Highlight anything in the paper, or just ask. I read the paper, then check it against current web sources.
+        </p>
       </div>
 
-      <div ref={log} style={{ overflowY: "auto", padding: "0 16px", flex: 1, minHeight: 0 }}>
+      <div ref={logRef} style={{ overflowY: "auto", padding: "0 18px", flex: 1, minHeight: 0 }}>
         {pending && (
           <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0" }}>
             Still reading the paper. Ask anything once it&rsquo;s done.
           </p>
         )}
 
-        {threads.map((thread, ti) => (
-          <div key={thread.id} style={{ padding: "14px 0", borderTop: ti === 0 ? "none" : HAIRLINE }}>
-            {thread.turns.map((turn, i) => (
-              <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 14 }}>
-                <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
-                  <p style={{ ...BODY_SM, margin: 0 }}>
-                    {turn.answer || <span style={{ color: MUTED }}>Looking it up&hellip;</span>}
-                  </p>
+        {threads.map((thread, ti) => {
+          const n = numberOf.get(thread.id);
+          const lit = linked === thread.id;
+          return (
+            <div
+              key={thread.id}
+              data-thread-id={thread.id}
+              onMouseEnter={() => onLink(thread.id)}
+              onMouseLeave={() => onLink(null)}
+              style={{
+                padding: "16px 0",
+                borderTop: ti === 0 ? "none" : HAIRLINE,
+                // Lit from either end: hovering the sentence in the prose, or
+                // clicking it to come here.
+                boxShadow: lit ? `inset 2px 0 0 0 ${INK}` : "none",
+                paddingLeft: lit ? 12 : 0,
+                transition: "padding-left 120ms",
+              }}
+            >
+              {thread.selection && (
+                // The passage, in the paper's hue, and it is the way back.
+                <button
+                  onClick={() => onJumpToPassage(thread.id)}
+                  title="Take me back to this sentence"
+                  style={{
+                    display: "flex", alignItems: "flex-start", gap: 8, width: "100%", textAlign: "left",
+                    background: hue, border: "none", padding: "8px 10px", margin: "0 0 10px", cursor: "pointer",
+                  }}
+                >
+                  {n !== undefined && (
+                    <span
+                      aria-hidden
+                      style={{
+                        ...BODY_SM, fontWeight: 600, lineHeight: "18px",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        width: 20, height: 20, flexShrink: 0, border: BORDER_HAIR,
+                        background: INK, color: SURFACE,
+                      }}
+                    >
+                      {n}
+                    </span>
+                  )}
+                  {/* Three lines, then an ellipsis. A reader can highlight half
+                      a beat, and reprinting half a beat at the top of its own
+                      answer is the thing the old panel did wrong. The whole
+                      passage is still the anchor, and it is still marked in the
+                      paper: press this to go and read it there. */}
+                  <span
+                    style={{
+                      ...BODY_SM, flex: 1, minWidth: 0,
+                      display: "-webkit-box", WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical" as const, overflow: "hidden",
+                    }}
+                  >
+                    {thread.selection}
+                  </span>
+                </button>
+              )}
+
+              {thread.turns.map((turn, i) => (
+                <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
+                  <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {turn.answer
+                        ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
+                        : <DigWait showTips={offerOn !== thread.id} />}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-            <FollowUpRow disabled={streaming} onSubmit={q => onFollowUp(thread.id, q)} />
-          </div>
-        ))}
+              ))}
+
+              {/* The interleave's one question, under the answer it interrupted
+                  and outliving the wait: it used to be inside the wait and be
+                  replaced by the answer, so a question you were half a second
+                  slow to reach for vanished under the thing you were waiting
+                  for. It stays until it is answered or waved off. */}
+              {offerOn === thread.id && (familiarityOffer || ratingOffer) && (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: HAIRLINE }}>
+                  <InterleaveQuestion
+                    familiarityOffer={familiarityOffer}
+                    familiarityValue={familiarityValue}
+                    onFamiliarity={onFamiliarity}
+                    onSkipFamiliarity={onSkipFamiliarity}
+                    ratingOffer={ratingOffer}
+                    ratingValue={ratingValue}
+                    onRating={onRating}
+                    onSkipRating={onSkipRating}
+                    waiting={thread.turns.every(t => !t.answer)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {!pending && remaining.length > 0 && (
           <div style={{ paddingBottom: 4 }}>
             {empty && (
-              <p style={{ ...BODY_SM, color: MUTED, margin: "14px 0 0" }}>
+              <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0 0" }}>
                 Three I thought you&rsquo;d want:
               </p>
             )}
@@ -1252,12 +1159,12 @@ function AskCompanion({ threads, starters, headerWash, pending, onAsk, onFollowU
                 onClick={() => onAsk(q)}
                 disabled={streaming}
                 style={{
-                  ...BODY_SM,
+                  ...BODY_STYLE,
                   display: "flex", gap: 10, width: "100%", textAlign: "left",
                   border: "none",
                   borderTop: empty && i === 0 ? "none" : HAIRLINE,
                   background: "transparent",
-                  padding: "12px 0",
+                  padding: "14px 0",
                   cursor: streaming ? "default" : "pointer",
                   opacity: streaming ? 0.4 : 1,
                 }}
@@ -1270,13 +1177,13 @@ function AskCompanion({ threads, starters, headerWash, pending, onAsk, onFollowU
         )}
       </div>
 
-      <div style={{ padding: "12px 16px", borderTop: BORDER, flexShrink: 0 }}>
+      <div style={{ padding: "12px 18px", borderTop: BORDER, flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 8 }}>
           <TextInput
             value={draft}
             onChange={setDraft}
             onKeyDown={e => { if (e.key === "Enter") submit(); }}
-            placeholder="Ask your own question…"
+            placeholder={threads.length ? "Keep going…" : "Ask anything about this paper…"}
             ariaLabel="Ask a question about this paper"
           />
           <ActionButton
@@ -1294,49 +1201,6 @@ function AskCompanion({ threads, starters, headerWash, pending, onAsk, onFollowU
     </div>
   );
 }
-
-/** The quiet "keep going" line under a thread in the rail. */
-function FollowUpRow({ disabled, onSubmit }: { disabled: boolean; onSubmit: (q: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: "12px 0 0", cursor: "pointer", color: DIM }}
-      >
-        + Follow up
-      </button>
-    );
-  }
-
-  const submit = () => {
-    const q = draft.trim();
-    if (!q) return;
-    onSubmit(q);
-    setDraft("");
-    setOpen(false);
-  };
-
-  return (
-    <div style={{ marginTop: 12 }}>
-      <TextInput
-        value={draft}
-        onChange={setDraft}
-        onKeyDown={e => { if (e.key === "Enter") submit(); }}
-        placeholder="Follow up…"
-        ariaLabel="Follow up"
-        autoFocus
-      />
-      <ActionButton onClick={submit} shadow={false} disabled={!draft.trim() || disabled} style={{ width: "100%", marginTop: 8 }}>
-        Ask
-      </ActionButton>
-    </div>
-  );
-}
-
-/* ── The page ────────────────────────────────────────────────────────────── */
 
 /**
  * The reading view: the companion walkthrough, the digs it produced, then the
@@ -1406,27 +1270,47 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // time, not close over whatever it was when the dig started.
   const streamingRef = useRef<string | null>(null);
 
-  // The one live tie between a passage and its card. Whichever one you are
-  // pointing at, both respond: the sentence takes an underline, the card lifts.
+  // Words the reader added from the bar, still being defined. They show in the
+  // glossary immediately, greyed, because a word you just asked to keep should
+  // appear in the list you asked to keep it in.
+  const [pendingTerms, setPendingTerms] = useState<string[]>([]);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
+
+  // The one live tie between a passage and the part of the conversation about
+  // it. Whichever end you point at, both respond, and clicking either end takes
+  // you to the other. Set by a hover, or by a jump, in which case it is a flash
+  // that fades on its own so the block you were sent to is obvious for a beat.
   const [linked, setLinked] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const proseRef = useRef<HTMLDivElement>(null);
-  const railRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+
   const [pick, setPick, nativeSelectionLive] = useSelectionPick(proseRef, !companionPending);
 
-  const jumpToCard = useCallback((threadId: string) => {
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+
+  const flash = useCallback((threadId: string) => {
     setLinked(threadId);
-    railRef.current
-      ?.querySelector(`[data-card-id="${threadId}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setLinked(null), 1600);
   }, []);
 
+  /** Click a highlighted passage: go to what we said about it. */
+  const jumpToTalk = useCallback((threadId: string) => {
+    flash(threadId);
+    logRef.current
+      ?.querySelector(`[data-thread-id="${threadId}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [flash]);
+
+  /** And the reverse: click the passage in the conversation, go to the sentence. */
   const jumpToPassage = useCallback((threadId: string) => {
-    setLinked(threadId);
+    flash(threadId);
     proseRef.current
       ?.querySelector(`[data-mark-id="${threadId}"]`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, []);
+  }, [flash]);
 
   useEffect(() => { setTipSeen(nuxSeen(READING_TIP_KEY)); }, []);
 
@@ -1608,16 +1492,13 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
   useEffect(() => () => { if (offerTimer.current) clearTimeout(offerTimer.current); }, []);
 
-  // A new answer lands at the bottom of a stack that may already be taller than
-  // the rail, so bring its card into view. Only for an answer started in this
-  // session: `lastDigThreadId` is set from the stream's own start event, never
-  // from rehydrating a paper you asked about last week.
+  // A new question lands at the bottom of a conversation that may already be
+  // taller than the panel, so keep the foot of it in view. Chat rules: the
+  // newest thing is the thing you are looking at.
   useEffect(() => {
-    if (!lastDigThreadId) return;
-    railRef.current
-      ?.querySelector(`[data-card-id="${lastDigThreadId}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [lastDigThreadId]);
+    if (!threads.length) return;
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
+  }, [threads.length]);
 
   const dig = useCallback((text: string, section: SectionKey) => {
     window.getSelection()?.removeAllRanges();
@@ -1633,6 +1514,51 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     }, OFFER_AFTER_MS);
     ask({ selection: text, sectionKey: section });
   }, [ask, reserveFamiliarityOffer, setPick, tipSeen]);
+
+  /**
+   * Keep this word. The other half of highlighting: a definition, written
+   * against this paper's own text, appended to the glossary where it stays.
+   */
+  const define = useCallback(async (term: string) => {
+    window.getSelection()?.removeAllRanges();
+    setPick(null);
+    if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
+    const clean = term.trim();
+    if (!clean) return;
+    // Open the list you just added to, or the add goes somewhere invisible.
+    setGlossaryOpen(true);
+    setPendingTerms(prev => prev.includes(clean) ? prev : [...prev, clean]);
+    try {
+      if (fixture) {
+        await new Promise(r => setTimeout(r, 1200));
+        setCompanion(prev => prev && ({
+          ...prev,
+          glossary: [...prev.glossary, {
+            term: clean,
+            def: `Sample definition of "${clean}". In the product this comes from /api/papers/[id]/glossary, written against the paper's own text so the term is defined the way this paper uses it.`,
+            tier: "working" as const,
+          }],
+        }));
+        return;
+      }
+      const res = await fetch(`/api/papers/${paper.id}/glossary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ term: clean }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.entry) throw new Error(data.error || "Couldn't add that one.");
+      setCompanion(prev => {
+        if (!prev) return prev;
+        if (prev.glossary.some(g => g.term.toLowerCase() === data.entry.term.toLowerCase())) return prev;
+        return { ...prev, glossary: [...prev.glossary, data.entry] };
+      });
+    } catch (e) {
+      setAskError(e instanceof Error ? e.message : "Couldn't add that one.");
+    } finally {
+      setPendingTerms(prev => prev.filter(t => t !== clean));
+    }
+  }, [fixture, paper.id, setPick, tipSeen]);
 
   /** A typed question about a passage. Same landing place as a dig. */
   const askHere = useCallback((question: string, text: string, section: SectionKey) => {
@@ -1680,7 +1606,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         fill: hue,
         n: numberOf.get(t.id),
         active: linked === t.id,
-        onClick: () => jumpToCard(t.id),
+        onClick: () => jumpToTalk(t.id),
         onEnter: () => setLinked(t.id),
         onLeave: () => setLinked(null),
       }))
@@ -1695,36 +1621,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     caveats: companion?.caveats ?? "",
     remember: companion?.remember ?? "",
   };
-
-  // The rail's stack. One card per answered passage, newest last, so the column
-  // reads in the order you asked rather than in the order the paper is written.
-  const cards = answeredPassages.map((thread, i) => (
-    <DigCard
-      key={thread.id}
-      thread={thread}
-      n={i + 1}
-      index={i}
-      hue={hue}
-      streaming={thread.turns.some(t => t.id === streamingTurn)}
-      error={thread.turns.some(t => t.id === streamingTurn) ? null : askError}
-      onFollowUp={q => ask({ question: q, threadId: thread.id })}
-      defaultOpen={freshThreads.current.has(thread.id)}
-      linked={linked === thread.id}
-      onLink={on => setLinked(on ? thread.id : null)}
-      onJumpToPassage={() => jumpToPassage(thread.id)}
-      familiarityOffer={thread.id === lastDigThreadId ? familiarityOffer : null}
-      familiarityValue={activeFamiliarity}
-      onFamiliarity={setFamiliarity}
-      onSkipFamiliarity={skipFamiliarity}
-      // Second in the queue, and only in this answer's own wait: never before the
-      // familiarity question has been answered or waved off, never twice, never
-      // once they have told us.
-      ratingOffer={thread.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
-      ratingValue={rating}
-      onRating={submitRating}
-      onSkipRating={skipRating}
-    />
-  ));
 
   const beatDig = (key: SectionKey) => (
     sectionText[key] ? <DigThisBeat onDig={() => dig(sectionText[key], key)} /> : null
@@ -1742,11 +1638,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
             <ArrowLeft size={15} /> Back
           </button>
         ) : <span />}
-        {/* Top right: the glossary, then out to the paper itself. The glossary
-            is reference material and this is where reference material goes now,
-            in a corner, out of the rail. */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          {glossary.length > 0 && <GlossaryMenu terms={glossary} />}
           {paper.sourceUrl && (
             <a
               href={paper.sourceUrl}
@@ -1882,12 +1774,50 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
             One scroll region, not three. The whole column is sticky and scrolls
             inside itself, so the stack can grow all evening without pushing the
             composer off the bottom of the screen. */}
-        {/* The rail holds your answers and nothing else. The glossary went to
-            the top right and asking went to the corner, because a reference
-            list and a conversation you may never have were sitting in the same
-            column as the only things on this page the reader made themselves. */}
-        <aside ref={railRef} className="reading-aside" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {cards}
+        {/* The rail is the conversation, full height. It was a stack of answer
+            cards with a separate chat panel in the corner, which was two places
+            to look for one conversation, split by whether a question happened
+            to start from a highlight. */}
+        <aside className="reading-aside">
+          {/* Reference above the conversation, folded until wanted. Both are
+              things this column accumulates as you read. */}
+          {(glossary.length > 0 || pendingTerms.length > 0) && (
+            <Glossary
+              terms={glossary}
+              pending={pendingTerms}
+              open={glossaryOpen}
+              onToggle={() => setGlossaryOpen(v => !v)}
+            />
+          )}
+          <Conversation
+            threads={threads}
+            numberOf={numberOf}
+            starters={companion?.questions ?? []}
+            hue={hue}
+            headerWash={washStyle}
+            pending={companionPending}
+            streaming={!!streamingTurn}
+            failed={askError}
+            linked={linked}
+            logRef={logRef}
+            onLink={setLinked}
+            onJumpToPassage={jumpToPassage}
+            // Typing continues the conversation instead of starting a new one:
+            // highlight to change the subject, type to keep pulling on this one.
+            onAsk={q => ask({ question: q, threadId: threads.at(-1)?.id })}
+            familiarityOffer={familiarityOffer}
+            familiarityValue={activeFamiliarity}
+            onFamiliarity={setFamiliarity}
+            onSkipFamiliarity={skipFamiliarity}
+            // Second in the queue: never before the familiarity question has
+            // been answered or waved off, never twice, never once they have told
+            // us.
+            ratingOffer={!familiarityOffer && rating === null && !ratingDeclined && !!lastDigThreadId}
+            ratingValue={rating}
+            onRating={submitRating}
+            onSkipRating={skipRating}
+            offerOn={lastDigThreadId}
+          />
         </aside>
       </div>
 
@@ -1896,44 +1826,24 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           pick={pick}
           onDig={() => dig(pick.text, pick.section)}
           onAsk={question => askHere(question, pick.text, pick.section)}
+          onDefine={looksLikeTerm(pick.text) ? () => define(pick.text) : null}
         />
       )}
 
-      {/* Always there, on every paper, at every scroll position. */}
-      <AskCompanion
-        threads={askThreads(threads)}
-        starters={companion?.questions ?? []}
-        headerWash={washStyle}
-        pending={companionPending}
-        onAsk={q => ask({ question: q })}
-        onFollowUp={(threadId, q) => ask({ question: q, threadId })}
-        streaming={!!streamingTurn}
-        failed={askError}
-      />
-
       <style>{`
-        .reading-shell { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 56px; align-items: start; }
-        /* The rail holds position while the walkthrough scrolls past it, and
-           scrolls inside itself once your answers outgrow the screen. It holds
-           nothing but those answers: the glossary went to the top right and
-           asking went to the corner.
-           The gutter is padding, not margin: the cards carry a 5px shadow and a
-           2px offset on hover, and an overflow container clips both. */
+        /* Wider than the old rail: it is a conversation now, not a stack of
+           notes, and 372px made every answer eleven words to a line. */
+        .reading-shell { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 48px; align-items: start; }
+        /* The conversation holds position and fills the screen's height while
+           the walkthrough scrolls past it. The panel itself is the scroll
+           container: the log scrolls, the header and the composer do not, so the
+           place you type is always in the same place. */
         .reading-aside {
-          position: sticky; top: 8px;
-          max-height: calc(100vh - 24px);
-          overflow-y: auto;
-          overflow-x: hidden;
-          padding: 4px 8px 8px 4px;
-          margin: -4px -8px -8px -4px;
+          position: sticky; top: 8px; height: calc(100vh - 24px);
+          display: flex; flex-direction: column; gap: 16px;
         }
-        /* The corner is the corner on a laptop. On a phone it is the full width
-           of the screen with a margin, because 380px of panel in a 390px
-           viewport with 24px of inset does not fit. */
-        @media (max-width: 480px) {
-          .reading-companion { right: 12px; left: 12px; bottom: 12px; width: auto; max-width: none; }
-          .reading-companion-tab { right: 16px; bottom: 16px; }
-        }
+        /* The glossary takes what it needs; the conversation takes the rest. */
+        .reading-talk { flex: 1; min-height: 0; }
         /* No ::selection override here. The drag wears the product's ordinary
            ink selection, and the paper's hue arrives on release, drawn by the
            page in useSelectionPick. Acid green is out of this interaction: it
@@ -1944,12 +1854,10 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         .reading-beat-dig { display: none; }
         @media (max-width: 1060px) {
           .reading-shell { grid-template-columns: 1fr; gap: 0; }
-          /* Below the read, the rail is just more page: no sticky, no scroll of
-             its own, and nothing to clip the shadows. */
-          .reading-aside {
-            position: static; max-height: none; overflow: visible;
-            padding: 0; margin: 56px 0 0;
-          }
+          /* Below the read there is no viewport height to fill, so the panel
+             takes what it needs up to a limit and the page scrolls past it. */
+          .reading-aside { position: static; height: auto; margin: 56px 0 0; }
+          .reading-talk { flex: none; max-height: 76vh; }
         }
         @media (max-width: 720px) {
           .reading-beat-dig { display: block; }

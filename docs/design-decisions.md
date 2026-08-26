@@ -1513,3 +1513,67 @@ answer lands, because "while I read" stops being true.
 state synchronously rather than through an effect. The prototype stops flashing
 "Reading the paper…" for a frame, and the whole surface becomes
 server-renderable, which is how this round was verified without a browser.
+
+---
+
+## 2026-08-20: One conversation, and a second verb for words
+
+The rail was a stack of answer cards and the corner was a chat panel, which is
+two places to look for one conversation, split by whether a question happened to
+start from a highlight. A reader does not hold that distinction. So there is one
+panel now, `Conversation`, filling a 420px rail at viewport height: a header, a
+log that scrolls, a composer that never moves.
+
+Everything lands in it, in the order it happened. A question that started from a
+passage carries that passage at the top of its block, in the paper's hue, with
+the numeral it wears in the prose.
+
+**The two-way tie is the feature.** Click a highlighted sentence in the paper and
+the conversation scrolls to what was said about it and lights that block for a
+beat. Click the passage in the conversation and the read scrolls back to the
+sentence. That is what lets the talk live in a column of its own instead of
+being wedged under the paragraph: you can always get from one to the other in
+one click, from either end.
+
+**Typing continues the conversation** rather than starting a new thread. Highlight
+to change the subject, type to keep pulling on the one you are on. This is what
+makes it a chat rather than a list of question-and-answer pairs, and it is why
+the per-thread "+ Follow up" control is gone.
+
+**The glossary comes back to the rail**, folded, above the conversation. It spent
+a few hours as a menu in the top right; both are out of the read, but the rail is
+where the other thing you accumulate as you read already lives, and a fold takes
+one click instead of one click plus aim.
+
+### A second verb, and why it is not "Dig deeper" again
+
+Highlighting now offers **+ Glossary** as well as Ask. This is not a repeat of
+the pair that was cut: "Ask" and "Dig deeper" landed in the same place and
+produced the same shape of thing, and nobody could say what the difference was.
+A word and a passage are different objects with different fates. A word is
+something you look up and keep; the answer belongs in a list you can scan later.
+A passage is something you ask about; the answer belongs in the conversation.
+
+`POST /api/papers/[id]/glossary` defines the term **against the paper's own
+text**, so it is defined the way this paper uses it, then appends it to the
+cached companion. It shows in the glossary immediately as "Looking it up…", it
+becomes a chip in the prose like any generated term, and it survives a reload.
+The route de-duplicates before and after the model call, so highlighting the same
+word twice costs one definition.
+
+### What if someone highlights a really long section
+
+Three different answers, because it is three different questions.
+
+- **The glossary control simply is not offered.** `looksLikeTerm()` gates it:
+  under 60 characters, five words or fewer, no sentence punctuation inside it.
+  Anything longer is a passage, and a passage is a thing you ask about. This is
+  better than defining a paragraph badly.
+- **Asking still works, at any length**, and the selection is already clipped to
+  one beat (`clipToBeat`), so the ceiling is one paragraph rather than the whole
+  page. The API caps the stored passage at 1200 characters.
+- **The display clamps, the anchor does not.** The passage at the top of a
+  conversation block shows three lines and then an ellipsis. Reprinting half a
+  beat above its own answer is exactly what the old inline panel did wrong. The
+  whole passage stays the anchor and stays marked in the paper, and the chip is
+  the way back to reading it there.
