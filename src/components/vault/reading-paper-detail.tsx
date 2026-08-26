@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, ChevronDown, Loader2, Maximize2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, Loader2, MessageCircle } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
 import { READING_TIP_KEY, markNuxSeen, nuxSeen } from "@/lib/nux";
 import {
-  pitchConsequence,
   type FamiliarityTopic,
   type FamiliarityValue,
   type PitchedForYou,
@@ -680,14 +679,16 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip, lead }: {
  * paper. How much a paper was worth someone's evening is exactly what the
  * librarian cannot infer from a save alone.
  */
-function PaperRating({ value, onSelect, onSkip }: {
+function PaperRating({ value, onSelect, onSkip, waiting = true }: {
   value?: number | null;
   onSelect: (level: number) => void;
   onSkip: () => void;
+  /** Still streaming. Once the answer has landed, "while I read" is not true. */
+  waiting?: boolean;
 }) {
   return (
     <ScaleRow
-      question="While I read: how much did you like this paper?"
+      question={waiting ? "While I read: how much did you like this paper?" : "How much did you like this paper?"}
       lowLabel="not for me"
       highLabel="loved it"
       value={value}
@@ -705,37 +706,27 @@ function PaperRating({ value, onSelect, onSkip }: {
  * features, so update them when one is added, renamed or removed.
  */
 const DIG_WAIT_TIPS = [
-  "Highlight anything else while you wait. Answers land under the passage they came from.",
+  "Highlight anything else while you wait. Answers stack as cards over here.",
   "Type your own question in the bar, or just press Ask and I'll explain the passage.",
-  "Underlined words carry a definition. Hover or tap one.",
+  "Underlined words carry a definition. Hover or tap one, or open the glossary top right.",
   "Answers read the paper's full text, then check it against what current web sources say.",
-  "What you ask about teaches your librarian what to send you next.",
+  "A question that isn't about one sentence goes in the corner, bottom right.",
 ];
 
 const TIP_ROTATE_MS = 6000;
 
 /**
- * The wait, which is the whole point of the interleave.
+ * The wait: the stamp, one line, and a rotating tip.
  *
- * The loader comes first and never moves. Underneath it, one thing at a time:
- * the familiarity question if it is owed, then — only if the reader answered it
- * and the dig is still running — how much they liked the paper, then a tip. If
- * the answer lands first, none of it was ever in the way. Nothing here is
- * framed, and there is no rule down the side either: until there is an answer
- * there is no aside to hang one on.
+ * The interleaved question used to live in here and die with it, which meant a
+ * question you were half a second too slow to answer vanished under the answer
+ * you were waiting for. The question is its own thing now and it outlives the
+ * wait — see `InterleaveQuestion` — so this is only the wait.
+ *
+ * Nothing here is framed. A box makes a two-second wait look like a task.
  */
-function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating }: {
-  familiarityOffer?: FamiliarityTopic | null;
-  familiarityValue?: FamiliarityValue | null;
-  onFamiliarity: (level: number) => void;
-  onSkipFamiliarity: () => void;
-  ratingOffer: boolean;
-  ratingValue?: number | null;
-  onRating: (level: number) => void;
-  onSkipRating: () => void;
-}) {
+function DigWait({ showTips }: { showTips: boolean }) {
   const [tip, setTip] = useState(0);
-  const showTips = !familiarityOffer && !ratingOffer;
 
   useEffect(() => {
     if (!showTips) return;
@@ -744,29 +735,18 @@ function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFami
   }, [showTips]);
 
   return (
-    <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* The stamp, centred in the column, not a spinner pinned to a line of
-          text: this is the same wait as every other wait in the product and it
-          should be the same object. Centring it also stops the eye reading it
-          as a bullet on the paragraph above. */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* The stamp, centred, not a spinner pinned to a line of text: this is the
+          same wait as every other wait in the product and it should be the same
+          object. */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "10px 0 2px" }}>
         <PageLoader inline />
-        <span style={{ ...BODY_STYLE, color: MUTED, textAlign: "center" }}>
+        <span style={{ ...BODY_SM, color: MUTED, textAlign: "center" }}>
           Re-reading the paper for that&hellip;
         </span>
       </div>
 
-      {familiarityOffer ? (
-        <FamiliarityScale
-          topic={familiarityOffer}
-          currentLevel={familiarityValue?.level}
-          onSelect={onFamiliarity}
-          onSkip={onSkipFamiliarity}
-          lead="While I read: how"
-        />
-      ) : ratingOffer ? (
-        <PaperRating value={ratingValue} onSelect={onRating} onSkip={onSkipRating} />
-      ) : (
+      {showTips && (
         <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
           <span style={LABEL_STYLE}>Tip</span>
           <span style={{ ...BODY_SM, color: DIM }}>{DIG_WAIT_TIPS[tip]}</span>
@@ -777,47 +757,42 @@ function DigWait({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFami
 }
 
 /**
- * Why the writing is pitched the way it is — a callout in the paper's own hue.
+ * The one question the interleave owes, at the top of the card, staying put.
  *
- * It used to wear a mono "Pitched for you" eyebrow, which named the mechanism
- * rather than the fact and made a one-line disclosure look like a section. The
- * sentence already says what it is ("You rated yourself 3/5 on…"), so the label
- * is gone and the paper's wash carries the "this is an aside" signal instead.
+ * It used to appear only inside the wait, which made it a race: the answer
+ * arrived, the whole wait was replaced, and the question you were reaching for
+ * went with it. Whether it was worth asking has nothing to do with whether the
+ * model has finished, so it now sits above the answer and stays until it is
+ * answered or waved off. The lead changes when the answer lands, because
+ * "while I read" stops being true.
  */
-function PitchedForYouLine({ pitch, topic, currentLevel, hue, style, onSelect }: {
-  pitch: PitchedForYou;
-  topic: FamiliarityTopic;
-  currentLevel: number;
-  /** The paper's first wash hue — a blue paper gets a blue callout. */
-  hue: string;
-  style?: React.CSSProperties;
-  onSelect: (level: number) => void;
+function InterleaveQuestion({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating, waiting }: {
+  familiarityOffer?: FamiliarityTopic | null;
+  familiarityValue?: FamiliarityValue | null;
+  onFamiliarity: (level: number) => void;
+  onSkipFamiliarity: () => void;
+  ratingOffer: boolean;
+  ratingValue?: number | null;
+  onRating: (level: number) => void;
+  onSkipRating: () => void;
+  /** Still streaming, so the question can say so. */
+  waiting: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  return (
-    // The tag hairline, not the structural 2px: this is one quiet line about
-    // how the writing is pitched, and it must not read as a frame competing
-    // with "Remember this".
-    <div style={{ background: hue, border: BORDER_HAIR, padding: "12px 14px", margin: "0 0 18px", ...style }}>
-      <button
-        onClick={() => setOpen(value => !value)}
-        aria-expanded={open}
-        style={{ display: "block", width: "100%", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}
-      >
-        <span style={{ ...BODY_SM, color: INK }}>
-          You rated yourself {pitch.level}/5 on {pitch.topicName}, so {pitch.consequence.replace(/^I(?:'m| am)\s+/i, "I'm ")}
-          <span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}> Not right anymore? Adjust.</span>
-        </span>
-      </button>
-      {open && (
-        <FamiliarityScale
-          topic={topic}
-          currentLevel={currentLevel}
-          onSelect={level => { onSelect(level); setOpen(false); }}
-        />
-      )}
-    </div>
-  );
+  if (familiarityOffer) {
+    return (
+      <FamiliarityScale
+        topic={familiarityOffer}
+        currentLevel={familiarityValue?.level}
+        onSelect={onFamiliarity}
+        onSkip={onSkipFamiliarity}
+        lead={waiting ? "While I read: how" : "How"}
+      />
+    );
+  }
+  if (ratingOffer) {
+    return <PaperRating value={ratingValue} onSelect={onRating} onSkip={onSkipRating} waiting={waiting} />;
+  }
+  return null;
 }
 
 /**
@@ -841,7 +816,7 @@ function PitchedForYouLine({ pitch, topic, currentLevel, hue, style, onSelect }:
  */
 function DigCard({
   thread, n, index, hue, streaming, error, onFollowUp, defaultOpen, linked, onLink, onJumpToPassage,
-  pitch, pitchTopic, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity,
+  familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity,
   ratingOffer, ratingValue, onRating, onSkipRating,
 }: {
   thread: ReadingThread;
@@ -858,8 +833,6 @@ function DigCard({
   linked: boolean;
   onLink: (linked: boolean) => void;
   onJumpToPassage: () => void;
-  pitch: PitchedForYou | null;
-  pitchTopic: FamiliarityTopic | null;
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
   onFamiliarity: (level: number) => void;
@@ -872,6 +845,7 @@ function DigCard({
   const [draft, setDraft] = useState("");
   const [open, setOpen] = useState(defaultOpen);
   const empty = thread.turns.every(turn => !turn.answer);
+  const owed = !!familiarityOffer || ratingOffer;
 
   return (
     <div
@@ -926,30 +900,28 @@ function DigCard({
 
       {open && (
         <div style={{ padding: "12px 14px 14px" }}>
-          {/* The disclosure about how the writing is pitched, above the answer
-              rather than inside it. It waits for the answer: the wait is a
-              loader and one question, and this is neither. */}
-          {pitch && pitchTopic && familiarityValue && !empty && (
-            <PitchedForYouLine
-              pitch={pitch}
-              topic={pitchTopic}
-              currentLevel={familiarityValue.level}
-              hue={hue}
-              onSelect={onFamiliarity}
-            />
+          {/* The interleave's one question, above the answer and outliving the
+              wait. It used to live inside the wait and be replaced by the
+              answer, so a question you were half a second slow to reach for
+              disappeared under the thing you were waiting for. */}
+          {owed && (
+            <div style={{ paddingBottom: 14, marginBottom: 14, borderBottom: HAIRLINE }}>
+              <InterleaveQuestion
+                familiarityOffer={familiarityOffer}
+                familiarityValue={familiarityValue}
+                onFamiliarity={onFamiliarity}
+                onSkipFamiliarity={onSkipFamiliarity}
+                ratingOffer={ratingOffer}
+                ratingValue={ratingValue}
+                onRating={onRating}
+                onSkipRating={onSkipRating}
+                waiting={empty && streaming}
+              />
+            </div>
           )}
 
           {empty && streaming ? (
-            <DigWait
-              familiarityOffer={familiarityOffer}
-              familiarityValue={familiarityValue}
-              onFamiliarity={onFamiliarity}
-              onSkipFamiliarity={onSkipFamiliarity}
-              ratingOffer={ratingOffer}
-              ratingValue={ratingValue}
-              onRating={onRating}
-              onSkipRating={onSkipRating}
-            />
+            <DigWait showTips={!owed} />
           ) : (
             <>
               {thread.turns.map((turn, i) => (
@@ -1082,36 +1054,61 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
 }
 
 /**
- * The recap of every hard word. The chips in the prose define each term where
- * you meet it; this catches the ones the companion flagged but never used in
- * its own copy, and gives you somewhere to look back to.
+ * The recap of every hard word, in the top right corner and nowhere else.
  *
- * It lives in the rail, not in the column. In series with the walkthrough it
- * read as a sixth beat of the read and put a closed drawer between "Remember
- * this" and what has happened since. A glossary is a thing you look across at.
- * Closed by default for the same reason: reference, not read.
+ * The chips in the prose define each term where you meet it, so this is only for
+ * the ones the companion flagged but never used, and for looking a word back up.
+ * That is a corner-of-the-page job. It used to be a panel in the rail, which
+ * gave a reference list the same weight as the answers the reader made
+ * themselves, and the rail now holds nothing but those.
+ *
+ * Closed by default, and it closes on Escape or on a click anywhere else, which
+ * is what makes it safe to hang over the read rather than push it down.
  */
-function Glossary({ terms }: { terms: Jargon[] }) {
+function GlossaryMenu({ terms }: { terms: Jargon[] }) {
   const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
   return (
-    <div style={{ border: BORDER, background: SURFACE, padding: "14px 16px" }}>
+    <div ref={box} style={{ position: "relative", flexShrink: 0 }}>
       <button
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
-        style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
+        style={{
+          ...BODY_SM, display: "inline-flex", alignItems: "center", gap: 8,
+          background: SURFACE, color: INK, border: BORDER, padding: "10px 14px",
+          cursor: "pointer",
+        }}
       >
-        <span style={{ flex: 1 }}>Glossary ({terms.length})</span>
-        {/* The chevron the interests accordion uses. A bare +/- was carrying the
-            whole "this opens" signal, and it read as punctuation. */}
+        Glossary ({terms.length})
         <ChevronDown
-          size={16}
-          style={{ color: MUTED, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+          size={15}
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
         />
       </button>
       {open && (
-        // A 150px term column left the definitions in a 200px gutter. In the
-        // rail the term leads and the definition sits under it.
-        <dl style={{ margin: "12px 0 0", maxHeight: 320, overflowY: "auto" }}>
+        <dl
+          style={{
+            position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 30,
+            width: 360, maxWidth: "calc(100vw - 40px)", maxHeight: 380, overflowY: "auto",
+            border: BORDER, boxShadow: SHADOW, background: SURFACE,
+            margin: 0, padding: "4px 16px 14px",
+          }}
+        >
           {terms.map(g => (
             <div key={g.term} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
               <dt style={{ ...BODY_SM, fontWeight: 600 }}>{g.term}</dt>
@@ -1125,41 +1122,42 @@ function Glossary({ terms }: { terms: Jargon[] }) {
 }
 
 /**
- * Ask this paper — the thread.
+ * Ask this paper — the companion, floating in the bottom right.
  *
- * The companion hands over three starter questions it thinks a curious reader
- * would actually want answered; they're rows in the same list idiom as the
- * citing work, so the page has one way of offering you a next thing.
+ * It was a panel in the rail, which put a conversation you might never have and
+ * a reference list you rarely open in the same column as the answers you made
+ * yourself. Now the rail holds only your answers, and asking is a small square
+ * in the corner that is there on every paper, at every scroll position, open or
+ * folded, and never in the read.
  *
- * Threaded now: a question and its follow-ups go to the model together, so
- * "and the second one?" resolves against what was just said instead of being
- * answered blind, which is how every question here used to be answered.
+ * This is where a question that is not about any particular sentence goes: the
+ * three the companion suggests, and anything you type. Questions anchored to a
+ * highlighted passage are cards in the rail instead, because those have a place
+ * in the paper to belong to and these do not.
+ *
+ * Threaded: a question and its follow-ups go to the model together, so "and the
+ * second one?" resolves against what was just said.
  */
-function AskThread({ threads, starters, headerWash, hue, quote, onClearQuote, onAsk, onFollowUp, streaming, failed, familiarityValue, onFamiliarity }: {
+function AskCompanion({ threads, starters, headerWash, pending, onAsk, onFollowUp, streaming, failed }: {
   threads: ReadingThread[];
   starters: string[];
   headerWash: React.CSSProperties;
-  /** The paper's first wash hue — what the pitch callout is filled with. */
-  hue: string;
-  /** "Ask about this" dropped a passage in here — shown above the composer. */
-  quote: string | null;
-  onClearQuote: () => void;
-  onAsk: (question: string, quote: string | null) => void;
+  /** The companion is still reading the paper, so there is nothing to ask yet. */
+  pending: boolean;
+  onAsk: (question: string) => void;
   onFollowUp: (threadId: string, question: string) => void;
   streaming: boolean;
   failed: string | null;
-  familiarityValue: FamiliarityValue | null;
-  onFamiliarity: (level: number) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
-  const [fullScreen, setFullScreen] = useState(false);
-  const inputRef = useRef<HTMLDivElement>(null);
+  const log = useRef<HTMLDivElement>(null);
 
-  // "Ask about this" is a request to type — put the cursor where the typing goes.
+  // A new question should not land below the fold of a panel this small.
   useEffect(() => {
-    if (!quote) return;
-    inputRef.current?.querySelector("input")?.focus();
-  }, [quote]);
+    if (!open) return;
+    log.current?.scrollTo({ top: log.current.scrollHeight, behavior: "smooth" });
+  }, [threads.length, open]);
 
   const asked = new Set(threads.flatMap(t => t.turns.map(turn => turn.question)));
   const remaining = starters.filter(q => !asked.has(q));
@@ -1168,70 +1166,71 @@ function AskThread({ threads, starters, headerWash, hue, quote, onClearQuote, on
   const submit = () => {
     const q = draft.trim();
     if (!q || streaming) return;
-    onAsk(q, quote);
+    onAsk(q);
     setDraft("");
   };
 
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Ask this paper"
+        title="Ask this paper"
+        className="reading-companion-tab"
+        style={{
+          position: "fixed", right: 24, bottom: 24, zIndex: 10020,
+          width: 52, height: 52, border: BORDER, boxShadow: SHADOW, background: SURFACE,
+          color: INK, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        {streaming ? <PageLoader inline /> : <MessageCircle size={22} />}
+      </button>
+    );
+  }
+
   return (
     <div
-      style={{
-        border: BORDER, boxShadow: SHADOW, background: SURFACE,
-        display: "flex", flexDirection: "column",
-        ...(fullScreen ? {
-          position: "fixed",
-          inset: "max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
-          zIndex: 10020,
-          maxHeight: "none",
-        } : {}),
-      }}
-      className="reading-ask"
       id="ask-this-paper"
+      className="reading-companion"
+      style={{
+        position: "fixed", right: 24, bottom: 24, zIndex: 10020,
+        width: 380, maxWidth: "calc(100vw - 32px)", maxHeight: "min(70vh, 620px)",
+        display: "flex", flexDirection: "column",
+        border: BORDER, boxShadow: SHADOW, background: SURFACE,
+      }}
     >
-      <div style={{ ...headerWash, padding: "16px 18px 14px", borderBottom: BORDER, flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
-          <div>
-            <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
-            <p style={{ ...BODY_SM, color: MUTED, margin: "6px 0 0" }}>
-              Compares the paper with what current web sources say.
-            </p>
-          </div>
-          <button
-            onClick={() => setFullScreen(v => !v)}
-            title={fullScreen ? "Close fullscreen" : "Open fullscreen"}
-            aria-label={fullScreen ? "Close fullscreen" : "Open fullscreen"}
-            style={{ background: "none", border: "none", padding: 2, color: INK, cursor: "pointer", display: "flex", lineHeight: 1, flexShrink: 0 }}
-          >
-            {fullScreen ? <X size={17} /> : <Maximize2 size={16} />}
-          </button>
+      <div style={{ ...headerWash, padding: "14px 16px", borderBottom: BORDER, flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
+          <p style={{ ...BODY_SM, margin: "4px 0 0" }}>
+            Anything at all. I read the paper, then check it against current web sources.
+          </p>
         </div>
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="Fold this away"
+          style={{ background: "none", border: "none", padding: 0, color: INK, cursor: "pointer", display: "flex", flexShrink: 0 }}
+        >
+          <ChevronDown size={18} />
+        </button>
       </div>
 
-      <div style={{ overflowY: "auto", padding: "0 18px", flex: 1, minHeight: 0 }}>
+      <div ref={log} style={{ overflowY: "auto", padding: "0 16px", flex: 1, minHeight: 0 }}>
+        {pending && (
+          <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0" }}>
+            Still reading the paper. Ask anything once it&rsquo;s done.
+          </p>
+        )}
+
         {threads.map((thread, ti) => (
-          <div key={thread.id} style={{ padding: "16px 0", borderTop: ti === 0 ? "none" : HAIRLINE }}>
-            {thread.selection && (
-              <p style={{ ...BODY_SM, color: DIM, fontStyle: "italic", margin: "0 0 8px" }}>
-                &ldquo;{thread.selection}&rdquo;
-              </p>
-            )}
+          <div key={thread.id} style={{ padding: "14px 0", borderTop: ti === 0 ? "none" : HAIRLINE }}>
             {thread.turns.map((turn, i) => (
               <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 14 }}>
-                <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
-                {turn.pitch && familiarityValue && (
-                  <PitchedForYouLine
-                    pitch={turn.pitch}
-                    topic={{ id: familiarityValue.topicId, name: familiarityValue.topicName, source: "openalex" }}
-                    currentLevel={familiarityValue.level}
-                    hue={hue}
-                    onSelect={onFamiliarity}
-                  />
-                )}
+                <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
                 <div style={{ display: "flex", gap: 10 }}>
                   <span aria-hidden style={{ width: 2, flexShrink: 0, background: INK }} />
-                  <p style={{ ...BODY_STYLE, margin: 0 }}>
-                    {turn.answer || (
-                      <span style={{ color: MUTED }}>Looking it up&hellip;</span>
-                    )}
+                  <p style={{ ...BODY_SM, margin: 0 }}>
+                    {turn.answer || <span style={{ color: MUTED }}>Looking it up&hellip;</span>}
                   </p>
                 </div>
               </div>
@@ -1240,33 +1239,30 @@ function AskThread({ threads, starters, headerWash, hue, quote, onClearQuote, on
           </div>
         ))}
 
-        {remaining.length > 0 && (
+        {!pending && remaining.length > 0 && (
           <div style={{ paddingBottom: 4 }}>
             {empty && (
-              <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0 0" }}>
-                Three the companion thought you&rsquo;d want:
+              <p style={{ ...BODY_SM, color: MUTED, margin: "14px 0 0" }}>
+                Three I thought you&rsquo;d want:
               </p>
             )}
             {remaining.map((q, i) => (
               <button
                 key={q}
-                onClick={() => onAsk(q, null)}
+                onClick={() => onAsk(q)}
                 disabled={streaming}
                 style={{
-                  ...BODY_STYLE,
-                  display: "flex",
-                  gap: 10,
-                  width: "100%",
-                  textAlign: "left",
+                  ...BODY_SM,
+                  display: "flex", gap: 10, width: "100%", textAlign: "left",
                   border: "none",
                   borderTop: empty && i === 0 ? "none" : HAIRLINE,
                   background: "transparent",
-                  padding: "14px 0",
+                  padding: "12px 0",
                   cursor: streaming ? "default" : "pointer",
                   opacity: streaming ? 0.4 : 1,
                 }}
               >
-                <span aria-hidden style={{ color: MUTED, flexShrink: 0 }}>→</span>
+                <span aria-hidden style={{ color: MUTED, flexShrink: 0 }}>&rarr;</span>
                 <span>{q}</span>
               </button>
             ))}
@@ -1274,38 +1270,26 @@ function AskThread({ threads, starters, headerWash, hue, quote, onClearQuote, on
         )}
       </div>
 
-      <div style={{ padding: "14px 18px", borderTop: BORDER, flexShrink: 0 }} ref={inputRef}>
-        {quote && (
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
-            <p style={{ ...BODY_SM, color: DIM, fontStyle: "italic", margin: 0, flex: 1 }}>
-              &ldquo;{quote}&rdquo;
-            </p>
-            <button
-              onClick={onClearQuote}
-              aria-label="Drop the quoted passage"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 16, lineHeight: 1, color: MUTED }}
-            >×</button>
-          </div>
-        )}
-        <TextInput
-          value={draft}
-          onChange={setDraft}
-          onKeyDown={e => { if (e.key === "Enter") submit(); }}
-          placeholder={quote ? "What do you want to know about it?" : "Ask your own question…"}
-          ariaLabel="Ask a question about this paper"
-        />
-        <ActionButton
-          onClick={submit}
-          variant="primary"
-          shadow={false}
-          disabled={!draft.trim() || streaming}
-          style={{ width: "100%", marginTop: 8 }}
-        >
-          Ask
-        </ActionButton>
-        {failed && (
-          <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>
-        )}
+      <div style={{ padding: "12px 16px", borderTop: BORDER, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <TextInput
+            value={draft}
+            onChange={setDraft}
+            onKeyDown={e => { if (e.key === "Enter") submit(); }}
+            placeholder="Ask your own question…"
+            ariaLabel="Ask a question about this paper"
+          />
+          <ActionButton
+            onClick={submit}
+            variant="primary"
+            shadow={false}
+            disabled={!draft.trim() || streaming || pending}
+            style={{ flexShrink: 0 }}
+          >
+            Ask
+          </ActionButton>
+        </div>
+        {failed && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>}
       </div>
     </div>
   );
@@ -1368,7 +1352,7 @@ function FollowUpRow({ disabled, onSubmit }: { disabled: boolean; onSubmit: (q: 
  * refresh lost it and back didn't close it. `/library/[paperId]` is the
  * canonical address; the vault navigates there rather than covering itself.
  */
-export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixture }: {
+export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   paper: PaperItem;
   /**
    * The paper's position on the shelf — its wash index, so this page wears the
@@ -1378,7 +1362,6 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
    * that has to be unmistakable.
    */
   index?: number;
-  provenance?: Provenance | null;
   onBack?: () => void;
   /** Prototype only — see `ReadingFixture`. */
   fixture?: ReadingFixture;
@@ -1391,18 +1374,21 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
   const hue = foundational ? foundationalSlots()[0] : washSlots(index)[0];
   const washStyle = foundational ? foundationalWash() : wash(index);
 
-  const [companion, setCompanion] = useState<Companion | null>(null);
-  const [familiarityValue, setFamiliarityValue] = useState<FamiliarityValue | null>(null);
+  // A fixture is data the caller already has, so the prototype starts in the
+  // state it is meant to show rather than flashing "Reading the paper…" for a
+  // frame. In production `fixture` is undefined and every one of these is the
+  // empty value it always was.
+  const [companion, setCompanion] = useState<Companion | null>(fixture?.companion ?? null);
+  const [familiarityValue, setFamiliarityValue] = useState<FamiliarityValue | null>(fixture?.familiarity ?? null);
   const [familiarityOffer, setFamiliarityOffer] = useState<FamiliarityTopic | null>(null);
   const [lastDigThreadId, setLastDigThreadId] = useState<string | null>(null);
-  const [companionPending, setCompanionPending] = useState(true);
+  const [companionPending, setCompanionPending] = useState(!fixture);
   const [companionFailed, setCompanionFailed] = useState(false);
-  const [homework, setHomework] = useState<HomeworkItem[] | null>(null);
+  const [homework, setHomework] = useState<HomeworkItem[] | null>(fixture ? fixture.homework : null);
 
-  const [threads, setThreads] = useState<ReadingThread[]>([]);
+  const [threads, setThreads] = useState<ReadingThread[]>(fixture ? groupThreads(fixture.qa.map(normalizeTurn)) : []);
   const [streamingTurn, setStreamingTurn] = useState<string | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
-  const [quote, setQuote] = useState<string | null>(null);
   const [tipSeen, setTipSeen] = useState(true);
 
   // How much they liked the paper. Asked at most once per paper, only in the
@@ -1672,17 +1658,6 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
     ? familiarityValue
     : null;
   const glossary = glossaryForLevel(companion?.glossary ?? [], activeFamiliarity);
-  const hasTieredGlossary = !!companion?.glossary.some(term => term.tier);
-  const companionDisclosure: PitchedForYou | null = activeFamiliarity && (hasTieredGlossary || companion?.pitchedForYou)
-    ? {
-        topicId: activeFamiliarity.topicId,
-        topicName: activeFamiliarity.topicName,
-        level: activeFamiliarity.level,
-        consequence: companion?.pitchedForYou?.level === activeFamiliarity.level
-          ? companion.pitchedForYou.consequence
-          : pitchConsequence(activeFamiliarity.level),
-      }
-    : null;
   const defined = new Set<string>();
 
   // Every answered passage in the paper, in the order it was asked. This is the
@@ -1737,8 +1712,6 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
       linked={linked === thread.id}
       onLink={on => setLinked(on ? thread.id : null)}
       onJumpToPassage={() => jumpToPassage(thread.id)}
-      pitch={thread.turns.find(turn => turn.pitch)?.pitch ?? null}
-      pitchTopic={companion?.topic ?? null}
       familiarityOffer={thread.id === lastDigThreadId ? familiarityOffer : null}
       familiarityValue={activeFamiliarity}
       onFamiliarity={setFamiliarity}
@@ -1769,17 +1742,23 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             <ArrowLeft size={15} /> Back
           </button>
         ) : <span />}
-        {paper.sourceUrl && (
-          <a
-            href={paper.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ds-lift"
-            style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "10px 18px", textDecoration: "none", flexShrink: 0 }}
-          >
-            Read the full paper ↗
-          </a>
-        )}
+        {/* Top right: the glossary, then out to the paper itself. The glossary
+            is reference material and this is where reference material goes now,
+            in a corner, out of the rail. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          {glossary.length > 0 && <GlossaryMenu terms={glossary} />}
+          {paper.sourceUrl && (
+            <a
+              href={paper.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ds-lift"
+              style={{ ...DISPLAY_SM, display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: SURFACE, border: BORDER, boxShadow: SHADOW, padding: "10px 18px", textDecoration: "none", flexShrink: 0 }}
+            >
+              Read the full paper ↗
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="reading-shell">
@@ -1789,19 +1768,10 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "0 0 8px" }}>{byline}</p>
           )}
 
-          {/* Why you're reading this — the digest question that surfaced it and
-              the interests that seeded that question. */}
-          <WhyLine provenance={provenance} paper={paper} />
-
-          {companionDisclosure && companion?.topic && (
-            <PitchedForYouLine
-              pitch={companionDisclosure}
-              topic={companion.topic}
-              currentLevel={activeFamiliarity!.level}
-              hue={hue}
-              onSelect={setFamiliarity}
-            />
-          )}
+          {/* No "pulled in for" line and no "you rated yourself" callout. Both
+              were the product explaining itself above a paper the reader opened
+              on purpose, and the page is for the paper. */}
+          <div style={{ height: 18 }} />
 
           {/* Taught once, and retired on the first question. One line, a bolded
               sentence-case lead-in rather than a mono eyebrow: it is a tip, not
@@ -1912,44 +1882,12 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
             One scroll region, not three. The whole column is sticky and scrolls
             inside itself, so the stack can grow all evening without pushing the
             composer off the bottom of the screen. */}
+        {/* The rail holds your answers and nothing else. The glossary went to
+            the top right and asking went to the corner, because a reference
+            list and a conversation you may never have were sitting in the same
+            column as the only things on this page the reader made themselves. */}
         <aside ref={railRef} className="reading-aside" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* The answers come first, above the reference material: they are the
-              only part of this column the reader made themselves. */}
           {cards}
-          {/* The glossary is a reference, not a beat. Sitting in series with the
-              walkthrough it read as a sixth section of the read, and put a
-              closed drawer between "Remember this" and what has happened since.
-              In the rail it is a thing you look across at, which is what a
-              glossary is for. */}
-          {glossary.length > 0 && <Glossary terms={glossary} />}
-          {companionPending ? (
-            // The rail used to render nothing at all until the companion landed,
-            // which is a minute or two of dead air in the widest column on the
-            // page. Say what is happening instead.
-            <div style={{ border: BORDER, boxShadow: SHADOW, background: SURFACE }}>
-              <div style={{ ...washStyle, padding: "16px 18px 14px", borderBottom: BORDER }}>
-                <h2 style={{ ...DISPLAY_SM, margin: 0 }}>Ask this paper</h2>
-              </div>
-              <p style={{ ...BODY_STYLE, color: MUTED, margin: 0, padding: "16px 18px" }}>
-                Your librarian is still reading — ask anything once it&rsquo;s done.
-              </p>
-            </div>
-          ) : (
-            <AskThread
-              threads={askThreads(threads)}
-              starters={companion?.questions ?? []}
-              headerWash={washStyle}
-              hue={hue}
-              quote={quote}
-              onClearQuote={() => setQuote(null)}
-              onAsk={(q, quoted) => { setQuote(null); ask({ question: q, selection: quoted }); }}
-              onFollowUp={(threadId, q) => ask({ question: q, threadId })}
-              streaming={!!streamingTurn}
-              failed={askError}
-              familiarityValue={activeFamiliarity}
-              onFamiliarity={setFamiliarity}
-            />
-          )}
         </aside>
       </div>
 
@@ -1961,14 +1899,24 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
         />
       )}
 
+      {/* Always there, on every paper, at every scroll position. */}
+      <AskCompanion
+        threads={askThreads(threads)}
+        starters={companion?.questions ?? []}
+        headerWash={washStyle}
+        pending={companionPending}
+        onAsk={q => ask({ question: q })}
+        onFollowUp={(threadId, q) => ask({ question: q, threadId })}
+        streaming={!!streamingTurn}
+        failed={askError}
+      />
+
       <style>{`
         .reading-shell { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 56px; align-items: start; }
-        /* The rail holds position while the walkthrough scrolls past it, and it
-           is ONE scroll region: the answer cards, the glossary and the thread
-           all move together inside it. It used to be the thread alone that
-           scrolled, in its own frame, which worked only while nothing sat above
-           it. Answer cards sit above it now and would have pushed it off the
-           bottom of the screen by the third question.
+        /* The rail holds position while the walkthrough scrolls past it, and
+           scrolls inside itself once your answers outgrow the screen. It holds
+           nothing but those answers: the glossary went to the top right and
+           asking went to the corner.
            The gutter is padding, not margin: the cards carry a 5px shadow and a
            2px offset on hover, and an overflow container clips both. */
         .reading-aside {
@@ -1979,7 +1927,13 @@ export function ReadingPaperDetail({ paper, index = 0, provenance, onBack, fixtu
           padding: 4px 8px 8px 4px;
           margin: -4px -8px -8px -4px;
         }
-        .reading-ask { max-height: none; }
+        /* The corner is the corner on a laptop. On a phone it is the full width
+           of the screen with a margin, because 380px of panel in a 390px
+           viewport with 24px of inset does not fit. */
+        @media (max-width: 480px) {
+          .reading-companion { right: 12px; left: 12px; bottom: 12px; width: auto; max-width: none; }
+          .reading-companion-tab { right: 16px; bottom: 16px; }
+        }
         /* No ::selection override here. The drag wears the product's ordinary
            ink selection, and the paper's hue arrives on release, drawn by the
            page in useSelectionPick. Acid green is out of this interaction: it
@@ -2019,24 +1973,3 @@ function normalizeTurn(pair: QaPair): ThreadTurn {
   };
 }
 
-/**
- * One line of why this paper is in front of you: the question that surfaced it
- * and the interests that seeded that question.
- *
- * It costs nothing — the digest already stores its theme and its seed
- * interests — and it is the seed of the librarian's voice: a shelf of titles
- * with no memory of why they were pulled is just a folder.
- */
-function WhyLine({ provenance, paper }: { provenance?: Provenance | null; paper: PaperItem }) {
-  const theme = provenance?.theme ?? paper.digestTheme ?? null;
-  const seeds = provenance?.seedInterests ?? [];
-  if (!theme && seeds.length === 0) return <div style={{ height: 24 }} />;
-
-  return (
-    <p style={{ ...BODY_SM, color: MUTED, margin: "0 0 26px" }}>
-      {theme && <>Pulled in for &ldquo;{theme}&rdquo;</>}
-      {theme && seeds.length > 0 && " — "}
-      {seeds.length > 0 && <>because you follow {seeds.join(", ")}.</>}
-    </p>
-  );
-}

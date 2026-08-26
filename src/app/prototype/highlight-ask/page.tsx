@@ -1025,7 +1025,10 @@ function Companion({ hue }: VariantProps) {
 
           <div style={{ borderTop: BORDER, flexShrink: 0 }}>
             {held && (
-              <div style={{ padding: "10px 12px 0", display: "flex", alignItems: "flex-start", gap: 8 }}>
+              // The held passage gets its own ruled row. It used to sit directly
+              // on top of the composer with nothing between them, so the fill
+              // ran into the Ask button and read as one object.
+              <div style={{ padding: "10px 12px", borderBottom: HAIRLINE, display: "flex", alignItems: "flex-start", gap: 8 }}>
                 <span style={{ ...BODY_SM, background: hue, padding: "2px 4px", flex: 1, minWidth: 0 }}>
                   {quoteLine(held.text, 70)}
                 </span>
@@ -1139,7 +1142,7 @@ function Drawer({ hue }: VariantProps) {
 
         {held ? (
           <div>
-            <div style={{ padding: "10px 14px 0", display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ padding: "10px 14px", borderBottom: HAIRLINE, display: "flex", alignItems: "flex-start", gap: 10 }}>
               <span style={{ ...BODY_SM, background: hue, padding: "2px 4px", flex: 1, minWidth: 0 }}>
                 {quoteLine(held.text, 110)}
               </span>

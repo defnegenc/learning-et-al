@@ -1468,3 +1468,48 @@ its answer over the page and adds nothing to the column. Click a sentence or its
 strip and that one card unfolds, alone. Each half fixes the other's flaw: the
 whisper's is that nothing says you asked anything, the rail's is that four open
 cards is too much furniture.
+
+---
+
+## 2026-08-20: The reading view holds the paper, your answers, and two corners
+
+Four things left the page, all of them the product talking about itself or about
+its own furniture in the middle of someone else's paper.
+
+**"Pulled in for X because you follow Y"** is gone. It was defensible when the
+library was new and a saved paper needed a reason to exist, but the reader
+opened this page on purpose, from a card they recognised. A line explaining why
+it is in front of them is the product needing to be thanked.
+
+**"You rated yourself 3/5 on…"** is gone with it, and `PitchedForYouLine` is
+deleted. It was a disclosure about how the writing was pitched, sitting above
+the writing. The familiarity level still does its work (it tiers the glossary
+and pitches the companion); it simply stops announcing itself.
+
+**The glossary left the rail** for a menu in the top right, next to "Read the
+full paper". It is reference material, and it was sitting in the same column as
+the answers the reader made themselves, at the same weight. A corner is the
+right weight for a word list you open twice.
+
+**Asking left the rail too**, and became the shape the prototype's companion
+was: a 52px square in the bottom corner, present on every paper at every scroll
+position, unfolding into a panel with the thread, the three suggested questions
+and a composer. It holds the questions that are not about any one sentence.
+Questions anchored to a highlighted passage stay cards in the rail, because
+those have a place in the paper to belong to and these do not.
+
+What is left: the paper in the left column, your answers in the right, the
+glossary in one corner and asking in the other.
+
+**The interleaved question now outlives the wait.** It used to live inside
+`DigWait`, so the answer arriving replaced it: a question you were half a second
+slow to reach for disappeared under the thing you were waiting for, and the
+rating we most want is the one asked while someone is still in the paper. It is
+its own component now (`InterleaveQuestion`), pinned above the answer inside the
+card, staying until it is answered or waved off. Its lead changes when the
+answer lands, because "while I read" stops being true.
+
+**One more, quietly load-bearing:** a `fixture` now seeds `ReadingPaperDetail`'s
+state synchronously rather than through an effect. The prototype stops flashing
+"Reading the paper…" for a frame, and the whole surface becomes
+server-renderable, which is how this round was verified without a browser.

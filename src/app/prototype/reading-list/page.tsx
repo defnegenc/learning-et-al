@@ -222,7 +222,6 @@ export default function ReadingListPrototype() {
       <ReadingPaperDetail
         paper={detail.paper}
         index={detail.index}
-        provenance={{ theme: detail.paper.digestTheme ?? null, seedInterests: ["sleep", "motor learning"] }}
         onBack={() => setDetail(null)}
         fixture={fixtureFor(detail.paper.id)}
       />
