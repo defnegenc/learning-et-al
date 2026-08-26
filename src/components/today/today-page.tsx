@@ -58,12 +58,13 @@ function InkTitle({ text }: { text: string }) {
           animation: inkFill 0.4s ease-out both;
           animation-delay: var(--ink-word-delay, 0s);
         }
-        /* Mobile: word-by-word stroke fights line-wrapping and is not GPU-composited.
-           A single opacity fade is smooth, clean, and works across any number of lines. */
+        /* Mobile: keep the word pacing, but fade instead of animating text stroke. */
         @media (max-width: 640px) {
           .ink-word {
             animation: inkFade 0.45s ease-out both;
-            animation-delay: 0.1s;
+            animation-delay: var(--ink-word-delay, 0s);
+            transform: translateZ(0);
+            will-change: opacity;
           }
         }
         @media (prefers-reduced-motion: reduce) {
