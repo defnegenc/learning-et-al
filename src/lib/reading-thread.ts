@@ -82,6 +82,17 @@ export function digsForSection(threads: ReadingThread[], section: SectionKey): R
 }
 
 /**
+ * Every thread a highlight produced, anywhere in the paper, oldest first.
+ *
+ * The rail's stack and the numerals in the prose are both this list, which is
+ * the only way the number over the sentence and the number on the card can be
+ * guaranteed to be the same number.
+ */
+export function digThreads(threads: ReadingThread[]): ReadingThread[] {
+  return threads.filter(t => t.selection && t.sectionKey);
+}
+
+/**
  * Everything not anchored to a section — the Ask rail's own thread list.
  *
  * Keyed on the section, not on the selection: "Ask about this" drops a quoted
