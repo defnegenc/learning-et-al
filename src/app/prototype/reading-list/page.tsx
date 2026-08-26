@@ -191,6 +191,18 @@ function fixtureFor(id: string): ReadingFixture {
         question: "Would going to bed late but sleeping eight hours have the same effect?",
         answer:
           "Probably not as bad, but not neutral either. The gain tracked slow-wave sleep in the first two hours rather than total time, and slow-wave sleep is front-loaded relative to sleep onset, not to the clock — so a late night that still runs eight hours keeps most of it. What this study can't tell you is whether shifting that window several hours later costs anything on its own, because every participant went to bed at their usual time.",
+      }, {
+        // A passage asked about on a previous visit. It is what a rehydrated
+        // answer card looks like: folded, in the rail, headed by its passage in
+        // the paper's hue, with numeral 1 over the sentence it came from. The
+        // state is otherwise unreachable without asking something first.
+        id: "q2",
+        threadId: "t2",
+        selection: "the part that gets lost is not recoverable by sleeping in the following night",
+        sectionKey: "gist",
+        question: "What does this mean?",
+        answer:
+          "It means the overnight gain has one window and the window does not reopen. The consolidation the paper is measuring runs on slow-wave sleep in the first couple of hours after you fall asleep, so a four hour night does not get half of it, it gets almost none. Sleeping normally the next night rebuilds nothing: at 72 hours the restricted group was still 13 points behind, which is the gap you would expect if the missing work simply never happened rather than being deferred.",
       }]
       : [],
     answer: cannedAnswer,

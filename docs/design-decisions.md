@@ -1425,6 +1425,40 @@ Also: the anchor rect now skips zero-width rects. A multi-line range has them at
 its ends, and anchoring the bar to one put it at the left margin of a line the
 reader never touched.
 
+**Shipped: pinned cards.** The prototype's second tab is now the reading view.
+`DigPanel`, the indent behind a 2px rule sitting under the beat, is gone, and
+with it the two complaints that started this: an answer arriving pushed the
+paragraph you were reading down the page, and folded it was a bare chevron with
+nothing on it to say what it was.
+
+What replaces it, in `DigCard`:
+
+- **A card in the rail**, full frame and the one shadow, **headed by its passage
+  filled in the paper's hue**. That header is the whole reason this works at a
+  distance: you never have to hold in your head which highlight a card was, so
+  it does not need to sit next to the sentence to be findable. Folded, the
+  passage clamps to two lines; open, it is the whole sentence.
+- **A numeral, both ways.** The passage in the prose takes a superscript number
+  (`user-select: none`, or it lands inside the next selection that crosses it
+  and stops the passage matching). Hover a card and its sentence takes the ink
+  underline; hover a sentence and its card lifts 2px; click either and you are
+  taken to the other. Numbering comes from `digThreads()`, one list, so the
+  number over the sentence and the number on the card cannot drift.
+- **The rail is one scroll region now**, sticky and scrolling inside itself:
+  cards, then glossary, then Ask. It used to be the thread alone that scrolled
+  in its own frame, which only worked while nothing sat above it. A new answer
+  scrolls its own card into view, since it lands at the bottom of a stack that
+  may already be taller than the screen.
+- The wait, the interleaved questions, the follow-up composer and the "pitched
+  for you" disclosure all moved inside the card. The disclosure still waits for
+  the answer: the wait is a loader and one question, and a framed callout is
+  neither.
+
+The cost, stated plainly: on a narrow screen the rail is below the read, so an
+answer is a scroll away from its sentence. The numeral and "take me back to this
+sentence" are what pay for that, and the alternative (an answer that cuts the
+column) is the thing being fixed.
+
 **Round three of the prototype, same day.** The whisper and the pinned cards win
 over the ledger, and they are one thing, so the merge is now the first tab.
 Every answer keeps a card in the rail, folded: a numeral and its passage in the
