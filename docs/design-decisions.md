@@ -1695,3 +1695,47 @@ way in.
 
 On a phone the sheet goes full-bleed, loses its side borders and its shadow, and
 takes `env(safe-area-inset-bottom)` so the composer is not under the home bar.
+
+---
+
+## 2026-08-29 (later): the answer is a footnote, not a place
+
+Every arrangement before this one put the answer somewhere else and then built
+machinery to get back: a panel under the beat, a card in a rail, a chat in the
+corner, a sheet at the foot of the page. Each needed a numeral to tie the two
+ends together, a hover link, a scroll-to, a two-way jump. That machinery is the
+clunkiness. It was all paying for a decision nobody asked for, which was that
+the answer lives away from the sentence.
+
+So the answer tags onto the passage.
+
+- **Highlight** and the passage fills with the paper's colour. An input opens in
+  the flow directly under it, indented behind one ink rule, in exactly the place
+  the answer will appear. Nothing floats over the sentence, nothing docks, and
+  what you are asking about is the coloured words an inch above the field.
+- **Ask** and the answer streams into that same block.
+- **Closed**, the whole thing is **one ink square with a number in it**, sitting
+  at the end of the passage like a footnote marker. Click it to open, click it
+  again to close. A paper you have asked four things about is the paper, with
+  four small squares in it.
+
+Numbering counts questions, not positions: the first thing you asked is 1
+wherever in the paper it is. Fresh answers open as they arrive; ones rehydrated
+on load stay squares, so re-opening a paper shows you the paper rather than your
+own back-catalogue.
+
+The two things that genuinely have nowhere else to be are sections at the foot
+of the read, in the column, in normal flow: **Ask this paper** (a field, and
+whatever it has been asked) and **Glossary** (folded). Neither is a panel over
+the page.
+
+**There is no fixed, floating, sticky or docked furniture left in the reading
+view, and no rail.** That is what makes it identical on a phone and a laptop:
+the whole surface is one 720px column of ordinary flow, so an answer opening on
+a phone happens where the reader is looking, not three screens away.
+
+For the record, the shapes tried and dropped, in order: inline `DigPanel` under
+the beat · `DigCard` stack in a rail · floating `SelectionMenu` over the
+selection · `AskCompanion` in the corner · `Conversation` filling a 480px rail ·
+`TalkSheet` docked to the viewport. Six. The last one is the first that does not
+need to explain where the answer went.
