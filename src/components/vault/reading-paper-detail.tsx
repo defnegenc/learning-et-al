@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, ChevronDown, Loader2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, Loader2 } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
@@ -12,11 +12,11 @@ import {
   type PitchedForYou,
 } from "@/lib/familiarity";
 import {
-  DEFAULT_QUESTION, digsForSection, groupThreads,
+  DEFAULT_QUESTION, askThreads, digThreads, digsForSection, groupThreads,
   type ReadingThread, type SectionKey, type ThreadTurn,
 } from "@/lib/reading-thread";
 import {
-  ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD, Segmented,
+  ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
   HAIRLINE, INK, LABEL_STYLE, MUTED, PageLoader, SHADOW, SURFACE, TextInput,
   foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
@@ -239,14 +239,19 @@ const FIXTURE_FIRST_TOKEN_MS = 2600;
 interface BeatMark {
   text: string;
   fill: string;
-  /** The card this passage belongs to, and the number it wears in the prose. */
   id?: string;
-  n?: number;
-  /** Underlined while its card is being pointed at. */
   active?: boolean;
   onClick?: () => void;
   onEnter?: () => void;
   onLeave?: () => void;
+  /**
+   * What hangs off the end of the marked words: the numbered square, and the
+   * question or answer when it is open. It is rendered in the flow immediately
+   * after the passage, which is why a beat is a `div` and not a `p` — a block
+   * cannot legally sit inside a paragraph, and this one has to sit inside the
+   * sentence it belongs to.
+   */
+  after?: React.ReactNode;
 }
 
 function annotateBeat(
@@ -296,25 +301,7 @@ function annotateBeat(
         {annotateText(text.slice(r.start, r.end), jargon, used)}
       </mark>,
     );
-    if (r.mark.n !== undefined) {
-      out.push(
-        // `user-select: none` on purpose: a numeral is furniture, and without
-        // this it lands inside the next selection that crosses it, where it is
-        // a character the beat's own text does not contain and the passage
-        // stops matching.
-        <sup
-          key={key++}
-          onClick={r.mark.onClick}
-          style={{
-            ...BODY_SM, fontWeight: 600, fontSize: 11, padding: "0 2px",
-            userSelect: "none", WebkitUserSelect: "none",
-            cursor: r.mark.onClick ? "pointer" : undefined,
-          }}
-        >
-          {r.mark.n}
-        </sup>,
-      );
-    }
+    if (r.mark.after) out.push(<React.Fragment key={key++}>{r.mark.after}</React.Fragment>);
     cursor = r.end;
   }
   if (cursor < text.length) {
@@ -770,7 +757,9 @@ function Beat({ heading, sectionKey, children }: {
   return (
     <section style={{ borderTop: HAIRLINE, paddingTop: 22, marginTop: 22 }}>
       <h2 style={{ ...DISPLAY_SM, margin: "0 0 10px" }}>{heading}</h2>
-      <p data-section={sectionKey} style={{ ...READING_BODY, margin: 0 }}>{children}</p>
+      {/* A div, not a p: an answer opens inside the sentence it belongs to, and
+          a paragraph cannot contain a block. */}
+      <div data-section={sectionKey} style={{ ...READING_BODY }}>{children}</div>
     </section>
   );
 }
@@ -853,63 +842,27 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
 }
 
 /**
- * The sheet: one object at the foot of the page holding everything that is not
- * the paper.
+ * The square. A question, tagged onto the passage it came from.
  *
- * What it replaces, in order: an inline panel under each beat, a stack of cards
- * in a rail, a floating bar over the selection, a chat panel in the corner, and
- * finally a 480px rail carrying a folded glossary above a folded conversation.
- * Each of those was one more piece of furniture around a paper somebody came
- * here to read, and the last arrangement had two collapsibles stacked in a
- * column that did not exist at all on a phone: below 1060px the rail dropped
- * underneath the whole article, so on mobile a highlight opened a panel three
- * screens away. It was not a small bug. It was the layout.
+ * Everything before this put the answer somewhere else and then had to build a
+ * way back to the sentence: a panel under the beat, a card in a rail, a chat in
+ * the corner, a sheet at the foot of the page. Each one needed a numeral, a
+ * hover tie, a scroll-to. This needs none of it, because the answer is already
+ * where the question was.
  *
- * So there is no rail. The paper is one centred column at every width, and this
- * is docked to the bottom of the viewport, the same width as the column, in
- * exactly the same place on a phone as on a laptop. One implementation, no
- * responsive divergence, nothing beside the read.
- *
- * Two states. Folded, it is a bar saying what it is for. Open, it is a body and
- * a composer, and the body is one of two things: the conversation, or the
- * glossary. They are the only two things this page accumulates as you read, so
- * they are the two halves of one control rather than two panels.
+ * Closed, a question is one ink square with a number in it, sitting at the end
+ * of the coloured passage like a footnote marker. Open, the answer unfolds in
+ * the flow right there. Reading a paper you have asked four things about is
+ * reading the paper with four small squares in it.
  */
-function TalkSheet({
-  threads, hue, pending, streaming, queued, failed, linked, open, onToggle,
-  mode, onMode, terms, pendingTerms,
-  held, onDropHeld, onDefine, logRef, onLink, onJumpToPassage, onAsk,
-  familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity,
-  ratingOffer, ratingValue, onRating, onSkipRating, offerOn,
-}: {
-  threads: ReadingThread[];
-  /** The paper's flat colour. Not the wash: on this surface colour is a fill. */
-  hue: string;
+function AnswerTag({ n, thread, open, streaming, error, onToggle, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating, owed }: {
+  n: number;
+  thread: ReadingThread;
   open: boolean;
-  onToggle: () => void;
-  mode: "talk" | "glossary";
-  onMode: (mode: "talk" | "glossary") => void;
-  terms: Jargon[];
-  /** Words the reader just added, still being defined. */
-  pendingTerms: string[];
-  /** The companion is still reading the paper, so there is nothing to ask yet. */
-  pending: boolean;
   streaming: boolean;
-  /** Questions asked while another was being written. They run in order. */
-  queued: number;
-  failed: string | null;
-  /** The thread being pointed at, from either end. */
-  linked: string | null;
-  /** The passage the reader just highlighted, waiting for a question. */
-  held: Pick | null;
-  onDropHeld: () => void;
-  /** Offered only for something term-shaped. See `looksLikeTerm`. */
-  onDefine: (() => void) | null;
-  logRef: React.RefObject<HTMLDivElement | null>;
-  onLink: (threadId: string | null) => void;
-  onJumpToPassage: (threadId: string) => void;
-  /** An empty question with a passage held asks `DEFAULT_QUESTION`. */
-  onAsk: (question: string) => void;
+  error?: string | null;
+  onToggle: () => void;
+  onFollowUp: (question: string) => void;
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
   onFamiliarity: (level: number) => void;
@@ -918,247 +871,306 @@ function TalkSheet({
   ratingValue?: number | null;
   onRating: (level: number) => void;
   onSkipRating: () => void;
-  /** Which thread the interleave's one question belongs to. */
-  offerOn: string | null;
+  /** The interleave owes a question, and it belongs to this one. */
+  owed: boolean;
 }) {
   const [draft, setDraft] = useState("");
-  const fieldRef = useRef<HTMLDivElement>(null);
-
-  // A passage arriving is a request to type. Put the cursor where the typing
-  // goes. Not on a phone: focusing an input there throws up the keyboard over
-  // the sheet before the reader has decided to say anything.
-  useEffect(() => {
-    if (!held || !open || mode !== "talk") return;
-    if (window.matchMedia("(max-width: 720px)").matches) return;
-    fieldRef.current?.querySelector("input")?.focus();
-  }, [held, open, mode]);
-
-  const exchanges = threads.reduce((n, t) => n + t.turns.length, 0);
-  const termCount = terms.length + pendingTerms.length;
-
-  const submit = () => {
-    const q = draft.trim();
-    // With a passage held, an empty field is still a question: the one almost
-    // everybody was going to type.
-    if ((!q && !held) || pending) return;
-    onAsk(q || DEFAULT_QUESTION);
-    setDraft("");
-  };
+  const empty = thread.turns.every(turn => !turn.answer);
 
   return (
-    <div className="reading-sheet" data-talk>
-      {/* Flat colour, not the card wash: a soft three-blob gradient behind a
-          20px heading reads as a smudge, and the passages below it are filled
-          with the same colour flat. */}
+    <>
       <button
         onClick={onToggle}
         aria-expanded={open}
+        aria-label={open ? `Close answer ${n}` : `Open answer ${n}`}
+        title={open ? "Close" : thread.turns[0]?.question}
         style={{
-          background: hue, border: "none", borderBottom: open ? BORDER : "none",
-          padding: "12px 16px", cursor: "pointer", textAlign: "left", flexShrink: 0,
-          display: "flex", alignItems: "center", gap: 12, width: "100%",
+          ...BODY_SM, fontWeight: 600, lineHeight: "16px",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: 18, height: 18, padding: 0, margin: "0 1px 0 3px",
+          verticalAlign: "text-top", flexShrink: 0,
+          border: "none", background: open ? SURFACE : INK, color: open ? INK : SURFACE,
+          boxShadow: open ? `inset 0 0 0 2px ${INK}` : "none",
+          cursor: "pointer",
+          // Furniture, not text: without this it lands inside the next selection
+          // that crosses it and the passage stops matching the beat's own words.
+          userSelect: "none", WebkitUserSelect: "none",
         }}
       >
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ ...DISPLAY_SM, display: "block" }}>Reading with you</span>
-          <span style={{ ...BODY_SM, display: "block", marginTop: 3 }}>
-            {pending
-              ? "Still reading the paper."
-              : exchanges > 0
-                ? `${exchanges} question${exchanges === 1 ? "" : "s"} so far. Highlight anything, or open this and ask.`
-                : "Highlight anything in the paper, or open this and ask."}
-          </span>
-        </span>
-        {streaming && !open && <PageLoader inline />}
-        <ChevronDown
-          size={18}
-          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
-        />
+        {n}
       </button>
 
-      {!open ? null : (
-        <>
-          {termCount > 0 && (
-            // Two halves of one control. The conversation and the glossary are
-            // the only two things this page accumulates, and they were two
-            // stacked collapsibles in a column of their own.
-            <div style={{ padding: "12px 16px 0", flexShrink: 0 }}>
-              <Segmented
-                value={mode}
-                onChange={onMode}
-                options={[
-                  { key: "talk" as const, label: "Conversation" },
-                  { key: "glossary" as const, label: `Glossary (${termCount})` },
-                ]}
+      {open && (
+        <div style={{ borderLeft: BORDER, paddingLeft: 16, margin: "14px 0 18px" }}>
+          {thread.turns.map((turn, i) => (
+            <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
+              <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
+              {turn.answer
+                ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
+                : <DigWait showTips={!owed} />}
+            </div>
+          ))}
+
+          {/* The interleave's one question: no rule above it, centred in its own
+              block. It is a question being asked of the reader, not another
+              section of the answer. */}
+          {owed && (
+            <div style={{ marginTop: 18 }}>
+              <InterleaveQuestion
+                familiarityOffer={familiarityOffer}
+                familiarityValue={familiarityValue}
+                onFamiliarity={onFamiliarity}
+                onSkipFamiliarity={onSkipFamiliarity}
+                ratingOffer={ratingOffer}
+                ratingValue={ratingValue}
+                onRating={onRating}
+                onSkipRating={onSkipRating}
+                waiting={empty && streaming}
               />
             </div>
           )}
 
-          {mode === "glossary" ? (
-            <dl style={{ overflowY: "auto", padding: "4px 16px 16px", margin: 0, flex: 1, minHeight: 0 }}>
-              {pendingTerms.map(term => (
-                <div key={`pending-${term}`} style={{ padding: "12px 0", borderTop: HAIRLINE }}>
-                  <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{term}</dt>
-                  <dd style={{ ...BODY_SM, color: MUTED, fontStyle: "italic", margin: "2px 0 0" }}>Looking it up&hellip;</dd>
-                </div>
-              ))}
-              {terms.map(g => (
-                <div key={g.term} style={{ padding: "12px 0", borderTop: HAIRLINE }}>
-                  <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{g.term}</dt>
-                  <dd style={{ ...BODY_SM, color: DIM, margin: "2px 0 0" }}>{g.def}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <>
-              <div ref={logRef} style={{ overflowY: "auto", padding: "0 16px", flex: 1, minHeight: 0 }}>
-                {pending && (
-                  <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0" }}>
-                    Still reading the paper. Ask anything once it&rsquo;s done.
-                  </p>
-                )}
+          {error && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "12px 0 0" }}>{error}</p>}
 
-                {!pending && threads.length === 0 && !streaming && (
-                  <p style={{ ...BODY_SM, color: MUTED, margin: "16px 0" }}>
-                    Nothing yet. Highlight a sentence in the paper, or ask me anything about it.
-                  </p>
-                )}
-
-                {threads.map((thread, ti) => {
-                  const lit = linked === thread.id;
-                  return (
-                    <div
-                      key={thread.id}
-                      data-thread-id={thread.id}
-                      onMouseEnter={() => onLink(thread.id)}
-                      onMouseLeave={() => onLink(null)}
-                      // Nothing moves on hover and nothing grows a second rule.
-                      style={{ padding: "16px 0", borderTop: ti === 0 ? "none" : HAIRLINE }}
-                    >
-                      {thread.selection && (
-                        // The passage, in the paper's flat colour, and it is the
-                        // way back. Lit, it takes the ink underline a marked
-                        // passage wears in the prose: same signal, both ends.
-                        <button
-                          onClick={() => onJumpToPassage(thread.id)}
-                          title="Take me back to this sentence"
-                          style={{
-                            display: "block", width: "100%", textAlign: "left",
-                            background: hue, border: "none", padding: "8px 10px", margin: "0 0 12px", cursor: "pointer",
-                            boxShadow: lit ? `0 2px 0 0 ${INK}` : "none",
-                          }}
-                        >
-                          {/* Three lines, then an ellipsis. Reprinting half a
-                              beat above its own answer is what the old inline
-                              panel did wrong; the whole passage is still the
-                              anchor and is still marked in the paper. */}
-                          <span
-                            style={{
-                              ...BODY_SM,
-                              display: "-webkit-box", WebkitLineClamp: 3,
-                              WebkitBoxOrient: "vertical" as const, overflow: "hidden",
-                            }}
-                          >
-                            {thread.selection}
-                          </span>
-                        </button>
-                      )}
-
-                      {thread.turns.map((turn, i) => (
-                        <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
-                          <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 8px" }}>{turn.question}</p>
-                          {turn.answer
-                            ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
-                            : <DigWait showTips={offerOn !== thread.id} />}
-                        </div>
-                      ))}
-
-                      {/* The interleave's one question: no rule above it, centred
-                          in its own block. It is a question being asked of the
-                          reader, not another section of the answer. */}
-                      {offerOn === thread.id && (familiarityOffer || ratingOffer) && (
-                        <div style={{ marginTop: 18 }}>
-                          <InterleaveQuestion
-                            familiarityOffer={familiarityOffer}
-                            familiarityValue={familiarityValue}
-                            onFamiliarity={onFamiliarity}
-                            onSkipFamiliarity={onSkipFamiliarity}
-                            ratingOffer={ratingOffer}
-                            ratingValue={ratingValue}
-                            onRating={onRating}
-                            onSkipRating={onSkipRating}
-                            waiting={thread.turns.every(t => !t.answer)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {queued > 0 && (
-                  <p style={{ ...BODY_SM, color: MUTED, margin: "0 0 16px" }}>{queued} more in line.</p>
-                )}
-              </div>
-
-              <div style={{ borderTop: BORDER, flexShrink: 0 }} ref={fieldRef}>
-                {held && (
-                  // The passage you are about to ask about, in its own ruled row
-                  // so the fill never runs into the button under it.
-                  <div style={{ padding: "10px 14px", borderBottom: HAIRLINE, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                    <span
-                      style={{
-                        ...BODY_SM, background: hue, padding: "2px 4px", flex: 1, minWidth: 0,
-                        display: "-webkit-box", WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical" as const, overflow: "hidden",
-                      }}
-                    >
-                      {held.text}
-                    </span>
-                    {/* The second verb, and only when it means something: a word
-                        is a thing you look up and keep, a passage is a thing you
-                        ask about. */}
-                    {onDefine && (
-                      <button
-                        onClick={onDefine}
-                        title="Define this and keep it in the glossary"
-                        style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: 0, cursor: "pointer", color: INK, flexShrink: 0, whiteSpace: "nowrap" }}
-                      >
-                        + Glossary
-                      </button>
-                    )}
-                    <button
-                      onClick={onDropHeld}
-                      aria-label="Drop this passage"
-                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK, display: "flex", flexShrink: 0 }}
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 8, padding: "12px 14px" }}>
-                  <TextInput
-                    value={draft}
-                    onChange={setDraft}
-                    onKeyDown={e => { if (e.key === "Enter") submit(); }}
-                    placeholder={held ? `Ask about this, or just “${DEFAULT_QUESTION}”` : threads.length ? "Keep going…" : "Ask anything about this paper…"}
-                    ariaLabel="Ask a question about this paper"
-                  />
-                  <ActionButton
-                    onClick={submit}
-                    variant="primary"
-                    shadow={false}
-                    disabled={(!draft.trim() && !held) || pending}
-                    style={{ flexShrink: 0 }}
-                  >
-                    Ask
-                  </ActionButton>
-                </div>
-                {failed && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "0 14px 12px" }}>{failed}</p>}
-              </div>
-            </>
+          {!empty && (
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <TextInput
+                value={draft}
+                onChange={setDraft}
+                onKeyDown={e => { if (e.key === "Enter" && draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
+                placeholder="Follow up on this…"
+                ariaLabel="Follow up on this passage"
+              />
+              <ActionButton
+                onClick={() => { if (draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
+                shadow={false}
+                disabled={!draft.trim() || streaming}
+                style={{ flexShrink: 0 }}
+              >
+                Ask
+              </ActionButton>
+            </div>
           )}
-        </>
+        </div>
       )}
+    </>
+  );
+}
+
+/**
+ * The question, before it is a question: an input hanging off the passage you
+ * just highlighted, in the place its answer will appear.
+ *
+ * Nothing floats. What you are about to ask about is the coloured words
+ * immediately above the field, which is the passage itself rather than a copy
+ * of it in a panel somewhere.
+ */
+function HeldComposer({ onAsk, onDefine, onDrop }: {
+  onAsk: (question: string) => void;
+  /** Offered only for something term-shaped. See `looksLikeTerm`. */
+  onDefine: (() => void) | null;
+  onDrop: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+
+  // A passage taken is a request to type. Not on a phone: focusing an input
+  // there throws the keyboard over the page before the reader has decided to
+  // say anything.
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 720px)").matches) return;
+    box.current?.querySelector("input")?.focus();
+  }, []);
+
+  const submit = () => onAsk(draft.trim() || DEFAULT_QUESTION);
+
+  return (
+    <div ref={box} style={{ borderLeft: BORDER, paddingLeft: 16, margin: "14px 0 18px" }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <TextInput
+          value={draft}
+          onChange={setDraft}
+          onKeyDown={e => {
+            if (e.key === "Enter") submit();
+            if (e.key === "Escape") onDrop();
+          }}
+          placeholder={`Ask about this, or just “${DEFAULT_QUESTION}”`}
+          ariaLabel="Ask a question about the highlighted passage"
+        />
+        <ActionButton onClick={submit} variant="primary" shadow={false} style={{ flexShrink: 0 }}>
+          Ask
+        </ActionButton>
+      </div>
+      <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+        {/* The second verb, and only when it means something: a word is a thing
+            you look up and keep, a passage is a thing you ask about. */}
+        {onDefine && (
+          <button
+            onClick={onDefine}
+            style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}
+          >
+            + Glossary
+          </button>
+        )}
+        <button
+          onClick={onDrop}
+          style={{ ...BODY_SM, background: "none", border: "none", padding: 0, cursor: "pointer", color: DIM }}
+        >
+          Never mind
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The recap of every hard word, folded, at the foot of the read.
+ *
+ * The chips in the prose define each term where you meet it; this catches the
+ * ones the companion flagged but never used, holds the ones the reader added
+ * themselves, and gives you somewhere to look a word back up. Reference, not
+ * read, so it is closed until asked for.
+ */
+function Glossary({ terms, pending }: { terms: Jargon[]; pending: string[] }) {
+  const [open, setOpen] = useState(false);
+  const count = terms.length + pending.length;
+  return (
+    <div style={{ border: BORDER, background: SURFACE, padding: "14px 16px", marginTop: 32 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
+      >
+        <span style={{ flex: 1 }}>Glossary ({count})</span>
+        <ChevronDown
+          size={16}
+          style={{ color: MUTED, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+        />
+      </button>
+      {open && (
+        <dl style={{ margin: "12px 0 0" }}>
+          {pending.map(term => (
+            <div key={`pending-${term}`} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+              <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{term}</dt>
+              <dd style={{ ...BODY_SM, color: MUTED, fontStyle: "italic", margin: "2px 0 0" }}>Looking it up&hellip;</dd>
+            </div>
+          ))}
+          {terms.map(g => (
+            <div key={g.term} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+              <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{g.term}</dt>
+              <dd style={{ ...BODY_SM, color: DIM, margin: "2px 0 0" }}>{g.def}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A question about the paper that is not about any one sentence: the three the
+ * companion suggested are gone, so this is a field and whatever it has been
+ * asked, at the foot of the read.
+ *
+ * It is a section of the page, not a panel over it. A passage-anchored question
+ * belongs to its passage; this one has nowhere else to be.
+ */
+function AskSection({ threads, streaming, queued, failed, pending, onAsk, onFollowUp }: {
+  threads: ReadingThread[];
+  streaming: boolean;
+  queued: number;
+  failed: string | null;
+  pending: boolean;
+  onAsk: (question: string) => void;
+  onFollowUp: (threadId: string, question: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const submit = () => {
+    const q = draft.trim();
+    if (!q || pending) return;
+    onAsk(q);
+    setDraft("");
+  };
+
+  return (
+    <section style={{ marginTop: 48 }}>
+      <h2 style={{ ...DISPLAY_LG, margin: "0 0 6px" }}>Ask this paper</h2>
+      <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 14px" }}>
+        Anything that is not about one sentence. I read the paper, then check it against current web sources.
+      </p>
+
+      {threads.map(thread => (
+        <div key={thread.id} style={{ borderTop: HAIRLINE, padding: "16px 0" }}>
+          {thread.turns.map((turn, i) => (
+            <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
+              <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
+              {turn.answer
+                ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
+                : <DigWait showTips />}
+            </div>
+          ))}
+          <FollowUpRow disabled={streaming} onSubmit={q => onFollowUp(thread.id, q)} />
+        </div>
+      ))}
+
+      {queued > 0 && (
+        <p style={{ ...BODY_SM, color: MUTED, margin: "12px 0 0" }}>{queued} more in line.</p>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <TextInput
+          value={draft}
+          onChange={setDraft}
+          onKeyDown={e => { if (e.key === "Enter") submit(); }}
+          placeholder={pending ? "Still reading the paper…" : "Ask anything about this paper…"}
+          ariaLabel="Ask a question about this paper"
+        />
+        <ActionButton onClick={submit} variant="primary" shadow={false} disabled={!draft.trim() || pending} style={{ flexShrink: 0 }}>
+          Ask
+        </ActionButton>
+      </div>
+      {failed && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>}
+    </section>
+  );
+}
+
+/** The quiet "keep going" line under a thread. */
+function FollowUpRow({ disabled, onSubmit }: { disabled: boolean; onSubmit: (q: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: "12px 0 0", cursor: "pointer", color: DIM }}
+      >
+        + Follow up
+      </button>
+    );
+  }
+
+  const submit = () => {
+    const q = draft.trim();
+    if (!q) return;
+    onSubmit(q);
+    setDraft("");
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <TextInput
+        value={draft}
+        onChange={setDraft}
+        onKeyDown={e => { if (e.key === "Enter") submit(); }}
+        placeholder="Follow up…"
+        ariaLabel="Follow up"
+        autoFocus
+      />
+      <ActionButton onClick={submit} shadow={false} disabled={!draft.trim() || disabled} style={{ flexShrink: 0 }}>
+        Ask
+      </ActionButton>
     </div>
   );
 }
@@ -1245,53 +1257,28 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // came here to read, and an open panel with three suggested questions in it
   // is the product asking for attention before the reader has spent any. It
   // opens itself the moment a question is asked, from anywhere.
-  const [talkOpen, setTalkOpen] = useState(false);
-  const [talkMode, setTalkMode] = useState<"talk" | "glossary">("talk");
+  // Which questions are unfolded. A fresh one opens as it arrives; one
+  // rehydrated on load stays a square, so re-opening a paper you asked four
+  // things about shows you the paper rather than your own back-catalogue.
+  const [openTags, setOpenTags] = useState<Set<string>>(new Set());
   const [queued, setQueued] = useState(0);
 
-  // The one live tie between a passage and the part of the conversation about
-  // it. Whichever end you point at, both respond, and clicking either end takes
-  // you to the other. Set by a hover, or by a jump, in which case it is a flash
-  // that fades on its own so the block you were sent to is obvious for a beat.
-  const [linked, setLinked] = useState<string | null>(null);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const proseRef = useRef<HTMLDivElement>(null);
-  const logRef = useRef<HTMLDivElement>(null);
-
-  // The passage the reader is holding: taken on release, and it stays until it
-  // is asked about or dropped. Highlighting opens the conversation and puts it
-  // there, which is the whole gesture now — nothing floats over the sentence.
-  const [held, setHeld] = useState<Pick | null>(null);
-
-  const nativeSelectionLive = useSelectionPick(proseRef, !companionPending, captured => {
-    setHeld(captured);
-    setTalkOpen(true);
-  });
-
-  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
-
-  const flash = useCallback((threadId: string) => {
-    setLinked(threadId);
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setLinked(null), 1600);
+  const toggleTag = useCallback((id: string) => {
+    setOpenTags(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }, []);
 
-  /** Click a highlighted passage: go to what we said about it. */
-  const jumpToTalk = useCallback((threadId: string) => {
-    flash(threadId);
-    logRef.current
-      ?.querySelector(`[data-thread-id="${threadId}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [flash]);
+  const proseRef = useRef<HTMLDivElement>(null);
 
-  /** And the reverse: click the passage in the conversation, go to the sentence. */
-  const jumpToPassage = useCallback((threadId: string) => {
-    flash(threadId);
-    proseRef.current
-      ?.querySelector(`[data-mark-id="${threadId}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [flash]);
+  // The passage the reader is holding: taken on release, and it stays until it
+  // is asked about or dropped. There is no tie to maintain between a passage
+  // and its answer any more, because the answer opens on the passage.
+  const [held, setHeld] = useState<Pick | null>(null);
+
+  const nativeSelectionLive = useSelectionPick(proseRef, !companionPending, setHeld);
 
   useEffect(() => { setTipSeen(nuxSeen(READING_TIP_KEY)); }, []);
 
@@ -1371,23 +1358,20 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     if (busy.current) {
       queuedAsks.current.push(payload);
       setQueued(queuedAsks.current.length);
-      setTalkOpen(true);
-      setTalkMode("talk");
       return;
     }
     busy.current = true;
     setAskError(null);
-    setTalkMode("talk");
-    // Asking anything unfolds the conversation. The panel is closed by default,
-    // so this is the one thing that has to open it, and it has to happen before
-    // the first token rather than with it.
-    setTalkOpen(true);
     const handlers = {
       start: (e: StartEvent) => {
         setStreamingTurn(e.id);
         streamingRef.current = e.id;
-        if (e.selection) freshThreads.current.add(e.threadId);
-        if (e.selection) setLastDigThreadId(e.threadId);
+        if (e.selection) {
+          freshThreads.current.add(e.threadId);
+          setLastDigThreadId(e.threadId);
+          // A question you just asked opens where you asked it.
+          setOpenTags(prev => new Set(prev).add(e.threadId));
+        }
         const turn: ThreadTurn = {
           id: e.id, question: e.question, answer: "",
           threadId: e.threadId, selection: e.selection, sectionKey: e.sectionKey,
@@ -1497,14 +1481,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
   useEffect(() => () => { if (offerTimer.current) clearTimeout(offerTimer.current); }, []);
 
-  // A new question lands at the bottom of a conversation that may already be
-  // taller than the panel, so keep the foot of it in view. Chat rules: the
-  // newest thing is the thing you are looking at.
-  useEffect(() => {
-    if (!threads.length) return;
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
-  }, [threads.length]);
-
   /**
    * Keep this word. The other half of highlighting: a definition, written
    * against this paper's own text, appended to the glossary where it stays.
@@ -1515,9 +1491,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
     const clean = term.trim();
     if (!clean) return;
-    // Show the list you just added to, or the add goes somewhere invisible.
-    setTalkOpen(true);
-    setTalkMode("glossary");
     setPendingTerms(prev => prev.includes(clean) ? prev : [...prev, clean]);
     try {
       if (fixture) {
@@ -1577,21 +1550,55 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const glossary = glossaryForLevel(companion?.glossary ?? [], activeFamiliarity);
   const defined = new Set<string>();
 
+  // Every passage asked about, anywhere in the paper, in the order it was asked.
+  // The square's number comes from here, so it counts questions rather than
+  // position in the beat: the first thing you asked is 1 wherever it is.
+  const asked = digThreads(threads);
+  const numberOf = new Map(asked.map((t, i) => [t.id, i + 1]));
+
   const marksFor = (key: SectionKey): BeatMark[] => [
-    // The live selection first, so re-highlighting a passage you already asked
-    // about shows it as the current selection rather than as an old one.
+    // The passage being held, with the question hanging off it.
     ...(held && held.section === key && !nativeSelectionLive
-      ? [{ text: held.text, fill: hue }]
+      ? [{
+          text: held.text,
+          fill: hue,
+          after: (
+            <HeldComposer
+              onAsk={q => askHere(q, held.text, held.section)}
+              onDefine={looksLikeTerm(held.text) ? () => define(held.text) : null}
+              onDrop={() => setHeld(null)}
+            />
+          ),
+        }]
       : []),
     ...digsForSection(threads, key)
       .map(t => ({
         id: t.id,
         text: t.selection ?? "",
         fill: hue,
-        active: linked === t.id,
-        onClick: () => jumpToTalk(t.id),
-        onEnter: () => setLinked(t.id),
-        onLeave: () => setLinked(null),
+        after: (
+          <AnswerTag
+            n={numberOf.get(t.id) ?? 1}
+            thread={t}
+            open={openTags.has(t.id)}
+            streaming={t.turns.some(turn => turn.id === streamingTurn)}
+            error={t.turns.some(turn => turn.id === streamingTurn) ? null : askError}
+            onToggle={() => toggleTag(t.id)}
+            onFollowUp={q => ask({ question: q, threadId: t.id })}
+            familiarityOffer={t.id === lastDigThreadId ? familiarityOffer : null}
+            familiarityValue={activeFamiliarity}
+            onFamiliarity={setFamiliarity}
+            onSkipFamiliarity={skipFamiliarity}
+            // Second in the queue: never before the familiarity question has
+            // been answered or waved off, never twice, never once they have
+            // told us.
+            ratingOffer={t.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
+            ratingValue={rating}
+            onRating={submitRating}
+            onSkipRating={skipRating}
+            owed={t.id === lastDigThreadId && (!!familiarityOffer || (rating === null && !ratingDeclined))}
+          />
+        ),
       }))
       .filter(m => m.text),
   ];
@@ -1607,12 +1614,12 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
   const beatDig = (key: SectionKey) => (
     sectionText[key]
-      ? <DigThisBeat onDig={() => { setHeld({ text: sectionText[key], section: key }); setTalkOpen(true); }} />
+      ? <DigThisBeat onDig={() => setHeld({ text: sectionText[key], section: key })} />
       : null
   );
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto" }} className="px-5 md:px-8 pt-6 reading-page">
+    <div style={{ maxWidth: 1240, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
       {/* The top bar: out of the page on the left, into the paper on the right. */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, marginBottom: 28 }}>
         {onBack ? (
@@ -1670,7 +1677,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
             </div>
           ) : companion?.gist ? (
             <>
-              <p data-section="gist" style={{ ...READING_BODY, margin: 0 }}>{mark(companion.gist, "gist")}</p>
+              <div data-section="gist" style={{ ...READING_BODY }}>{mark(companion.gist, "gist")}</div>
               {beatDig("gist")}
             </>
           ) : companionFailed ? (
@@ -1726,13 +1733,29 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
                     and so does the one being highlighted right now, but the one
                     line worth keeping is not the place to start defining
                     words. */}
-                <p data-section="remember" style={{ ...READING_BODY, fontWeight: 600, margin: 0 }}>
+                <div data-section="remember" style={{ ...READING_BODY, fontWeight: 600 }}>
                   {annotateBeat(companion.remember, [], defined, marksFor("remember"))}
-                </p>
+                </div>
               </div>
             </>
           )}
 
+
+          {!companionPending && (
+            <AskSection
+              threads={askThreads(threads)}
+              streaming={!!streamingTurn}
+              queued={queued}
+              failed={askError}
+              pending={companionPending}
+              onAsk={q => ask({ question: q })}
+              onFollowUp={(threadId, q) => ask({ question: q, threadId })}
+            />
+          )}
+
+          {(glossary.length > 0 || pendingTerms.length > 0) && (
+            <Glossary terms={glossary} pending={pendingTerms} />
+          )}
 
           {/* ── What's happened since ── */}
           <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
@@ -1757,78 +1780,15 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
       </div>
 
-      <TalkSheet
-        threads={threads}
-        hue={hue}
-        pending={companionPending}
-        open={talkOpen}
-        onToggle={() => setTalkOpen(v => !v)}
-        mode={talkMode}
-        onMode={setTalkMode}
-        terms={glossary}
-        pendingTerms={pendingTerms}
-        streaming={!!streamingTurn}
-        queued={queued}
-        failed={askError}
-        linked={linked}
-        held={held}
-        onDropHeld={() => setHeld(null)}
-        onDefine={held && looksLikeTerm(held.text) ? () => define(held.text) : null}
-        logRef={logRef}
-        onLink={setLinked}
-        onJumpToPassage={jumpToPassage}
-        // A held passage makes it a question about that passage, which is the
-        // only reason a question needs a thread of its own. Otherwise typing
-        // continues the conversation: highlight to change the subject, type to
-        // keep pulling on this one.
-        onAsk={(q: string) => held
-          ? askHere(q, held.text, held.section)
-          : ask({ question: q, threadId: threads.at(-1)?.id })}
-        familiarityOffer={familiarityOffer}
-        familiarityValue={activeFamiliarity}
-        onFamiliarity={setFamiliarity}
-        onSkipFamiliarity={skipFamiliarity}
-        // Second in the queue: never before the familiarity question has been
-        // answered or waved off, never twice, never once they have told us.
-        ratingOffer={!familiarityOffer && rating === null && !ratingDeclined && !!lastDigThreadId}
-        ratingValue={rating}
-        onRating={submitRating}
-        onSkipRating={skipRating}
-        offerOn={lastDigThreadId}
-      />
 
       <style>{`
-        /* One column, centred, at every width. There is no rail: everything
-           that is not the paper is in the sheet at the foot of the page, which
-           is the same object in the same place on a phone as on a laptop. The
-           rail was the mobile bug — below 1060px it dropped underneath the whole
-           article, so a highlight opened a panel three screens away. */
+        /* One column, centred, at every width. Nothing is docked, floating,
+           sticky or beside the read: a question opens on the sentence it is
+           about, and the two things the page accumulates (what you asked that
+           was not about a sentence, and the words you kept) are sections at the
+           foot of it. This is the same page on a phone as on a laptop, which is
+           what the rail could never be. */
         .reading-shell { max-width: 720px; margin: 0 auto; }
-        /* The folded sheet is about 80px of fixed furniture over the foot of
-           the page, so the page ends above it rather than under it. */
-        .reading-page { padding-bottom: 160px; }
-
-        /* Docked to the bottom of the viewport, the width of the column. Folded
-           it is a bar; open it takes at most two thirds of the screen and never
-           the whole of it, because the sentence you highlighted has to stay
-           visible behind it. */
-        .reading-sheet {
-          position: fixed;
-          left: 50%;
-          transform: translateX(-50%);
-          bottom: 0;
-          z-index: 10020;
-          width: min(720px, calc(100vw - 24px));
-          max-height: min(68vh, 620px);
-          display: flex;
-          flex-direction: column;
-          border: 2px solid var(--color-ink);
-          border-bottom: none;
-          box-shadow: 5px 5px 0 0 var(--color-ink);
-          background: var(--color-surface);
-          /* The home bar on a phone sits under the composer otherwise. */
-          padding-bottom: env(safe-area-inset-bottom);
-        }
         /* No ::selection override here. The drag wears the product's ordinary
            ink selection, and the paper's hue arrives on release, drawn by the
            page in useSelectionPick. */
@@ -1837,12 +1797,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         .reading-beat-dig { display: none; }
         @media (max-width: 720px) {
           .reading-beat-dig { display: block; }
-          .reading-sheet {
-            left: 0; right: 0; transform: none;
-            width: auto;
-            max-height: min(72dvh, 560px);
-            border-left: none; border-right: none; box-shadow: none;
-          }
         }
       `}</style>
     </div>
