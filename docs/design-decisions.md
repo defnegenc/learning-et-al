@@ -1648,3 +1648,50 @@ and keep it.
 - **The suggested questions are gone.** Three model-written questions sitting in
   the panel before the reader has asked anything is the product filling its own
   silence.
+
+---
+
+## 2026-08-29: One column and one sheet. The rail is gone
+
+Two problems, one cause.
+
+**It was clunky.** The count of furniture around the paper had crept back up:
+a 480px rail holding a folded glossary bar above a folded conversation bar,
+bottom-aligned, each with its own chevron, beside a column of prose. Three
+things to fold and unfold before you have read a sentence.
+
+**Mobile was broken, and not in a small way.** Below 1060px the rail dropped
+underneath the whole article. Highlighting a sentence on a phone opened a panel
+three screens down, so the gesture appeared to do nothing at all. That is not a
+media query that needs tuning; it is a layout that only ever existed on a
+laptop.
+
+So: **no rail.** The paper is one centred 720px column at every width, and
+everything that is not the paper lives in **one sheet docked to the foot of the
+viewport** — the same object, in the same place, on a phone and on a laptop.
+One implementation, no responsive divergence, nothing beside the read.
+
+The sheet has two states and two halves:
+
+- **Folded** it is a bar: what it is for, how many questions are in it, and the
+  stamp turning if an answer is being written while it is shut.
+- **Open** it is a body and a composer, capped at two thirds of the screen so
+  the sentence you highlighted stays visible behind it.
+- The body is **the conversation or the glossary**, chosen with a `Segmented`.
+  They are the only two things this page accumulates as you read, so they are
+  two halves of one control rather than two stacked panels in a column of their
+  own. Adding a word with `+ Glossary` switches to that half; asking anything
+  switches back.
+
+Everything else about the interaction is unchanged: highlight and the passage is
+held in the composer in the paper's colour, the sentence is marked in the same
+colour, the passage in a block is the way back to the sentence and the sentence
+is the way back to the block.
+
+Touch gets one more path: `touchend` now reports a selection where the browser
+allows one, and the per-beat affordance below 720px stays, because touch
+selection loses to the native callout often enough that it cannot be the only
+way in.
+
+On a phone the sheet goes full-bleed, loses its side borders and its shadow, and
+takes `env(safe-area-inset-bottom)` so the composer is not under the home bar.
