@@ -54,16 +54,17 @@ export async function searchSemanticScholar(
   query: string,
   maxResults = 10,
   sort: "citationCount" | "publicationDate" = "citationCount",
-  fieldsOfStudy?: string
+  fieldsOfStudy?: string,
+  recentWindowYears = 2,
 ): Promise<SemanticScholarPaper[]> {
   try {
     const encodedQuery = encodeURIComponent(query);
     let url = `${API_BASE}/paper/search?query=${encodedQuery}&limit=${maxResults}&fields=${FIELDS}`;
 
     if (sort === "publicationDate") {
-      // Filter to last 2 years for recent papers
+      // The caller tightens this for volatile fields and widens it elsewhere.
       const currentYear = new Date().getFullYear();
-      url += `&year=${currentYear - 2}-${currentYear}`;
+      url += `&year=${currentYear - recentWindowYears}-${currentYear}`;
       url += `&sort=publicationDate:desc`;
     } else {
       url += `&sort=citationCount:desc`;
@@ -115,4 +116,3 @@ export async function searchSemanticScholar(
     return [];
   }
 }
-
