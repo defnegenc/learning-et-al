@@ -115,9 +115,12 @@ ${listing}`;
  * and plans the argument structure.
  * Research: Radev (2000) Cross-Document Structure Theory, Yao (2023) Tree of Thoughts.
  */
-export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number, dossier?: string | null) {
+export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number, dossier?: string | null, fastMovingResearch = false) {
   const listing = formatPapers(candidates, 1200);
   const currentYear = new Date().getFullYear();
+  const recencyGuidance = fastMovingResearch
+    ? `CURRENT-EVIDENCE FLOOR: This is a rapidly changing research area. If any ${currentYear} paper passes the relevance gate, select at least one ${currentYear} paper. When selecting three papers, keep at least two from ${currentYear - 1}-${currentYear} whenever two such candidates add distinct, useful evidence. In that case, at most one paper may be from ${currentYear - 2} or earlier. This rule never rescues an off-topic paper.`
+    : `RECENCY: This is not a rapidly changing research area. Use publication year only as a tie-break between equally relevant and complementary papers. Older evidence can be the right evidence, so do not force a current-year paper into the set.`;
 
   // The librarian's working note on this reader, when it has one. It goes HERE
   // and nowhere upstream: the candidates were already qualified on the theme, so
@@ -167,7 +170,7 @@ BAD: "Picturing Herakles in ancient Athens" for "Can external tools rewire human
 BAD: "Plywood waste management review" for "Can bacteria eat our industrial waste?" — waste management ≠ microbial upcycling
 GOOD: A paper about how language shapes legal outcomes for "Do words change what we see as fair?" — directly speaks to the question
 
-CURRENT-EVIDENCE FLOOR: If any ${currentYear} paper passes the relevance gate, select at least one ${currentYear} paper. With three slots, prefer two current-year papers when both add distinct, useful evidence. This rule never rescues an off-topic paper.
+${recencyGuidance}
 
 Aim for ${targetCount} papers. But 2 strong papers beats ${targetCount} where one is a stretch — if only 2 genuinely fit, return 2.
 
@@ -186,7 +189,7 @@ RULES:
 - selectedIndices should ideally contain ${targetCount} indices (1-indexed) — but may contain fewer if not enough papers genuinely fit
 - Every selected paper must have a DISTINCT role — no two papers with the same role
 - NO TWO PAPERS WITH THE SAME CONCLUSION. If papers A and B both conclude "X is better/faster/works", drop one.
-- RECENCY: satisfy the current-evidence floor above, then prefer the newer paper when two remaining choices are equally relevant, insightful, and complementary.
+- RECENCY: follow the field-specific recency guidance above, then prefer the newer paper when two remaining choices are equally relevant, insightful, and complementary.
 - coreInsight can be a tension, a surprise, a paradox, OR a complementary insight. NOT everything needs conflict — papers agreeing from different angles are great too.
 - shortName: MAX 4 WORDS, plain everyday language a reader who has NOT read the paper instantly understands: "the chatbot privacy study", "the makeup tutorial study", "the delete-button study". NEVER author names ("the Smith study"), acronyms, or title jargon — a reader should know what the study is ABOUT from the name alone. Each shortName must be DISTINCT from the others so the closing can cross-reference them unambiguously.
 - If a paper is >5 years old, it must offer something newer papers can't (historical perspective, foundational insight). Don't pick old papers just because they're highly cited.
