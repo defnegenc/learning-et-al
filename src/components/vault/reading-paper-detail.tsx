@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, Bookmark, ChevronDown, Loader2 } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
@@ -844,24 +844,50 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
 /**
  * The square. A question, tagged onto the passage it came from.
  *
- * Everything before this put the answer somewhere else and then had to build a
- * way back to the sentence: a panel under the beat, a card in a rail, a chat in
- * the corner, a sheet at the foot of the page. Each one needed a numeral, a
- * hover tie, a scroll-to. This needs none of it, because the answer is already
- * where the question was.
- *
  * Closed, a question is one ink square with a number in it, sitting at the end
- * of the coloured passage like a footnote marker. Open, the answer unfolds in
- * the flow right there. Reading a paper you have asked four things about is
- * reading the paper with four small squares in it.
+ * of the coloured passage like a footnote marker. That is the resting state of
+ * this whole feature: reading a paper you have asked four things about is
+ * reading the paper, with four small squares in it.
  */
-function AnswerTag({ n, thread, open, streaming, error, onToggle, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating, owed }: {
+function AnswerSquare({ n, open, label, onToggle }: {
   n: number;
-  thread: ReadingThread;
   open: boolean;
+  label?: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={open ? `Close answer ${n}` : `Open answer ${n}`}
+      title={open ? "Close" : label}
+      style={{
+        ...BODY_SM, fontWeight: 600, lineHeight: "16px",
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 18, height: 18, padding: 0, margin: "0 1px 0 3px",
+        verticalAlign: "text-top", flexShrink: 0,
+        border: "none", background: open ? SURFACE : INK, color: open ? INK : SURFACE,
+        boxShadow: open ? `inset 0 0 0 2px ${INK}` : "none",
+        cursor: "pointer",
+        // Furniture, not text: without this it lands inside the next selection
+        // that crosses it and the passage stops matching the beat's own words.
+        userSelect: "none", WebkitUserSelect: "none",
+      }}
+    >
+      {n}
+    </button>
+  );
+}
+
+/**
+ * The answer itself. It opens beside its passage in the margin on a wide screen
+ * and under it in the flow on a narrow one, and it is the same component both
+ * times — the only difference is which column it is rendered into.
+ */
+function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating, owed }: {
+  thread: ReadingThread;
   streaming: boolean;
   error?: string | null;
-  onToggle: () => void;
   onFollowUp: (question: string) => void;
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
@@ -878,92 +904,67 @@ function AnswerTag({ n, thread, open, streaming, error, onToggle, onFollowUp, fa
   const empty = thread.turns.every(turn => !turn.answer);
 
   return (
-    <>
-      <button
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-label={open ? `Close answer ${n}` : `Open answer ${n}`}
-        title={open ? "Close" : thread.turns[0]?.question}
-        style={{
-          ...BODY_SM, fontWeight: 600, lineHeight: "16px",
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 18, height: 18, padding: 0, margin: "0 1px 0 3px",
-          verticalAlign: "text-top", flexShrink: 0,
-          border: "none", background: open ? SURFACE : INK, color: open ? INK : SURFACE,
-          boxShadow: open ? `inset 0 0 0 2px ${INK}` : "none",
-          cursor: "pointer",
-          // Furniture, not text: without this it lands inside the next selection
-          // that crosses it and the passage stops matching the beat's own words.
-          userSelect: "none", WebkitUserSelect: "none",
-        }}
-      >
-        {n}
-      </button>
+    <div style={{ borderLeft: BORDER, paddingLeft: 16 }}>
+      {thread.turns.map((turn, i) => (
+        <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
+          <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
+          {turn.answer
+            ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
+            : <DigWait showTips={!owed} />}
+        </div>
+      ))}
 
-      {open && (
-        <div style={{ borderLeft: BORDER, paddingLeft: 16, margin: "14px 0 18px" }}>
-          {thread.turns.map((turn, i) => (
-            <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
-              <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
-              {turn.answer
-                ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
-                : <DigWait showTips={!owed} />}
-            </div>
-          ))}
-
-          {/* The interleave's one question: no rule above it, centred in its own
-              block. It is a question being asked of the reader, not another
-              section of the answer. */}
-          {owed && (
-            <div style={{ marginTop: 18 }}>
-              <InterleaveQuestion
-                familiarityOffer={familiarityOffer}
-                familiarityValue={familiarityValue}
-                onFamiliarity={onFamiliarity}
-                onSkipFamiliarity={onSkipFamiliarity}
-                ratingOffer={ratingOffer}
-                ratingValue={ratingValue}
-                onRating={onRating}
-                onSkipRating={onSkipRating}
-                waiting={empty && streaming}
-              />
-            </div>
-          )}
-
-          {error && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "12px 0 0" }}>{error}</p>}
-
-          {!empty && (
-            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <TextInput
-                value={draft}
-                onChange={setDraft}
-                onKeyDown={e => { if (e.key === "Enter" && draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
-                placeholder="Follow up on this…"
-                ariaLabel="Follow up on this passage"
-              />
-              <ActionButton
-                onClick={() => { if (draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
-                shadow={false}
-                disabled={!draft.trim() || streaming}
-                style={{ flexShrink: 0 }}
-              >
-                Ask
-              </ActionButton>
-            </div>
-          )}
+      {/* The interleave's one question: no rule above it, centred in its own
+          block. It is a question being asked of the reader, not another section
+          of the answer. */}
+      {owed && (
+        <div style={{ marginTop: 18 }}>
+          <InterleaveQuestion
+            familiarityOffer={familiarityOffer}
+            familiarityValue={familiarityValue}
+            onFamiliarity={onFamiliarity}
+            onSkipFamiliarity={onSkipFamiliarity}
+            ratingOffer={ratingOffer}
+            ratingValue={ratingValue}
+            onRating={onRating}
+            onSkipRating={onSkipRating}
+            waiting={empty && streaming}
+          />
         </div>
       )}
-    </>
+
+      {error && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "12px 0 0" }}>{error}</p>}
+
+      {!empty && (
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          <TextInput
+            value={draft}
+            onChange={setDraft}
+            onKeyDown={e => { if (e.key === "Enter" && draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
+            placeholder="Follow up on this…"
+            ariaLabel="Follow up on this passage"
+          />
+          <ActionButton
+            onClick={() => { if (draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
+            shadow={false}
+            disabled={!draft.trim() || streaming}
+            style={{ flexShrink: 0 }}
+          >
+            Ask
+          </ActionButton>
+        </div>
+      )}
+    </div>
   );
 }
 
 /**
- * The question, before it is a question: an input hanging off the passage you
+ * The question, before it is a question: a field hanging off the passage you
  * just highlighted, in the place its answer will appear.
  *
- * Nothing floats. What you are about to ask about is the coloured words
- * immediately above the field, which is the passage itself rather than a copy
- * of it in a panel somewhere.
+ * Nothing floats. What you are about to ask about is the coloured words the
+ * field is level with, which is the passage itself rather than a copy of it in
+ * a panel somewhere.
  */
 function HeldComposer({ onAsk, onDefine, onDrop }: {
   onAsk: (question: string) => void;
@@ -985,7 +986,7 @@ function HeldComposer({ onAsk, onDefine, onDrop }: {
   const submit = () => onAsk(draft.trim() || DEFAULT_QUESTION);
 
   return (
-    <div ref={box} style={{ borderLeft: BORDER, paddingLeft: 16, margin: "14px 0 18px" }}>
+    <div ref={box} style={{ borderLeft: BORDER, paddingLeft: 16 }}>
       <div style={{ display: "flex", gap: 8 }}>
         <TextInput
           value={draft}
@@ -1021,6 +1022,70 @@ function HeldComposer({ onAsk, onDefine, onDrop }: {
       </div>
     </div>
   );
+}
+
+/** Is there room beside the read for an answer to open into? */
+function useWideEnough() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(MARGIN_BREAKPOINT);
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return wide;
+}
+
+/** Below this there is no margin to open into, so answers open in the flow. */
+const MARGIN_BREAKPOINT = "(min-width: 1080px)";
+
+/** The held passage's mark, so the composer can be lined up with it. */
+const HELD_ID = "held-passage";
+
+/**
+ * Where each open thing sits in the margin: level with the line it belongs to,
+ * pushed down only far enough to clear whatever is above it.
+ *
+ * Measured after paint and written back only when a number actually changed, so
+ * it settles in one pass rather than cascading.
+ */
+function useMarginTops(
+  proseRef: React.RefObject<HTMLDivElement | null>,
+  ids: string[],
+  heights: React.RefObject<Record<string, HTMLDivElement | null>>,
+) {
+  const [tops, setTops] = useState<Record<string, number>>({});
+  const key = ids.join(",");
+
+  useLayoutEffect(() => {
+    const box = proseRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const measured = ids
+      .map(id => {
+        const el = proseRef.current?.querySelector(`[data-mark-id="${id}"]`);
+        return el ? { id, want: el.getBoundingClientRect().top - box.top } : null;
+      })
+      .filter((m): m is { id: string; want: number } => !!m)
+      .sort((a, b) => a.want - b.want);
+
+    const next: Record<string, number> = {};
+    let floor = 0;
+    for (const m of measured) {
+      const top = Math.max(m.want, floor);
+      next[m.id] = top;
+      floor = top + (heights.current?.[m.id]?.offsetHeight ?? 120) + 20;
+    }
+    const changed = Object.keys(next).length !== Object.keys(tops).length
+      || Object.entries(next).some(([id, v]) => Math.abs((tops[id] ?? -1) - v) > 0.5);
+    // Measuring rendered geometry and writing it back is what a layout effect is
+    // for; the guard is what stops it cascading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (changed) setTops(next);
+    // `key` stands in for the id list, which is a new array every render.
+  }, [key, tops, ids, proseRef, heights]);
+
+  return tops;
 }
 
 /**
@@ -1272,6 +1337,10 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   }, []);
 
   const proseRef = useRef<HTMLDivElement>(null);
+  // One ref per thing in the margin, so its height is known when the next thing
+  // below it is placed.
+  const marginRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const wide = useWideEnough();
 
   // The passage the reader is holding: taken on release, and it stays until it
   // is asked about or dropped. There is no tie to maintain between a passage
@@ -1556,19 +1625,52 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const asked = digThreads(threads);
   const numberOf = new Map(asked.map((t, i) => [t.id, i + 1]));
 
+  const panelFor = (t: ReadingThread) => (
+    <AnswerPanel
+      thread={t}
+      streaming={t.turns.some(turn => turn.id === streamingTurn)}
+      error={t.turns.some(turn => turn.id === streamingTurn) ? null : askError}
+      onFollowUp={q => ask({ question: q, threadId: t.id })}
+      familiarityOffer={t.id === lastDigThreadId ? familiarityOffer : null}
+      familiarityValue={activeFamiliarity}
+      onFamiliarity={setFamiliarity}
+      onSkipFamiliarity={skipFamiliarity}
+      // Second in the queue: never before the familiarity question has been
+      // answered or waved off, never twice, never once they have told us.
+      ratingOffer={t.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
+      ratingValue={rating}
+      onRating={submitRating}
+      onSkipRating={skipRating}
+      owed={t.id === lastDigThreadId && (!!familiarityOffer || (rating === null && !ratingDeclined))}
+    />
+  );
+
+  const composer = held ? (
+    <HeldComposer
+      onAsk={q => askHere(q, held.text, held.section)}
+      onDefine={looksLikeTerm(held.text) ? () => define(held.text) : null}
+      onDrop={() => setHeld(null)}
+    />
+  ) : null;
+
+  // What the margin is showing, top to bottom: the question being typed, and
+  // every answer left open. Nothing else ever goes out there.
+  const marginItems: { id: string; node: React.ReactNode }[] = wide
+    ? [
+        ...(held && composer ? [{ id: HELD_ID, node: composer }] : []),
+        ...asked.filter(t => openTags.has(t.id)).map(t => ({ id: t.id, node: panelFor(t) })),
+      ]
+    : [];
+  const marginTops = useMarginTops(proseRef, marginItems.map(m => m.id), marginRefs);
+
   const marksFor = (key: SectionKey): BeatMark[] => [
-    // The passage being held, with the question hanging off it.
+    // The passage being held, with its question hanging off it.
     ...(held && held.section === key && !nativeSelectionLive
       ? [{
+          id: HELD_ID,
           text: held.text,
           fill: hue,
-          after: (
-            <HeldComposer
-              onAsk={q => askHere(q, held.text, held.section)}
-              onDefine={looksLikeTerm(held.text) ? () => define(held.text) : null}
-              onDrop={() => setHeld(null)}
-            />
-          ),
+          after: wide ? null : <div style={{ margin: "14px 0 18px" }}>{composer}</div>,
         }]
       : []),
     ...digsForSection(threads, key)
@@ -1577,27 +1679,19 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         text: t.selection ?? "",
         fill: hue,
         after: (
-          <AnswerTag
-            n={numberOf.get(t.id) ?? 1}
-            thread={t}
-            open={openTags.has(t.id)}
-            streaming={t.turns.some(turn => turn.id === streamingTurn)}
-            error={t.turns.some(turn => turn.id === streamingTurn) ? null : askError}
-            onToggle={() => toggleTag(t.id)}
-            onFollowUp={q => ask({ question: q, threadId: t.id })}
-            familiarityOffer={t.id === lastDigThreadId ? familiarityOffer : null}
-            familiarityValue={activeFamiliarity}
-            onFamiliarity={setFamiliarity}
-            onSkipFamiliarity={skipFamiliarity}
-            // Second in the queue: never before the familiarity question has
-            // been answered or waved off, never twice, never once they have
-            // told us.
-            ratingOffer={t.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
-            ratingValue={rating}
-            onRating={submitRating}
-            onSkipRating={skipRating}
-            owed={t.id === lastDigThreadId && (!!familiarityOffer || (rating === null && !ratingDeclined))}
-          />
+          <>
+            <AnswerSquare
+              n={numberOf.get(t.id) ?? 1}
+              open={openTags.has(t.id)}
+              label={t.turns[0]?.question}
+              onToggle={() => toggleTag(t.id)}
+            />
+            {/* Wide, it opens in the margin beside the passage. Narrow, there is
+                no margin to open into, so it opens in the flow underneath. */}
+            {!wide && openTags.has(t.id) && (
+              <div style={{ margin: "14px 0 18px" }}>{panelFor(t)}</div>
+            )}
+          </>
         ),
       }))
       .filter(m => m.text),
@@ -1645,7 +1739,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         </div>
       </div>
 
-      <div className="reading-shell">
+      <div className={`reading-shell${wide && marginItems.length > 0 ? " has-margin" : ""}`}>
         <div style={{ minWidth: 0 }} ref={proseRef}>
           <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{paper.title}</h1>
           {byline && (
@@ -1778,17 +1872,49 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           )}
         </div>
 
+        {/* The margin. It does not exist until something opens into it: no
+            reserved column of nothing, no empty rail. When it appears the page
+            widens around it and the read stays the same measure, so the words
+            never reflow, they only move. */}
+        {wide && (
+          <div className="reading-margin">
+            {marginItems.map(item => (
+              <div
+                key={item.id}
+                ref={el => { marginRefs.current[item.id] = el; }}
+                style={{ position: "absolute", left: 0, right: 0, top: marginTops[item.id] ?? 0, transition: "top 160ms" }}
+              >
+                {item.node}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
 
       <style>{`
-        /* One column, centred, at every width. Nothing is docked, floating,
-           sticky or beside the read: a question opens on the sentence it is
-           about, and the two things the page accumulates (what you asked that
-           was not about a sentence, and the words you kept) are sections at the
-           foot of it. This is the same page on a phone as on a laptop, which is
-           what the rail could never be. */
-        .reading-shell { max-width: 720px; margin: 0 auto; }
+        /* One centred column, and a margin that is not there until it is needed.
+           A question opens beside the sentence it is about on a wide screen and
+           under it on a narrow one; the two things the page accumulates that are
+           not about a sentence (what you asked, and the words you kept) are
+           sections at the foot of the read. Nothing is docked, floating or
+           sticky, which is what makes this the same page on a phone. */
+        .reading-shell {
+          max-width: 720px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          align-items: stretch;
+          transition: max-width 200ms ease;
+        }
+        /* The read keeps its measure and the page grows to the right of it, so
+           opening an answer moves the column but never reflows a line of it. */
+        .reading-shell.has-margin {
+          max-width: 1140px;
+          grid-template-columns: minmax(0, 720px) 380px;
+          gap: 40px;
+        }
+        .reading-margin { position: relative; }
         /* No ::selection override here. The drag wears the product's ordinary
            ink selection, and the paper's hue arrives on release, drawn by the
            page in useSelectionPick. */

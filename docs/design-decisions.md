@@ -1739,3 +1739,25 @@ the beat · `DigCard` stack in a rail · floating `SelectionMenu` over the
 selection · `AskCompanion` in the corner · `Conversation` filling a 480px rail ·
 `TalkSheet` docked to the viewport. Six. The last one is the first that does not
 need to explain where the answer went.
+
+### The margin, and how it comes and goes
+
+Two corrections to the footnote version, same day.
+
+**The answer opens on the right.** A block unfolding inside the paragraph pushed
+the rest of the sentence down the page every time, which is the thing that has
+been wrong with every inline arrangement here. So on a wide screen the square
+stays in the sentence and the answer opens in the **margin beside it**, level
+with the line it belongs to. Answers stack downward only far enough to clear
+each other.
+
+**The margin does not exist until something opens into it.** No reserved column
+of nothing, no empty rail. The read is a centred 720px column; open a square and
+the page widens to 1140 with a 380px margin, and the read keeps its measure, so
+the words move but never reflow. Close the last one and the margin is gone and
+the column recentres. The transition is on `max-width`, so it slides.
+
+Below 1080px there is no margin to open into, so the answer opens in the flow
+under the passage, which is the phone behaviour and the only place an inline
+block is the right answer. Same component in both columns; the only difference
+is which one it is rendered into.
