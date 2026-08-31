@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { ArrowLeft, Bookmark, ChevronDown, Loader2, X } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
-import { paperByline, READING_BODY } from "@/components/paper-card";
+import { PaperCard, paperByline, READING_BODY } from "@/components/paper-card";
 import { READING_TIP_KEY, markNuxSeen, nuxSeen } from "@/lib/nux";
 import {
   type FamiliarityTopic,
@@ -12,13 +12,13 @@ import {
   type PitchedForYou,
 } from "@/lib/familiarity";
 import {
-  DEFAULT_QUESTION, askThreads, digThreads, digsForSection, groupThreads,
+  DEFAULT_QUESTION, digThreads, digsForSection, groupThreads,
   type ReadingThread, type SectionKey, type ThreadTurn,
 } from "@/lib/reading-thread";
 import {
-  ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
+  ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
   HAIRLINE, INK, MUTED, PageLoader, SHADOW, SURFACE, TextInput,
-  foundationalSlots, foundationalWash, wash, washSlots,
+  foundationalSlots, washSlots,
 } from "@/components/design-system";
 
 type Jargon = {
@@ -741,9 +741,10 @@ function Beat({ heading, sectionKey, children }: {
   );
 }
 
-// Follow-up work reads as a plain list, not as cards — one hairline-separated
-// row per paper with a save control on the right.
-function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperId: string }) {
+// Follow-up work reads as cards, because it is papers and there is one card for
+// a paper in this product. It used to be a hairline-separated list, which was a
+// second way of drawing the same object.
+function HomeworkCard({ item, sourcePaperId, index }: { item: HomeworkItem; sourcePaperId: string; index: number }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -763,35 +764,50 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
     finally { setSaving(false); }
   }
 
-  const meta = [
-    item.year ? String(item.year) : "",
-    item.venue || "",
-    item.citationCount > 0 ? `${item.citationCount} citations` : "",
-  ].filter(Boolean).join(" · ");
+  // A citing work is not in our papers table yet, so it is shaped into the card
+  // rather than fetched as one. Everything the compact card reads is here; what
+  // is missing (summary, keywords) is missing because OpenAlex did not give it.
+  const asPaper: PaperItem = {
+    id: item.openAlexId || item.url || item.title,
+    title: item.title,
+    summary: null,
+    source: "semantic_scholar",
+    sourceUrl: item.url,
+    keywords: [],
+    authors: item.authors ?? [],
+    year: item.year,
+    abstract: item.abstract || null,
+    category: "recent",
+  };
 
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 0", borderTop: HAIRLINE }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <a
-          href={item.url || undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ ...DISPLAY_SM, textDecoration: item.url ? "underline" : "none", textUnderlineOffset: 4 }}
-        >
-          {item.title}
-        </a>
-        <div style={{ ...BODY_STYLE, color: MUTED, marginTop: 8 }}>{meta}</div>
-      </div>
-      <button
-        onClick={save}
-        title={saved ? "In your library" : "Save to your library"}
-        style={{ background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: INK, marginTop: 3 }}
-      >
-        {saving
-          ? <Loader2 size={15} className="animate-spin" />
-          : <Bookmark size={15} fill={saved ? INK : "none"} />}
-      </button>
-    </div>
+    <PaperCard
+      paper={asPaper}
+      index={index}
+      size="compact"
+      // No `loggedIn`: the card's own bookmark saves a paper we already have a
+      // row for, and this one has to go through save-external. The save lives
+      // in the footnote instead, which is the one place a compact card lets a
+      // caller put its own control.
+      onOpen={p => { if (p.sourceUrl) window.open(p.sourceUrl, "_blank", "noopener,noreferrer"); }}
+      footnote={
+        <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ ...BODY_SM, color: DIM, flex: 1, minWidth: 0 }}>
+            {item.citationCount > 0 ? `${item.citationCount} citations` : "Cites this paper"}
+          </span>
+          <button
+            onClick={save}
+            title={saved ? "In your library" : "Save to your library"}
+            style={{ ...BODY_SM, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: INK }}
+          >
+            {saving
+              ? <Loader2 size={14} className="animate-spin" />
+              : <Bookmark size={14} fill={saved ? INK : "none"} />}
+            {saved ? "Saved" : "Save"}
+          </button>
+        </span>
+      }
+    />
   );
 }
 
@@ -1156,64 +1172,6 @@ function Glossary({ terms, pending }: { terms: Jargon[]; pending: string[] }) {
 }
 
 /**
- * A question about the paper that is not about any one sentence: the three the
- * companion suggested are gone, so this is a field and whatever it has been
- * asked, at the foot of the read.
- *
- * It is a section of the page, not a panel over it. A passage-anchored question
- * belongs to its passage; this one has nowhere else to be.
- */
-function AskSection({ threads, queued, failed, pending, composer }: {
-  threads: ReadingThread[];
-  queued: number;
-  failed: string | null;
-  pending: boolean;
-  /** The one text bar, when nothing in the paper has taken it. */
-  composer: React.ReactNode;
-}) {
-  return (
-    <section style={{ marginTop: 48 }}>
-      <h2 style={{ ...DISPLAY_LG, margin: "0 0 6px" }}>Ask this paper</h2>
-      <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 14px" }}>
-        Anything that is not about one sentence. I read the paper, then check it against current web sources.
-      </p>
-
-      {threads.map(thread => (
-        <div key={thread.id} style={{ borderTop: HAIRLINE, padding: "16px 0" }}>
-          {thread.turns.map((turn, i) => (
-            <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
-              <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
-              {turn.answer
-                ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
-                : <DigWait />}
-            </div>
-          ))}
-        </div>
-      ))}
-
-      {queued > 0 && (
-        <p style={{ ...BODY_SM, color: MUTED, margin: "12px 0 0" }}>{queued} more in line.</p>
-      )}
-
-      {/* The bar lives here when it is not in a passage or an answer. When it is
-          somewhere else, this says where it went rather than growing a second
-          field for the reader to choose between. */}
-      <div style={{ marginTop: 16 }}>
-        {composer ?? (
-          <p style={{ ...BODY_SM, color: MUTED, margin: 0, fontStyle: "italic" }}>
-            The question box is up in the paper. Press Escape to bring it back here.
-          </p>
-        )}
-      </div>
-      {pending && (
-        <p style={{ ...BODY_SM, color: MUTED, margin: "10px 0 0" }}>Still reading the paper.</p>
-      )}
-      {failed && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>}
-    </section>
-  );
-}
-
-/**
  * The reading view: the companion walkthrough, the digs it produced, then the
  * thread, then what's happened since.
  *
@@ -1247,7 +1205,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // the "Remember this" frame is washed in. Never GOLD: that is a line colour,
   // and behind a word it is too dark to read the word through.
   const hue = foundational ? foundationalSlots()[0] : washSlots(index)[0];
-  const washStyle = foundational ? foundationalWash() : wash(index);
 
   // A fixture is data the caller already has, so the prototype starts in the
   // state it is meant to show rather than flashing "Reading the paper…" for a
@@ -1302,7 +1259,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
       if (next.has(id)) {
         next.delete(id);
         // Closing the one the bar was in sends it back to the foot.
-        setActive(a => (a.kind === "thread" && a.id === id ? { kind: "paper" } : a));
+        setActive(a => (a.kind === "thread" && a.id === id ? { kind: "none" } : a));
       } else {
         next.add(id);
         setActive({ kind: "thread", id });
@@ -1321,10 +1278,17 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // is asked about or dropped. There is no tie to maintain between a passage
   // and its answer any more, because the answer opens on the passage.
   const [held, setHeld] = useState<Pick | null>(null);
-  // Where the one text bar currently is. A fresh highlight takes it; tapping an
-  // answer you opened earlier takes it back; otherwise it waits at the foot of
-  // the read. There is never more than one field on the page.
-  const [active, setActive] = useState<{ kind: "paper" } | { kind: "held" } | { kind: "thread"; id: string }>({ kind: "paper" });
+  /**
+   * Where the one text bar currently is, and whether there is one at all.
+   *
+   * `none` is the resting state: a paper you are reading has no field on it.
+   * A highlight takes the bar to that passage, tapping an answer you opened
+   * earlier takes it into that answer, and Escape puts it away again. "Ask this
+   * paper" used to hold it at the foot of the read as a general-purpose field;
+   * that section is gone, and with it the only question on this page that was
+   * not about a passage.
+   */
+  const [active, setActive] = useState<{ kind: "none" } | { kind: "held" } | { kind: "thread"; id: string }>({ kind: "none" });
 
   const nativeSelectionLive = useSelectionPick(proseRef, !companionPending, captured => {
     setHeld(captured);
@@ -1340,7 +1304,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     const close = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setHeld(null);
-      setActive({ kind: "paper" });
+      setActive({ kind: "none" });
       setOpenTags(prev => (prev.size ? new Set() : prev));
     };
     document.addEventListener("keydown", close);
@@ -1423,6 +1387,8 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         setStreamingTurn(e.id);
         streamingRef.current = e.id;
         if (e.selection) {
+          // The question has started, so the passage is no longer being held.
+          setHeld(null);
           freshThreads.current.add(e.threadId);
           setLastDigThreadId(e.threadId);
           // A question you just asked opens where you asked it, and takes the
@@ -1574,7 +1540,9 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   /** A question about the passage being held. */
   const askHere = useCallback((question: string, text: string, section: SectionKey) => {
     window.getSelection()?.removeAllRanges();
-    setHeld(null);
+    // The passage stays held until the answer actually starts. If this one is
+    // queued behind an answer already being written, that is the only thing on
+    // screen that can say so.
     if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
     // The interleave lives in the wait, and the reader is allowed one question a
     // day across the whole product. Reserving it the instant a question starts
@@ -1630,16 +1598,20 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     />
   );
 
-  const heldComposer = held && active.kind === "held" ? (
+  const heldComposer = held && active.kind === "held" ? (queued > 0 ? (
+    <p style={{ ...BODY_SM, color: MUTED, margin: 0 }}>
+      In line, right behind the one being written.
+    </p>
+  ) : (
     <Composer
       key={`held-${held.text}`}
       placeholder={`Ask about this, or just “${DEFAULT_QUESTION}”`}
       allowEmpty
       onSubmit={q => askHere(q, held.text, held.section)}
       onDefine={looksLikeTerm(held.text) ? () => define(held.text) : null}
-      onCancel={() => { setHeld(null); setActive({ kind: "paper" }); }}
+      onCancel={() => { setHeld(null); setActive({ kind: "none" }); }}
     />
-  ) : null;
+  )) : null;
 
   // What the margin is showing, top to bottom: the question being typed, and
   // every answer left open. Nothing else ever goes out there.
@@ -1784,49 +1756,36 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
             </>
           )}
 
-          {/* The one line worth keeping, in the card's own frame and wash — so
-              the page closes on the object it opened from. */}
+          {/* The one line worth keeping. Not a box: a beat like the others, with
+              the sentence itself highlighted in the paper's own colour. The
+              framed, washed, shadowed panel made the last thing on the page the
+              loudest thing on it, and the page already closes on this line by
+              being the last thing there. */}
           {companion?.remember && (
-            <>
-              <div
-                style={{
-                  ...washStyle,
-                  border: `2px solid ${foundational ? GOLD : INK}`,
-                  boxShadow: `5px 5px 0 0 ${foundational ? GOLD : INK}`,
-                  padding: "22px 24px",
-                  marginTop: 32,
-                }}
-              >
-                <h2 style={{ ...DISPLAY_SM, color: DIM, margin: "0 0 12px" }}>Remember this</h2>
-                {/* Marks but no chips: a passage dug into here still shows it,
-                    and so does the one being highlighted right now, but the one
-                    line worth keeping is not the place to start defining
-                    words. */}
-                <div data-section="remember" style={{ ...READING_BODY, fontWeight: 600 }}>
-                  {annotateBeat(companion.remember, [], defined, marksFor("remember"))}
-                </div>
+            <section style={{ borderTop: HAIRLINE, paddingTop: 22, marginTop: 22 }}>
+              <h2 style={{ ...DISPLAY_SM, margin: "0 0 10px" }}>Remember this</h2>
+              <div data-section="remember" style={{ ...READING_BODY }}>
+                {/* The whole line is filled, so a passage highlighted inside it
+                    cannot be filled again in the same colour and disappear. In
+                    here a mark is the ink underline instead: `marksFor` is
+                    rewritten for this one beat. */}
+                <mark
+                  style={{
+                    background: hue,
+                    color: INK,
+                    boxDecorationBreak: "clone",
+                    WebkitBoxDecorationBreak: "clone",
+                  }}
+                >
+                  {annotateBeat(companion.remember, [], defined, marksFor("remember").map(m => ({
+                    ...m, fill: "transparent", active: true,
+                  })))}
+                </mark>
               </div>
-            </>
+            </section>
           )}
 
 
-          {!companionPending && (
-            <AskSection
-              threads={askThreads(threads)}
-              queued={queued}
-              failed={askError}
-              pending={companionPending}
-              composer={active.kind === "paper" ? (
-                <Composer
-                  key="paper"
-                  placeholder={askThreads(threads).length ? "Keep going…" : "Ask anything about this paper…"}
-                  // Continues the last one asked here: highlighting is how you
-                  // change the subject, this is how you keep pulling.
-                  onSubmit={q => ask({ question: q, threadId: askThreads(threads).at(-1)?.id })}
-                />
-              ) : null}
-            />
-          )}
 
           {(glossary.length > 0 || pendingTerms.length > 0) && (
             <Glossary terms={glossary} pending={pendingTerms} />
@@ -1845,9 +1804,16 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           ) : homework.length === 0 ? (
             <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
           ) : (
-            <div>
-              {homework.map(item => (
-                <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5" style={{ marginTop: 16 }}>
+              {homework.map((item, i) => (
+                <HomeworkCard
+                  key={item.openAlexId || item.title}
+                  item={item}
+                  sourcePaperId={paper.id}
+                  // Off the source paper's own slot, so the citing work beside a
+                  // pink paper is not pink too.
+                  index={index + i + 1}
+                />
               ))}
             </div>
           )}
