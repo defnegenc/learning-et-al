@@ -741,29 +741,6 @@ function Beat({ heading, sectionKey, children }: {
   );
 }
 
-/**
- * The mobile half of highlighting.
- *
- * Touch selection fights the native callout, and losing that fight means the
- * reader gets the OS copy menu instead of a passage. So on narrow screens each
- * beat carries its own affordance, which hands the whole beat to the sheet the
- * way a highlight does.
- */
-function DigThisBeat({ onDig }: { onDig: () => void }) {
-  return (
-    <button
-      className="reading-beat-dig"
-      onClick={onDig}
-      style={{
-        ...BODY_SM, fontWeight: 600, background: "transparent", border: "none",
-        padding: "10px 0 0", cursor: "pointer", color: DIM,
-      }}
-    >
-      ¶ Ask about this paragraph
-    </button>
-  );
-}
-
 // Follow-up work reads as a plain list, not as cards — one hairline-separated
 // row per paper with a save control on the right.
 function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperId: string }) {
@@ -861,13 +838,19 @@ function AnswerSquare({ n, open, label, onToggle }: {
  * and under it in the flow on a narrow one, and it is the same component both
  * times — the only difference is which column it is rendered into.
  */
-function AnswerPanel({ thread, streaming, error, onClose, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, owed }: {
+function AnswerPanel({ thread, n, streaming, error, active, onActivate, onClose, composer, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, owed }: {
   thread: ReadingThread;
+  /** The same number as the square in the paper. Out here it is the only thing
+      saying which passage this answer belongs to. */
+  n: number;
   streaming: boolean;
   error?: string | null;
+  /** The one text bar is in here. Tapping the answer is what puts it here. */
+  active: boolean;
+  onActivate: () => void;
   /** Closing from here, rather than hunting for the square back in the text. */
   onClose: () => void;
-  onFollowUp: (question: string) => void;
+  composer: React.ReactNode;
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
   onFamiliarity: (level: number) => void;
@@ -875,18 +858,37 @@ function AnswerPanel({ thread, streaming, error, onClose, onFollowUp, familiarit
   /** The interleave owes a question, and it belongs to this one. */
   owed: boolean;
 }) {
-  const [draft, setDraft] = useState("");
   const empty = thread.turns.every(turn => !turn.answer);
 
   return (
-    <div style={{ borderLeft: BORDER, paddingLeft: 16 }}>
+    <div
+      onMouseDown={onActivate}
+      style={{
+        borderLeft: BORDER,
+        paddingLeft: 16,
+        cursor: active ? undefined : "pointer",
+      }}
+    >
       {thread.turns.map((turn, i) => (
         <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
           {/* The close sits on the first question rather than in a header bar of
               its own: an answer in the margin is a long way from the square that
-              opened it, and hunting back through the paragraph for a 18px box is
-              not a way to put something down. */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              opened it, and hunting back through the paragraph for an 18px box
+              is not a way to put something down. */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            {i === 0 && (
+              <span
+                aria-hidden
+                style={{
+                  ...BODY_SM, fontWeight: 600, lineHeight: "16px",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 18, height: 18, flexShrink: 0, marginTop: 2,
+                  background: INK, color: SURFACE,
+                }}
+              >
+                {n}
+              </span>
+            )}
             <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 6px", flex: 1, minWidth: 0 }}>{turn.question}</p>
             {i === 0 && (
               <button
@@ -922,47 +924,41 @@ function AnswerPanel({ thread, streaming, error, onClose, onFollowUp, familiarit
 
       {error && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "12px 0 0" }}>{error}</p>}
 
-      {!empty && (
-        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-          <TextInput
-            value={draft}
-            onChange={setDraft}
-            onKeyDown={e => { if (e.key === "Enter" && draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
-            placeholder="Follow up on this…"
-            ariaLabel="Follow up on this passage"
-          />
-          <ActionButton
-            onClick={() => { if (draft.trim()) { onFollowUp(draft.trim()); setDraft(""); } }}
-            shadow={false}
-            disabled={!draft.trim() || streaming}
-            style={{ flexShrink: 0 }}
-          >
-            Ask
-          </ActionButton>
-        </div>
-      )}
+      {/* The bar, when this is the one you tapped. Otherwise there is nothing
+          here to type into, which is the point: one bar on the page. */}
+      {active && !empty && <div style={{ marginTop: 14 }}>{composer}</div>}
     </div>
   );
 }
 
 /**
- * The question, before it is a question: a field hanging off the passage you
- * just highlighted, in the place its answer will appear.
+ * The one text bar. There is never a second one on the page.
  *
- * Nothing floats. What you are about to ask about is the coloured words the
- * field is level with, which is the passage itself rather than a copy of it in
- * a panel somewhere.
+ * It is not docked anywhere: it *moves*. Highlight a passage and the bar is
+ * under that passage; tap an answer you opened earlier and the bar goes and
+ * sits in that answer; touch neither and it waits at the foot of the read under
+ * "Ask this paper". Whatever it is currently inside is what the next thing you
+ * type is about, which is why it does not need to say so.
+ *
+ * Before this there were three fields on one page: one hanging off the fresh
+ * highlight, one in every open answer, and one at the foot. A reader looking at
+ * two identical inputs stacked on each other has to work out which of them means
+ * what, and the answer was "whichever one you are nearest".
  */
-function HeldComposer({ onAsk, onDefine, onDrop }: {
-  onAsk: (question: string) => void;
+function Composer({ placeholder, onSubmit, allowEmpty = false, onDefine, onCancel, cancelLabel }: {
+  placeholder: string;
+  onSubmit: (question: string) => void;
+  /** With a passage held, an empty field still asks `DEFAULT_QUESTION`. */
+  allowEmpty?: boolean;
   /** Offered only for something term-shaped. See `looksLikeTerm`. */
-  onDefine: (() => void) | null;
-  onDrop: () => void;
+  onDefine?: (() => void) | null;
+  onCancel?: () => void;
+  cancelLabel?: string;
 }) {
   const [draft, setDraft] = useState("");
   const box = useRef<HTMLDivElement>(null);
 
-  // A passage taken is a request to type. Not on a phone: focusing an input
+  // The bar arriving is a request to type. Not on a phone: focusing an input
   // there throws the keyboard over the page before the reader has decided to
   // say anything.
   useEffect(() => {
@@ -970,43 +966,58 @@ function HeldComposer({ onAsk, onDefine, onDrop }: {
     box.current?.querySelector("input")?.focus();
   }, []);
 
-  const submit = () => onAsk(draft.trim() || DEFAULT_QUESTION);
+  const typed = draft.trim();
+  const submit = () => {
+    if (!typed && !allowEmpty) return;
+    onSubmit(typed || DEFAULT_QUESTION);
+    setDraft("");
+  };
 
   return (
-    <div ref={box} style={{ borderLeft: BORDER, paddingLeft: 16 }}>
+    <div ref={box}>
       <div style={{ display: "flex", gap: 8 }}>
         <TextInput
           value={draft}
           onChange={setDraft}
           onKeyDown={e => {
             if (e.key === "Enter") submit();
-            if (e.key === "Escape") onDrop();
+            if (e.key === "Escape" && onCancel) onCancel();
           }}
-          placeholder={`Ask about this, or just “${DEFAULT_QUESTION}”`}
-          ariaLabel="Ask a question about the highlighted passage"
+          placeholder={placeholder}
+          ariaLabel={placeholder}
         />
-        <ActionButton onClick={submit} variant="primary" shadow={false} style={{ flexShrink: 0 }}>
+        <ActionButton
+          onClick={submit}
+          variant="primary"
+          shadow={false}
+          disabled={!typed && !allowEmpty}
+          style={{ flexShrink: 0 }}
+        >
           Ask
         </ActionButton>
       </div>
-      <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-        {/* The second verb, and only when it means something: a word is a thing
-            you look up and keep, a passage is a thing you ask about. */}
-        {onDefine && (
-          <button
-            onClick={onDefine}
-            style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}
-          >
-            + Glossary
-          </button>
-        )}
-        <button
-          onClick={onDrop}
-          style={{ ...BODY_SM, background: "none", border: "none", padding: 0, cursor: "pointer", color: DIM }}
-        >
-          Never mind
-        </button>
-      </div>
+      {(onDefine || onCancel) && (
+        <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+          {/* The second verb, and only when it means something: a word is a
+              thing you look up and keep, a passage is a thing you ask about. */}
+          {onDefine && (
+            <button
+              onClick={onDefine}
+              style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}
+            >
+              + Glossary
+            </button>
+          )}
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              style={{ ...BODY_SM, background: "none", border: "none", padding: 0, cursor: "pointer", color: DIM }}
+            >
+              {cancelLabel ?? "Never mind"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1152,32 +1163,20 @@ function Glossary({ terms, pending }: { terms: Jargon[]; pending: string[] }) {
  * It is a section of the page, not a panel over it. A passage-anchored question
  * belongs to its passage; this one has nowhere else to be.
  */
-function AskSection({ threads, queued, failed, pending, onAsk }: {
+function AskSection({ threads, queued, failed, pending, composer }: {
   threads: ReadingThread[];
   queued: number;
   failed: string | null;
   pending: boolean;
-  /** Continues the conversation. There is one field here, not one per thread. */
-  onAsk: (question: string) => void;
+  /** The one text bar, when nothing in the paper has taken it. */
+  composer: React.ReactNode;
 }) {
-  const [draft, setDraft] = useState("");
-  const submit = () => {
-    const q = draft.trim();
-    if (!q || pending) return;
-    onAsk(q);
-    setDraft("");
-  };
-
   return (
     <section style={{ marginTop: 48 }}>
       <h2 style={{ ...DISPLAY_LG, margin: "0 0 6px" }}>Ask this paper</h2>
       <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 14px" }}>
         Anything that is not about one sentence. I read the paper, then check it against current web sources.
       </p>
-      {/* One field, at the foot, and it keeps the conversation going. There used
-          to be a "Follow up…" row under each thread as well, which put two
-          identical fields with two identical Ask buttons directly on top of each
-          other and made the reader choose between them for no reason. */}
 
       {threads.map(thread => (
         <div key={thread.id} style={{ borderTop: HAIRLINE, padding: "16px 0" }}>
@@ -1196,18 +1195,19 @@ function AskSection({ threads, queued, failed, pending, onAsk }: {
         <p style={{ ...BODY_SM, color: MUTED, margin: "12px 0 0" }}>{queued} more in line.</p>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <TextInput
-          value={draft}
-          onChange={setDraft}
-          onKeyDown={e => { if (e.key === "Enter") submit(); }}
-          placeholder={pending ? "Still reading the paper…" : threads.length ? "Keep going…" : "Ask anything about this paper…"}
-          ariaLabel="Ask a question about this paper"
-        />
-        <ActionButton onClick={submit} variant="primary" shadow={false} disabled={!draft.trim() || pending} style={{ flexShrink: 0 }}>
-          Ask
-        </ActionButton>
+      {/* The bar lives here when it is not in a passage or an answer. When it is
+          somewhere else, this says where it went rather than growing a second
+          field for the reader to choose between. */}
+      <div style={{ marginTop: 16 }}>
+        {composer ?? (
+          <p style={{ ...BODY_SM, color: MUTED, margin: 0, fontStyle: "italic" }}>
+            The question box is up in the paper. Press Escape to bring it back here.
+          </p>
+        )}
       </div>
+      {pending && (
+        <p style={{ ...BODY_SM, color: MUTED, margin: "10px 0 0" }}>Still reading the paper.</p>
+      )}
       {failed && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>}
     </section>
   );
@@ -1299,7 +1299,14 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const toggleTag = useCallback((id: string) => {
     setOpenTags(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        // Closing the one the bar was in sends it back to the foot.
+        setActive(a => (a.kind === "thread" && a.id === id ? { kind: "paper" } : a));
+      } else {
+        next.add(id);
+        setActive({ kind: "thread", id });
+      }
       return next;
     });
   }, []);
@@ -1314,8 +1321,15 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // is asked about or dropped. There is no tie to maintain between a passage
   // and its answer any more, because the answer opens on the passage.
   const [held, setHeld] = useState<Pick | null>(null);
+  // Where the one text bar currently is. A fresh highlight takes it; tapping an
+  // answer you opened earlier takes it back; otherwise it waits at the foot of
+  // the read. There is never more than one field on the page.
+  const [active, setActive] = useState<{ kind: "paper" } | { kind: "held" } | { kind: "thread"; id: string }>({ kind: "paper" });
 
-  const nativeSelectionLive = useSelectionPick(proseRef, !companionPending, setHeld);
+  const nativeSelectionLive = useSelectionPick(proseRef, !companionPending, captured => {
+    setHeld(captured);
+    setActive({ kind: "held" });
+  });
 
   useEffect(() => { setTipSeen(nuxSeen(READING_TIP_KEY)); }, []);
 
@@ -1326,6 +1340,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     const close = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setHeld(null);
+      setActive({ kind: "paper" });
       setOpenTags(prev => (prev.size ? new Set() : prev));
     };
     document.addEventListener("keydown", close);
@@ -1410,8 +1425,10 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         if (e.selection) {
           freshThreads.current.add(e.threadId);
           setLastDigThreadId(e.threadId);
-          // A question you just asked opens where you asked it.
+          // A question you just asked opens where you asked it, and takes the
+          // bar with it, so a follow-up is typed in the answer you are reading.
           setOpenTags(prev => new Set(prev).add(e.threadId));
+          setActive({ kind: "thread", id: e.threadId });
         }
         const turn: ThreadTurn = {
           id: e.id, question: e.question, answer: "",
@@ -1589,10 +1606,19 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const panelFor = (t: ReadingThread) => (
     <AnswerPanel
       thread={t}
+      n={numberOf.get(t.id) ?? 1}
       streaming={t.turns.some(turn => turn.id === streamingTurn)}
       error={t.turns.some(turn => turn.id === streamingTurn) ? null : askError}
+      active={active.kind === "thread" && active.id === t.id}
+      onActivate={() => setActive({ kind: "thread", id: t.id })}
       onClose={() => toggleTag(t.id)}
-      onFollowUp={q => ask({ question: q, threadId: t.id })}
+      composer={
+        <Composer
+          key={`thread-${t.id}`}
+          placeholder="Keep going…"
+          onSubmit={q => ask({ question: q, threadId: t.id })}
+        />
+      }
       familiarityOffer={t.id === lastDigThreadId ? familiarityOffer : null}
       familiarityValue={activeFamiliarity}
       onFamiliarity={setFamiliarity}
@@ -1604,11 +1630,14 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     />
   );
 
-  const composer = held ? (
-    <HeldComposer
-      onAsk={q => askHere(q, held.text, held.section)}
+  const heldComposer = held && active.kind === "held" ? (
+    <Composer
+      key={`held-${held.text}`}
+      placeholder={`Ask about this, or just “${DEFAULT_QUESTION}”`}
+      allowEmpty
+      onSubmit={q => askHere(q, held.text, held.section)}
       onDefine={looksLikeTerm(held.text) ? () => define(held.text) : null}
-      onDrop={() => setHeld(null)}
+      onCancel={() => { setHeld(null); setActive({ kind: "paper" }); }}
     />
   ) : null;
 
@@ -1616,7 +1645,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // every answer left open. Nothing else ever goes out there.
   const marginItems: { id: string; node: React.ReactNode }[] = wide
     ? [
-        ...(held && composer ? [{ id: HELD_ID, node: composer }] : []),
+        ...(heldComposer ? [{ id: HELD_ID, node: <div style={{ borderLeft: BORDER, paddingLeft: 16 }}>{heldComposer}</div> }] : []),
         ...asked.filter(t => openTags.has(t.id)).map(t => ({ id: t.id, node: panelFor(t) })),
       ]
     : [];
@@ -1629,7 +1658,9 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           id: HELD_ID,
           text: held.text,
           fill: hue,
-          after: wide ? null : <div style={{ margin: "14px 0 18px" }}>{composer}</div>,
+          after: wide || !heldComposer
+            ? null
+            : <div style={{ borderLeft: BORDER, paddingLeft: 16, margin: "14px 0 18px" }}>{heldComposer}</div>,
         }]
       : []),
     ...digsForSection(threads, key)
@@ -1657,19 +1688,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   ];
   const mark = (text: string, key: SectionKey) => annotateBeat(text, glossary, defined, marksFor(key));
 
-  const sectionText: Record<SectionKey, string> = {
-    gist: companion?.gist ?? "",
-    did: companion?.did ?? "",
-    found: companion?.found ?? "",
-    caveats: companion?.caveats ?? "",
-    remember: companion?.remember ?? "",
-  };
 
-  const beatDig = (key: SectionKey) => (
-    sectionText[key]
-      ? <DigThisBeat onDig={() => setHeld({ text: sectionText[key], section: key })} />
-      : null
-  );
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
@@ -1731,7 +1750,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           ) : companion?.gist ? (
             <>
               <div data-section="gist" style={{ ...READING_BODY }}>{mark(companion.gist, "gist")}</div>
-              {beatDig("gist")}
             </>
           ) : companionFailed ? (
             <div style={{ border: BORDER, padding: "14px 16px" }}>
@@ -1752,19 +1770,16 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           {companion?.did && (
             <>
               <Beat heading="What they did" sectionKey="did">{mark(companion.did, "did")}</Beat>
-              {beatDig("did")}
             </>
           )}
           {companion?.found && (
             <>
               <Beat heading="What they found" sectionKey="found">{mark(companion.found, "found")}</Beat>
-              {beatDig("found")}
             </>
           )}
           {companion?.caveats && (
             <>
               <Beat heading="Where it's shaky" sectionKey="caveats">{mark(companion.caveats, "caveats")}</Beat>
-              {beatDig("caveats")}
             </>
           )}
 
@@ -1800,9 +1815,15 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
               queued={queued}
               failed={askError}
               pending={companionPending}
-              // Continues the last one asked here: highlighting is how you
-              // change the subject, this field is how you keep pulling.
-              onAsk={q => ask({ question: q, threadId: askThreads(threads).at(-1)?.id })}
+              composer={active.kind === "paper" ? (
+                <Composer
+                  key="paper"
+                  placeholder={askThreads(threads).length ? "Keep going…" : "Ask anything about this paper…"}
+                  // Continues the last one asked here: highlighting is how you
+                  // change the subject, this is how you keep pulling.
+                  onSubmit={q => ask({ question: q, threadId: askThreads(threads).at(-1)?.id })}
+                />
+              ) : null}
             />
           )}
 
@@ -1881,12 +1902,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         /* No ::selection override here. The drag wears the product's ordinary
            ink selection, and the paper's hue arrives on release, drawn by the
            page in useSelectionPick. */
-        /* Desktop selects; touch taps the beat's own affordance, because touch
-           selection loses to the native callout. */
-        .reading-beat-dig { display: none; }
-        @media (max-width: 720px) {
-          .reading-beat-dig { display: block; }
-        }
       `}</style>
     </div>
   );
