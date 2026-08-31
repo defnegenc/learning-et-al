@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { BriefDigest } from "@/components/today/brief-digest";
+import { ShareDigestButton } from "@/components/today/share-digest-button";
 import {
   ACID_PINK, ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, INK, Label, MUTED, PageLoader, RULE, SURFACE,
 } from "@/components/design-system";
@@ -183,9 +184,14 @@ export function DigestHistory() {
     <div style={{ padding: "80px 0" }}><PageLoader inline /></div>
   ) : (
     <div>
-      <Label style={{ marginBottom: 12 }}>
-        {new Date(digest.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-      </Label>
+      {/* Same share affordance as Today and the permalink page: an archived
+          digest is just as shareable as this morning's. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 12 }}>
+        <Label>
+          {new Date(digest.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        </Label>
+        <ShareDigestButton digestId={digest.id} theme={displayTheme(digest)} compact />
+      </div>
       <h2 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{displayTheme(digest)}</h2>
       {digest.gist && <p style={{ ...BODY_STYLE, fontWeight: 600, color: INK, margin: "0 0 28px" }}>{digest.gist}</p>}
       {digest.synthesisContent ? (
