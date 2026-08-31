@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Hanken_Grotesk, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Providers } from "@/components/providers";
 import { auth } from "@/lib/auth";
 import "./globals.css";
 
-const inter = Inter({
+/* The body face. Variable font, so the menu's 400/500/600/700 (and italics)
+   all come from one file; next/font self-hosts it at build time, keeping the
+   repo free of files we can't redistribute. */
+const hankenGrotesk = Hanken_Grotesk({
   subsets: ["latin"],
-  variable: "--font-inter",
+  style: ["normal", "italic"],
+  variable: "--font-hanken-grotesk",
   display: "swap",
 });
 
@@ -65,7 +69,7 @@ export default async function RootLayout({
        declared on :root can only see other properties declared on the same
        element. On <body> the whole chain resolved to invalid and every mono
        label fell back to the browser default. */
-    <html lang="en" className={`${inter.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${hankenGrotesk.variable} ${geistMono.variable}`}>
       <head>
         {/* Cabinet Grotesk is self-hosted in globals.css (see @font-face) — no
             runtime fontshare CDN dependency, so the display font never flashes

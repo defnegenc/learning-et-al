@@ -42,11 +42,13 @@ Push the schema to your local database with `npx drizzle-kit push`.
 
 ## Fonts
 
-The two licensed faces (Apercu Pro and Cabinet Grotesk) are not in the repo
-and are not covered by the MIT license. The app builds and runs with system
-fallbacks without them; see `public/fonts/README.md` for how deploys fetch
-them and what to swap in if you fork without an Apercu license.
+Body text is Hanken Grotesk (OFL) via `next/font`; labels are Geist Mono. The
+display face, Cabinet Grotesk, is free from Fontshare but its license forbids
+redistributing the files, so they are not in the repo: the app builds and runs
+with system fallbacks without them, and deploys fetch them from a private
+`FONTS_BASE_URL`. See `public/fonts/README.md`.
 
 ## License
 
-MIT, except the fonts as noted above. See `LICENSE`.
+MIT, except Cabinet Grotesk as noted above; the committed Hanken Grotesk file
+carries its own SIL Open Font License. See `LICENSE`.

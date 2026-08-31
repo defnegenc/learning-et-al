@@ -52,7 +52,7 @@
 
   /* ── Faces — three. Mono is structure only. ── */
   --font-display: "Cabinet Grotesk", system-ui, sans-serif;
-  --font-body: "Apercu Pro", var(--font-inter), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: var(--font-hanken-grotesk), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   /* ── Type — five styles. Anything that names a thing is set in the body
@@ -178,51 +178,9 @@
   --sidebar-ring: var(--color-ink);
 }
 
-@font-face {
-  font-family: "Apercu Pro";
-  src: url("/fonts/apercu_regular_pro.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Apercu Pro";
-  src: url("/fonts/apercu_regular_italic_pro.otf") format("opentype");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-/* Medium covers 500–600. The menu's tag/chip modifier is weight 600 and Apercu
-   ships no 600 — without this range the browser rounds 600 up to Bold, which is
-   a shout where a nudge was specified. */
-@font-face {
-  font-family: "Apercu Pro";
-  src: url("/fonts/apercu_medium_pro.otf") format("opentype");
-  font-weight: 500 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Apercu Pro";
-  src: url("/fonts/apercu_medium_italic_pro.otf") format("opentype");
-  font-weight: 500 600;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Apercu Pro";
-  src: url("/fonts/apercu_bold_pro.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Apercu Pro";
-  src: url("/fonts/apercu_bold_italic_pro.otf") format("opentype");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
+/* The body face is Hanken Grotesk via next/font (see layout.tsx): a variable
+   font, so the menu's 400/500/600/700 and italics all resolve without the
+   weight-rounding games the old fixed-weight Apercu files needed. */
 
 /* Cabinet Grotesk — self-hosted so the display font never falls back to a
    system sans while fontshare's CDN loads (headings looked "wrong" until it

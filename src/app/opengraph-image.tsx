@@ -61,13 +61,13 @@ const font = (file: string) =>
   readFile(path.join(process.cwd(), "public/fonts", file)).catch(() => null);
 
 export default async function Image() {
-  const [cabinet, apercu] = await Promise.all([
+  const [cabinet, hanken] = await Promise.all([
     font("CabinetGrotesk-Bold.ttf"),
-    font("apercu_regular_pro.otf"),
+    font("HankenGrotesk-Regular.ttf"),
   ]);
 
   const display = cabinet ? "Cabinet Grotesk" : "sans-serif";
-  const body = apercu ? "Apercu Pro" : "sans-serif";
+  const body = hanken ? "Hanken Grotesk" : "sans-serif";
 
   return new ImageResponse(
     (
@@ -129,7 +129,7 @@ export default async function Image() {
       ...size,
       fonts: [
         cabinet && { name: "Cabinet Grotesk", data: cabinet.buffer as ArrayBuffer, weight: 700 as const, style: "normal" as const },
-        apercu && { name: "Apercu Pro", data: apercu.buffer as ArrayBuffer, weight: 400 as const, style: "normal" as const },
+        hanken && { name: "Hanken Grotesk", data: hanken.buffer as ArrayBuffer, weight: 400 as const, style: "normal" as const },
       ].filter(Boolean) as { name: string; data: ArrayBuffer; weight: 400 | 700; style: "normal" }[],
     }
   );
