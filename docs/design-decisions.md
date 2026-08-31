@@ -1817,3 +1817,15 @@ continues the conversation. Highlighting is how you change the subject; this
 field is how you keep pulling on the current one. An answer opened in the margin
 keeps its own follow-up field, because that one is beside a passage rather than
 stacked under another field.
+
+### Closing from the margin
+
+An answer opened in the margin could only be closed by finding its square back
+in the paragraph, which on a wide screen is a 18px box somewhere up the page.
+Two ways out now, both from where the reader already is:
+
+- a **×** on the answer itself, sitting on its first question rather than in a
+  header bar of its own, so it costs no extra furniture;
+- **Escape**, which puts everything down at once: the question being typed and
+  every open answer. Since the margin only exists while something is open, one
+  key clears the page back to the paper.
