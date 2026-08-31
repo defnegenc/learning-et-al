@@ -1761,3 +1761,28 @@ Below 1080px there is no margin to open into, so the answer opens in the flow
 under the passage, which is the phone behaviour and the only place an inline
 block is the right answer. Same component in both columns; the only difference
 is which one it is rendered into.
+
+### Three corrections
+
+**The composer was level with the wrong line.** The margin's positions are
+measured against the passage in the read, and the read was a *fractional*
+column: `minmax(0, 1fr)` inside a container animating from 720px to 1140px. Mid
+animation the column was squeezed to about 300px, every line in the paper
+rewrapped, and the measurement landed on where the passage used to be. The read
+is a **fixed 720px in both states** now, so opening the margin slides the column
+sideways and reflows nothing, and a `ResizeObserver` re-measures anyway when the
+window, the fonts or the container change under it. The breakpoint moves to
+1220px, which is where 1140 of shell plus the page's own padding actually fits.
+
+**The paper rating is gone.** "How much did you like this paper?" queued up
+behind the familiarity question and interrupted an answer to run a survey. The
+familiarity one stays: it changes what the reader is handed next, which is a
+fair trade for the interruption, and a five-point opinion about the paper is not.
+The `/api/papers/[id]/rating` route is untouched and unused, so this is one line
+to put back if it turns out to be wanted.
+
+**A word the reader adds is never filtered out again.** `glossaryForLevel` drops
+basic terms for a reader who says they are expert in the topic, which is right
+for what the companion volunteers and wrong for what was explicitly asked for:
+an expert adding a word would have watched it vanish on the next render. Entries
+from `+ Glossary` carry `added: true` and skip the filter.
