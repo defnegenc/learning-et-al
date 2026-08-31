@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { digests, familiarity, papers } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { aiComplete, aiConfigFor, type AIConfig } from "@/lib/ai/provider";
+import { BANNED_WORDS_RULE, stripBannedWords } from "@/lib/ai/banned-words";
 import { downloadAndParsePdf, textForPrompt, FULL_TEXT_CAP } from "@/lib/fetchers/pdf";
 import { getOpenAlexWorkTopic } from "@/lib/fetchers/open-alex";
 import { getAuthUser } from "@/lib/get-user";
@@ -52,6 +53,7 @@ Return ONLY a JSON object (no markdown fence) with these required keys. Include 
   "glossary": [{"term": "<term as it appears in the paper>", "def": "<one plain sentence, under 25 words>", "tier": "<basic|working|deep>", "analogy": "<optional concrete analogy>"}],
   "questions": ["<3 sharp questions a curious reader would actually want to ask about this paper>"]
 }
+${BANNED_WORDS_RULE}
 Glossary: generate a generous superset of up to 18 field-specific terms. Every entry MUST have one tier: basic = anyone outside the field needs it; working = practitioners know it; deep = specialists know it. Add an analogy when it genuinely helps a newcomer. The UI filters these tiers later; do not filter the list for the reader's level.`;
 
 async function getFullText(paper: typeof papers.$inferSelect): Promise<string> {
@@ -75,7 +77,9 @@ function parseCompanion(raw: string): Companion | null {
   try {
     const parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""));
     if (!parsed || typeof parsed.gist !== "string" || !parsed.gist.trim()) return null;
-    const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+    // Every prose field goes through `str`, so the banned-word scrub rides along
+    // with the trim rather than being repeated per key.
+    const str = (v: unknown) => (typeof v === "string" ? stripBannedWords(v.trim()) : "");
     return {
       gist: str(parsed.gist),
       did: str(parsed.did),
@@ -87,15 +91,15 @@ function parseCompanion(raw: string): Companion | null {
             .filter((g: { term?: unknown; def?: unknown }) => typeof g?.term === "string" && typeof g?.def === "string")
             .map((g: { term: string; def: string; tier?: unknown; analogy?: unknown }) => ({
               term: g.term.trim(),
-              def: g.def.trim(),
+              def: str(g.def),
               ...(g.tier === "basic" || g.tier === "working" || g.tier === "deep" ? { tier: g.tier } : {}),
-              ...(typeof g.analogy === "string" && g.analogy.trim() ? { analogy: g.analogy.trim() } : {}),
+              ...(typeof g.analogy === "string" && g.analogy.trim() ? { analogy: str(g.analogy) } : {}),
             }))
             .filter((g: { term: string; def: string }) => g.term && g.def)
             .slice(0, 18)
         : [],
       questions: Array.isArray(parsed.questions)
-        ? parsed.questions.filter((q: unknown) => typeof q === "string" && q.trim()).slice(0, 3)
+        ? parsed.questions.filter((q: unknown) => typeof q === "string" && q.trim()).map(str).slice(0, 3)
         : [],
     };
   } catch {
