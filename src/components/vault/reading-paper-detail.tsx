@@ -1736,8 +1736,9 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
               the product's hand on which sentences matter before the reader has
               read any of them. */}
           {!tipSeen && !companionPending && companion && (
-            <p style={{ ...BODY_SM, color: DIM, margin: "0 0 26px", maxWidth: 620 }}>
-              <strong>Tip:</strong> highlight part of the text to ask more about it and dig deeper.
+            <p style={{ ...BODY_SM, color: INK, margin: "0 0 26px", maxWidth: 620 }}>
+              <span style={{ ...DISPLAY_SM, color: MUTED, textTransform: "none" }}>Tip:</span>{" "}
+              highlight part of the text to ask more about it and dig deeper.
             </p>
           )}
 
@@ -1920,4 +1921,3 @@ function normalizeTurn(pair: QaPair): ThreadTurn {
     createdAt: pair.createdAt ?? null,
   };
 }
-
