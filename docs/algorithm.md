@@ -244,6 +244,8 @@ enforcement are one repair (both merged 2026-08-20).
 
 Powers the zero-click header rendered under the central question (`DigestHeader` in
 `today-page.tsx`, shown in all modes). One JSON call over the FINAL synthesis returns:
+
+For genuine yes/no headlines, the gist chooses the verdict that fits the evidence instead of falling back to one stock hedge. Its prompt supplies 11 answer shapes: clear yes/no, conditional, mixed, and limited-case openings. It explicitly says not to default to "Sort of" or hedge a clear result. Who/what/how/why headlines are answered in their own shape, and the deterministic guard strips qualified yes/no verdicts if one slips onto them.
 - **gist** — normally a one-sentence answer to the central question (≤25 words, plain English, leads with the answer). If the headline depends on an unfamiliar named contrast, matching `keyConcepts` definitions are injected and the gist may use two short sentences / 35 words: define both sides in parallel first, then answer. A yes/no headline with one specialist term still leads with the verdict; the term is already underlined with a tooltip, so the gist must not open with a standalone glossary sentence.
 
 The first matching mention of each `keyConcept` in both the gist and synthesis is
@@ -435,6 +437,8 @@ Feedback events also store contextual features (paper category, source, year, ke
 - **Broad news fallback** ensures minimum 2 sources when papers are scarce
 
 ## What Didn't Work
+
+- **Using one qualified verdict as the main gist example**: repeated "Sort of" under yes/no headlines even when a clearer or more specific answer fit. Replaced with an evidence-led palette of 11 answer shapes and an explicit no-default rule.
 
 - **Anchor paper approach**: highly cited papers dominated
 - **Citation graph**: cross-field contamination

@@ -2504,7 +2504,9 @@ EVIDENCE GUARD: Every claim in the gist must be supported by the synthesis. Do n
 
 TERM BRIDGE: If the central question relies on a named contrast that a smart non-expert may only half-understand, define both sides in parallel BEFORE giving the implication. Use concrete verbs, not a dictionary definition. You may use two short sentences and up to 35 words for this case.
 
-SINGLE-TERM RULE: If the question contains one specialist term but is otherwise a normal yes/no question, DO NOT open with a standalone definition. The term will already be underlined with a tooltip. Lead with the answer, and only fold a tiny clarification into the verdict if it helps. Bad: "Mass spectrometry reads a molecule's fingerprint. Sort of: ..." Good: "Sort of: mass spectrometry can spot chemical fingerprints, but reference gaps and messy mixtures make some supplement calls a best guess."
+SINGLE-TERM RULE: If the question contains one specialist term but is otherwise a normal yes/no question, DO NOT open with a standalone definition. The term will already be underlined with a tooltip. Lead with the answer, and only fold a tiny clarification into the verdict if it helps. Bad: "Mass spectrometry reads a molecule's fingerprint. Here's the answer: ..." Good: "It depends: mass spectrometry can spot chemical fingerprints, but reference gaps and messy mixtures make some supplement calls a best guess."
+
+VERDICT VARIETY: For a genuine yes/no question, choose the most accurate opening for the evidence. Vary naturally among answers such as "Yes.", "No.", "Sometimes.", "It depends.", "It's complicated.", "Mostly.", "Not really.", "Only in some cases.", "Yes, but...", "No, unless...", and "Sort of." Do not default to "Sort of", and do not hedge when the evidence supports a clear yes or no. The words after the verdict must immediately say what makes that answer true.
 
 Example — Q: "Dynamic assessment beats static testing. Why is it still rare?"
 GOOD: "Dynamic assessment adapts through live back-and-forth; static testing gives everyone the same fixed test. The adaptive approach works, but is hard to run at scale."
@@ -2512,19 +2514,19 @@ BAD: "It works, but running it well requires a real-time conversation." This wit
 
 Return JSON (no markdown fences):
 {
-  "gist": "Usually ONE plain sentence, max 25 words. When TERM BRIDGE applies to a named contrast, use up to TWO short sentences and 35 words: define first, then answer. For yes/no questions with one specialist term, answer first; never write a standalone glossary sentence before the verdict. ONLY start with a verdict word ('No.', 'Yes.', 'Sort of.') if the question is genuinely a yes/no question. If it's a who/what/how/why question, answer it DIRECTLY — NEVER prepend 'Sort of.' to a non-yes/no question. Do NOT merely echo the question. No unexplained jargon or unsupported mechanism."
+  "gist": "Usually ONE plain sentence, max 25 words. When TERM BRIDGE applies to a named contrast, use up to TWO short sentences and 35 words: define first, then answer. For yes/no questions with one specialist term, answer first; never write a standalone glossary sentence before the verdict. Use the evidence to choose a clear or qualified verdict from the VERDICT VARIETY rule. If it's a who/what/how/why question, answer it DIRECTLY and never prepend a yes/no-style verdict. Do NOT merely echo the question. No unexplained jargon or unsupported mechanism."
 }`
     );
     const gp = extractJson<{ gist?: string }>(gistResp);
     if (gp?.gist) gist = gp.gist.trim();
 
-    // Deterministic guard: a hedge verdict ("Sort of.") only makes sense for a yes/no question.
-    // The prompt says so, but models slip — so strip a leading hedge when the theme isn't a
+    // Deterministic guard: a qualified verdict only makes sense for a yes/no question.
+    // The prompt says so, but models slip, so strip a leading hedge when the theme isn't a
     // yes/no question. (We don't strip "Yes."/"No." here: "No one checks it..." is a valid
     // answer to a "who" question and must survive.)
     const isYesNo = /^(is|are|do|does|did|can|could|will|would|should|has|have|had|was|were|am)\b/i.test(finalTheme.trim());
     if (gist && !isYesNo) {
-      const stripped = gist.replace(/^\s*(sort of|sorta|kind of|kinda|not quite|not really|maybe)[.,!:—-]+\s*/i, "");
+      const stripped = gist.replace(/^\s*(sort of|sorta|kind of|kinda|not quite|not really|maybe|sometimes|it depends|it's complicated|mostly|only in some cases)[.,!:-]+\s*/i, "");
       if (stripped && stripped !== gist) gist = stripped.charAt(0).toUpperCase() + stripped.slice(1);
     }
     console.log(`[Digest] Gist: "${gist}"`);

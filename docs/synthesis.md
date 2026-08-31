@@ -21,6 +21,8 @@ This means:
 
 **System prompt**: Translate jargon into plain English and ground everything in real-world problems. Conversational means direct and specific, not repeated scripted openers such as "So", "Turns out", or "Here's the thing"; contractions are used when natural.
 
+**Answer shape**: A yes/no question should receive the verdict the evidence earns, including a plain yes or no when warranted. Qualified openings can use "sometimes", "it depends", "it's complicated", "mostly", "not really", "only in some cases", "yes, but", "no, unless", or "sort of". No one phrase is the default. Other question types are answered directly without a yes/no-style preface.
+
 **Structure**: Make an ARGUMENT, not a book report. Papers are evidence, not the subject. Each paper adds something unique to the argument.
 
 **Paper references**: Conversational names with colored background highlights. "the McKinsey fashion report" not "Fashion 2026". Hover shows paper summary tooltip. Click opens source.

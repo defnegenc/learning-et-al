@@ -285,6 +285,8 @@ BEFORE WRITING, read each paper's abstract in the listing above. For any claim y
 
 Write the synthesis in EXACTLY this structure. No other format accepted.
 
+ANSWER VARIETY: When the theme is a genuine yes/no question, choose the opening that best fits the evidence: "Yes.", "No.", "Sometimes.", "It depends.", "It's complicated.", "Mostly.", "Not really.", "Only in some cases.", "Yes, but...", "No, unless...", or "Sort of." Do not default to "Sort of", and do not hedge when the papers support a clear yes or no. For who/what/how/why questions, answer in the question's own shape without a yes/no-style verdict.
+
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
 [Opening paragraph: 2-3 sentences that ANSWER the question "${theme}" directly, up front — the reader gets the bottom line before any source is revealed. Open on a concrete specific (a number, a named case, a scene from one of the papers), state the answer plainly, and end by hinting at what the sources complicate or sharpen. Do NOT name or bold any paper here — no [Source N] references in this paragraph. No em dashes.]
@@ -566,7 +568,7 @@ KEYCONCEPTS RULES:
 function SYNTHESIS_RULES(theme: string, _ctx?: DigestContext) {
   return `SYNTHESIS — answer "${theme}" using the papers as evidence.
 
-The theme is a question. Your synthesis MUST open by answering it — directly, concisely, even if the answer is "sort of" or "yes, but not the way you'd expect." Don't describe the papers first. Don't meta-frame. Answer first, then earn the answer with the papers.
+The theme is a question. Your synthesis MUST open by answering it directly and concisely. For a yes/no question, choose the verdict that best fits the evidence: "yes", "no", "sometimes", "it depends", "it's complicated", "mostly", "not really", "only in some cases", "yes, but", "no, unless", or "sort of". Do not default to any one phrase, and do not hedge when the evidence supports a clear answer. For who/what/how/why questions, answer in the question's own shape instead of adding a yes/no-style verdict. Don't describe the papers first. Don't meta-frame. Answer first, then earn the answer with the papers.
 
 You are NOT summarizing papers. You are making a point about the theme question, and the papers are your proof. Think of it like a short op-ed, not a book report.
 
