@@ -44,6 +44,7 @@ next-env.d.ts
 *.db
 *.db-wal
 *.db-shm
+*.db-journal
 .env.local
 
 # model cache
@@ -51,5 +52,13 @@ next-env.d.ts
 
 # source fonts (public/fonts has the copies)
 apercu pro/
+
+# licensed font files: not redistributable, fetched at build time
+# (see public/fonts/README.md and scripts/fetch-fonts.mjs).
+# Hanken Grotesk is OFL, so its files are tracked.
+public/fonts/*
+!public/fonts/README.md
+!public/fonts/HankenGrotesk-Regular.ttf
+!public/fonts/OFL-HankenGrotesk.txt
 custom-codes*
 .env*.local

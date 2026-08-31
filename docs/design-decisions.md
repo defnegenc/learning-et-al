@@ -89,7 +89,7 @@ Paper detail replaces synthesis inline on desktop (not a modal). This keeps the 
 
 Settings is full-screen with left sidebar nav (Interests / API tabs), not a small popup. Settings contain important configuration (API key, interests, content mix) that deserves proper space.
 
-Typography: Apercu Pro for body text (warm, readable), Space Grotesk for display (bold, geometric), IBM Plex Mono for labels.
+Typography (original): Apercu Pro for body text (warm, readable), Space Grotesk for display (bold, geometric), IBM Plex Mono for labels. Since revised twice: Cabinet Grotesk took display and Geist Mono took labels (see design-style.md), and on 2026-08-30 Hanken Grotesk replaced Apercu as the body face. The trigger was open-sourcing the repo: Apercu is commercially licensed and its files could not stay in a public repository, and Hanken Grotesk (OFL, variable) is the closest free match for its warmth while also cleaning up the 500-600 weight-range workaround Apercu's fixed weights required.
 
 ---
 

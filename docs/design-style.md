@@ -145,12 +145,12 @@ be true and it has to matter.
 | Display/LG | Cabinet Grotesk | 32 / 40 | 700 | −0.02em | sentence | the digest's question, page titles, a card's hero |
 | Display/SM | Cabinet Grotesk | 16 / 20 | 700 | −0.01em | **upper** | card titles, lens labels, **every button** |
 | Label | Geist Mono | 12 / 16 | 700 | 0.12em | upper | section eyebrows and nav tabs — nothing else |
-| Body | Apercu Pro | 15 / 24 | 400 | 0 | sentence | prose |
-| Body/SM | Apercu Pro | 13 / 20 | 400 | 0 | sentence | tags, chips, bylines |
+| Body | Hanken Grotesk | 15 / 24 | 400 | 0 | sentence | prose |
+| Body/SM | Hanken Grotesk | 13 / 20 | 400 | 0 | sentence | tags, chips, bylines |
 
 Weight 600 (tags, chips) and italic (bylines) are **modifiers, not extra
-styles**. Apercu ships no 600, so `@font-face` gives Medium the range `500 600`
-— otherwise the browser rounds up to Bold.
+styles**. Hanken Grotesk is a variable font (via `next/font`), so 400/500/600/700
+and the italics all resolve exactly; no weight-range workarounds needed.
 
 **Never positive tracking on body text.**
 
@@ -159,7 +159,10 @@ rule is what moved tags, chips and the venue line out of mono uppercase and into
 body-face sentence case — the largest visual change in the set. The product used
 to shout eleven small things per card; it shouts two.
 
-Three faces: Cabinet Grotesk (700 only), Apercu Pro, Geist Mono. Geist Mono
+Three faces: Cabinet Grotesk (700 only), Hanken Grotesk, Geist Mono. Hanken
+Grotesk replaced Apercu Pro when the repo went open source (2026-08-30): Apercu
+is commercially licensed and could not ship in a public repo, and Hanken carries
+the same warm grotesque temperature under the OFL. Geist Mono
 replaced IBM Plex Mono. Space Grotesk left with the retired *Wordmark* style —
 the wordmark is a **lockup**, Display/SM with the label's 0.12em tracking.
 
