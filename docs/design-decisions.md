@@ -1895,3 +1895,32 @@ survive. The scrub belongs where text is known to be reader-facing.
 The one surface still on prompt-only enforcement is a streamed Ask or Explain
 answer, because the reader watches the tokens arrive and there is nothing to
 scrub before they see them.
+
+## 2026-08-31: The page is the paper
+
+Three deletions and one promotion, all the same move: the reading view should
+contain the paper and the reader's own marks on it, and as little else as can be
+managed.
+
+**"Ask this paper" is gone.** With it goes the only question on the page that
+was not about a passage, and the only field that existed when the reader had not
+touched anything. The bar's resting state is now *no bar*: a paper you are
+reading has no input on it. Highlight something and the bar is there; press
+Escape and it is not. Legacy threads with no section (typed questions asked
+before this) no longer render anywhere; they are still stored, so this is
+reversible.
+
+**"Remember this" is a highlight, not a box.** It was a framed, washed, shadowed
+panel, which made the last thing on the page the loudest thing on it. It is a
+beat like the others now, with the sentence itself filled in the paper's colour.
+One consequence had to be handled: a passage highlighted *inside* that line
+cannot be filled in the same colour or it disappears, so marks in this beat wear
+the ink underline instead of a fill.
+
+**Citing works are paper cards.** "What's happened since" was a hairline
+separated list with a bookmark on the right, which is a second way of drawing
+the one object this product already has a card for. They are `PaperCard`
+compact now, in the same two-up grid the shelf uses. The card's own bookmark is
+not used, because a citing work has no row yet and has to go through
+`save-external`; the save lives in the card's `footnote`, which is the one place
+a compact card lets its caller put a control.
