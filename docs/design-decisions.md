@@ -1829,3 +1829,30 @@ Two ways out now, both from where the reader already is:
 - **Escape**, which puts everything down at once: the question being typed and
   every open answer. Since the margin only exists while something is open, one
   key clears the page back to the paper.
+
+### One text bar, and it moves
+
+There were three fields on the page at once: one hanging off a fresh highlight,
+one inside every open answer, and one at the foot of the read. A reader looking
+at two identical inputs stacked on each other has to work out which of them means
+what, and the honest answer was "whichever one you are nearest".
+
+So there is **one bar, and it goes where you are**:
+
+- highlight a passage and it is under that passage;
+- tap an answer you opened earlier and it moves into that answer;
+- touch neither and it waits at the foot, under "Ask this paper".
+
+Whatever it is currently inside is what the next thing you type is about, which
+is why it does not have to say so. When it has gone up into the paper, the foot
+of the read says where it went rather than growing a second field.
+
+An answer in the margin now wears **the same numbered square as its passage**,
+before the question. Out there it is the only thing saying which highlight this
+answer belongs to.
+
+**"¶ Ask about this paragraph" is deleted.** It was the touch fallback for a
+beat, it only ever appeared below 720px, and it did nothing a reader could see.
+Touch selection reports through `touchend` now, which is the same path as a
+mouse; if that turns out to be unreliable on a given phone, the fix is to make
+selection work there, not to hang a second control off every paragraph.
