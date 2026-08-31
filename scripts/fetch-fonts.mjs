@@ -8,17 +8,8 @@ import path from "node:path";
 
 const FONT_DIR = path.join(process.cwd(), "public", "fonts");
 const FILES = [
-  "apercu_regular_pro.otf",
-  "apercu_regular_italic_pro.otf",
-  "apercu_medium_pro.otf",
-  "apercu_medium_italic_pro.otf",
-  "apercu_bold_pro.otf",
-  "apercu_bold_italic_pro.otf",
-  "CabinetGrotesk-Regular.woff2",
-  "CabinetGrotesk-Medium.woff2",
-  "CabinetGrotesk-Bold.woff2",
-  "CabinetGrotesk-Bold.ttf",
-  "CabinetGrotesk-Extrabold.woff2",
+  "CabinetGrotesk-Bold.woff2", // globals.css @font-face (both display styles are 700)
+  "CabinetGrotesk-Bold.ttf", // opengraph-image.tsx (Satori can't read woff2)
 ];
 
 const exists = (p) => access(p).then(() => true, () => false);

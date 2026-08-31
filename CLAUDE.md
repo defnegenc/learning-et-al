@@ -27,7 +27,7 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `RESEND_API_KEY` — Resend API key for digest emails
 - `INVITE_CODE` — Optional invite code for gated access
 - `EMBEDDING_MODEL` — Optional override (default: `all-MiniLM-L6-v2`, alt: `bge-small-en-v1.5`)
-- `FONTS_BASE_URL`: Private URL prefix serving the licensed font files (Apercu Pro, Cabinet Grotesk) at `$FONTS_BASE_URL/<filename>`. The files are gitignored (not redistributable in a public repo); `scripts/fetch-fonts.mjs` downloads any that are missing before `next build`. Unset = build proceeds with system-font fallbacks. See `public/fonts/README.md`.
+- `FONTS_BASE_URL`: Private URL prefix serving the Cabinet Grotesk files at `$FONTS_BASE_URL/<filename>`. They are gitignored (Fontshare's license forbids redistribution in a public repo); `scripts/fetch-fonts.mjs` downloads any that are missing before `next build`. Unset = build proceeds with system-font fallbacks. Hanken Grotesk needs no fetching (next/font + one committed OFL ttf for the OG image). See `public/fonts/README.md`.
 - `AI_MODEL_DIGEST` / `AI_MODEL_COMPANION` / `AI_MODEL_DIG` / `AI_MODEL_CHAT` / `AI_MODEL_METADATA` / `AI_MODEL_HEALTHCHECK` — Optional per-task model overrides. Each falls back to `CRON_AI_MODEL`, then the provider default. Set one to move a single kind of work onto a cheaper or better model without a deploy. See `aiConfigFor()` in `src/lib/ai/provider.ts`.
 - `AI_MODEL_DIGEST_JUDGE` — Optional. Model for the digest pipeline's *judgment and extraction* calls only (cold reads, the Step 4b re-rank, the foundational gate, Stage A metadata, the gist). Same provider and key as the run; model only. Unset = identical to the run's config, i.e. no change. Point it at a flash-class model **on the same provider as the live `CRON_AI_PROVIDER`** to cut judge latency; it is also the instant rollback. See `judgeConfigFrom()` in `src/lib/ai/provider.ts`.
 
@@ -128,10 +128,11 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - Paper source: OpenAlex (primary) → Semantic Scholar → arXiv (fallback chain). News via Serper (Google) / DuckDuckGo web search, with RSS as fallback.
 - Tech stack: Next.js 16, Turso (libsql) for prod DB, local SQLite for dev, Drizzle ORM, Tailwind + shadcn/ui
 - **Relevance scoring: embedding + LLM hybrid** (`@xenova/transformers` all-MiniLM-L6-v2 for recall, LLM re-ranking for precision). Embeddings find candidates, LLM scores "tool to think with" quality. Do NOT revert to keyword counting.
-- **Typography**: three faces — Cabinet Grotesk (display, 700 only), Apercu Pro
-  (body), Geist Mono (labels). Five type styles total: Display/LG 32, Display/SM
-  16 upper, Label 12 mono, Body 15, Body/SM 13. Space Grotesk and IBM Plex Mono
-  are out of the product.
+- **Typography**: three faces, Cabinet Grotesk (display, 700 only), Hanken
+  Grotesk (body, variable via next/font), Geist Mono (labels). Five type styles
+  total: Display/LG 32, Display/SM 16 upper, Label 12 mono, Body 15, Body/SM 13.
+  Apercu Pro, Space Grotesk and IBM Plex Mono are out of the product (Apercu
+  left 2026-08-30 when the repo went open source; its license bars a public repo).
 - Daily digest: Vercel Cron at 4am UTC (`vercel.json`), generates for all users + emails based on cadence (daily/biweekly/weekly). Manual "Generate" button for admin.
 - Email: Resend integration, cadence-aware (daily = every digest, biweekly = best-of Tue+Fri, weekly = best-of Sunday). "Best" = most recent digest of the period (digest starring was removed).
 - Feedback: Users can dislike a paper with optional reason, no control over recommendations. Digest-level feedback via the end-of-digest "Don't like this digest? Regenerate." CTA (reason → hide → force-regenerate).
