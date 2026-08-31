@@ -40,6 +40,14 @@ interface GlossaryEntry {
   def: string;
   tier?: "basic" | "working" | "deep";
   analogy?: string;
+  /**
+   * The reader asked for this one, so the reading view never filters it out
+   * again. Without it, a reader who has said they are expert in the topic adds
+   * a word and watches it vanish: `glossaryForLevel` drops basic terms at level
+   * 4 and up, which is right for what the companion volunteers and wrong for
+   * what was asked for.
+   */
+  added?: boolean;
 }
 
 function parseEntry(raw: string): GlossaryEntry | null {
@@ -51,7 +59,7 @@ function parseEntry(raw: string): GlossaryEntry | null {
     const def = parsed.def.trim();
     if (!term || !def) return null;
     const tier = ["basic", "working", "deep"].includes(parsed.tier) ? parsed.tier : undefined;
-    return { term, def, tier };
+    return { term, def, tier, added: true };
   } catch {
     return null;
   }

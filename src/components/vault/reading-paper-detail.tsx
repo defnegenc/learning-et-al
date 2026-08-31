@@ -26,6 +26,8 @@ type Jargon = {
   def: string;
   tier?: "basic" | "working" | "deep";
   analogy?: string;
+  /** The reader asked for this one. It is never filtered out again. */
+  added?: boolean;
 };
 
 export interface Companion {
@@ -334,6 +336,10 @@ function annotateText(text: string, jargon: Jargon[], used: Set<string>): React.
 function glossaryForLevel(terms: Jargon[], value: FamiliarityValue | null): Jargon[] {
   if (!value) return terms;
   return terms.filter(term => {
+    // A word the reader asked to keep is kept. Tier filtering is about what the
+    // companion volunteers; this one was requested, and an expert asking what a
+    // basic term means in THIS paper is a completely ordinary thing to do.
+    if (term.added) return true;
     if (!term.tier) return true; // companions cached before tiering
     if (value.level <= 2) return true;
     if (value.level === 3) return term.tier === "working" || term.tier === "deep";
@@ -625,33 +631,6 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip, lead, centere
 }
 
 /**
- * The second question, asked only in the dead air of a dig and only once per
- * paper. How much a paper was worth someone's evening is exactly what the
- * librarian cannot infer from a save alone.
- */
-function PaperRating({ value, onSelect, onSkip, waiting = true, centered }: {
-  value?: number | null;
-  onSelect: (level: number) => void;
-  onSkip: () => void;
-  /** Still streaming. Once the answer has landed, "while I read" is not true. */
-  waiting?: boolean;
-  centered?: boolean;
-}) {
-  return (
-    <ScaleRow
-      question={waiting ? "While I read: how much did you like this paper?" : "How much did you like this paper?"}
-      lowLabel="not for me"
-      highLabel="loved it"
-      value={value}
-      onSelect={onSelect}
-      onSkip={onSkip}
-      ariaPrefix="liked this paper"
-      centered={centered}
-    />
-  );
-}
-
-/**
  * What to say while a dig is running, in order of how much it is worth.
  *
  * A maintained content surface, like the first-run tips: these name real
@@ -718,15 +697,11 @@ function DigWait({ showTips }: { showTips: boolean }) {
  * answered or waved off. The lead changes when the answer lands, because
  * "while I read" stops being true.
  */
-function InterleaveQuestion({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating, waiting }: {
+function InterleaveQuestion({ familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, waiting }: {
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
   onFamiliarity: (level: number) => void;
   onSkipFamiliarity: () => void;
-  ratingOffer: boolean;
-  ratingValue?: number | null;
-  onRating: (level: number) => void;
-  onSkipRating: () => void;
   /** Still streaming, so the question can say so. */
   waiting: boolean;
 }) {
@@ -741,9 +716,6 @@ function InterleaveQuestion({ familiarityOffer, familiarityValue, onFamiliarity,
         centered
       />
     );
-  }
-  if (ratingOffer) {
-    return <PaperRating value={ratingValue} onSelect={onRating} onSkip={onSkipRating} waiting={waiting} centered />;
   }
   return null;
 }
@@ -884,7 +856,7 @@ function AnswerSquare({ n, open, label, onToggle }: {
  * and under it in the flow on a narrow one, and it is the same component both
  * times — the only difference is which column it is rendered into.
  */
-function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, ratingOffer, ratingValue, onRating, onSkipRating, owed }: {
+function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, owed }: {
   thread: ReadingThread;
   streaming: boolean;
   error?: string | null;
@@ -893,10 +865,6 @@ function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, f
   familiarityValue?: FamiliarityValue | null;
   onFamiliarity: (level: number) => void;
   onSkipFamiliarity: () => void;
-  ratingOffer: boolean;
-  ratingValue?: number | null;
-  onRating: (level: number) => void;
-  onSkipRating: () => void;
   /** The interleave owes a question, and it belongs to this one. */
   owed: boolean;
 }) {
@@ -924,10 +892,6 @@ function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, f
             familiarityValue={familiarityValue}
             onFamiliarity={onFamiliarity}
             onSkipFamiliarity={onSkipFamiliarity}
-            ratingOffer={ratingOffer}
-            ratingValue={ratingValue}
-            onRating={onRating}
-            onSkipRating={onSkipRating}
             waiting={empty && streaming}
           />
         </div>
@@ -1038,7 +1002,7 @@ function useWideEnough() {
 }
 
 /** Below this there is no margin to open into, so answers open in the flow. */
-const MARGIN_BREAKPOINT = "(min-width: 1080px)";
+const MARGIN_BREAKPOINT = "(min-width: 1220px)";
 
 /** The held passage's mark, so the composer can be lined up with it. */
 const HELD_ID = "held-passage";
@@ -1056,7 +1020,25 @@ function useMarginTops(
   heights: React.RefObject<Record<string, HTMLDivElement | null>>,
 ) {
   const [tops, setTops] = useState<Record<string, number>>({});
+  const [generation, setGeneration] = useState(0);
   const key = ids.join(",");
+
+  // Anything that can move a line under the mark: the window resizing, a font
+  // arriving, the container finishing its widen. Without this the tops are
+  // whatever they were at the instant the answer opened, which is the wrong
+  // moment by definition — the layout is still changing then.
+  useEffect(() => {
+    const el = proseRef.current;
+    if (!el) return;
+    const bump = () => setGeneration(g => g + 1);
+    const observer = new ResizeObserver(bump);
+    observer.observe(el);
+    window.addEventListener("resize", bump);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", bump);
+    };
+  }, [proseRef]);
 
   useLayoutEffect(() => {
     const box = proseRef.current?.getBoundingClientRect();
@@ -1064,7 +1046,14 @@ function useMarginTops(
     const measured = ids
       .map(id => {
         const el = proseRef.current?.querySelector(`[data-mark-id="${id}"]`);
-        return el ? { id, want: el.getBoundingClientRect().top - box.top } : null;
+        if (!el) return null;
+        // The FIRST line of the passage, not the box around all of its lines:
+        // a passage that wraps has a bounding box starting at its first line
+        // anyway, but a passage whose first fragment ends a line has client
+        // rects that start further left, and the top is what matters here.
+        const rects = Array.from(el.getClientRects()).filter(r => r.height > 0);
+        const top = (rects[0]?.top ?? el.getBoundingClientRect().top) - box.top;
+        return { id, want: top };
       })
       .filter((m): m is { id: string; want: number } => !!m)
       .sort((a, b) => a.want - b.want);
@@ -1083,7 +1072,7 @@ function useMarginTops(
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (changed) setTops(next);
     // `key` stands in for the id list, which is a new array every render.
-  }, [key, tops, ids, proseRef, heights]);
+  }, [key, tops, ids, proseRef, heights, generation]);
 
   return tops;
 }
@@ -1293,11 +1282,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const [askError, setAskError] = useState<string | null>(null);
   const [tipSeen, setTipSeen] = useState(true);
 
-  // How much they liked the paper. Asked at most once per paper, only in the
-  // dead air of a dig, and only after the familiarity question is out of the
-  // way — two questions in one wait is a survey.
-  const [rating, setRating] = useState<number | null>(null);
-  const [ratingDeclined, setRatingDeclined] = useState(false);
 
   // Digs made in this session open; ones rehydrated from the thread store on
   // load stay folded, so re-opening a paper you have dug into four times shows
@@ -1403,15 +1387,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           setThreads(groupThreads(data.qaPairs.map(normalizeTurn)));
         }
       } catch { /* an empty thread is the right fallback */ }
-    })();
-    (async () => {
-      // Whether they have already told us. Cheap, and it is the difference
-      // between asking once and asking every time they dig.
-      try {
-        const res = await fetch(`/api/papers/${paper.id}/rating`);
-        const data = await res.json();
-        if (!cancelled && typeof data.level === "number") setRating(data.level);
-      } catch { /* unknown reads as un-rated, which only costs one question */ }
     })();
     return () => { cancelled = true; };
   }, [paper.id, fixture, loadCompanion]);
@@ -1535,18 +1510,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
       .catch(() => {});
   }, [companion?.topic, familiarityOffer, familiarityValue, fixture, paper.id]);
 
-  const submitRating = useCallback((level: number) => {
-    const previous = rating;
-    setRating(level); // optimistic: a rating is one tap and must feel like one
-    if (fixture) return;
-    void fetch(`/api/papers/${paper.id}/rating`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ level }),
-    }).catch(() => setRating(previous));
-  }, [fixture, paper.id, rating]);
-
-  const skipRating = useCallback(() => setRatingDeclined(true), []);
 
   useEffect(() => () => { if (offerTimer.current) clearTimeout(offerTimer.current); }, []);
 
@@ -1570,6 +1533,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
             term: clean,
             def: `Sample definition of "${clean}". In the product this comes from /api/papers/[id]/glossary, written against the paper's own text so the term is defined the way this paper uses it.`,
             tier: "working" as const,
+            added: true,
           }],
         }));
         return;
@@ -1635,13 +1599,10 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
       familiarityValue={activeFamiliarity}
       onFamiliarity={setFamiliarity}
       onSkipFamiliarity={skipFamiliarity}
-      // Second in the queue: never before the familiarity question has been
-      // answered or waved off, never twice, never once they have told us.
-      ratingOffer={t.id === lastDigThreadId && !familiarityOffer && rating === null && !ratingDeclined}
-      ratingValue={rating}
-      onRating={submitRating}
-      onSkipRating={skipRating}
-      owed={t.id === lastDigThreadId && (!!familiarityOffer || (rating === null && !ratingDeclined))}
+      // "How much did you like this paper?" used to queue up behind this one.
+      // It is gone: two questions in the margin of one answer is a survey, and
+      // the familiarity one at least changes what the reader is then handed.
+      owed={t.id === lastDigThreadId && !!familiarityOffer}
     />
   );
 
@@ -1907,11 +1868,15 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           align-items: stretch;
           transition: max-width 200ms ease;
         }
-        /* The read keeps its measure and the page grows to the right of it, so
-           opening an answer moves the column but never reflows a line of it. */
+        /* The read is a FIXED 720px in both states, not a fraction of whatever
+           the container currently is. When the margin opens, the container
+           animates from 720 to 1140 and a fractional column would be squeezed
+           to 300px mid-animation, reflowing every line in the paper and landing
+           the answer level with a line that has since moved. Fixed, the column
+           only slides sideways: no reflow, and the measured tops stay true. */
         .reading-shell.has-margin {
           max-width: 1140px;
-          grid-template-columns: minmax(0, 720px) 380px;
+          grid-template-columns: 720px 380px;
           gap: 40px;
         }
         .reading-margin { position: relative; }
