@@ -1924,3 +1924,18 @@ compact now, in the same two-up grid the shelf uses. The card's own bookmark is
 not used, because a citing work has no row yet and has to go through
 `save-external`; the save lives in the card's `footnote`, which is the one place
 a compact card lets its caller put a control.
+
+### Two corrections
+
+**The citing works go back to a list.** Cards were tried there and are too much
+object for a list of things you have not read, at the foot of a page whose whole
+argument is that the paper is the only thing on it. One hairline-separated row
+per paper with a save on the right.
+
+**The glossary moves to the top right and travels with the reader.** At the foot
+of the read it was a folded panel you had to reach the end of the paper to use,
+which is exactly the wrong place for the thing you want in the middle of a
+sentence. It is a control in the page's own bar now, and that bar is sticky
+under the site header, so it is in the same corner at every scroll position.
+Adding a word with `+ Glossary` opens it; Escape closes it along with everything
+else.
