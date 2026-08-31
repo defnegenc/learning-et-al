@@ -77,6 +77,8 @@ async function searchPapers(
     oaScopes: (OpenAlexSearchScope | undefined)[];
     /** Deterministic user-configured field, used only if OpenAlex returns nothing. */
     fallbackField?: string;
+    freshCandidateTarget?: number;
+    recentWindowYears?: number;
     label: string;
   },
 ): Promise<PaperSearchResult[]> {
@@ -95,7 +97,15 @@ async function searchPapers(
     // Ask each wider scope for a full page. Its first results often overlap the
     // narrower scope; requesting only the number of empty slots could return
     // nothing but duplicates and falsely make a healthy scope look exhausted.
-    const scoped = await searchOpenAlex(query, undefined, oaSort, max, scope);
+    const scoped = await searchOpenAlex(
+      query,
+      undefined,
+      oaSort,
+      max,
+      scope,
+      plan?.freshCandidateTarget,
+      plan?.recentWindowYears,
+    );
     for (const paper of scoped) {
       const key = normTitle(paper.title);
       if (seenOaTitles.has(key)) continue;
@@ -108,7 +118,7 @@ async function searchPapers(
     return oaResults.map(p => ({ ...p, source: oaSourceFor(p.sourceUrl) }));
   }
 
-  const s2 = await searchSemanticScholar(query, max, sort, plan?.fallbackField);
+  const s2 = await searchSemanticScholar(query, max, sort, plan?.fallbackField, plan?.recentWindowYears);
   if (s2.length > 0) {
     return s2.map(p => ({ ...p, openAlexId: undefined, source: "semantic_scholar" as const }));
   }
@@ -163,8 +173,8 @@ Return JSON: {"pick": 1 | null, "reason": "one plain-English sentence on why thi
 /**
  * Step 4c: the foundational lane — "what did today's papers build on?"
  *
- * Every main-path search is hard-filtered to the last 2 years (deliberately — recency
- * is the product default), so foundational texts can never enter the pool. This lane
+ * Main-path search is limited to recent work: three calendar years for rapidly
+ * changing areas and six elsewhere. Foundational texts cannot enter that pool. This lane
  * is additive, with two tiers:
  *   Tier 1 (citation graph): a heavily-cited common ancestor from the selected
  *     papers' reference lists — "the text today's papers built on."
@@ -605,22 +615,32 @@ const TASTE_MAX_BOOST = 0.02;
 const TASTE_FLOOR = 0.30;
 const TASTE_RANGE = 0.35;
 
-// Fresh evidence matters because the digest uses papers to describe the world as
-// it stands now. This is deliberately a ranking signal and a qualified floor,
-// not a way around relevance: only papers that already passed the normal theme
-// gates can satisfy it.
+// Fresh evidence matters most in rapidly changing research. Recency remains a
+// ranking signal everywhere, but the qualified floor only applies in volatile
+// areas and never bypasses the normal relevance gates.
 const CURRENT_YEAR_RECENCY_BONUS = 0.007;
 const PREVIOUS_YEAR_RECENCY_BONUS = 0.003;
+const FAST_CURRENT_YEAR_RECENCY_BONUS = 0.010;
+const FAST_PREVIOUS_YEAR_RECENCY_BONUS = 0.005;
+const FAST_MOVING_RESEARCH = /\b(?:ai|artificial intelligence|machine learning|deep learning|generative ai|ai agents?|large language models?|foundation models?|chatgpt|computer vision|natural language processing|nlp|cybersecurity)\b/i;
 
-function recencyBonus(year: number | undefined, currentYear: number): number {
+function isFastMovingResearchContext(parts: (string | undefined)[]): boolean {
+  return FAST_MOVING_RESEARCH.test(parts.filter(Boolean).join(" "));
+}
+
+function recencyBonus(year: number | undefined, currentYear: number, fastMoving: boolean): number {
   const age = year ? currentYear - year : 2;
-  if (age <= 0) return CURRENT_YEAR_RECENCY_BONUS;
-  if (age === 1) return PREVIOUS_YEAR_RECENCY_BONUS;
+  if (age <= 0) return fastMoving ? FAST_CURRENT_YEAR_RECENCY_BONUS : CURRENT_YEAR_RECENCY_BONUS;
+  if (age === 1) return fastMoving ? FAST_PREVIOUS_YEAR_RECENCY_BONUS : PREVIOUS_YEAR_RECENCY_BONUS;
   return 0;
 }
 
 function isCurrentYearPaper(item: { category: TaggedItem["category"]; year?: number }, currentYear: number): boolean {
   return item.category !== "news" && item.category !== "foundational" && item.year === currentYear;
+}
+
+function isFreshAcademicPaper(item: { category: TaggedItem["category"]; year?: number }, currentYear: number): boolean {
+  return item.category !== "news" && item.category !== "foundational" && (item.year ?? 0) >= currentYear - 1;
 }
 
 const SIM_ONTOPIC  = 0.25; // strong match — clearly about the theme
@@ -1097,6 +1117,17 @@ Return JSON only (no markdown):
   const focusInterest = selectedInterestKeywords[0];
   const focusInterestObj = candidateInterests.find(i => i.keyword === focusInterest) ?? candidateInterests[0];
   const focusLevel = (focusInterestObj.level ?? "beginner") as "beginner" | "intermediate" | "expert";
+  const fastMovingResearch = isFastMovingResearchContext([
+    focusInterest,
+    seedInterestKeyword,
+    seedTopic?.name,
+    seedTopic?.subfield,
+    ...(seedTopic?.keywords || []),
+    theme,
+    ...searchQueries,
+  ]);
+  const recentWindowYears = fastMovingResearch ? 2 : 5;
+  console.log(`[Digest] Recency mode: ${fastMovingResearch ? "fast-moving research" : "standard"}`);
 
   // ─── Theme → Search → Score loop: retry with new theme if papers don't match ───
   const MAX_THEME_RETRIES = 2;
@@ -1112,14 +1143,20 @@ Return JSON only (no markdown):
   const paperSearchPlan = (queryIndex: number) => {
     const broad: undefined = undefined;
     if (!seedTopic) {
-      return { oaScopes: [broad], fallbackField: seedInterestField, label: "unscoped (no topic seed)" };
+      return { oaScopes: [broad], fallbackField: seedInterestField, freshCandidateTarget: fastMovingResearch ? 2 : 0, recentWindowYears, label: "unscoped (no topic seed)" };
     }
     const primaryTopic: OpenAlexSearchScope = { kind: "primary-topic", id: seedTopic.id };
     const topic: OpenAlexSearchScope = { kind: "topic", id: seedTopic.id };
     const subfield: OpenAlexSearchScope = { kind: "subfield", id: seedTopic.subfieldId };
     return queryIndex === 0
-      ? { oaScopes: [primaryTopic, topic, subfield, broad], fallbackField: seedInterestField, label: `primary-topic ${seedTopic.id} → topic → subfield ${seedTopic.subfieldId} → broad` }
-      : { oaScopes: [topic, subfield, broad], fallbackField: seedInterestField, label: `topic ${seedTopic.id} → subfield ${seedTopic.subfieldId} → broad` };
+      ? { oaScopes: [primaryTopic, topic, subfield, broad], fallbackField: seedInterestField, freshCandidateTarget: fastMovingResearch ? 2 : 0, recentWindowYears, label: `primary-topic ${seedTopic.id} → topic → subfield ${seedTopic.subfieldId} → broad` }
+      : { oaScopes: [topic, subfield, broad], fallbackField: seedInterestField, freshCandidateTarget: fastMovingResearch ? 2 : 0, recentWindowYears, label: `topic ${seedTopic.id} → subfield ${seedTopic.subfieldId} → broad` };
+  };
+  const unscopedPaperSearchPlan = {
+    oaScopes: [undefined],
+    freshCandidateTarget: fastMovingResearch ? 2 : 0,
+    recentWindowYears,
+    label: "unscoped",
   };
 
   for (let themeAttempt = 0; themeAttempt <= MAX_THEME_RETRIES; themeAttempt++) {
@@ -1195,7 +1232,7 @@ Return JSON only (no markdown):
     console.log(`[Digest] Only ${allResults.length} results after scope widening — retrying broad searches...`);
     mergeResults(await Promise.all(searchQueries.map(async (query) => {
       try {
-        return await searchPapers(query, 10, "publicationDate");
+        return await searchPapers(query, 10, "publicationDate", unscopedPaperSearchPlan);
       } catch {
         return [] as PaperSearchResult[]; // already logged
       }
@@ -1236,7 +1273,7 @@ Return JSON only (no markdown):
       const rrfScore = rrfScores[i];
       // Recency reorders only the already-qualified pool. Foundational work enters
       // later through its own deliberately old lane.
-      const freshnessBoost = recencyBonus(p.year, currentYear);
+      const freshnessBoost = recencyBonus(p.year, currentYear, fastMovingResearch);
       const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
       // Taste prior: how near this sits to a cluster of papers the reader has
       // actually saved. Deliberately capped BELOW the venue signal and applied
@@ -1362,7 +1399,7 @@ Return JSON only (no markdown):
       sourceUrl: pick.p.sourceUrl, pdfUrl: pick.p.pdfUrl || undefined,
       source: pick.p.source, year: pick.p.year,
       openAlexId: pick.p.openAlexId || undefined,
-      // All wide-pool picks come from the 2-year recent window. "foundational" is
+      // All wide-pool picks come from the field-sensitive recent window. "foundational" is
       // reserved for the ancestor lane (Step 4c) — labeling slot 0 foundational was
       // a lie the UI repeated ("A foundational view" on a current-year paper).
       category: "recent",
@@ -1402,7 +1439,8 @@ Return JSON only (no markdown):
           widePool.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year })),
           theme,
           targetPapers,
-          taste.dossier
+          taste.dossier,
+          fastMovingResearch,
         )
       );
       const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreInsight?: string }>(selectionResp);
@@ -1533,7 +1571,7 @@ Return JSON only (no markdown):
     // Vary the broad query with theme words — the bare interest string returned a
     // nearly fixed result set every run (audit 6.6)
     const broadQuery = `${focusInterest} ${themeWords.slice(0, 2).join(" ")}`.trim();
-    const broadResults = await searchPapers(broadQuery, 12, "publicationDate", undefined); // no field filter
+    const broadResults = await searchPapers(broadQuery, 12, "publicationDate", unscopedPaperSearchPlan);
     const broadEmbs = await embedBatch(broadResults.map(paperText));
     const broadQueryEmb = await embedText(broadQuery);
     for (let bi = 0; bi < broadResults.length; bi++) {
@@ -1560,7 +1598,7 @@ Return JSON only (no markdown):
   if (items.length < TOTAL_ITEMS) {
     console.log(`[Digest] Still ${items.length}/${TOTAL_ITEMS}, searching with theme text...`);
     await delay(300);
-    const themeResults = await searchPapers(theme, 10, "publicationDate", undefined);
+    const themeResults = await searchPapers(theme, 10, "publicationDate", unscopedPaperSearchPlan);
     const themeResultEmbs = await embedBatch(themeResults.map(paperText));
     for (let ti = 0; ti < themeResults.length; ti++) {
       if (items.length >= TOTAL_ITEMS) break;
@@ -1718,13 +1756,14 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
   }
   logStage("step4b re-rank");
 
-  // Keep at least one current-year academic source whenever the qualified pool
-  // contains one. Ranking and the model selector both prefer fresh work, but
-  // neither is a guarantee: MMR may trade it for diversity, and the editorial
+  // In rapidly changing areas, keep at least one current-year academic source
+  // whenever the qualified pool contains one. Ranking and the model selector
+  // both prefer fresh work, but neither is a guarantee: MMR may trade it for
+  // diversity, and the editorial
   // re-ranker may trade it for contrast. The replacement still comes from
   // `qualified`, so freshness never bypasses the normal relevance gates.
   const freshnessYear = new Date().getFullYear();
-  if (!items.some(item => isCurrentYearPaper(item, freshnessYear))) {
+  if (fastMovingResearch && !items.some(item => isCurrentYearPaper(item, freshnessYear))) {
     const selectedTitleKeys = new Set(items.map(item => normTitle(item.title)));
     const freshCandidate = qualified.find(({ p }) =>
       p.year === freshnessYear
@@ -1764,6 +1803,57 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
       seenTitles.add(normTitle(freshItem.title));
     } else {
       console.log(`[Digest] Freshness floor: no eligible current-year paper remained after relevance and editorial gates`);
+    }
+  }
+
+  // For the same rapidly changing areas, keep at most one academic source older
+  // than the previous calendar year when the qualified pool can support it.
+  // Slower fields keep their relevance-led mix. The separate foundational lane
+  // remains additive.
+  if (fastMovingResearch) {
+    const selectedTitleKeys = new Set(items.map(item => normTitle(item.title)));
+    const freshCandidates = qualified.filter(({ p }) =>
+      p.year >= freshnessYear - 1
+      && !selectedTitleKeys.has(normTitle(p.title))
+      && !rejectedByEditorialRerank.has(normTitle(p.title))
+    );
+    const scoreByTitle = new Map(qualified.map(candidate => [normTitle(candidate.p.title), candidate.score]));
+
+    while (items.filter(item => item.category !== "news" && item.category !== "foundational" && !isFreshAcademicPaper(item, freshnessYear)).length > 1) {
+      const replacement = freshCandidates.shift();
+      if (!replacement) break;
+
+      const replaceIndex = items
+        .map((item, index) => ({ item, index, score: scoreByTitle.get(normTitle(item.title)) ?? -Infinity }))
+        .filter(({ item }) => item.category !== "news" && item.category !== "foundational" && !isFreshAcademicPaper(item, freshnessYear))
+        .sort((a, b) => a.score - b.score || (a.item.year || 0) - (b.item.year || 0))[0]?.index;
+      if (replaceIndex == null) break;
+
+      const replaced = items[replaceIndex];
+      const freshItem: TaggedItem = {
+        title: replacement.p.title,
+        authors: replacement.p.authors,
+        abstract: replacement.p.abstract,
+        sourceUrl: replacement.p.sourceUrl,
+        pdfUrl: replacement.p.pdfUrl || undefined,
+        source: replacement.p.source,
+        year: replacement.p.year,
+        openAlexId: replacement.p.openAlexId || undefined,
+        category: "recent",
+      };
+      items[replaceIndex] = freshItem;
+      selectedTitleKeys.add(normTitle(freshItem.title));
+      seenTitles.add(normTitle(freshItem.title));
+      console.log(`[Digest] Freshness mix: replaced "${replaced.title.slice(0, 45)}" (${replaced.year || "year unknown"}) with "${freshItem.title.slice(0, 45)}" (${freshItem.year})`);
+    }
+
+    const staleAcademicCount = items.filter(item =>
+      item.category !== "news"
+      && item.category !== "foundational"
+      && !isFreshAcademicPaper(item, freshnessYear)
+    ).length;
+    if (staleAcademicCount > 1) {
+      console.log(`[Digest] Freshness mix: ${staleAcademicCount} older papers remain because fewer than two fresh candidates cleared the gates`);
     }
   }
   logStage("freshness floor");
@@ -1822,6 +1912,9 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
     const recentHeadlineBlock = recentHeadlineTexts.length > 0
       ? `\nRecent digest headlines — do not repeat their wording or underlying angle:\n${recentHeadlineTexts.map(value => `- "${value}"`).join("\n")}\n`
       : "";
+    const editorialRecencyGuidance = fastMovingResearch
+      ? `Keep at least one ${freshnessYear} academic paper when the source list contains one. When the sources contain enough qualified work from ${freshnessYear - 1}-${freshnessYear}, keep at most one academic paper from ${freshnessYear - 2} or earlier. The digest makes claims about a rapidly changing area, so its freshest qualified evidence cannot all be edited away.`
+      : "";
 
     const revisePrompt = `The working question used to FIND these sources was: "${theme}"
 
@@ -1837,7 +1930,7 @@ First identify the real editorial thread:
 - Can every source make an honest contribution to that same thread without a clever stretch?
 
 If a source only fits after climbing to a generic umbrella (for example, a generic financial-app UX review in a digest about manipulative dark patterns), put its index in excludeIndices. Disagreement is not a reason to exclude; adjacency without contribution is. Keep at least 2 sources.
-Keep at least one ${freshnessYear} academic paper when the source list contains one. The digest makes claims about the present, so its freshest qualified evidence cannot all be edited away.
+${editorialRecencyGuidance}
 
 Then write the question a curious person would genuinely ask after seeing that thread. It should create an information gap: the reader understands the subject immediately, but wants the evidence before deciding the answer.
 
@@ -1911,7 +2004,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       .filter(index => Number.isInteger(index) && index >= 1 && index <= sourcesForHeadline.length);
     const currentYearAcademicIndices = sourcesForHeadline
       .map((source, index) => ({ source, index: index + 1 }))
-      .filter(({ source }) => isCurrentYearPaper(source, freshnessYear))
+      .filter(({ source }) => fastMovingResearch && isCurrentYearPaper(source, freshnessYear))
       .map(({ index }) => index);
     if (
       currentYearAcademicIndices.length > 0
