@@ -62,7 +62,8 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 
 3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv** (in practice OpenAlex nearly always answers, so it's effectively the sole source — audit 6.1). The three queries run **concurrently** (3 concurrent requests, each internally serial through its scope ladder, sits well inside OpenAlex's 10 rps polite pool); the inter-query sleeps are gone.
 
-- **Relevance-ranked recency**: OpenAlex "recent" mode sorts by `relevance_score:desc` within a 2-year `publication_year` window. It fetches five candidates past the requested cutoff; if the top set contains no current-year work, the best current-year result from that small oversample replaces the last candidate so downstream scoring can consider it. This is candidate inclusion, not a guaranteed slot. (Sorting by `publication_year:desc` was rejected because it discarded relevance and returned the newest works mentioning the query words anywhere — audit 6.2.)
+- **Field-sensitive recency window**: rapidly changing areas search the current year plus the prior two years. Other areas search the current year plus the prior five years, so durable evidence is not excluded just for being older.
+- **Relevance-ranked recency**: OpenAlex "recent" mode sorts by `relevance_score:desc` inside that window. It fetches ten candidates past the requested cutoff. In rapidly changing areas, the best current-year result and a second current-or-previous-year result are exposed when available. Standard areas do not force fresh candidates into the shortlist. This is candidate inclusion, not a guaranteed slot. Sorting by `publication_year:desc` remains rejected because it discarded relevance and returned the newest works mentioning the query words anywhere.
 - **Deterministic taxonomy routing**: query 1 starts with `primary_topic.id:{seedTopic}` for precision. Queries 2-3 start with `topics.id:{seedTopic}`, which also admits cross-domain papers where the seed is a secondary topic.
 - **Precision → recall widening**: if a scoped query returns fewer than its 10-candidate allotment, keep those papers and fill the remainder from `primary_topic.subfield.id:{seedSubfield}`, then unscoped OpenAlex. Widening is per query and stops as soon as the allotment is full.
 - If every OpenAlex scope returns zero, Semantic Scholar receives the deterministic field stored on the seeded user interest; arXiv remains the final fallback. No LLM-generated label controls retrieval.
@@ -81,7 +82,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - BM25 is computed against `theme + all 3 queries` for the same reason.
 
 Quality boosts (scaled to RRF range):
-- `recencyBonus`: +0.007 current year, +0.003 last year. This only reorders papers that already cleared the relevance floor.
+- `recencyBonus`: +0.007 current year and +0.003 last year by default; +0.010 and +0.005 in rapidly changing areas. This only reorders papers that already cleared the relevance floor.
 - `venueBoost`: `venueQualityBoost(venue, domain) * 0.03` (0 to ~0.0024)
 - `instBoost`: `institutionBoost(institutions) * 0.03` (0 to ~0.0015)
 - `tasteBoost`: 0 to 0.02 — cosine to the nearest **saved-paper centroid** (`lib/librarian/dossier.ts`), ramped from 0.30 to 0.65 similarity. Applied to `score` only, **never to `relSim`**, so it reorders the qualified pool and can never qualify an off-theme paper. Max over clusters, not mean: one strong match to a cluster is the signal, and averaging it against the reader's other interests would erase it. Absent (0) for any reader with no dossier yet.
@@ -106,8 +107,9 @@ If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the
 Selection criteria:
 - Selects papers that each contribute something DIFFERENT
 - Creates genuine TENSION (supports + complicates + alternative mechanism)
-- If a current-year candidate passes the relevance gate, keeps at least one; with three slots it prefers two when both add distinct evidence
-- Uses recency as a tie-break for the remaining choices
+- In rapidly changing areas, if a current-year candidate passes the relevance gate, keeps at least one
+- In rapidly changing areas with three paper slots, keeps at least two papers from the current or previous calendar year when two qualified candidates add distinct evidence; this leaves at most one older paper
+- In other areas, uses recency only as a tie-break and does not force a current-year paper
 - Returns `selectedIndices`, `selectionReasoning`, `coreTension`, `argumentArc`, `paperRoles`
 - Falls back to top-N by score if LLM fails.
 - Note: `argumentArc` and `paperRoles` from this step are currently discarded — Stage B re-derives them. Could be consolidated.
@@ -142,15 +144,15 @@ After all items are assembled, papers are scored on two dimensions:
 
 Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** off-topic and weak-adjacent papers are dropped when ≥2 sources remain — 2 coherent sources beat 3 where the headline and synthesis have to stretch around filler. The rubric explicitly rejects generic neighboring work (for example, a general trustworthy-financial-app review does not belong in a dark-pattern digest merely because both mention UX and trust). Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
 
-**Current-evidence floor:** after re-ranking, if no academic source is from the current year but a current-year paper remains in the qualified pool, the pipeline adds it to an open slot or replaces the lowest-scored non-news paper. This is not a relevance override: the replacement must have passed the same theme and quality filters as the rest of `qualified`. The final-source editor is instructed to preserve one current-year academic source, and its exclusion list is constrained from removing all of them. If no current-year work qualifies, the digest degrades honestly instead of inserting an off-topic paper.
+**Current-evidence floor for rapidly changing areas:** the pipeline detects volatile topics from the seeded interest and OpenAlex topic vocabulary, including AI, machine learning, language models, computer vision, NLP, and cybersecurity. After re-ranking, if no academic source is from the current year but a current-year paper remains in the qualified pool, the pipeline adds it to an open slot or replaces the lowest-scored non-news paper. It then replaces the weakest older academic sources until at most one is older than the previous calendar year, provided enough current-or-previous-year candidates qualified. These are not relevance overrides: every replacement passed the same theme and quality filters as the rest of `qualified`. Slower-moving areas keep the relevance-led mix, so a 2024 education paper is not displaced merely because a newer paper exists.
 
 ### Step 4c: Foundational Lane (1-2 OpenAlex calls + AI gate, conditional)
 
 Lives in `findFoundationalItem()` and **runs concurrently with Step 5**, merged into
 `items` once the headline pass returns (see "Step order vs. execution order" above).
 
-The main pool is deliberately windowed to the last 2 years — recency is the product
-default. This lane is ADDITIVE: it asks "what did today's papers build on?" Two tiers:
+The main pool uses the field-sensitive recent window described above. This lane is
+ADDITIVE: it asks "what did today's papers build on?" Two tiers:
 
 **Tier 1 — citation graph:**
 - Fetch the selected papers' `referenced_works` (one batched OpenAlex call).
