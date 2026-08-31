@@ -85,11 +85,30 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
 - **No NEW mono/all-caps eyebrow labels.** Defne dislikes the all-caps little-mono
   look; existing eyebrows stay, but new surfaces use bolded body-face,
   sentence-case lead-ins ("Tip:", "Pitched for you:") instead.
-- **No em dashes in user-visible text, ever** — UI strings, AI output, emails,
-  OG images. Use a period, comma, colon, or parentheses. Prompts must forbid
-  them and `aiComplete` sanitizes survivors (see docs/plans/reading-view-revamp.md,
-  "Global copy rule"). En dashes in numeric ranges are fine. Code comments and
-  docs are exempt.
+- **Never output the Unicode em dash character, U+2014, anywhere.** This applies
+  to chat responses, plans, summaries, source code strings, UI copy, AI output,
+  prompts, emails, OG images, documentation, comments, commit messages, review
+  feedback, citations, examples, and generated files. Rewrite naturally with a
+  comma, period, colon, semicolon, parentheses, or different sentence structure.
+  Before sending or saving generated text, scan for U+2014 and replace every
+  occurrence. Do not reproduce it inside quotations. There are no automatic
+  exceptions. En dashes in numeric ranges are still allowed. `aiComplete`
+  sanitizes survivors (see docs/plans/reading-view-revamp.md, "Global copy
+  rule").
+- **Never write "quietly" or "silently" in generated copy.** Same standing as
+  the em dash rule, and it covers everything a reader sees: the digest headline,
+  the gist, synthesis prose, card summaries, findings, takeaways, key-concept
+  definitions, the reading companion, an Ask or Explain answer, emails, OG
+  images, and UI strings. There are no exceptions and no "but it fits here" case:
+  they are the tell of a machine narrating stealth it never observed. Say what
+  happened and who noticed, or drop the adverb ("Will advertisers corrupt how AI
+  guides us?" not "Will advertisers **quietly** corrupt how AI guides us?").
+  Enforced in three layers from `src/lib/ai/banned-words.ts`: `BANNED_WORDS_RULE`
+  goes in every prompt that writes copy, `bannedWordsIn` is a hard gate on the
+  headline in `themeProblemsWithoutSources`, and `stripBannedWords` scrubs the
+  digest on its way into the database. Add a word to `BANNED_WORDS` and all three
+  layers pick it up. Code comments and internal docs are out of scope, exactly as
+  with em dashes.
 - **One paper card** (`src/components/paper-card.tsx`), two sizes. Today, the
   vault, the rail and the permalink all render it. Don't add a second card.
 - **The spectrum has three indexes and they never mix**: fields take a fixed

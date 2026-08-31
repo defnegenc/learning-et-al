@@ -54,7 +54,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - **Cold read of the working question** (added 2026-08-17, batched 2026-08-20): the same context-free judge used in Step 5 (see below) reads the candidate working questions, and a candidate with any cold-reader objection is dropped. Only if *every* candidate is objected to does ONE re-angle call fire inside the same seed. The seed rotation stays mechanical — the topic is never abandoned, only the angle moves. This matters beyond the headline: a study-shaped working question retrieves study-shaped papers, which caps how interesting Step 5 can honestly be.
 - Fallback: if LLM fails, the OpenAlex topic name is used as the theme (or the seeded interest when topic lookup failed).
 
-**Shared taste block** (`THEME_TASTE_RULES`, added 2026-08-17): every prompt that writes or rewrites a theme interpolates it — hypothesis, the re-angle repair, the not-enough-papers reframe, and Step 5 + its repair. (The shortener and novelty-retry prompts were two of the original five; both were deleted on 2026-08-20 when Step 1 went to three candidates, since a failing candidate is now dropped rather than rewritten.) The retry paths used to carry almost none of the taste rules, so a mangled theme from a retry degraded retrieval as well as the headline. They all now interpolate one constant (dinner-table test, name-the-object, placeholder ban, study-design rule, acronym rule, one-intensifier rule, length). Same class of gotcha as the `shortName` rules living in two places — change the constant, never restate a rule.
+**Shared taste block** (`THEME_TASTE_RULES`, added 2026-08-17): every prompt that writes or rewrites a theme interpolates it — hypothesis, the re-angle repair, the not-enough-papers reframe, and Step 5 + its repair. (The shortener and novelty-retry prompts were two of the original five; both were deleted on 2026-08-20 when Step 1 went to three candidates, since a failing candidate is now dropped rather than rewritten.) The retry paths used to carry almost none of the taste rules, so a mangled theme from a retry degraded retrieval as well as the headline. They all now interpolate one constant (dinner-table test, name-the-object, placeholder ban, study-design rule, acronym rule, banned words, one-intensifier rule, length). Same class of gotcha as the `shortName` rules living in two places — change the constant, never restate a rule.
 
 **Theme retry loop** (up to 2 retries): If the theme produces too few qualifying papers, the pipeline changes the researchable angle and queries while keeping the OpenAlex topic, then re-searches. Each retry is an additional AI call.
 
@@ -81,7 +81,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - BM25 is computed against `theme + all 3 queries` for the same reason.
 
 Quality boosts (scaled to RRF range):
-- `recencyBonus`: +0.0035 current year, +0.0015 last year
+- `recencyBonus`: +0.007 current year, +0.003 last year. This only reorders papers that already cleared the relevance floor.
 - `venueBoost`: `venueQualityBoost(venue, domain) * 0.03` (0 to ~0.0024)
 - `instBoost`: `institutionBoost(institutions) * 0.03` (0 to ~0.0015)
 - `tasteBoost`: 0 to 0.02 — cosine to the nearest **saved-paper centroid** (`lib/librarian/dossier.ts`), ramped from 0.30 to 0.65 similarity. Applied to `score` only, **never to `relSim`**, so it reorders the qualified pool and can never qualify an off-theme paper. Max over clusters, not mean: one strong match to a cluster is the signal, and averaging it against the reader's other interests would erase it. Absent (0) for any reader with no dossier yet.
@@ -106,7 +106,8 @@ If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the
 Selection criteria:
 - Selects papers that each contribute something DIFFERENT
 - Creates genuine TENSION (supports + complicates + alternative mechanism)
-- Uses recency only as a tie-break when relevance, insight, and complementarity are otherwise equal
+- If a current-year candidate passes the relevance gate, keeps at least one; with three slots it prefers two when both add distinct evidence
+- Uses recency as a tie-break for the remaining choices
 - Returns `selectedIndices`, `selectionReasoning`, `coreTension`, `argumentArc`, `paperRoles`
 - Falls back to top-N by score if LLM fails.
 - Note: `argumentArc` and `paperRoles` from this step are currently discarded — Stage B re-derives them. Could be consolidated.
@@ -140,6 +141,8 @@ After all items are assembled, papers are scored on two dimensions:
 - **Insight** (1-3): does it offer a surprising or useful lens?
 
 Combined score ≤3 → attempt swap with next-best from qualified pool. **If no replacement exists:** off-topic and weak-adjacent papers are dropped when ≥2 sources remain — 2 coherent sources beat 3 where the headline and synthesis have to stretch around filler. The rubric explicitly rejects generic neighboring work (for example, a general trustworthy-financial-app review does not belong in a dark-pattern digest merely because both mention UX and trust). Graceful degradation: if LLM fails, embedding-ranked papers are kept. Worst papers are processed first so the best replacements go to the worst slots.
+
+**Current-evidence floor:** after re-ranking, if no academic source is from the current year but a current-year paper remains in the qualified pool, the pipeline adds it to an open slot or replaces the lowest-scored non-news paper. This is not a relevance override: the replacement must have passed the same theme and quality filters as the rest of `qualified`. The final-source editor is instructed to preserve one current-year academic source, and its exclusion list is constrained from removing all of them. If no current-year work qualifies, the digest degrades honestly instead of inserting an off-topic paper.
 
 ### Step 4c: Foundational Lane (1-2 OpenAlex calls + AI gate, conditional)
 
@@ -191,6 +194,7 @@ The working question is retrieval scaffolding, not the displayed headline. Once 
   - (b) *Hard to read* — `PARAPHRASED_JARGON` regexes catch the negative constructions that signal a paraphrased property. The key one keys on **nominalisation, not the word "without"**: `without …<word>ing|ion|ment|ness|ity` flags "without touching it" and "without any central planning" while leaving "without soil" and "without a teacher" alone, since those name real things.
   - (c) *Insider acronym* (added 2026-08-17) — any all-caps token of 2-5 letters (trailing plural allowed, so "TTOs" is caught) outside `HOUSEHOLD_ACRONYMS` fails. "Are incubators and TTOs choosing startup survivors?" shipped because the term appears in the sources, which is exactly backwards: source vocabulary is evidence of grounding, not of legibility. AI, VC, GPS, DNA, CEO, NASA pass; TTO, HCI, RCT, LLM do not.
   - (d) *Stacked intensifiers* (added 2026-08-17) — more than one of `ever / actually / truly / really / any(thing|one) / always / never` fails. One is explicitly fine (the approved set uses single "actually"); two compound into rhetoric — "Is one museum exhibit ever enough to teach anything?" reads as a put-down, not curiosity.
+  - (e) *Banned word* (added 2026-08-25): "quietly" or "silently" anywhere in the line fails, from `bannedWordsIn()` in `src/lib/ai/banned-words.ts`. These were a standing verbal ban that kept shipping ("Will advertisers quietly corrupt how AI guides us?", 2026-08-25) because they lived only as one item in a long AI-tell list inside the *synthesis* prompts, and `THEME_TASTE_RULES` carried no word list at all. Now the rule text is in the taste block, the gate is here, and `stripBannedWords()` scrubs anything that survives on its way into the database.
   - On failure, ONE rewrite call receives the exact problems, kept sources, and evidence-backed thread; it is accepted only if it clears the deterministic gate **and the cold reader** (see below). Matters doubly because `theme` is also the email subject line (`email.ts`).
   - Known limitation: lexical grounding is not full grammatical understanding. The source-connection audit is the semantic backstop; a future upgrade could use POS tagging or a concreteness lexicon.
 - The **coherence guard** stays a hard rule in both the hypothesis and revise prompts: the theme must make literal sense to someone who hasn't read the papers. Comprehension beats cleverness; a specific plain question beats a vague clever one. (User feedback, July 2026 + Aug 2026.)
@@ -323,6 +327,7 @@ proof of the live production model.
 | Theme word count | ≤ 10 words (8 target) | Steps 1 and 5 |
 | Insider acronym | all-caps 2-5 letter token outside `HOUSEHOLD_ACRONYMS` | Steps 1 and 5 (`themeProblems`) |
 | Stacked intensifiers | >1 of ever/actually/truly/really/any(thing/one)/always/never | Steps 1 and 5 (`themeProblems`) |
+| Banned words | "quietly" / "silently" anywhere in the line | Steps 1 and 5 (`themeProblems`), then stripped at the DB insert |
 | Cold read | `unknownTerms` empty + `wouldWonder` + non-empty `stakes` | Steps 1 and 5 |
 | Headline interest | highest `interest` (1-5) among eligible candidates | Step 5 selection |
 | Guess↔thread similarity | logged only; no floor enforced yet (~0.5 planned) | Step 5 |
