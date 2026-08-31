@@ -164,6 +164,8 @@ export async function searchOpenAlex(
   sort: "cited_by_count" | "publication_year" = "cited_by_count",
   limit = 10,
   scope?: OpenAlexSearchScope,
+  freshCandidateTarget = 1,
+  recentWindowYears = 2,
 ): Promise<OpenAlexPaper[]> {
   try {
     const currentYear = new Date().getFullYear();
@@ -186,18 +188,17 @@ export async function searchOpenAlex(
     }
 
     if (sort === "publication_year") {
-      filters.push(`publication_year:${currentYear - 2}-${currentYear}`);
+      filters.push(`publication_year:${currentYear - recentWindowYears}-${currentYear}`);
     }
 
-    // "Recent" mode sorts by relevance_score within a 2-year window, NOT by
-    // publication_year — year sorting discards OA's relevance ranking entirely
+    // "Recent" mode sorts by relevance_score within the requested year window,
+    // not by publication_year. Year sorting discards OA's relevance ranking entirely
     // and returns the newest works mentioning the query words anywhere (fulltext
     // included), which floods the pool with loosely-related papers (audit 6.2).
-    // Pull a few extra relevance-ranked results in recent mode. OpenAlex can put
-    // every current-year work just below a top-10 made up of mature 1-2-year-old
-    // papers; in that case our downstream recency bonus never gets a chance to
-    // consider the newer work. We still return only `limit` candidates below.
-    const fetchLimit = sort === "publication_year" ? Math.min(limit + 5, 200) : limit;
+    // Pull extra relevance-ranked results so volatile fields can expose fresh
+    // candidates without changing the relevance-first ordering for standard fields.
+    // We still return only `limit` candidates below.
+    const fetchLimit = sort === "publication_year" ? Math.min(limit + 10, 200) : limit;
     const params = new URLSearchParams({
       search: query,
       filter: filters.join(","),
@@ -217,17 +218,28 @@ export async function searchOpenAlex(
       .filter(w => w.title && w.abstract_inverted_index)
       .map(mapWork)
       .filter(p => p.title && p.abstract.length > 50);
-    let shortlisted = mapped.slice(0, limit);
-    if (
-      sort === "publication_year" &&
-      shortlisted.length === limit &&
-      !shortlisted.some(p => p.year === currentYear)
-    ) {
-      // Give the best current-year result in the small oversample a chance in
-      // hybrid scoring; this is candidate inclusion, not a guaranteed selection.
-      const currentYearCandidate = mapped.slice(limit).find(p => p.year === currentYear);
-      if (currentYearCandidate) {
-        shortlisted = [...shortlisted.slice(0, -1), currentYearCandidate];
+    const shortlisted = mapped.slice(0, limit);
+    if (sort === "publication_year" && shortlisted.length === limit) {
+      const freshCutoffYear = currentYear - 1;
+      const tail = mapped.slice(limit);
+      const promote = (candidate: OpenAlexPaper | undefined) => {
+        if (!candidate || shortlisted.some(p => p.openAlexId === candidate.openAlexId)) return;
+        let replaceIndex = shortlisted.findLastIndex(p => p.year < freshCutoffYear);
+        if (replaceIndex < 0 && candidate.year === currentYear) {
+          replaceIndex = shortlisted.findLastIndex(p => p.year < currentYear);
+        }
+        if (replaceIndex >= 0) shortlisted[replaceIndex] = candidate;
+      };
+
+      // Volatile fields preserve a current-year candidate when the oversample has one.
+      if (freshCandidateTarget > 0 && !shortlisted.some(p => p.year === currentYear)) {
+        promote(tail.find(p => p.year === currentYear));
+      }
+
+      // Rapidly changing research areas also ask for a second fresh candidate.
+      for (const candidate of tail) {
+        if (shortlisted.filter(p => p.year >= freshCutoffYear).length >= Math.min(freshCandidateTarget, limit)) break;
+        if (candidate.year >= freshCutoffYear) promote(candidate);
       }
     }
     // A concept filter that silently matches no OpenAlex concept returns 0 results
