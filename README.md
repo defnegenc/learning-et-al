@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Learning et al.
 
-## Getting Started
+Your AI research companion: a research paper recommendation and synthesis
+system that finds, summarizes, and contrasts papers around your interests.
+Every digest starts from a provocative central question, then selects papers as
+tools to think with, and writes an argument rather than a book report. Live at
+[learningetal.com](https://learningetal.com).
 
-First, run the development server:
+## How it works
+
+- **Theme-first pipeline**: a central question is generated before any paper
+  search; papers from OpenAlex, Semantic Scholar, and arXiv are scored by an
+  embedding + LLM hybrid and diversified with MMR. See `docs/algorithm.md`.
+- **Multi-stage synthesis**: skeleton, prose, critique, revision, coverage
+  gate. See `docs/synthesis.md`.
+- **A personal vault**: save papers, get a full-text reading walkthrough, ask
+  questions, and dig into citing work.
+- **Daily digests** by cron, with cadence-aware email via Resend.
+
+## Stack
+
+Next.js 16, Turso (libsql) in production and local SQLite in dev, Drizzle ORM,
+Tailwind + shadcn/ui, local embeddings via `@xenova/transformers`, and a
+provider-agnostic AI layer (Anthropic, OpenAI, or Gemini-compatible chat
+completions).
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill in the variables
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The required environment variables are documented in `CLAUDE.md` under
+"Environment". The short version: `TURSO_DATABASE_URL=file:paper-processor.db`
+for local dev, Google OAuth credentials, an `AUTH_SECRET`, a `SERPER_API_KEY`
+for news search, and a `CRON_AI_*` provider/model/key trio for server-side
+generation.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Push the schema to your local database with `npx drizzle-kit push`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Fonts
 
-## Learn More
+The two licensed faces (Apercu Pro and Cabinet Grotesk) are not in the repo
+and are not covered by the MIT license. The app builds and runs with system
+fallbacks without them; see `public/fonts/README.md` for how deploys fetch
+them and what to swap in if you fork without an Apercu license.
 
-To learn more about Next.js, take a look at the following resources:
+## License
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT, except the fonts as noted above. See `LICENSE`.
