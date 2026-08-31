@@ -51,5 +51,10 @@ next-env.d.ts
 
 # source fonts (public/fonts has the copies)
 apercu pro/
+
+# licensed font files: not redistributable, fetched at build time
+# (see public/fonts/README.md and scripts/fetch-fonts.mjs)
+public/fonts/*
+!public/fonts/README.md
 custom-codes*
 .env*.local
