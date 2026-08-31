@@ -40,6 +40,7 @@ const MICRO_MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN digest_paused INTEGER DEFAULT 0",
   "ALTER TABLE papers ADD COLUMN companion TEXT",
   "ALTER TABLE papers ADD COLUMN homework TEXT",
+  "ALTER TABLE papers ADD COLUMN follow_ups TEXT",
   "ALTER TABLE digests ADD COLUMN working_theme TEXT",
   "ALTER TABLE digests ADD COLUMN theme_candidates TEXT",
   // Phase 2 engagement-ledger columns. Keep these before Phase 3 tables: the

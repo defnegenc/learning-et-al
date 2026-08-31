@@ -36,7 +36,7 @@ export function PendingSharedSaves() {
             // Match the ordinary bookmark flow: start the cached reading prep
             // after the bookmark itself has safely landed.
             fetch(`/api/papers/${paperId}/companion`, { method: "POST" }).catch(() => {});
-            fetch(`/api/papers/${paperId}/homework`, { method: "POST" }).catch(() => {});
+            fetch(`/api/papers/${paperId}/follow-ups`, { method: "POST" }).catch(() => {});
           } catch {
             failedPaperIds.push(paperId);
           }

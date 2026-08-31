@@ -42,7 +42,7 @@ export interface Companion {
   pitchedForYou?: PitchedForYou;
 }
 
-export interface HomeworkItem {
+export interface FollowUpItem {
   openAlexId: string;
   title: string;
   authors: string[];
@@ -52,6 +52,8 @@ export interface HomeworkItem {
   pdfUrl: string | null;
   abstract: string;
   citationCount: number;
+  kind?: "citing" | "contrasting" | "foundational";
+  why?: string;
 }
 
 export interface QaPair {
@@ -83,7 +85,7 @@ export interface Provenance {
 export interface ReadingFixture {
   companion: Companion | null;
   familiarity?: FamiliarityValue | null;
-  homework: HomeworkItem[];
+  followUps: FollowUpItem[];
   qa: QaPair[];
   /** Stands in for the model when a question is asked or a passage is dug into. */
   answer: (question: string, selection?: string | null) => string;
@@ -745,7 +747,13 @@ function Beat({ heading, sectionKey, children }: {
 // per paper with a save on the right. Cards were tried here and are too much
 // object for a list of things you have not read, at the foot of a page whose
 // whole argument is that the paper is the only thing on it.
-function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperId: string }) {
+const FOLLOW_UP_LABELS = {
+  citing: "What came after",
+  contrasting: "Another angle",
+  foundational: "What it stands on",
+} as const;
+
+function FollowUpRow({ item, sourcePaperId }: { item: FollowUpItem; sourcePaperId: string }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -774,6 +782,11 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
   return (
     <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 0", borderTop: HAIRLINE }}>
       <div style={{ flex: 1, minWidth: 0 }}>
+        {item.kind && (
+          <div style={{ ...BODY_SM, color: DIM, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            {FOLLOW_UP_LABELS[item.kind]}
+          </div>
+        )}
         <a
           href={item.url || undefined}
           target="_blank"
@@ -783,6 +796,9 @@ function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperI
           {item.title}
         </a>
         <div style={{ ...BODY_STYLE, color: MUTED, marginTop: 8 }}>{meta}</div>
+        {item.why && (
+          <div style={{ ...BODY_STYLE, color: DIM, marginTop: 7 }}>{item.why}</div>
+        )}
       </div>
       <button
         onClick={save}
@@ -1237,7 +1253,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const [lastDigThreadId, setLastDigThreadId] = useState<string | null>(null);
   const [companionPending, setCompanionPending] = useState(!fixture);
   const [companionFailed, setCompanionFailed] = useState(false);
-  const [homework, setHomework] = useState<HomeworkItem[] | null>(fixture ? fixture.homework : null);
+  const [followUps, setFollowUps] = useState<FollowUpItem[] | null>(fixture ? fixture.followUps : null);
 
   const [threads, setThreads] = useState<ReadingThread[]>(fixture ? groupThreads(fixture.qa.map(normalizeTurn)) : []);
   const [streamingTurn, setStreamingTurn] = useState<string | null>(null);
@@ -1361,7 +1377,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
       setCompanion(fixture.companion);
       setFamiliarityValue(fixture.familiarity ?? null);
       setCompanionPending(false);
-      setHomework(fixture.homework);
+      setFollowUps(fixture.followUps);
       setThreads(groupThreads(fixture.qa.map(normalizeTurn)));
       return;
     }
@@ -1369,14 +1385,14 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     loadCompanion();
     (async () => {
       try {
-        const res = await fetch(`/api/papers/${paper.id}/homework`);
+        const res = await fetch(`/api/papers/${paper.id}/follow-ups`);
         let data = await res.json();
-        if (!data.homework) {
-          const gen = await fetch(`/api/papers/${paper.id}/homework`, { method: "POST" });
+        if (!data.followUps) {
+          const gen = await fetch(`/api/papers/${paper.id}/follow-ups`, { method: "POST" });
           data = await gen.json();
         }
-        if (!cancelled) setHomework(data.homework ?? []);
-      } catch { if (!cancelled) setHomework([]); }
+        if (!cancelled) setFollowUps(data.followUps ?? []);
+      } catch { if (!cancelled) setFollowUps([]); }
     })();
     (async () => {
       try {
@@ -1828,19 +1844,19 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           {/* ── What's happened since ── */}
           <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
           <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>
-            Newer work that cites this paper.
+            Work that followed, challenged, or shaped this paper.
           </p>
-          {homework === null ? (
+          {followUps === null ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0" }}>
               <Loader2 size={15} className="animate-spin" style={{ color: MUTED }} />
               <span style={{ ...BODY_STYLE, color: MUTED }}>Looking for follow-up work…</span>
             </div>
-          ) : homework.length === 0 ? (
-            <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
+          ) : followUps.length === 0 ? (
+            <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>No strong follow-up work found yet.</p>
           ) : (
             <div>
-              {homework.map(item => (
-                <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
+              {followUps.map(item => (
+                <FollowUpRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
               ))}
             </div>
           )}

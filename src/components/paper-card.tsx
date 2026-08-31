@@ -86,7 +86,7 @@ function BookmarkToggle({ paper, initial, onUnsaved, showLabel, onSignedOutSaveC
         // work are ready by the time the library is opened. On a reader's first
         // save this is also the only thing they are ever told about it.
         fetch(`/api/papers/${paper.id}/companion`, { method: "POST" }).catch(() => {});
-        fetch(`/api/papers/${paper.id}/homework`, { method: "POST" }).catch(() => {});
+        fetch(`/api/papers/${paper.id}/follow-ups`, { method: "POST" }).catch(() => {});
         announceSave({ paperId: paper.id, title: paper.plainName || paper.title });
       } else {
         onUnsaved?.(paper.id);
