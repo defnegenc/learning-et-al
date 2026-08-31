@@ -71,10 +71,15 @@ export default async function RootLayout({
        label fell back to the browser default. */
     <html lang="en" className={`${hankenGrotesk.variable} ${geistMono.variable}`}>
       <head>
-        {/* Cabinet Grotesk is self-hosted in globals.css (see @font-face) — no
-            runtime fontshare CDN dependency, so the display font never flashes
-            a fallback sans. Bold is the only weight the menu uses. */}
-        <link rel="preload" href="/fonts/CabinetGrotesk-Bold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* Cabinet Grotesk loads from the official Fontshare API. This keeps the
+            licensed font out of the public repository while restoring the
+            intended display face. */}
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://api.fontshare.com/v2/css?f%5B%5D=cabinet-grotesk@700&display=swap"
+        />
       </head>
       <body className="antialiased">
         <Providers session={session}>{children}</Providers>
