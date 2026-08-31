@@ -1318,7 +1318,544 @@ text you were reading. Caption band, command bar and unfurl say yes; margin
 notes, pinned cards and the ledger say no, and pay for it in distance between
 the passage and its answer. Nothing is decided until one is picked.
 
+**Round two, same day.** Two survived, the ledger by a clear margin, and the
+reasons given are now the rules the surface is designed against:
+
+1. **The read is never cut.** An answer may not push the paragraph you are
+   reading down the page. Beside the text, under it, or over it. Never inside.
+2. **The passage comes back in colour.** Every answer repeats the passage it
+   came from, filled in the paper's hue. This is what makes an answer findable
+   from a distance, and it is why the ledger works at all.
+3. **Unobtrusive until wanted.** At rest, an answered passage is a coloured mark
+   and at most a small numeral.
+4. **Friendly, not system software.** The bottom-docked command bar was rejected
+   outright ("hideous"). The thing answering has read the paper and is sitting
+   next to you; it is not a command palette.
+
+The kept two were tuned rather than left alone. The **ledger** is two-way now: a
+stamp takes you down to its row, a row's passage takes you back up to the
+sentence and blinks it once, and a small runner rides the bottom corner while an
+answer is being written, because the ledger's one real flaw is that the answer
+arrives a long way from your eyes. **Pinned cards** now tie card and mark in both
+directions (hover either, the other responds) and the card's header carries the
+passage rather than the question, because the passage is what you recognise.
+
+Four replacements, all obeying the rules above: **the spine** (a ruled edge with
+one tick per question at the height of its own line; point at a tick and the
+answer swings out, nothing at rest), **the companion** (a friendly panel in the
+bottom corner that takes the passage as a chip, the honest replacement for the
+command bar, and the only shape that survives a phone), **the drawer** (the
+ledger fixed to the bottom of the reading column so you never travel to it), and
+**the whisper** (no furniture at all: point at a coloured sentence and its answer
+appears in the ink tooltip, click to keep it).
+
 ---
+
+## 2026-08-20: Teaching the highlight, in the paper's own colour
+
+Highlight-to-ask is invisible. Nothing about a paragraph says a sentence is a
+thing you can pull on, and a reader who never drags across a line never learns
+that the product has this in it. What ships is a line of small grey text saying
+so, which asks the reader to take a caption's word for it.
+
+Three alternatives, on `/prototype/highlight-ask` as a second axis (any first-run
+option can sit on any answer shape), all of which say it **in the paper's own hue
+and inside the text**, because that is the only place the gesture exists. All
+three retire on the reader's first question.
+
+- **One lit sentence.** The most interesting sentence in the gist arrives already
+  highlighted, with one line above the read saying so. A worked example, not an
+  instruction: this is what a passage you have pulled on looks like. Clicking it
+  asks the default question. The quietest, and the only one that puts no decision
+  in front of a reader who just wants to read.
+- **Three invitations.** Three short phrases lit across the paper, each carrying
+  a question mark and, on hover, the question it would ask. Deliberately three
+  different kinds of question: a mechanism, a number, a limit. It teaches the
+  gesture and its range at once, which one example cannot.
+- **The demo.** Nothing pre-lit. A highlight paints itself across a sentence, the
+  bar appears under it with the default question in it, and both clear. The only
+  one that teaches the *drag* rather than its result. Runs once, replayable,
+  never loops, because a loop is an advertisement.
+
+The trade is between the first two and the third: pre-lighting shows the reader
+the outcome and gives them something to click, but it is a state they will never
+see again and it slightly implies the product picked those sentences as the
+important ones. The demo has no such implication and no clickable payoff.
+
+**Decided, same day: none of them.** All three were built and all three are out.
+The first run is one line above the read and nothing else:
+
+> **Tip:** highlight part of the text to ask more about it and dig deeper.
+
+A bolded sentence-case lead-in, not the mono eyebrow it used to wear, and it
+retires on the reader's first question. The objection to pre-lighting was the
+one the trade above already named and underrated: it puts the product's hand on
+which sentences matter before the reader has read any of them.
+
+---
+
+## 2026-08-20: A multi-line drag has to work, and it did not
+
+The bug that made the whole interaction feel broken, in one line of code:
+
+```js
+const host = range.commonAncestorContainer.closest("[data-section]")
+```
+
+Drag across three lines and release a few pixels past the end of the last one
+and the selection has taken the gap under the paragraph with it. The common
+ancestor is then the `<section>` or the reading column, and `closest` searches
+*upwards* from there, so it never finds the `[data-section]` paragraph sitting
+below it. The highlight looked perfect and produced nothing at all. The same
+line killed any drag that ran from one beat into the next, which the old comment
+described as intended behaviour ("one passage, one section, or nothing") when it
+was really the same defect wearing a rule.
+
+Two helpers replace it, in the reading view and in the prototype both:
+
+- **`beatFor(range, scope)`** takes the beat the drag *started* in, falling back
+  to the first beat the range actually intersects. A drag that runs off the end
+  of a paragraph, or into the next one, now resolves to a real beat.
+- **`clipToBeat(range, beat)`** intersects the selection with that beat, because
+  everything downstream finds a passage by `indexOf` in the beat's own text: a
+  selection carrying the gap, or half of the next beat, would never be found in
+  the string it is supposed to be part of, and the mark would silently not draw.
+
+Also: the anchor rect now skips zero-width rects. A multi-line range has them at
+its ends, and anchoring the bar to one put it at the left margin of a line the
+reader never touched.
+
+**Shipped: pinned cards.** The prototype's second tab is now the reading view.
+`DigPanel`, the indent behind a 2px rule sitting under the beat, is gone, and
+with it the two complaints that started this: an answer arriving pushed the
+paragraph you were reading down the page, and folded it was a bare chevron with
+nothing on it to say what it was.
+
+What replaces it, in `DigCard`:
+
+- **A card in the rail**, full frame and the one shadow, **headed by its passage
+  filled in the paper's hue**. That header is the whole reason this works at a
+  distance: you never have to hold in your head which highlight a card was, so
+  it does not need to sit next to the sentence to be findable. Folded, the
+  passage clamps to two lines; open, it is the whole sentence.
+- **A numeral, both ways.** The passage in the prose takes a superscript number
+  (`user-select: none`, or it lands inside the next selection that crosses it
+  and stops the passage matching). Hover a card and its sentence takes the ink
+  underline; hover a sentence and its card lifts 2px; click either and you are
+  taken to the other. Numbering comes from `digThreads()`, one list, so the
+  number over the sentence and the number on the card cannot drift.
+- **The rail is one scroll region now**, sticky and scrolling inside itself:
+  cards, then glossary, then Ask. It used to be the thread alone that scrolled
+  in its own frame, which only worked while nothing sat above it. A new answer
+  scrolls its own card into view, since it lands at the bottom of a stack that
+  may already be taller than the screen.
+- The wait, the interleaved questions, the follow-up composer and the "pitched
+  for you" disclosure all moved inside the card. The disclosure still waits for
+  the answer: the wait is a loader and one question, and a framed callout is
+  neither.
+
+The cost, stated plainly: on a narrow screen the rail is below the read, so an
+answer is a scroll away from its sentence. The numeral and "take me back to this
+sentence" are what pay for that, and the alternative (an answer that cuts the
+column) is the thing being fixed.
+
+**Round three of the prototype, same day.** The whisper and the pinned cards win
+over the ledger, and they are one thing, so the merge is now the first tab.
+Every answer keeps a card in the rail, folded: a numeral and its passage in the
+paper's hue, which is a list of what you asked and nothing more. The reading
+stays a whisper, so pointing at a coloured sentence gives you the first breath of
+its answer over the page and adds nothing to the column. Click a sentence or its
+strip and that one card unfolds, alone. Each half fixes the other's flaw: the
+whisper's is that nothing says you asked anything, the rail's is that four open
+cards is too much furniture.
+
+---
+
+## 2026-08-20: The reading view holds the paper, your answers, and two corners
+
+Four things left the page, all of them the product talking about itself or about
+its own furniture in the middle of someone else's paper.
+
+**"Pulled in for X because you follow Y"** is gone. It was defensible when the
+library was new and a saved paper needed a reason to exist, but the reader
+opened this page on purpose, from a card they recognised. A line explaining why
+it is in front of them is the product needing to be thanked.
+
+**"You rated yourself 3/5 on…"** is gone with it, and `PitchedForYouLine` is
+deleted. It was a disclosure about how the writing was pitched, sitting above
+the writing. The familiarity level still does its work (it tiers the glossary
+and pitches the companion); it simply stops announcing itself.
+
+**The glossary left the rail** for a menu in the top right, next to "Read the
+full paper". It is reference material, and it was sitting in the same column as
+the answers the reader made themselves, at the same weight. A corner is the
+right weight for a word list you open twice.
+
+**Asking left the rail too**, and became the shape the prototype's companion
+was: a 52px square in the bottom corner, present on every paper at every scroll
+position, unfolding into a panel with the thread, the three suggested questions
+and a composer. It holds the questions that are not about any one sentence.
+Questions anchored to a highlighted passage stay cards in the rail, because
+those have a place in the paper to belong to and these do not.
+
+What is left: the paper in the left column, your answers in the right, the
+glossary in one corner and asking in the other.
+
+**The interleaved question now outlives the wait.** It used to live inside
+`DigWait`, so the answer arriving replaced it: a question you were half a second
+slow to reach for disappeared under the thing you were waiting for, and the
+rating we most want is the one asked while someone is still in the paper. It is
+its own component now (`InterleaveQuestion`), pinned above the answer inside the
+card, staying until it is answered or waved off. Its lead changes when the
+answer lands, because "while I read" stops being true.
+
+**One more, quietly load-bearing:** a `fixture` now seeds `ReadingPaperDetail`'s
+state synchronously rather than through an effect. The prototype stops flashing
+"Reading the paper…" for a frame, and the whole surface becomes
+server-renderable, which is how this round was verified without a browser.
+
+---
+
+## 2026-08-20: One conversation, and a second verb for words
+
+The rail was a stack of answer cards and the corner was a chat panel, which is
+two places to look for one conversation, split by whether a question happened to
+start from a highlight. A reader does not hold that distinction. So there is one
+panel now, `Conversation`, filling a 420px rail at viewport height: a header, a
+log that scrolls, a composer that never moves.
+
+Everything lands in it, in the order it happened. A question that started from a
+passage carries that passage at the top of its block, in the paper's hue, with
+the numeral it wears in the prose.
+
+**The two-way tie is the feature.** Click a highlighted sentence in the paper and
+the conversation scrolls to what was said about it and lights that block for a
+beat. Click the passage in the conversation and the read scrolls back to the
+sentence. That is what lets the talk live in a column of its own instead of
+being wedged under the paragraph: you can always get from one to the other in
+one click, from either end.
+
+**Typing continues the conversation** rather than starting a new thread. Highlight
+to change the subject, type to keep pulling on the one you are on. This is what
+makes it a chat rather than a list of question-and-answer pairs, and it is why
+the per-thread "+ Follow up" control is gone.
+
+**The glossary comes back to the rail**, folded, above the conversation. It spent
+a few hours as a menu in the top right; both are out of the read, but the rail is
+where the other thing you accumulate as you read already lives, and a fold takes
+one click instead of one click plus aim.
+
+### A second verb, and why it is not "Dig deeper" again
+
+Highlighting now offers **+ Glossary** as well as Ask. This is not a repeat of
+the pair that was cut: "Ask" and "Dig deeper" landed in the same place and
+produced the same shape of thing, and nobody could say what the difference was.
+A word and a passage are different objects with different fates. A word is
+something you look up and keep; the answer belongs in a list you can scan later.
+A passage is something you ask about; the answer belongs in the conversation.
+
+`POST /api/papers/[id]/glossary` defines the term **against the paper's own
+text**, so it is defined the way this paper uses it, then appends it to the
+cached companion. It shows in the glossary immediately as "Looking it up…", it
+becomes a chip in the prose like any generated term, and it survives a reload.
+The route de-duplicates before and after the model call, so highlighting the same
+word twice costs one definition.
+
+### What if someone highlights a really long section
+
+Three different answers, because it is three different questions.
+
+- **The glossary control simply is not offered.** `looksLikeTerm()` gates it:
+  under 60 characters, five words or fewer, no sentence punctuation inside it.
+  Anything longer is a passage, and a passage is a thing you ask about. This is
+  better than defining a paragraph badly.
+- **Asking still works, at any length**, and the selection is already clipped to
+  one beat (`clipToBeat`), so the ceiling is one paragraph rather than the whole
+  page. The API caps the stored passage at 1200 characters.
+- **The display clamps, the anchor does not.** The passage at the top of a
+  conversation block shows three lines and then an ellipsis. Reprinting half a
+  beat above its own answer is exactly what the old inline panel did wrong. The
+  whole passage stays the anchor and stays marked in the paper, and the chip is
+  the way back to reading it there.
+
+### Three corrections, same evening
+
+**Flat colour, not the wash.** The conversation's header wore the card wash, a
+three-blob radial gradient, which at 420px behind a 20px heading reads as a
+smudge rather than as a colour. It is the paper's flat hue now, the same fill the
+passages below it wear. One column, one way of saying one thing. (`Remember
+this` keeps the wash: it is the object the page opened from, and its background
+has to stay light enough to read a hue-marked passage through.)
+
+**Nothing moves on hover.** A hovered block used to slide right behind an inset
+ink rule, which put a second vertical line beside an answer that already has one,
+and shifted the text under the cursor. The lit state is now an ink underline on
+the passage chip: the same signal a marked passage wears in the prose, at both
+ends of the tie, with no movement at all.
+
+**Folded by default.** The glossary folds and the conversation did not, which
+made the one thing the reader has not used yet the loudest thing in the column.
+It opens the moment a question is asked from anywhere, and until then it is a bar
+saying what it is for.
+
+---
+
+## 2026-08-26: Highlighting puts the passage in the conversation
+
+The floating bar over the selection is gone. Highlighting now does one thing:
+the passage arrives in the conversation, the panel opens, and the cursor is in
+the field. This is the prototype's companion gesture, and it is better than a
+bar for a reason worth writing down: what you are about to ask about stays
+legible, in the paper's colour, in the place the answer will appear, while you
+type the question. A bar floating over the sentence covered the thing it was
+about.
+
+The passage is **held state** now, not the live selection. It stays until it is
+asked about or dropped with the ×, and the ordinary ink selection is collapsed
+the moment it is taken, so the words are marked in the paper's hue rather than
+by the browser.
+
+**This is also the fix for "highlighting stopped working after the first time",
+which was two bugs.** The passage used to live in a `pick` state cleared by a
+document-wide capture-phase `scroll` listener, so anything that scrolled between
+the release and the question threw it away, and the rail scrolls itself. And
+`ask()` opened with `if (streamingTurn) return`, so a second question asked
+while a five-second answer was still streaming did nothing at all, silently.
+Questions **queue** now: asked while another is being written, they run in order,
+and the log says how many are in line. The wait tip has said "highlight anything
+else while you wait" this whole time, which was a promise the code did not keep.
+
+`MIN_SELECTION` drops from 16 to 3. Sixteen characters was defensible when a
+highlight could only start a conversation, but a word is now something you can
+do something with: double-click "criterion" and the panel offers to define it
+and keep it.
+
+### Flatter, wider, and the questions are centred
+
+- **No numerals.** The tie between a passage and its block is the passage
+  itself, in colour, at both ends. A numbered square inside a filled chip inside
+  a block above an answer behind a rule is four frames deep for one answer.
+- **No rule down the answer** either. Passage in colour, question in bold,
+  answer in plain text.
+- **480px, not 372.** It is a conversation, not a stack of notes.
+- **Bottom-aligned.** Folded, the glossary and the conversation sit in the
+  bottom right corner of the screen instead of floating at the top of a column
+  of nothing. Open, the conversation grows upward into the space above them.
+- **The interleaved question has no rule above it and is centred** in its own
+  block, skip underneath. It is a question being asked *of* the reader, not
+  another section of the answer, and a left-aligned scale under a left-aligned
+  answer read as one more paragraph.
+- **The suggested questions are gone.** Three model-written questions sitting in
+  the panel before the reader has asked anything is the product filling its own
+  silence.
+
+---
+
+## 2026-08-29: One column and one sheet. The rail is gone
+
+Two problems, one cause.
+
+**It was clunky.** The count of furniture around the paper had crept back up:
+a 480px rail holding a folded glossary bar above a folded conversation bar,
+bottom-aligned, each with its own chevron, beside a column of prose. Three
+things to fold and unfold before you have read a sentence.
+
+**Mobile was broken, and not in a small way.** Below 1060px the rail dropped
+underneath the whole article. Highlighting a sentence on a phone opened a panel
+three screens down, so the gesture appeared to do nothing at all. That is not a
+media query that needs tuning; it is a layout that only ever existed on a
+laptop.
+
+So: **no rail.** The paper is one centred 720px column at every width, and
+everything that is not the paper lives in **one sheet docked to the foot of the
+viewport** — the same object, in the same place, on a phone and on a laptop.
+One implementation, no responsive divergence, nothing beside the read.
+
+The sheet has two states and two halves:
+
+- **Folded** it is a bar: what it is for, how many questions are in it, and the
+  stamp turning if an answer is being written while it is shut.
+- **Open** it is a body and a composer, capped at two thirds of the screen so
+  the sentence you highlighted stays visible behind it.
+- The body is **the conversation or the glossary**, chosen with a `Segmented`.
+  They are the only two things this page accumulates as you read, so they are
+  two halves of one control rather than two stacked panels in a column of their
+  own. Adding a word with `+ Glossary` switches to that half; asking anything
+  switches back.
+
+Everything else about the interaction is unchanged: highlight and the passage is
+held in the composer in the paper's colour, the sentence is marked in the same
+colour, the passage in a block is the way back to the sentence and the sentence
+is the way back to the block.
+
+Touch gets one more path: `touchend` now reports a selection where the browser
+allows one, and the per-beat affordance below 720px stays, because touch
+selection loses to the native callout often enough that it cannot be the only
+way in.
+
+On a phone the sheet goes full-bleed, loses its side borders and its shadow, and
+takes `env(safe-area-inset-bottom)` so the composer is not under the home bar.
+
+---
+
+## 2026-08-29 (later): the answer is a footnote, not a place
+
+Every arrangement before this one put the answer somewhere else and then built
+machinery to get back: a panel under the beat, a card in a rail, a chat in the
+corner, a sheet at the foot of the page. Each needed a numeral to tie the two
+ends together, a hover link, a scroll-to, a two-way jump. That machinery is the
+clunkiness. It was all paying for a decision nobody asked for, which was that
+the answer lives away from the sentence.
+
+So the answer tags onto the passage.
+
+- **Highlight** and the passage fills with the paper's colour. An input opens in
+  the flow directly under it, indented behind one ink rule, in exactly the place
+  the answer will appear. Nothing floats over the sentence, nothing docks, and
+  what you are asking about is the coloured words an inch above the field.
+- **Ask** and the answer streams into that same block.
+- **Closed**, the whole thing is **one ink square with a number in it**, sitting
+  at the end of the passage like a footnote marker. Click it to open, click it
+  again to close. A paper you have asked four things about is the paper, with
+  four small squares in it.
+
+Numbering counts questions, not positions: the first thing you asked is 1
+wherever in the paper it is. Fresh answers open as they arrive; ones rehydrated
+on load stay squares, so re-opening a paper shows you the paper rather than your
+own back-catalogue.
+
+The two things that genuinely have nowhere else to be are sections at the foot
+of the read, in the column, in normal flow: **Ask this paper** (a field, and
+whatever it has been asked) and **Glossary** (folded). Neither is a panel over
+the page.
+
+**There is no fixed, floating, sticky or docked furniture left in the reading
+view, and no rail.** That is what makes it identical on a phone and a laptop:
+the whole surface is one 720px column of ordinary flow, so an answer opening on
+a phone happens where the reader is looking, not three screens away.
+
+For the record, the shapes tried and dropped, in order: inline `DigPanel` under
+the beat · `DigCard` stack in a rail · floating `SelectionMenu` over the
+selection · `AskCompanion` in the corner · `Conversation` filling a 480px rail ·
+`TalkSheet` docked to the viewport. Six. The last one is the first that does not
+need to explain where the answer went.
+
+### The margin, and how it comes and goes
+
+Two corrections to the footnote version, same day.
+
+**The answer opens on the right.** A block unfolding inside the paragraph pushed
+the rest of the sentence down the page every time, which is the thing that has
+been wrong with every inline arrangement here. So on a wide screen the square
+stays in the sentence and the answer opens in the **margin beside it**, level
+with the line it belongs to. Answers stack downward only far enough to clear
+each other.
+
+**The margin does not exist until something opens into it.** No reserved column
+of nothing, no empty rail. The read is a centred 720px column; open a square and
+the page widens to 1140 with a 380px margin, and the read keeps its measure, so
+the words move but never reflow. Close the last one and the margin is gone and
+the column recentres. The transition is on `max-width`, so it slides.
+
+Below 1080px there is no margin to open into, so the answer opens in the flow
+under the passage, which is the phone behaviour and the only place an inline
+block is the right answer. Same component in both columns; the only difference
+is which one it is rendered into.
+
+### Three corrections
+
+**The composer was level with the wrong line.** The margin's positions are
+measured against the passage in the read, and the read was a *fractional*
+column: `minmax(0, 1fr)` inside a container animating from 720px to 1140px. Mid
+animation the column was squeezed to about 300px, every line in the paper
+rewrapped, and the measurement landed on where the passage used to be. The read
+is a **fixed 720px in both states** now, so opening the margin slides the column
+sideways and reflows nothing, and a `ResizeObserver` re-measures anyway when the
+window, the fonts or the container change under it. The breakpoint moves to
+1220px, which is where 1140 of shell plus the page's own padding actually fits.
+
+**The paper rating is gone.** "How much did you like this paper?" queued up
+behind the familiarity question and interrupted an answer to run a survey. The
+familiarity one stays: it changes what the reader is handed next, which is a
+fair trade for the interruption, and a five-point opinion about the paper is not.
+The `/api/papers/[id]/rating` route is untouched and unused, so this is one line
+to put back if it turns out to be wanted.
+
+**A word the reader adds is never filtered out again.** `glossaryForLevel` drops
+basic terms for a reader who says they are expert in the topic, which is right
+for what the companion volunteers and wrong for what was explicitly asked for:
+an expert adding a word would have watched it vanish on the next render. Entries
+from `+ Glossary` carry `added: true` and skip the filter.
+
+### The wait says what it is doing, and there is one field per place
+
+**The tip in the wait is gone.** It was a mono `Tip` row naming features
+underneath the loader, which is the product using the reader's dead air to
+advertise to itself. What replaces it is a rotating line about what is actually
+happening, allowed to be dry about it: the honest content of this pause is that
+something is reading a paper carefully on request, which is a slightly absurd
+thing to be doing.
+
+Rules for `WAIT_LINES`, since it is a content surface people will add to:
+
+- It must be **true of this moment**: the model is reading the paper's own text
+  and checking it against the web. Not "did you know", not a feature tour.
+- Under about **eight words**, or it wraps in a 380px margin.
+- **Dry, not cute.** No exclamation marks, no "hang tight", nothing that
+  congratulates the reader for waiting.
+- **The first line is never a joke.** Whatever else the voice is doing, the
+  reader is owed a plain statement of what is happening before it starts.
+
+The line has a minimum height so a short line after a long one does not shift
+the answer that is about to land in its place.
+
+**Two identical fields, stacked.** "Ask this paper" had a per-thread "Follow
+up…" row *and* its own composer at the foot, so a reader was looking at two
+identical inputs with two identical Ask buttons on top of each other and had to
+guess which one meant what. There is one field now, at the foot, and it
+continues the conversation. Highlighting is how you change the subject; this
+field is how you keep pulling on the current one. An answer opened in the margin
+keeps its own follow-up field, because that one is beside a passage rather than
+stacked under another field.
+
+### Closing from the margin
+
+An answer opened in the margin could only be closed by finding its square back
+in the paragraph, which on a wide screen is a 18px box somewhere up the page.
+Two ways out now, both from where the reader already is:
+
+- a **×** on the answer itself, sitting on its first question rather than in a
+  header bar of its own, so it costs no extra furniture;
+- **Escape**, which puts everything down at once: the question being typed and
+  every open answer. Since the margin only exists while something is open, one
+  key clears the page back to the paper.
+
+### One text bar, and it moves
+
+There were three fields on the page at once: one hanging off a fresh highlight,
+one inside every open answer, and one at the foot of the read. A reader looking
+at two identical inputs stacked on each other has to work out which of them means
+what, and the honest answer was "whichever one you are nearest".
+
+So there is **one bar, and it goes where you are**:
+
+- highlight a passage and it is under that passage;
+- tap an answer you opened earlier and it moves into that answer;
+- touch neither and it waits at the foot, under "Ask this paper".
+
+Whatever it is currently inside is what the next thing you type is about, which
+is why it does not have to say so. When it has gone up into the paper, the foot
+of the read says where it went rather than growing a second field.
+
+An answer in the margin now wears **the same numbered square as its passage**,
+before the question. Out there it is the only thing saying which highlight this
+answer belongs to.
+
+**"¶ Ask about this paragraph" is deleted.** It was the touch fallback for a
+beat, it only ever appeared below 720px, and it did nothing a reader could see.
+Touch selection reports through `touchend` now, which is the same path as a
+mouse; if that turns out to be unreliable on a given phone, the fix is to make
+selection work there, not to hang a second control off every paragraph.
 
 ## 2026-08-25: "Quietly" and "silently" are banned words, with a mechanism
 
