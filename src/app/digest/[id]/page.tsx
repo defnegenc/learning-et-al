@@ -106,40 +106,36 @@ export default function DigestPermalink() {
     <div className="relative min-h-screen" style={{ background: SURFACE }}>
       <NoiseOverlay />
 
-      {/* The shared page stays useful on either side of authentication. */}
+      {/* The shared page stays useful on either side of authentication. The
+          nav carries only what a stranger needs: the one thing worth tapping.
+          Share and the explainer sit with the digest itself, above its title. */}
       <SiteHeader
         right={
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* A shared link is most people's first contact with this product,
-                so the explainer belongs in this cluster, beside Share and the
-                Sign in it is trying to earn. */}
-            {authStatus === "unauthenticated" && (
-              <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
-            )}
-            <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
-            {loggedIn ? (
-              <>
-                <span
-                  title={`Signed in as ${accountName}`}
-                  style={{ ...BODY_SM, color: ACID_GREEN, fontWeight: 600, whiteSpace: "nowrap" }}
-                >
-                  Signed in
-                </span>
-                <ActionButton variant="outline" shadow={false} style={{ padding: "7px 12px" }} onClick={() => { window.location.href = "/"; }}>
-                  Open app
-                </ActionButton>
-              </>
-            ) : authStatus === "unauthenticated" ? (
-              <ActionButton
-                variant="primary"
-                shadow={false}
-                style={{ padding: "7px 12px" }}
-                onClick={() => signIn("google", { redirectTo: window.location.href })}
+          loggedIn ? (
+            /* An already signed-in reader arrived here from someone else's
+               link. On a phone that account state is pure furniture beside a
+               52px wordmark, so it only shows where there is room for it. */
+            <div className="hidden md:flex" style={{ alignItems: "center", gap: 10 }}>
+              <span
+                title={`Signed in as ${accountName}`}
+                style={{ ...BODY_SM, color: ACID_GREEN, fontWeight: 600, whiteSpace: "nowrap" }}
               >
-                Sign in
+                Signed in
+              </span>
+              <ActionButton variant="outline" shadow={false} style={{ padding: "7px 12px" }} onClick={() => { window.location.href = "/"; }}>
+                Open app
               </ActionButton>
-            ) : null}
-          </div>
+            </div>
+          ) : authStatus === "unauthenticated" ? (
+            <ActionButton
+              variant="primary"
+              shadow={false}
+              style={{ padding: "7px 12px" }}
+              onClick={() => signIn("google", { redirectTo: window.location.href })}
+            >
+              Sign in
+            </ActionButton>
+          ) : null
         }
       />
 
@@ -150,7 +146,19 @@ export default function DigestPermalink() {
         style={{ position: "relative", zIndex: 10, maxWidth: 760, margin: "0 auto" }}
       >
         <div style={{ marginBottom: 28 }}>
-          <Label style={{ marginBottom: 16 }}>{displayDate}</Label>
+          {/* Same row Today uses: the eyebrow on the left, page actions on the
+              right, both above the question. A shared link is most people's
+              first contact with this product, so the explainer stays beside
+              Share rather than competing with the headline. */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
+            <Label>{displayDate}</Label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+              {authStatus === "unauthenticated" && (
+                <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
+              )}
+              <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
+            </div>
+          </div>
 
           {displayTheme && (
             <h1
