@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
-  ACID_GREEN, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_SM, INK, LABEL_STYLE, MUTED, SHADOW, SURFACE,
+  ACID_GREEN, BODY_SM, BODY_STYLE, BORDER, DIM, INK, LABEL_STYLE, MUTED, SHADOW, SURFACE, TipStrip,
 } from "@/components/design-system";
 import {
   FIRST_SAVE_EVENT, OPEN_LIBRARY_EVENT, dismissSaveTip, openLibrary, saveTipDismissed,
@@ -37,36 +37,10 @@ export function SaveTipStrip({ show }: { show: boolean }) {
   if (!show || dismissed) return null;
 
   return (
-    <div
-      style={{
-        border: BORDER,
-        background: SURFACE,
-        padding: "14px 16px",
-        marginBottom: 28,
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 16,
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...DISPLAY_SM, color: MUTED, textTransform: "none", marginBottom: 6 }}>Tip:</div>
-        <p style={{ ...BODY_STYLE, color: INK, margin: 0 }}>
-          Save a paper and your librarian starts reading it: a guided
-          walkthrough, key terms, and what&rsquo;s been published since, waiting
-          in your library.
-        </p>
-      </div>
-      <button
-        onClick={dismissSaveTip}
-        aria-label="Dismiss tip"
-        style={{
-          background: "none", border: "none", cursor: "pointer", padding: 0,
-          fontSize: 18, lineHeight: 1, color: MUTED, flexShrink: 0, marginTop: 2,
-        }}
-      >
-        ×
-      </button>
-    </div>
+    <TipStrip onDismiss={dismissSaveTip} style={{ marginBottom: 28 }}>
+      Save a paper and your librarian starts reading it: a guided walkthrough,
+      key terms, and what&rsquo;s been published since, waiting in your library.
+    </TipStrip>
   );
 }
 

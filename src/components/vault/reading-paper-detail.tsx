@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, ChevronDown, Loader2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, Loader2, X } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { PaperCard, paperByline, READING_BODY } from "@/components/paper-card";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/reading-thread";
 import {
   ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
-  HAIRLINE, INK, MUTED, PageLoader, SHADOW, SURFACE, TextInput,
+  HAIRLINE, INK, MUTED, PageLoader, SHADOW, SURFACE, TextInput, TipStrip,
   foundationalSlots, washSlots,
 } from "@/components/design-system";
 
@@ -1127,47 +1127,102 @@ function useMarginTops(
   return tops;
 }
 
+/** The drawer's width, and the margin's — the same column, on the same page. */
+const DRAWER_WIDTH = 380;
+
 /**
- * The recap of every hard word, folded, at the foot of the read.
+ * The recap of every hard word, in a drawer off the right edge.
  *
  * The chips in the prose define each term where you meet it; this catches the
  * ones the companion flagged but never used, holds the ones the reader added
- * themselves, and gives you somewhere to look a word back up. Reference, not
- * read, so it is closed until asked for.
+ * themselves, and gives you somewhere to look a word back up.
+ *
+ * It used to be a folded panel at the foot of the read, which put reference
+ * material in the same column as the paper and only ever within reach after
+ * you had scrolled past everything. It is a drawer now: reference is a thing
+ * you pull out beside what you are reading and push back, and this is the one
+ * place on the page where the reader's own words accumulate. It is not
+ * furniture — there is nothing docked or floating here until it is opened, and
+ * Escape or a click on the paper puts it away.
  */
-function Glossary({ terms, pending }: { terms: Jargon[]; pending: string[] }) {
-  const [open, setOpen] = useState(false);
+function GlossaryDrawer({ terms, pending, open, onClose }: {
+  terms: Jargon[];
+  pending: string[];
+  open: boolean;
+  onClose: () => void;
+}) {
   const count = terms.length + pending.length;
   return (
-    <div style={{ border: BORDER, background: SURFACE, padding: "14px 16px", marginTop: 32 }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        aria-expanded={open}
-        style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
-      >
-        <span style={{ flex: 1 }}>Glossary ({count})</span>
-        <ChevronDown
-          size={16}
-          style={{ color: MUTED, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
-        />
-      </button>
+    <>
+      {/* Invisible, and only while the drawer is out: clicking back into the
+          paper puts it away. No scrim — the menu has no translucent ink in it,
+          and the 2px border is what makes the panel an object. */}
       {open && (
-        <dl style={{ margin: "12px 0 0" }}>
+        <div
+          onMouseDown={onClose}
+          style={{ position: "fixed", inset: 0, zIndex: 10040 }}
+          aria-hidden
+        />
+      )}
+      <aside
+        role="dialog"
+        aria-label="Glossary"
+        aria-hidden={!open}
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10041,
+          width: DRAWER_WIDTH,
+          maxWidth: "calc(100vw - 40px)",
+          background: SURFACE,
+          borderLeft: BORDER,
+          display: "flex",
+          flexDirection: "column",
+          transform: open ? "translateX(0)" : `translateX(${DRAWER_WIDTH + 4}px)`,
+          // Visibility flips instantly on the way in and waits out the slide
+          // on the way back, so the drawer is seen leaving rather than
+          // vanishing at the start of its own animation.
+          transition: `transform 200ms ease, visibility 0s linear ${open ? "0s" : "200ms"}`,
+          // Off-screen it must not be tabbable or hit-testable, or the page has
+          // an invisible column down its right edge swallowing clicks.
+          visibility: open ? "visible" : "hidden",
+          pointerEvents: open ? "auto" : "none",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", borderBottom: BORDER, flexShrink: 0 }}>
+          <span style={{ ...DISPLAY_SM, flex: 1 }}>Glossary ({count})</span>
+          <button
+            onClick={onClose}
+            aria-label="Close glossary"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: MUTED, display: "flex" }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <dl style={{ margin: 0, padding: "0 18px 24px", overflowY: "auto", flex: 1 }}>
           {pending.map(term => (
-            <div key={`pending-${term}`} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+            <div key={`pending-${term}`} style={{ padding: "12px 0", borderBottom: HAIRLINE }}>
               <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{term}</dt>
               <dd style={{ ...BODY_SM, color: MUTED, fontStyle: "italic", margin: "2px 0 0" }}>Looking it up&hellip;</dd>
             </div>
           ))}
           {terms.map(g => (
-            <div key={g.term} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+            <div key={g.term} style={{ padding: "12px 0", borderBottom: HAIRLINE }}>
               <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{g.term}</dt>
               <dd style={{ ...BODY_SM, color: DIM, margin: "2px 0 0" }}>{g.def}</dd>
             </div>
           ))}
+          {count === 0 && (
+            <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "16px 0 0" }}>
+              Nothing kept yet. Highlight a word and choose &ldquo;+ Glossary&rdquo; to
+              have it defined against this paper.
+            </p>
+          )}
         </dl>
-      )}
-    </div>
+      </aside>
+    </>
   );
 }
 
@@ -1243,6 +1298,10 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // glossary immediately, greyed, because a word you just asked to keep should
   // appear in the list you asked to keep it in.
   const [pendingTerms, setPendingTerms] = useState<string[]>([]);
+  // The drawer off the right edge. Closed until asked for, from the top bar or
+  // from the foot of the read, and opened for you when you keep a word — "+
+  // Glossary" with no visible glossary is a control that appears to do nothing.
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
   // Folded until it has something to say. The rail is beside a paper someone
   // came here to read, and an open panel with three suggested questions in it
   // is the product asking for attention before the reader has spent any. It
@@ -1293,23 +1352,38 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   const nativeSelectionLive = useSelectionPick(proseRef, !companionPending, captured => {
     setHeld(captured);
     setActive({ kind: "held" });
+    // The highlight IS the tip being learned, so the flag is written here — the
+    // next paper opens without it. The strip is deliberately NOT pulled off the
+    // screen at the same instant: it sits above the gist, and removing it would
+    // slide the passage the reader is holding up the page underneath their
+    // cursor, exactly as the composer opens on it. It goes on the ×, or on the
+    // next paper.
+    markNuxSeen(READING_TIP_KEY);
   });
 
   useEffect(() => { setTipSeen(nuxSeen(READING_TIP_KEY)); }, []);
 
+  const dismissTip = useCallback(() => {
+    markNuxSeen(READING_TIP_KEY);
+    setTipSeen(true);
+  }, []);
+
   // Escape puts everything down: the question you were about to ask and every
   // answer left open. The margin goes with them, so one key clears the page
-  // back to the paper.
+  // back to the paper. The drawer is the exception and goes first on its own —
+  // it is the thing covering the page, so one Escape should not both shut it
+  // and throw away the answers behind it that the reader cannot see yet.
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (glossaryOpen) { setGlossaryOpen(false); return; }
       setHeld(null);
       setActive({ kind: "none" });
       setOpenTags(prev => (prev.size ? new Set() : prev));
     };
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
-  }, []);
+  }, [glossaryOpen]);
 
   const loadCompanion = useCallback(async () => {
     setCompanionPending(true);
@@ -1504,6 +1578,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     const clean = term.trim();
     if (!clean) return;
     setPendingTerms(prev => prev.includes(clean) ? prev : [...prev, clean]);
+    setGlossaryOpen(true);
     try {
       if (fixture) {
         await new Promise(r => setTimeout(r, 1200));
@@ -1675,6 +1750,17 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           </button>
         ) : <span />}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          {/* The handle for the drawer, beside the way out to the PDF: the two
+              things on this page that are not the paper itself. */}
+          {(glossary.length > 0 || pendingTerms.length > 0) && (
+            <button
+              onClick={() => setGlossaryOpen(true)}
+              aria-expanded={glossaryOpen}
+              style={{ ...DISPLAY_SM, background: SURFACE, color: INK, border: BORDER, padding: "10px 16px", cursor: "pointer", flexShrink: 0 }}
+            >
+              Glossary ({glossary.length + pendingTerms.length})
+            </button>
+          )}
           {paper.sourceUrl && (
             <a
               href={paper.sourceUrl}
@@ -1701,17 +1787,19 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
               on purpose, and the page is for the paper. */}
           <div style={{ height: 18 }} />
 
-          {/* Taught once, and retired on the first question. One line, a bolded
-              sentence-case lead-in rather than a mono eyebrow: it is a tip, not
-              a section. Pre-lighting a sentence or two in the paper's hue was
-              built and rejected (see docs/design-decisions.md) because it puts
-              the product's hand on which sentences matter before the reader has
-              read any of them. */}
+          {/* Taught once, to a reader who has never highlighted anything. It is
+              the same object as the save tip above the digest — `TipStrip`, a
+              bordered band with a bolded sentence-case lead-in and a × — because
+              the two moments teach the same kind of thing and the product should
+              only have one way of saying "here is what this page can do".
+              Pre-lighting a sentence or two in the paper's hue was built and
+              rejected (see docs/design-decisions.md) because it puts the
+              product's hand on which sentences matter before the reader has read
+              any of them. */}
           {!tipSeen && !companionPending && companion && (
-            <p style={{ ...BODY_SM, color: INK, margin: "0 0 26px", maxWidth: 620 }}>
-              <span style={{ ...DISPLAY_SM, color: MUTED, textTransform: "none" }}>Tip:</span>{" "}
-              highlight part of the text to ask more about it and dig deeper.
-            </p>
+            <TipStrip onDismiss={dismissTip} style={{ margin: "0 0 26px", maxWidth: 620 }}>
+              Highlight any part of the paper to ask a question about it.
+            </TipStrip>
           )}
 
           {/* ── The gist ── */}
@@ -1787,8 +1875,19 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
 
 
+          {/* The second handle. The top bar has scrolled away by the time
+              anyone finishes the read, and a glossary you cannot reach from
+              where you are is not reference material. A line of text rather
+              than a panel: the words are in the drawer now. */}
           {(glossary.length > 0 || pendingTerms.length > 0) && (
-            <Glossary terms={glossary} pending={pendingTerms} />
+            <p style={{ margin: "32px 0 0" }}>
+              <button
+                onClick={() => setGlossaryOpen(true)}
+                style={{ ...BODY_STYLE, background: "none", border: "none", padding: 0, cursor: "pointer", color: INK, textDecoration: "underline", textUnderlineOffset: 4 }}
+              >
+                Glossary ({glossary.length + pendingTerms.length}) →
+              </button>
+            </p>
           )}
 
           {/* ── What's happened since ── */}
@@ -1838,6 +1937,12 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
         )}
       </div>
 
+      <GlossaryDrawer
+        terms={glossary}
+        pending={pendingTerms}
+        open={glossaryOpen}
+        onClose={() => setGlossaryOpen(false)}
+      />
 
       <style>{`
         /* One centred column, and a margin that is not there until it is needed.

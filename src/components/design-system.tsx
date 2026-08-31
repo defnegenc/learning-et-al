@@ -481,6 +481,53 @@ export function PageHeader({ title, children, action }: {
 }
 
 /**
+ * The one tip. A bordered band with a bolded, sentence-case "Tip:" lead-in and
+ * a × that retires it — no mono eyebrow, no shadow, because a tip is page
+ * furniture rather than an object that lifts.
+ *
+ * It exists here so the product has exactly one of these. The save tip above
+ * the digest and the highlight tip in the reading view are the same shape, and
+ * a third surface that wants to teach something once uses this rather than
+ * inventing a fourth.
+ */
+export function TipStrip({ children, onDismiss, style }: {
+  children: React.ReactNode;
+  onDismiss?: () => void;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        border: BORDER,
+        background: SURFACE,
+        padding: "14px 16px",
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 16,
+        ...style,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ ...DISPLAY_SM, color: MUTED, textTransform: "none", marginBottom: 6 }}>Tip:</div>
+        <p style={{ ...BODY_STYLE, color: INK, margin: 0 }}>{children}</p>
+      </div>
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss tip"
+          style={{
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+            fontSize: 18, lineHeight: 1, color: MUTED, flexShrink: 0, marginTop: 2,
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * The frame. A 2px ink border and one unblurred 5px offset — the single
  * container shape in the product. `media` renders a flush top region divided by
  * a border; everything else is body.

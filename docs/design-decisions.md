@@ -1924,3 +1924,40 @@ compact now, in the same two-up grid the shelf uses. The card's own bookmark is
 not used, because a citing work has no row yet and has to go through
 `save-external`; the save lives in the card's `footnote`, which is the one place
 a compact card lets its caller put a control.
+
+## 2026-08-31: The glossary is a drawer, and the tip is the one tip
+
+Two follow-ons to the same page.
+
+**The glossary moved off the right edge.** It was a folded panel at the foot of
+the read, which put reference material in the same column as the paper and only
+ever within reach after you had scrolled past everything. Reference is a thing
+you pull out beside what you are reading and push back, so it is a 380px drawer
+now, the same width as the answer margin. Two handles reach it: `Glossary (n)`
+in the top bar beside "Read the full paper", and the same count as a text link
+where the folded panel used to be, because the top bar has scrolled away by the
+time anyone finishes the read.
+
+This is the only thing on the page that covers the page, and only while it is
+open. It invents nothing: 2px ink border, white surface, the existing type
+styles, and **no scrim**, because the menu has no translucent ink in it and a
+click anywhere back on the paper closes it anyway. Escape closes the drawer
+first and on its own, rather than also throwing away the open answers behind it
+that the reader cannot currently see.
+
+Keeping a word opens the drawer. "+ Glossary" with no visible glossary is a
+control that appears to do nothing, and the drawer arriving with the word in it,
+greyed and looking itself up, is the whole confirmation.
+
+**The reading tip is the same object as the save tip.** The highlight tip was a
+bare line of Body/SM with a bolded lead-in; the tip above the digest was a
+bordered band with a ×. Same job, two shapes. `TipStrip` is now in
+`design-system.tsx` and both use it, so a third surface that wants to teach
+something once has somewhere to go rather than inventing a fourth shape.
+
+Its gate is "has never highlighted", which is what the tip is about, rather than
+"has never asked": the flag is written the moment a passage is held. The strip
+is deliberately **not** pulled off the screen at that instant. It sits above the
+gist, and removing it would slide the passage the reader is holding up the page
+underneath their cursor at exactly the moment the composer opens on it. It goes
+on the ×, or on the next paper.
