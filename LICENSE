@@ -12,12 +12,6 @@ furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-The Cabinet Grotesk font (Indian Type Foundry) is NOT covered by this license,
-is not included in this repository, and may not be redistributed. The Hanken
-Grotesk font files in public/fonts are distributed under their own SIL Open
-Font License (see public/fonts/OFL-HankenGrotesk.txt). See
-public/fonts/README.md.
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
