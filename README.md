@@ -50,5 +50,6 @@ with system fallbacks without them, and deploys fetch them from a private
 
 ## License
 
-MIT, except Cabinet Grotesk as noted above; the committed Hanken Grotesk file
-carries its own SIL Open Font License. See `LICENSE`.
+The code is MIT (see `LICENSE`). The fonts are not: Cabinet Grotesk is not in
+the repo and may not be redistributed, and the committed Hanken Grotesk file
+carries its own SIL Open Font License. See `public/fonts/README.md`.
