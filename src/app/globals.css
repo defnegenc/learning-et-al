@@ -182,18 +182,8 @@
    font, so the menu's 400/500/600/700 and italics all resolve without the
    weight-rounding games the old fixed-weight Apercu files needed. */
 
-/* Cabinet Grotesk — self-hosted so the display font never falls back to a
-   system sans while fontshare's CDN loads (headings looked "wrong" until it
-   arrived). Bold is the only weight left: both display styles are 700, so
-   400/500/800 were three faces nothing referenced. */
-@font-face {
-  font-family: "Cabinet Grotesk";
-  src: url("/fonts/CabinetGrotesk-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
+/* Cabinet Grotesk is supplied by the official Fontshare API in layout.tsx.
+   Bold is the only weight the display styles use. */
 @layer base {
   * {
     @apply border-border outline-ring/50;

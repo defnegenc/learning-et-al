@@ -47,7 +47,7 @@ function getDefaultModel(provider: AIConfig["provider"]) {
  *  · `deep` — the product's voice. Synthesis, the companion walkthrough, a
  *    dig-deeper answer, an answer in the Ask thread. Don't cheap out on these.
  *  · `fast` — high volume, low stakes, latency-sensitive. Metadata extraction,
- *    glossaries, homework annotation, healthchecks.
+ *    glossaries, follow-up selection, healthchecks.
  *
  * Each task is env-overridable (`AI_MODEL_DIG`, `AI_MODEL_COMPANION`, …) so a
  * harness can be swapped or A/B'd without a code change, and so moving digest

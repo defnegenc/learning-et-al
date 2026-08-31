@@ -20,7 +20,7 @@ function safeExternalUrl(raw: unknown): string | null {
   }
 }
 
-// Save a homework result (an external OpenAlex work, not yet in our papers
+// Save a follow-up result (an external OpenAlex work, not yet in our papers
 // table) to the reading list: insert a paper row attached to the same digest
 // as the paper it was discovered from, then star it.
 export async function POST(req: NextRequest) {

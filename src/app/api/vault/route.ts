@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     if (starredIds.length === 0) return NextResponse.json({ papers: [] });
 
     // The reading list renders titles, bylines and the companion's one-line
-    // "remember"; the reading view pulls the whole companion and the homework
+    // "remember"; the reading view pulls the whole companion and the follow-up shelf
     // from their own endpoints when a paper is opened.
     const rows = await db.query.papers.findMany({
       where: inArray(papers.id, starredIds),

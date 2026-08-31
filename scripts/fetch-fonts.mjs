@@ -1,5 +1,5 @@
-// Downloads the licensed font files into public/fonts before `next build`.
-// The files are not in git (see public/fonts/README.md); deploys get them from
+// Downloads the licensed OG-image font into public/fonts before `next build`.
+// The file is not in git (see public/fonts/README.md); deploys get it from
 // FONTS_BASE_URL, a private URL prefix serving each file at <base>/<name>.
 // Missing fonts are never fatal: every reference in the app falls back to
 // system faces, so a fork without the env var still builds.
@@ -8,7 +8,6 @@ import path from "node:path";
 
 const FONT_DIR = path.join(process.cwd(), "public", "fonts");
 const FILES = [
-  "CabinetGrotesk-Bold.woff2", // globals.css @font-face (both display styles are 700)
   "CabinetGrotesk-Bold.ttf", // opengraph-image.tsx (Satori can't read woff2)
 ];
 
@@ -28,7 +27,8 @@ const base = process.env.FONTS_BASE_URL?.replace(/\/$/, "");
 if (!base) {
   console.warn(
     `fetch-fonts: ${missing.length} font file(s) absent and FONTS_BASE_URL is unset; ` +
-      "building with system-font fallbacks. See public/fonts/README.md.",
+      "the OG image will use a system-font fallback. The site still loads Cabinet Grotesk from Fontshare. " +
+      "See public/fonts/README.md.",
   );
   process.exit(0);
 }

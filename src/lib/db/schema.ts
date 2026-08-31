@@ -139,7 +139,8 @@ export const papers = sqliteTable("papers", {
   abstractJargon: text("abstract_jargon"), // JSON [{term, def}] — hover defs for the abstract, generated on first detail open
   eli5: text("eli5"), // legacy plain-language gist (superseded by companion.gist; kept for old rows)
   companion: text("companion"), // JSON reading companion generated on bookmark: {gist, did, found, caveats, remember, glossary, questions}
-  homework: text("homework"), // JSON [{openAlexId, title, ...}] — "what's happened since" citing works, generated on bookmark
+  followUps: text("follow_ups"), // JSON {generatedAt, items} for "what's happened since"
+  homework: text("homework"), // Reserved for the separate homework feature; legacy rows may contain old follow-up caches
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

@@ -6,7 +6,7 @@ import { PaperCard } from "@/components/paper-card";
 import {
   ReadingPaperDetail,
   type Companion,
-  type HomeworkItem,
+  type FollowUpItem,
   type ReadingFixture,
 } from "@/components/vault/reading-paper-detail";
 import {
@@ -139,7 +139,7 @@ const COMPANIONS: Record<string, Companion> = {
   },
 };
 
-const HOMEWORK: Record<string, HomeworkItem[]> = {
+const FOLLOW_UPS: Record<string, FollowUpItem[]> = {
   p1: [
     {
       openAlexId: "W1",
@@ -151,6 +151,8 @@ const HOMEWORK: Record<string, HomeworkItem[]> = {
       pdfUrl: null,
       abstract: "",
       citationCount: 14,
+      kind: "citing",
+      why: "Tests whether a later nap can recover the consolidation this paper found was lost.",
     },
     {
       openAlexId: "W2",
@@ -162,6 +164,21 @@ const HOMEWORK: Record<string, HomeworkItem[]> = {
       pdfUrl: null,
       abstract: "",
       citationCount: 6,
+      kind: "contrasting",
+      why: "Argues that sleep depth matters more than the restricted total this experiment manipulated.",
+    },
+    {
+      openAlexId: "W3",
+      title: "Sleep-dependent motor skill learning",
+      authors: ["M. P. Walker", "R. Stickgold"],
+      year: 2005,
+      venue: "Learning & Memory",
+      url: "https://example.com/sleep-dependent-learning",
+      pdfUrl: null,
+      abstract: "",
+      citationCount: 1850,
+      kind: "foundational",
+      why: "Established the overnight motor-learning effect that this paper tries to separate from sleep duration.",
     },
   ],
   p3: [],
@@ -184,7 +201,7 @@ function fixtureFor(id: string): ReadingFixture {
       level: 2,
       source: "interleave",
     } : null,
-    homework: HOMEWORK[id] ?? [],
+    followUps: FOLLOW_UPS[id] ?? [],
     qa: id === "p1"
       ? [{
         id: "q1",

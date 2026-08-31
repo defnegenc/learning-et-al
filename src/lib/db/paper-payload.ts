@@ -6,9 +6,9 @@ import { papers } from "./schema";
  * Heavy columns that list endpoints must NOT ship.
  *
  * A paper row carries a full PDF extract (`fullText`, routinely 100 KB+) plus
- * generated JSON blobs (`companion`, `homework`, `abstractJargon`, `eli5`) that
+ * generated JSON blobs (`companion`, `followUps`, `homework`, `abstractJargon`, `eli5`) that
  * the digest and vault views never render — they're fetched on demand from
- * /api/papers/[id]/companion and /homework when a paper is actually opened.
+ * /api/papers/[id]/companion and /follow-ups when a paper is actually opened.
  * Selecting them made a three-paper digest a ~390 KB response; excluding them
  * puts it around 20 KB.
  *
@@ -18,6 +18,7 @@ import { papers } from "./schema";
 export const LIST_COLUMNS = {
   fullText: false,
   companion: false,
+  followUps: false,
   homework: false,
   abstractJargon: false,
   eli5: false,

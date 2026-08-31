@@ -13,7 +13,7 @@ import { LIST_COLUMNS } from "@/lib/db/paper-payload";
  * route it has to be able to load a paper cold — from an email, from a shared
  * link, or from a refresh.
  *
- * `LIST_COLUMNS` still applies: the companion and the homework come from their
+ * `LIST_COLUMNS` still applies: the companion and the follow-up shelf come from their
  * own endpoints when the page asks for them, and `fullText` has no business in
  * a client payload at all.
  */
