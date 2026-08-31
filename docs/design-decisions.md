@@ -1786,3 +1786,34 @@ basic terms for a reader who says they are expert in the topic, which is right
 for what the companion volunteers and wrong for what was explicitly asked for:
 an expert adding a word would have watched it vanish on the next render. Entries
 from `+ Glossary` carry `added: true` and skip the filter.
+
+### The wait says what it is doing, and there is one field per place
+
+**The tip in the wait is gone.** It was a mono `Tip` row naming features
+underneath the loader, which is the product using the reader's dead air to
+advertise to itself. What replaces it is a rotating line about what is actually
+happening, allowed to be dry about it: the honest content of this pause is that
+something is reading a paper carefully on request, which is a slightly absurd
+thing to be doing.
+
+Rules for `WAIT_LINES`, since it is a content surface people will add to:
+
+- It must be **true of this moment**: the model is reading the paper's own text
+  and checking it against the web. Not "did you know", not a feature tour.
+- Under about **eight words**, or it wraps in a 380px margin.
+- **Dry, not cute.** No exclamation marks, no "hang tight", nothing that
+  congratulates the reader for waiting.
+- **The first line is never a joke.** Whatever else the voice is doing, the
+  reader is owed a plain statement of what is happening before it starts.
+
+The line has a minimum height so a short line after a long one does not shift
+the answer that is about to land in its place.
+
+**Two identical fields, stacked.** "Ask this paper" had a per-thread "Follow
+up…" row *and* its own composer at the foot, so a reader was looking at two
+identical inputs with two identical Ask buttons on top of each other and had to
+guess which one meant what. There is one field now, at the foot, and it
+continues the conversation. Highlighting is how you change the subject; this
+field is how you keep pulling on the current one. An answer opened in the margin
+keeps its own follow-up field, because that one is beside a passage rather than
+stacked under another field.

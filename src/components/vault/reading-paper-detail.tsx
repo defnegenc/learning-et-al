@@ -17,7 +17,7 @@ import {
 } from "@/lib/reading-thread";
 import {
   ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM, GOLD,
-  HAIRLINE, INK, LABEL_STYLE, MUTED, PageLoader, SHADOW, SURFACE, TextInput,
+  HAIRLINE, INK, MUTED, PageLoader, SHADOW, SURFACE, TextInput,
   foundationalSlots, foundationalWash, wash, washSlots,
 } from "@/components/design-system";
 
@@ -631,58 +631,63 @@ function FamiliarityScale({ topic, currentLevel, onSelect, onSkip, lead, centere
 }
 
 /**
- * What to say while a dig is running, in order of how much it is worth.
+ * What the wait says while it is waiting.
  *
- * A maintained content surface, like the first-run tips: these name real
- * features, so update them when one is added, renamed or removed.
+ * It used to be one fixed line with a mono "Tip" row under it naming features,
+ * which is the product using the reader's dead air to advertise to them. These
+ * say what is actually happening instead, and they are allowed to be funny
+ * about it: the honest content of this pause is that something is reading a
+ * paper carefully, and that is a slightly absurd thing to be doing on request.
+ *
+ * Rules for adding one. It must be TRUE of this moment (the model is reading the
+ * paper's own text and checking it against the web), under about eight words so
+ * it does not wrap in a 380px margin, and dry rather than cute. No exclamation
+ * marks, no "hang tight", nothing that congratulates the reader for waiting.
+ *
+ * The first line is never a joke: whatever else this is, the reader is owed a
+ * plain statement of what is happening before the voice starts.
  */
-const DIG_WAIT_TIPS = [
-  "Highlight anything else while you wait. Answers stack as cards over here.",
-  "Type your own question in the bar, or just press Ask and I'll explain the passage.",
-  "Underlined words carry a definition. Hover or tap one, or open the glossary top right.",
-  "Answers read the paper's full text, then check it against what current web sources say.",
-  "A question that isn't about one sentence goes in the corner, bottom right.",
+const WAIT_LINES = [
+  "Reading the paper for that.",
+  "Finding the bit where they actually say it.",
+  "Separating what they showed from what they claimed.",
+  "Checking whether the caveat is a caveat or a hedge.",
+  "Looking for the number under the adjective.",
+  "Asking what it would take for this to be wrong.",
+  "Rereading the paragraph that seemed clear a moment ago.",
+  "Working out whether anyone has replicated this.",
 ];
 
-const TIP_ROTATE_MS = 6000;
+const LINE_ROTATE_MS = 3200;
 
 /**
- * The wait: the stamp, one line, and a rotating tip.
+ * The wait: the stamp, and one line at a time.
  *
  * The interleaved question used to live in here and die with it, which meant a
  * question you were half a second too slow to answer vanished under the answer
  * you were waiting for. The question is its own thing now and it outlives the
- * wait — see `InterleaveQuestion` — so this is only the wait.
+ * wait (see `InterleaveQuestion`), so this is only the wait.
  *
  * Nothing here is framed. A box makes a two-second wait look like a task.
  */
-function DigWait({ showTips }: { showTips: boolean }) {
-  const [tip, setTip] = useState(0);
+function DigWait() {
+  const [line, setLine] = useState(0);
 
   useEffect(() => {
-    if (!showTips) return;
-    const id = setInterval(() => setTip(t => (t + 1) % DIG_WAIT_TIPS.length), TIP_ROTATE_MS);
+    const id = setInterval(() => setLine(n => (n + 1) % WAIT_LINES.length), LINE_ROTATE_MS);
     return () => clearInterval(id);
-  }, [showTips]);
+  }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* The stamp, centred, not a spinner pinned to a line of text: this is the
-          same wait as every other wait in the product and it should be the same
-          object. */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "10px 0 2px" }}>
-        <PageLoader inline />
-        <span style={{ ...BODY_SM, color: MUTED, textAlign: "center" }}>
-          Re-reading the paper for that&hellip;
-        </span>
-      </div>
-
-      {showTips && (
-        <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-          <span style={LABEL_STYLE}>Tip</span>
-          <span style={{ ...BODY_SM, color: DIM }}>{DIG_WAIT_TIPS[tip]}</span>
-        </div>
-      )}
+    // The stamp, centred, not a spinner pinned to a line of text: this is the
+    // same wait as every other wait in the product and it should be the same
+    // object. The line under it has a minimum height so a short line following
+    // a long one does not shift the answer that is about to arrive.
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "10px 0 2px" }}>
+      <PageLoader inline />
+      <span style={{ ...BODY_SM, color: MUTED, textAlign: "center", minHeight: 40 }}>
+        {WAIT_LINES[line]}
+      </span>
     </div>
   );
 }
@@ -878,7 +883,7 @@ function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, f
           <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
           {turn.answer
             ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
-            : <DigWait showTips={!owed} />}
+            : <DigWait />}
         </div>
       ))}
 
@@ -1129,14 +1134,13 @@ function Glossary({ terms, pending }: { terms: Jargon[]; pending: string[] }) {
  * It is a section of the page, not a panel over it. A passage-anchored question
  * belongs to its passage; this one has nowhere else to be.
  */
-function AskSection({ threads, streaming, queued, failed, pending, onAsk, onFollowUp }: {
+function AskSection({ threads, queued, failed, pending, onAsk }: {
   threads: ReadingThread[];
-  streaming: boolean;
   queued: number;
   failed: string | null;
   pending: boolean;
+  /** Continues the conversation. There is one field here, not one per thread. */
   onAsk: (question: string) => void;
-  onFollowUp: (threadId: string, question: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   const submit = () => {
@@ -1152,6 +1156,10 @@ function AskSection({ threads, streaming, queued, failed, pending, onAsk, onFoll
       <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 14px" }}>
         Anything that is not about one sentence. I read the paper, then check it against current web sources.
       </p>
+      {/* One field, at the foot, and it keeps the conversation going. There used
+          to be a "Follow up…" row under each thread as well, which put two
+          identical fields with two identical Ask buttons directly on top of each
+          other and made the reader choose between them for no reason. */}
 
       {threads.map(thread => (
         <div key={thread.id} style={{ borderTop: HAIRLINE, padding: "16px 0" }}>
@@ -1160,10 +1168,9 @@ function AskSection({ threads, streaming, queued, failed, pending, onAsk, onFoll
               <p style={{ ...BODY_STYLE, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
               {turn.answer
                 ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
-                : <DigWait showTips />}
+                : <DigWait />}
             </div>
           ))}
-          <FollowUpRow disabled={streaming} onSubmit={q => onFollowUp(thread.id, q)} />
         </div>
       ))}
 
@@ -1176,7 +1183,7 @@ function AskSection({ threads, streaming, queued, failed, pending, onAsk, onFoll
           value={draft}
           onChange={setDraft}
           onKeyDown={e => { if (e.key === "Enter") submit(); }}
-          placeholder={pending ? "Still reading the paper…" : "Ask anything about this paper…"}
+          placeholder={pending ? "Still reading the paper…" : threads.length ? "Keep going…" : "Ask anything about this paper…"}
           ariaLabel="Ask a question about this paper"
         />
         <ActionButton onClick={submit} variant="primary" shadow={false} disabled={!draft.trim() || pending} style={{ flexShrink: 0 }}>
@@ -1185,47 +1192,6 @@ function AskSection({ threads, streaming, queued, failed, pending, onAsk, onFoll
       </div>
       {failed && <p style={{ ...BODY_SM, color: ACID_PINK, margin: "10px 0 0" }}>{failed}</p>}
     </section>
-  );
-}
-
-/** The quiet "keep going" line under a thread. */
-function FollowUpRow({ disabled, onSubmit }: { disabled: boolean; onSubmit: (q: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        style={{ ...BODY_SM, fontWeight: 600, background: "none", border: "none", padding: "12px 0 0", cursor: "pointer", color: DIM }}
-      >
-        + Follow up
-      </button>
-    );
-  }
-
-  const submit = () => {
-    const q = draft.trim();
-    if (!q) return;
-    onSubmit(q);
-    setDraft("");
-    setOpen(false);
-  };
-
-  return (
-    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-      <TextInput
-        value={draft}
-        onChange={setDraft}
-        onKeyDown={e => { if (e.key === "Enter") submit(); }}
-        placeholder="Follow up…"
-        ariaLabel="Follow up"
-        autoFocus
-      />
-      <ActionButton onClick={submit} shadow={false} disabled={!draft.trim() || disabled} style={{ flexShrink: 0 }}>
-        Ask
-      </ActionButton>
-    </div>
   );
 }
 
@@ -1799,12 +1765,12 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           {!companionPending && (
             <AskSection
               threads={askThreads(threads)}
-              streaming={!!streamingTurn}
               queued={queued}
               failed={askError}
               pending={companionPending}
-              onAsk={q => ask({ question: q })}
-              onFollowUp={(threadId, q) => ask({ question: q, threadId })}
+              // Continues the last one asked here: highlighting is how you
+              // change the subject, this field is how you keep pulling.
+              onAsk={q => ask({ question: q, threadId: askThreads(threads).at(-1)?.id })}
             />
           )}
 
