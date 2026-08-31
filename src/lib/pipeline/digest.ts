@@ -867,12 +867,15 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   }
   logStage("setup (db reads + rotation + seed topic)");
 
-  // Dynamic paper:news ratio — starts at 2+1, adjusted after scoring (audit 4.4)
-  // Will be recalculated after we know how many high-quality papers exist
-  let targetPapers = 2;
-  let targetNews = 1;
+  // Unified item mix: papers and vetted news compete for the 3 slots at the
+  // Step 3b selection call, with a floor of one academic paper. The old fixed
+  // 2+1 targets, and the "≥3 strong papers → all-papers" upgrade that replaced
+  // them, are gone — the upgrade fired on effectively every run once relSim
+  // started counting similarity to a paper's own retrieval query (2026-07-23),
+  // which is why digests stopped carrying news at all.
   const TOTAL_ITEMS = 3;
-  console.log(`[Digest] Initial target: ${targetPapers} papers, ${targetNews} news`);
+  const MIN_PAPERS = 1;
+  const MAX_NEWS = TOTAL_ITEMS - MIN_PAPERS;
 
   // ─── Step 1: Generate today's central question ──────────────────────────────
   // The LLM picks 1-3 interests and frames a catchy "wow factor" question.
@@ -986,6 +989,15 @@ Return JSON only (no markdown):
   let newsQuery = seedTopic?.name || seedInterestKeyword;
   let selectedInterestKeywords: string[] = [seedInterestKeyword];
 
+  // Retrieval scouts: every Step 1 candidate that clears the deterministic
+  // screen AND the cold read races through search + scoring in parallel. The
+  // winner is decided by actual pool strength (cold-read interest breaks
+  // ties), not by headline appeal alone — a question that reads beautifully
+  // but retrieves nothing used to cost up to two serial reframe cycles before
+  // the pipeline found out.
+  type ScoutCandidate = { theme: string; searchQueries: string[]; newsQuery: string; interest: number };
+  let scoutCandidates: ScoutCandidate[] = [];
+
   try {
     console.log(`[Digest] Step 1: generating central question from [${candidateInterests.map(i => i.keyword).join(", ")}]...`);
     const hypothesisResp = await aiComplete(
@@ -1074,8 +1086,16 @@ Return JSON only (no markdown):
     };
 
     if (eligible.length > 0) {
+      scoutCandidates = eligible.map(entry => ({
+        theme: entry.theme,
+        searchQueries: entry.candidate.searchQueries?.length ? entry.candidate.searchQueries : searchQueries,
+        newsQuery: entry.candidate.newsQuery || newsQuery,
+        interest: entry.verdict?.interest ?? 0,
+      }));
+      // Keep the interest-ranked favorite in the outer vars so a total race
+      // failure still leaves Step 1's best line as the fallback theme.
       adopt(eligible[0].candidate);
-      console.log(`[Digest] Step 1: ${eligible.length}/${screened.length} candidates cleared every gate, picked "${theme}" (interest ${eligible[0].verdict ? `${eligible[0].verdict.interest}/5` : "unjudged"}, stakes: ${workingStakes || "n/a"})`);
+      console.log(`[Digest] Step 1: ${eligible.length}/${screened.length} candidates cleared every gate — racing ${scoutCandidates.length} scout(s) through retrieval`);
     } else {
       // Nothing clean. Take the least-broken line as the repair's starting point;
       // its objections drive the one remaining serial retry.
@@ -1106,10 +1126,12 @@ Return JSON only (no markdown):
       }
     }
 
-    console.log(`[Digest] Central question: "${theme}"`);
-    console.log(`[Digest] Search queries: ${searchQueries.join(" | ")}`);
   } catch (err) {
     console.log(`[Digest] Hypothesis generation failed (${err}), using fallback`);
+  }
+  if (scoutCandidates.length === 0) {
+    // Repair path or hypothesis failure: one scout carrying whatever Step 1 settled on.
+    scoutCandidates = [{ theme, searchQueries, newsQuery, interest: 0 }];
   }
   logStage("step1 theme");
 
@@ -1117,249 +1139,313 @@ Return JSON only (no markdown):
   const focusInterest = selectedInterestKeywords[0];
   const focusInterestObj = candidateInterests.find(i => i.keyword === focusInterest) ?? candidateInterests[0];
   const focusLevel = (focusInterestObj.level ?? "beginner") as "beginner" | "intermediate" | "expert";
-  const fastMovingResearch = isFastMovingResearchContext([
+  // Fast-moving detection reads the theme and queries, so it is computed per
+  // scout; the winning scout's verdict becomes the canonical one after the race.
+  const fastMovingFor = (scoutTheme: string, scoutQueries: string[]) => isFastMovingResearchContext([
     focusInterest,
     seedInterestKeyword,
     seedTopic?.name,
     seedTopic?.subfield,
     ...(seedTopic?.keywords || []),
-    theme,
-    ...searchQueries,
+    scoutTheme,
+    ...scoutQueries,
   ]);
-  const recentWindowYears = fastMovingResearch ? 2 : 5;
-  console.log(`[Digest] Recency mode: ${fastMovingResearch ? "fast-moving research" : "standard"}`);
 
-  // ─── Theme → Search → Score loop: retry with new theme if papers don't match ───
-  const MAX_THEME_RETRIES = 2;
-  let themeEmb: number[] = [];
-  let allResults: PaperSearchResult[] = [];
-  let resultEmbs: number[][] = [];
-  let scored: { p: PaperSearchResult; relSim: number; score: number }[] = [];
-  let qualified: typeof scored = [];
-  let threshold = SIM_ONTOPIC;
   const SIM_MIN_THEME = 0.15; // hard floor — filters truly unrelated papers while allowing cross-domain picks
 
   const seedInterestField = candidateInterests.find(i => i.keyword === seedInterestKeyword)?.field || "Computer Science";
-  const paperSearchPlan = (queryIndex: number) => {
+  const paperSearchPlanFor = (queryIndex: number, fastMoving: boolean) => {
+    const recentWindowYears = fastMoving ? 2 : 5;
     const broad: undefined = undefined;
     if (!seedTopic) {
-      return { oaScopes: [broad], fallbackField: seedInterestField, freshCandidateTarget: fastMovingResearch ? 2 : 0, recentWindowYears, label: "unscoped (no topic seed)" };
+      return { oaScopes: [broad], fallbackField: seedInterestField, freshCandidateTarget: fastMoving ? 2 : 0, recentWindowYears, label: "unscoped (no topic seed)" };
     }
     const primaryTopic: OpenAlexSearchScope = { kind: "primary-topic", id: seedTopic.id };
     const topic: OpenAlexSearchScope = { kind: "topic", id: seedTopic.id };
     const subfield: OpenAlexSearchScope = { kind: "subfield", id: seedTopic.subfieldId };
     return queryIndex === 0
-      ? { oaScopes: [primaryTopic, topic, subfield, broad], fallbackField: seedInterestField, freshCandidateTarget: fastMovingResearch ? 2 : 0, recentWindowYears, label: `primary-topic ${seedTopic.id} → topic → subfield ${seedTopic.subfieldId} → broad` }
-      : { oaScopes: [topic, subfield, broad], fallbackField: seedInterestField, freshCandidateTarget: fastMovingResearch ? 2 : 0, recentWindowYears, label: `topic ${seedTopic.id} → subfield ${seedTopic.subfieldId} → broad` };
+      ? { oaScopes: [primaryTopic, topic, subfield, broad], fallbackField: seedInterestField, freshCandidateTarget: fastMoving ? 2 : 0, recentWindowYears, label: `primary-topic ${seedTopic.id} → topic → subfield ${seedTopic.subfieldId} → broad` }
+      : { oaScopes: [topic, subfield, broad], fallbackField: seedInterestField, freshCandidateTarget: fastMoving ? 2 : 0, recentWindowYears, label: `topic ${seedTopic.id} → subfield ${seedTopic.subfieldId} → broad` };
   };
-  const unscopedPaperSearchPlan = {
-    oaScopes: [undefined],
-    freshCandidateTarget: fastMovingResearch ? 2 : 0,
-    recentWindowYears,
+  const unscopedPlanFor = (fastMoving: boolean) => ({
+    oaScopes: [undefined] as (OpenAlexSearchScope | undefined)[],
+    freshCandidateTarget: fastMoving ? 2 : 0,
+    recentWindowYears: fastMoving ? 2 : 5,
     label: "unscoped",
+  });
+
+  type ScoredCandidate = { p: PaperSearchResult; relSim: number; score: number };
+  type ScoredPool = {
+    theme: string;
+    searchQueries: string[];
+    newsQuery: string;
+    interest: number;
+    fastMoving: boolean;
+    themeEmb: number[];
+    allResults: PaperSearchResult[];
+    resultEmbs: number[][];
+    scored: ScoredCandidate[];
+    qualified: ScoredCandidate[];
+    threshold: number;
   };
 
-  for (let themeAttempt = 0; themeAttempt <= MAX_THEME_RETRIES; themeAttempt++) {
-  if (themeAttempt > 0) {
-    console.log(`[Digest] Theme "${theme}" produced too few papers — generating new theme (attempt ${themeAttempt + 1})...`);
+  /** Steps 2+3 for ONE candidate question: search, hybrid-score, threshold
+   *  cascade. Deliberately LLM-free so several candidates can race cheaply. */
+  const searchAndScorePool = async (candidate: ScoutCandidate, label: string): Promise<ScoredPool> => {
+    const { theme: scoutTheme, searchQueries: scoutQueries } = candidate;
+    const fastMoving = fastMovingFor(scoutTheme, scoutQueries);
+    const themeEmb = await embedText(scoutTheme);
+    const emptyPool = (): ScoredPool => ({
+      ...candidate, fastMoving, themeEmb,
+      allResults: [], resultEmbs: [], scored: [], qualified: [], threshold: SIM_MIN_THEME,
+    });
+
+    // ─── Step 2: Search for papers using deterministic OpenAlex scopes ─────────
+    // Query 1 starts at primary_topic (precision). Queries 2+ start at topics.id,
+    // which admits cross-domain works where today's topic is secondary. Thin scopes
+    // widen through primary subfield and finally unscoped search; the LLM never
+    // invents a field label or controls this routing.
+    console.log(`[Digest][${label}] Searching papers for "${scoutTheme}" with ${scoutQueries.length} taxonomy-scoped queries...`);
+    const allResults: PaperSearchResult[] = [];
+    const seenSearchTitles = new Set<string>();
+    // Which query found each paper — relevance is scored against the originating
+    // query (domain vocabulary), not just the jargon-free headline (audit 6.3).
+    const originQueryIdx = new Map<string, number>();
+
+    // The queries run concurrently — they hit independent OpenAlex result windows
+    // and nothing downstream reads a partial pool. Merging is done afterwards in
+    // query order, so dedup stays deterministic: query 1 still owns a shared title
+    // and `originQueryIdx` still records the narrowest scope that found it.
+    const mergeResults = (perQuery: PaperSearchResult[][]) => {
+      for (let qi = 0; qi < perQuery.length; qi++) {
+        for (const p of perQuery[qi]) {
+          const key = normTitle(p.title);
+          if (seenSearchTitles.has(key)) continue;
+          seenSearchTitles.add(key);
+          originQueryIdx.set(key, qi);
+          allResults.push(p);
+        }
+      }
+    };
+
+    mergeResults(await Promise.all(scoutQueries.map(async (query, qi) => {
+      const plan = paperSearchPlanFor(qi, fastMoving);
+      console.log(`[Digest][${label}] Query: "${query}" [scope: ${plan.label}]`);
+      try {
+        return await searchPapers(query, 10, "publicationDate", plan);
+      } catch (err) {
+        console.log(`[Digest][${label}] Query failed: ${err}`);
+        return [] as PaperSearchResult[];
+      }
+    })));
+    console.log(`[Digest][${label}] ${allResults.length} total candidates across all queries`);
+
+    // The per-query scope ladder already widened to unscoped OA search when a
+    // taxonomy slice was thin. Retry only protects against transient source errors.
+    if (allResults.length < 3) {
+      console.log(`[Digest][${label}] Only ${allResults.length} results after scope widening — retrying broad searches...`);
+      mergeResults(await Promise.all(scoutQueries.map(async (query) => {
+        try {
+          return await searchPapers(query, 10, "publicationDate", unscopedPlanFor(fastMoving));
+        } catch {
+          return [] as PaperSearchResult[]; // already logged
+        }
+      })));
+      console.log(`[Digest][${label}] After retry: ${allResults.length} total candidates`);
+    }
+
+    if (allResults.length === 0) {
+      console.log(`[Digest][${label}] No papers found for "${scoutTheme}"`);
+      return emptyPool();
+    }
+
+    // ─── Step 3: Hybrid scoring — BM25 + embeddings + RRF ───────────────────────
+    // Research: Cormack et al. (2009) RRF, Kotkov et al. (2016) serendipity factors
+    const resultEmbs = await embedBatch(allResults.map(paperText));
+    const queryEmbs = await embedBatch(scoutQueries);
+    const currentYear = new Date().getFullYear();
+
+    // Signal 1: Embedding similarity. The theme headline is deliberately jargon-free
+    // and metaphorical, so good papers under-score against it (vocabulary mismatch).
+    // Score against BOTH the theme and the paper's originating search query (domain
+    // vocabulary) and take the max — the LLM re-rank later judges theme fit properly.
+    const embeddingSims = allResults.map((p, i) => {
+      const themeSim = cosineSimilarity(themeEmb, resultEmbs[i]);
+      const qi = originQueryIdx.get(normTitle(p.title));
+      const querySim = qi != null && queryEmbs[qi] ? cosineSimilarity(queryEmbs[qi], resultEmbs[i]) : 0;
+      return Math.max(themeSim, querySim);
+    });
+    // Signal 2: BM25 (keyword matching — theme + queries so domain terms count)
+    const bm25Scores = bm25Score(`${scoutTheme} ${scoutQueries.join(" ")}`, allResults.map(paperText));
+    // Fuse with Reciprocal Rank Fusion
+    const rrfScores = rrfFuse([embeddingSims, bm25Scores]);
+
+    const scored = allResults
+      .map((p, i) => {
+        const relSim = embeddingSims[i];
+        const rrfScore = rrfScores[i];
+        // Recency reorders only the already-qualified pool. Foundational work enters
+        // later through its own deliberately old lane.
+        const freshnessBoost = recencyBonus(p.year, currentYear, fastMoving);
+        const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
+        // Taste prior: how near this sits to a cluster of papers the reader has
+        // actually saved. Deliberately capped BELOW the venue signal and applied
+        // to `score` only — `relSim` is what the qualification thresholds read, so
+        // taste can reorder the qualified pool but can never let an off-theme
+        // paper into it. Upstream scoring is a filter; this is a nudge inside it.
+        const tasteBoost = TASTE_MAX_BOOST * Math.min(1, Math.max(0, (tasteSimilarity(taste.centroids, resultEmbs[i]) - TASTE_FLOOR) / TASTE_RANGE));
+        const score = rrfScore + freshnessBoost + venueBoost + tasteBoost;
+        if (venueBoost !== 0) {
+          console.log(`[Digest][${label}] Venue signal: "${p.title.slice(0, 50)}" ${venueBoost > 0 ? "+" : ""}${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
+        }
+        if (tasteBoost > 0.004) {
+          console.log(`[Digest][${label}] Taste signal: "${p.title.slice(0, 50)}" +${tasteBoost.toFixed(4)}`);
+        }
+        return { p, relSim, score };
+      })
+      .filter(({ p }) => !seenPaperTitles.has(normTitle(p.title)))
+      .filter(({ p }) => !(p.openAlexId && seenOpenAlexIds.has(p.openAlexId)))
+      .filter(({ p }) => !isPredatoryVenue(p.venueName))
+      .filter(({ relSim }) => relSim >= SIM_MIN_THEME)
+      .sort((a, b) => b.score - a.score);
+
+    // Use raw relSim (max of theme/query similarity) for qualification — keeps thresholds interpretable
+    // Cascade: SIM_ONTOPIC (strong) → SIM_MIDPOINT (moderate) → SIM_FALLBACK (last resort)
+    let threshold = SIM_ONTOPIC;
+    let qualified = scored.filter(({ relSim }) => relSim > threshold);
+    if (qualified.length < 2) {
+      threshold = SIM_MIDPOINT;
+      qualified = scored.filter(({ relSim }) => relSim > threshold);
+      if (qualified.length >= 2) {
+        console.log(`[Digest][${label}] Fell back to SIM_MIDPOINT (${SIM_MIDPOINT}) — ${qualified.length} papers`);
+      }
+    }
+    if (qualified.length < 2) {
+      threshold = SIM_FALLBACK;
+      qualified = scored.filter(({ relSim }) => relSim > threshold);
+      if (qualified.length >= 2) {
+        console.log(`[Digest][${label}] Fell back to SIM_FALLBACK (${SIM_FALLBACK}) — ${qualified.length} papers (weak match)`);
+      }
+    }
+    if (qualified.length < 2) {
+      threshold = SIM_MIN_THEME;
+      qualified = scored.filter(({ relSim }) => relSim > threshold);
+      if (qualified.length > 0) {
+        console.log(`[Digest][${label}] Using hard-floor threshold (${SIM_MIN_THEME}) — only ${qualified.length} papers passed`);
+      }
+    }
+    console.log(`[Digest][${label}] "${scoutTheme}": ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (rel: ${scored[0]?.relSim.toFixed(2)})`);
+
+    return { ...candidate, fastMoving, themeEmb, allResults, resultEmbs, scored, qualified, threshold };
+  };
+
+  // ─── Steps 2-3: Retrieval scouts — race every candidate, keep the strongest pool ───
+  // No LLM calls per scout, so racing three candidates costs roughly one
+  // candidate's wall clock. N scouts × 3 queries = at most 9 concurrent OpenAlex
+  // requests (each query is internally serial through its scope ladder), which
+  // stays inside the 10 rps polite pool.
+  const poolRank = (p: ScoredPool): [number, number, number, number] => [
+    // Strong papers saturate at 4: a 3-slot digest with a 6-wide MMR pool gains
+    // little beyond that, and the cap is what lets cold-read interest arbitrate
+    // between two healthy pools instead of raw retrieval volume.
+    Math.min(4, p.scored.filter(({ relSim }) => relSim > SIM_ONTOPIC).length),
+    Math.min(6, p.scored.filter(({ relSim }) => relSim > SIM_MIDPOINT).length),
+    // Raw pool depth breaks the tie between "found nothing" and "found
+    // something weak" — a last-resort pool still beats an empty one.
+    Math.min(6, p.scored.length),
+    p.interest,
+  ];
+  const strongerPool = (a: ScoredPool, b: ScoredPool): boolean => {
+    const ra = poolRank(a), rb = poolRank(b);
+    for (let i = 0; i < ra.length; i++) {
+      if (ra[i] !== rb[i]) return ra[i] > rb[i];
+    }
+    return false; // ties keep the earlier pool, which arrived interest-sorted
+  };
+
+  const scoutPools = await Promise.all(scoutCandidates.map((c, i) =>
+    searchAndScorePool(c, scoutCandidates.length > 1 ? `scout ${i + 1}` : "search")));
+  if (isEmbeddingDegraded()) {
+    console.warn(`[Digest] ⚠ ONNX unavailable — running in DEGRADED mode. Similarity gates use keyword fallback.`);
+  }
+  let winner = scoutPools[0];
+  for (const contender of scoutPools.slice(1)) {
+    if (strongerPool(contender, winner)) winner = contender;
+  }
+  if (scoutPools.length > 1) {
+    for (const [i, sp] of scoutPools.entries()) {
+      const [strong, moderate] = poolRank(sp);
+      console.log(`[Digest] Scout ${i + 1} "${sp.theme}": ${strong} strong / ${moderate} moderate papers, interest ${sp.interest}/5${sp === winner ? " ← winner" : ""}`);
+    }
+  }
+  logStage(`steps 2-3 retrieval scouts (${scoutPools.length})`);
+
+  // Serial reframe retries survive only for the case where EVERY scout
+  // retrieved weakly — with candidates racing this should be rare.
+  const MAX_THEME_RETRIES = 2;
+  const isStrongPool = (p: ScoredPool) => p.qualified.length >= 2 && p.threshold >= SIM_MIDPOINT;
+  for (let themeAttempt = 1; themeAttempt <= MAX_THEME_RETRIES && !isStrongPool(winner); themeAttempt++) {
+    console.log(`[Digest] Theme "${winner.theme}" produced too few papers — generating new theme (attempt ${themeAttempt + 1})...`);
     try {
       const retryResp = await aiComplete(aiConfig,
         "You generate surprising research questions. Return only JSON.",
-        `The theme "${theme}" didn't find enough academic papers. Reframe it into a DIFFERENT, more researchable question and write more literal academic search queries.\n\nInterests: ${interestList}\n${seedTopicBlock}\nKeep today's OpenAlex topic seed. Change the angle and vocabulary, not the research neighborhood. Prefer a measurable relationship, comparison, adoption barrier, or real-world consequence over abstract philosophy.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "MAX ${MAX_THEME_WORDS} WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+        `The theme "${winner.theme}" didn't find enough academic papers. Reframe it into a DIFFERENT, more researchable question and write more literal academic search queries.\n\nInterests: ${interestList}\n${seedTopicBlock}\nKeep today's OpenAlex topic seed. Change the angle and vocabulary, not the research neighborhood. Prefer a measurable relationship, comparison, adoption barrier, or real-world consequence over abstract philosophy.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "MAX ${MAX_THEME_WORDS} WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
       );
       const retryParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(retryResp);
       if (retryParsed?.theme) {
-        theme = retryParsed.theme;
-        if (retryParsed.searchQueries && retryParsed.searchQueries.length > 0) searchQueries = retryParsed.searchQueries;
-        if (retryParsed.newsQuery) newsQuery = retryParsed.newsQuery;
-        console.log(`[Digest] New theme: "${theme}"`);
+        const retryCandidate: ScoutCandidate = {
+          theme: retryParsed.theme,
+          searchQueries: retryParsed.searchQueries?.length ? retryParsed.searchQueries : winner.searchQueries,
+          newsQuery: retryParsed.newsQuery || winner.newsQuery,
+          interest: 0,
+        };
+        console.log(`[Digest] New theme: "${retryCandidate.theme}"`);
+        const retryPool = await searchAndScorePool(retryCandidate, `retry ${themeAttempt}`);
+        // Keep whichever pool is stronger — a reframe that retrieves worse than
+        // what we already had should not ship just for being newest.
+        if (strongerPool(retryPool, winner)) winner = retryPool;
       }
-    } catch { /* keep current theme if retry fails */ }
+    } catch { /* keep current winner if retry fails */ }
+    logStage(`steps 2-3 theme retry ${themeAttempt}`);
   }
 
-  // Embed the central question
-  console.log(`[Digest] Embedding central question...`);
-  themeEmb = await embedText(theme);
-  if (themeAttempt === 0 && isEmbeddingDegraded()) {
-    console.warn(`[Digest] ⚠ ONNX unavailable — running in DEGRADED mode. Similarity gates use keyword fallback.`);
-  }
-
-  // ─── Step 2: Search for papers using deterministic OpenAlex scopes ───────────
-  // Query 1 starts at primary_topic (precision). Queries 2+ start at topics.id,
-  // which admits cross-domain works where today's topic is secondary. Thin scopes
-  // widen through primary subfield and finally unscoped search; the LLM never
-  // invents a field label or controls this routing.
-  console.log(`[Digest] Step 2: searching papers with ${searchQueries.length} taxonomy-scoped queries...`);
-  allResults = [];
-  const seenSearchTitles = new Set<string>();
-  // Which query found each paper — relevance is scored against the originating
-  // query (domain vocabulary), not just the jargon-free headline (audit 6.3).
-  const originQueryIdx = new Map<string, number>();
-
-  // The queries run concurrently — they hit independent OpenAlex result windows
-  // and nothing downstream reads a partial pool. Merging is done afterwards in
-  // query order, so dedup stays deterministic: query 1 still owns a shared title
-  // and `originQueryIdx` still records the narrowest scope that found it.
-  // (3 concurrent requests, each internally serial through its scope ladder, sits
-  // well inside OpenAlex's 10 rps polite pool.)
-  const mergeResults = (perQuery: PaperSearchResult[][]) => {
-    for (let qi = 0; qi < perQuery.length; qi++) {
-      for (const p of perQuery[qi]) {
-        const key = normTitle(p.title);
-        if (seenSearchTitles.has(key)) continue;
-        seenSearchTitles.add(key);
-        originQueryIdx.set(key, qi);
-        allResults.push(p);
-      }
+  if (!isStrongPool(winner)) {
+    if (winner.qualified.length >= 2) {
+      console.log(`[Digest] Accepting fallback-quality papers (exhausted theme retries)`);
+    } else if (winner.qualified.length === 0 && winner.scored.length > 0) {
+      console.log(`[Digest] Final attempt — taking top ${Math.min(3, winner.scored.length)} by score`);
+      winner.qualified = winner.scored.slice(0, Math.min(3, winner.scored.length));
     }
-  };
-
-  mergeResults(await Promise.all(searchQueries.map(async (query, qi) => {
-    const plan = paperSearchPlan(qi);
-    console.log(`[Digest] Query: "${query}" [scope: ${plan.label}]`);
-    try {
-      return await searchPapers(query, 10, "publicationDate", plan);
-    } catch (err) {
-      console.log(`[Digest] Query failed: ${err}`);
-      return [] as PaperSearchResult[];
-    }
-  })));
-  console.log(`[Digest] ${allResults.length} total candidates across all queries`);
-
-  // The per-query scope ladder already widened to unscoped OA search when a
-  // taxonomy slice was thin. Retry only protects against transient source errors.
-  if (allResults.length < 3) {
-    console.log(`[Digest] Only ${allResults.length} results after scope widening — retrying broad searches...`);
-    mergeResults(await Promise.all(searchQueries.map(async (query) => {
-      try {
-        return await searchPapers(query, 10, "publicationDate", unscopedPaperSearchPlan);
-      } catch {
-        return [] as PaperSearchResult[]; // already logged
-      }
-    })));
-    console.log(`[Digest] After retry: ${allResults.length} total candidates`);
-  }
-  logStage(`step2 search (attempt ${themeAttempt + 1})`);
-
-  if (allResults.length === 0) {
-    console.log(`[Digest] No papers found for "${theme}" — will retry with new theme`);
-    continue; // retry with new theme
   }
 
-  // ─── Step 3: Hybrid scoring — BM25 + embeddings + RRF ───────────────────────
-  // Research: Cormack et al. (2009) RRF, Kotkov et al. (2016) serendipity factors
-  resultEmbs = await embedBatch(allResults.map(paperText));
-  const queryEmbs = await embedBatch(searchQueries);
-  const currentYear = new Date().getFullYear();
+  if (winner.qualified.length === 0 && winner.allResults.length === 0) {
+    throw new Error(`Couldn't find papers for "${winner.theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
+  }
 
-  // Signal 1: Embedding similarity. The theme headline is deliberately jargon-free
-  // and metaphorical, so good papers under-score against it (vocabulary mismatch).
-  // Score against BOTH the theme and the paper's originating search query (domain
-  // vocabulary) and take the max — the LLM re-rank later judges theme fit properly.
-  const embeddingSims = allResults.map((p, i) => {
-    const themeSim = cosineSimilarity(themeEmb, resultEmbs[i]);
-    const qi = originQueryIdx.get(normTitle(p.title));
-    const querySim = qi != null && queryEmbs[qi] ? cosineSimilarity(queryEmbs[qi], resultEmbs[i]) : 0;
-    return Math.max(themeSim, querySim);
+  // Adopt the winner: its question, queries and scored pool drive everything downstream.
+  theme = winner.theme;
+  searchQueries = winner.searchQueries;
+  newsQuery = winner.newsQuery;
+  const fastMovingResearch = winner.fastMoving;
+  const { themeEmb, allResults, resultEmbs, qualified } = winner;
+  console.log(`[Digest] Central question: "${theme}"`);
+  console.log(`[Digest] Search queries: ${searchQueries.join(" | ")}`);
+  console.log(`[Digest] Recency mode: ${fastMovingResearch ? "fast-moving research" : "standard"}`);
+
+  // Kick the news web search off as soon as the winning question is known. Its
+  // vetted survivors enter the SAME selection call as the papers (Step 3b), so
+  // the results are needed before selection rather than after it.
+  const currentSearchYear = new Date().getFullYear();
+  const newsSearchTerms = `${newsQuery} ${focusInterest} ${currentSearchYear - 1} ${currentSearchYear}`;
+  const webResultsPromise = webSearch(newsSearchTerms, 6).catch(err => {
+    console.log(`[Digest] News web search failed (${err}), continuing without web news`);
+    return [] as Awaited<ReturnType<typeof webSearch>>;
   });
-  // Signal 2: BM25 (keyword matching — theme + queries so domain terms count)
-  const bm25Scores = bm25Score(`${theme} ${searchQueries.join(" ")}`, allResults.map(paperText));
-  // Fuse with Reciprocal Rank Fusion
-  const rrfScores = rrfFuse([embeddingSims, bm25Scores]);
 
-  scored = allResults
-    .map((p, i) => {
-      const relSim = embeddingSims[i];
-      const rrfScore = rrfScores[i];
-      // Recency reorders only the already-qualified pool. Foundational work enters
-      // later through its own deliberately old lane.
-      const freshnessBoost = recencyBonus(p.year, currentYear, fastMovingResearch);
-      const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
-      // Taste prior: how near this sits to a cluster of papers the reader has
-      // actually saved. Deliberately capped BELOW the venue signal and applied
-      // to `score` only — `relSim` is what the qualification thresholds read, so
-      // taste can reorder the qualified pool but can never let an off-theme
-      // paper into it. Upstream scoring is a filter; this is a nudge inside it.
-      const tasteBoost = TASTE_MAX_BOOST * Math.min(1, Math.max(0, (tasteSimilarity(taste.centroids, resultEmbs[i]) - TASTE_FLOOR) / TASTE_RANGE));
-      const score = rrfScore + freshnessBoost + venueBoost + tasteBoost;
-      if (venueBoost !== 0) {
-        console.log(`[Digest] Venue signal: "${p.title.slice(0, 50)}" ${venueBoost > 0 ? "+" : ""}${venueBoost.toFixed(4)} (${p.venueName || "unknown"})`);
-      }
-      if (tasteBoost > 0.004) {
-        console.log(`[Digest] Taste signal: "${p.title.slice(0, 50)}" +${tasteBoost.toFixed(4)}`);
-      }
-      return { p, relSim, score };
-    })
-    .filter(({ p }) => !seenPaperTitles.has(normTitle(p.title)))
-    .filter(({ p }) => !(p.openAlexId && seenOpenAlexIds.has(p.openAlexId)))
-    .filter(({ p }) => !isPredatoryVenue(p.venueName))
-    .filter(({ relSim }) => relSim >= SIM_MIN_THEME)
-    .sort((a, b) => b.score - a.score);
-
-  // Use raw relSim (max of theme/query similarity) for qualification — keeps thresholds interpretable
-  // Cascade: SIM_ONTOPIC (strong) → SIM_MIDPOINT (moderate) → SIM_FALLBACK (last resort)
-  // Only break the theme retry loop early when papers pass SIM_ONTOPIC — weaker matches
-  // mean the theme and paper pool don't align well, so prefer a fresh theme over bad papers.
-  threshold = SIM_ONTOPIC;
-  qualified = scored.filter(({ relSim }) => relSim > threshold);
-  if (qualified.length < 2) {
-    threshold = SIM_MIDPOINT;
-    qualified = scored.filter(({ relSim }) => relSim > threshold);
-    if (qualified.length >= 2) {
-      console.log(`[Digest] Fell back to SIM_MIDPOINT (${SIM_MIDPOINT}) — ${qualified.length} papers`);
-    }
-  }
-  if (qualified.length < 2) {
-    threshold = SIM_FALLBACK;
-    qualified = scored.filter(({ relSim }) => relSim > threshold);
-    if (qualified.length >= 2) {
-      console.log(`[Digest] Fell back to SIM_FALLBACK (${SIM_FALLBACK}) — ${qualified.length} papers (weak match, prefer retry)`);
-    }
-  }
-  if (qualified.length < 2) {
-    threshold = SIM_MIN_THEME;
-    qualified = scored.filter(({ relSim }) => relSim > threshold);
-    if (qualified.length > 0) {
-      console.log(`[Digest] Using hard-floor threshold (${SIM_MIN_THEME}) — only ${qualified.length} papers passed`);
-    }
-  }
-  console.log(`[Digest] ${qualified.length} candidates above threshold (${threshold}), top RRF: ${scored[0]?.score.toFixed(4)} (rel: ${scored[0]?.relSim.toFixed(2)})`);
-  logStage(`step3 scoring (attempt ${themeAttempt + 1})`);
-
-  // Break only if we have strong matches — weak matches (below SIM_MIDPOINT) should
-  // trigger a theme retry if we haven't exhausted attempts yet.
-  const hasStrongMatch = qualified.length >= 2 && threshold >= SIM_MIDPOINT;
-  const hasFallbackMatch = qualified.length >= 2 && threshold < SIM_MIDPOINT;
-  if (hasStrongMatch) break;
-  if (hasFallbackMatch && themeAttempt >= MAX_THEME_RETRIES - 1) {
-    console.log(`[Digest] Accepting fallback-quality papers (exhausted theme retries)`);
-    break;
-  }
-
-  // On last attempt, take whatever we have
-  if (themeAttempt === MAX_THEME_RETRIES) {
-    if (qualified.length === 0 && scored.length > 0) {
-      console.log(`[Digest] Final attempt — taking top ${Math.min(3, scored.length)} by score`);
-      qualified = scored.slice(0, Math.min(3, scored.length));
-    }
-    break;
-  }
-  } // end theme retry loop
-
-  if (qualified.length === 0 && allResults.length === 0) {
-    throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
-  }
-
-  // Dynamic item count: only upgrade to all-papers when we have abundant strong matches.
-  // Never downgrade paper slots to news — the fill passes find additional papers via
-  // progressive threshold relaxation, and news rarely improves digest quality.
-  const strongPapers = scored.filter(({ relSim }) => relSim > SIM_ONTOPIC).length;
-  if (strongPapers >= 3) {
-    targetPapers = TOTAL_ITEMS;
-    targetNews = 0;
-    console.log(`[Digest] Dynamic: ${strongPapers} strong papers → all-papers (${targetPapers}p+${targetNews}n)`);
-  }
-  // Otherwise keep default 2+1 — fill passes will find papers at lower thresholds
+  // themeWords used for news validation (short snippets don't embed well)
+  const themeWords = theme.toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w));
 
   // ─── Wide pool + LLM selection for complementarity ──────────────────────────
   // Select a WIDER pool (~6) via MMR for diversity, then let the LLM pick the
@@ -1409,130 +1495,126 @@ Return JSON only (no markdown):
     mmrCandidates.splice(bestIdx, 1);
   }
 
-  // Kick the news web search off now, before the selection round-trip. Its terms
-  // depend only on `newsQuery` and `focusInterest` — both settled before selection
-  // — so it costs nothing to run underneath the LLM call instead of after it.
-  const currentSearchYear = new Date().getFullYear();
-  const newsSearchTerms = `${newsQuery} ${focusInterest} ${currentSearchYear - 1} ${currentSearchYear}`;
-  const webResultsPromise = targetNews > 0
-    ? webSearch(newsSearchTerms, targetNews * 3).catch(err => {
-        console.log(`[Digest] News web search failed (${err}), continuing without web news`);
-        return [] as Awaited<ReturnType<typeof webSearch>>;
-      })
-    : null;
+  // ─── Step 4: News candidates — vetted BEFORE selection ──────────────────────
+  // News no longer waits for leftover slots. Survivors of the same gates as
+  // before (listicle, academic-domain, dedup, embedding sim, word guard) enter
+  // the selection pool alongside the papers and must EARN a slot there. Article
+  // text is fetched only for news the selection actually keeps.
+  const newsPool: TaggedItem[] = [];
+  if (widePool.length > 0) {
+    const webResults = await webResultsPromise;
+    const newsTexts = webResults.map(r => `${r.title}. ${r.snippet}`);
+    const newsEmbs = newsTexts.length > 0 ? await embedBatch(newsTexts) : [];
+    const gatedNews = webResults
+      .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, newsEmbs[i]) }))
+      .filter(({ result }) => !isListicle(result.title, result.source))
+      .filter(({ result }) => !isAcademicDomain(result.link))
+      .filter(({ result }) => !seenTitles.has(normTitle(result.title)))
+      // Word-guard on top of embedding sim — snippets are 1-2 sentences, where
+      // cosine 0.15 is near the noise floor (audit 6.4). Better an all-paper
+      // digest than a slot spent on garbage news.
+      .filter(({ result, sim }) => sim >= 0.15 && isNewsRelevant({ title: result.title, abstract: result.snippet }, themeWords, focusInterest))
+      .sort((a, b) => b.sim - a.sim)
+      .slice(0, MAX_NEWS);
+    for (const { result, sim } of gatedNews) {
+      newsPool.push({
+        title: result.title, authors: [result.source], abstract: result.snippet,
+        sourceUrl: result.link, source: "rss", category: "news", year: new Date().getFullYear(),
+      });
+      console.log(`[Digest] News candidate: "${result.title}" (sim ${sim.toFixed(2)})`);
+    }
+    // RSS fallback keeps the news lane alive when web search returns nothing usable.
+    if (newsPool.length === 0) {
+      try {
+        const rss = await fetchRssArticles(newsQuery.split(/\s+/).slice(0, 3), 10, seedInterestField);
+        for (const article of rss) {
+          if (newsPool.length >= MAX_NEWS) break;
+          if (seenTitles.has(normTitle(article.title))) continue;
+          if (!isNewsRelevant(article, themeWords, focusInterest)) continue;
+          newsPool.push({ ...article, source: "rss", category: "news", year: new Date().getFullYear() });
+          console.log(`[Digest] News candidate (RSS): "${article.title}"`);
+        }
+      } catch (err) {
+        console.log(`[Digest] RSS news fallback failed (${err})`);
+      }
+    }
+    console.log(`[Digest] ${newsPool.length} news candidate(s) join the selection pool`);
+  }
+  logStage("step4 news candidates");
 
-  // If wide pool is empty, skip LLM selection — the fill passes will try harder
+  // ─── Step 3b: Unified selection — papers and news compete for the slots ─────
+  // One LLM call sees the paper wide pool AND the vetted news candidates and
+  // picks the best TOTAL_ITEMS overall, with a hard floor of MIN_PAPERS
+  // academic papers enforced both in the prompt and in code below.
+  const selectionPool: TaggedItem[] = [...widePool, ...newsPool];
   let items: TaggedItem[];
+  // Top papers + best news, mirroring the pre-unified default mix.
+  const fallbackSelection = () => {
+    const papers = widePool.slice(0, TOTAL_ITEMS - Math.min(1, newsPool.length));
+    return [...papers, ...newsPool.slice(0, TOTAL_ITEMS - papers.length)];
+  };
   if (widePool.length === 0) {
     console.log(`[Digest] Wide pool empty — no papers passed threshold. Fill passes will try broader search.`);
     items = [];
-  } else if (widePool.length <= targetPapers) {
-    items = widePool;
-    console.log(`[Digest] Wide pool has only ${widePool.length} papers, using all`);
+  } else if (selectionPool.length <= TOTAL_ITEMS) {
+    items = selectionPool;
+    console.log(`[Digest] Selection pool has only ${selectionPool.length} item(s), using all`);
   } else {
-    console.log(`[Digest] LLM selecting best ${targetPapers} from ${widePool.length} candidates for complementarity...`);
+    console.log(`[Digest] LLM selecting best ${TOTAL_ITEMS} from ${widePool.length} papers + ${newsPool.length} news for complementarity...`);
     try {
       const selectionResp = await aiComplete(
         aiConfig,
-        "You select research papers that complement each other for a synthesis argument. Return only JSON.",
+        "You select research papers and news that complement each other for a synthesis argument. Return only JSON.",
         selectionSkeletonPrompt(
-          widePool.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year })),
+          selectionPool.map(p => ({ title: p.title, abstract: p.abstract, source: p.source, category: p.category, year: p.year })),
           theme,
-          targetPapers,
+          TOTAL_ITEMS,
           taste.dossier,
           fastMovingResearch,
+          MIN_PAPERS,
         )
       );
       const selection = extractJson<{ selectedIndices?: number[]; selectionReasoning?: string; coreInsight?: string }>(selectionResp);
       if (selection) {
         const indices: number[] = selection.selectedIndices || [];
         if (indices.length >= 2) {
-          items = indices
-            .filter((i: number) => i >= 1 && i <= widePool.length)
-            .map((i: number) => widePool[i - 1]);
-          console.log(`[Digest] LLM selected ${items.length} papers: ${selection.selectionReasoning || ""}`);
+          const picked = indices
+            .filter((i: number) => i >= 1 && i <= selectionPool.length)
+            .map((i: number) => selectionPool[i - 1]);
+          // Hard floors the LLM cannot undo: at least MIN_PAPERS academic
+          // papers, at most MAX_NEWS news items.
+          const chosenNews = picked.filter(i => i.category === "news").slice(0, MAX_NEWS);
+          let chosenPapers = picked.filter(i => i.category !== "news");
+          if (chosenPapers.length < MIN_PAPERS) {
+            chosenPapers = widePool.slice(0, MIN_PAPERS);
+            console.log(`[Digest] Selection kept no academic paper — forcing the top paper back in`);
+          }
+          items = [...chosenPapers, ...chosenNews].slice(0, TOTAL_ITEMS);
+          console.log(`[Digest] LLM selected ${items.length} items (${chosenPapers.length} papers, ${items.length - chosenPapers.length} news): ${selection.selectionReasoning || ""}`);
           console.log(`[Digest] Tension: ${selection.coreInsight || "none identified"}`);
         } else {
-          items = widePool.slice(0, targetPapers);
-          console.log(`[Digest] LLM returned too few indices, using top ${targetPapers}`);
+          items = fallbackSelection();
+          console.log(`[Digest] LLM returned too few indices, using top ${items.length}`);
         }
       } else {
-        items = widePool.slice(0, targetPapers);
-        console.log(`[Digest] Selection parse failed, using top ${targetPapers}`);
+        items = fallbackSelection();
+        console.log(`[Digest] Selection parse failed, using top ${items.length}`);
       }
     } catch (err) {
-      items = widePool.slice(0, targetPapers);
-      console.log(`[Digest] Selection LLM failed (${err}), using top ${targetPapers}`);
+      items = fallbackSelection();
+      console.log(`[Digest] Selection LLM failed (${err}), using top ${items.length}`);
     }
+  }
+
+  // Fetch article text only for the news that made the cut — a snippet is
+  // enough to judge relevance, but the synthesis needs the real article.
+  for (const item of items) {
+    if (item.category !== "news") continue;
+    const articleText = await fetchArticleText(item.sourceUrl);
+    if (articleText.length > 200) item.abstract = articleText;
+    seenTitles.add(normTitle(item.title));
   }
   logStage("selection");
-
-
-  // themeWords used for news validation (short snippets don't embed well)
-  const themeWords = theme.toLowerCase()
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !STOP_WORDS.has(w));
-
-  // ─── Step 4: Fill remaining slots (news and/or papers) ───────────────────────
-  const newsNeeded = targetNews;
-
-  // Find news items if needed
-  if (newsNeeded > 0) {
-    console.log(`[Digest] Step 4: finding ${newsNeeded} news via web search: "${newsSearchTerms}"`);
-    // Started before the selection call above, so this usually resolves instantly.
-    const webResults = webResultsPromise ? await webResultsPromise : [];
-
-    const newsTexts = webResults.map(r => `${r.title}. ${r.snippet}`);
-    const newsEmbs = newsTexts.length > 0 ? await embedBatch(newsTexts) : [];
-    const scoredNews = webResults
-      .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, newsEmbs[i]) }))
-      .filter(({ result }) => !isListicle(result.title, result.source))
-      .filter(({ result }) => !isAcademicDomain(result.link))
-      .filter(({ result }) => !seenTitles.has(normTitle(result.title)))
-      .sort((a, b) => b.sim - a.sim);
-
-    let newsFound = 0;
-    for (const { result, sim } of scoredNews) {
-      if (newsFound >= newsNeeded) break;
-      if (sim < 0.15) continue;
-      // Word-guard on top of embedding sim — snippets are 1-2 sentences, where
-      // cosine 0.15 is near the noise floor (audit 6.4). Better a 2-source digest
-      // than a third slot with garbage news.
-      if (!isNewsRelevant({ title: result.title, abstract: result.snippet }, themeWords, focusInterest)) {
-        console.log(`[Digest] News rejected by word guard: "${result.title.slice(0, 60)}"`);
-        continue;
-      }
-      const articleText = await fetchArticleText(result.link);
-      const abstract = articleText.length > 200 ? articleText : result.snippet;
-      items.push({
-        title: result.title, authors: [result.source],
-        abstract, sourceUrl: result.link,
-        source: "rss", category: "news", year: new Date().getFullYear(),
-      });
-      seenTitles.add(normTitle(result.title));
-      console.log(`[Digest] News ${newsFound + 1}/${newsNeeded}: "${result.title}" (sim ${sim.toFixed(2)})`);
-      newsFound++;
-    }
-
-    // RSS fallback for remaining news slots
-    if (newsFound < newsNeeded) {
-      const newsTerms = newsQuery.split(/\s+/).slice(0, 3);
-      const rss = await fetchRssArticles(newsTerms, 10, seedInterestField);
-      for (const article of rss) {
-        if (newsFound >= newsNeeded) break;
-        if (seenTitles.has(normTitle(article.title))) continue;
-        if (isNewsRelevant(article, themeWords, focusInterest)) {
-          const articleText = await fetchArticleText(article.sourceUrl);
-          const abstract = articleText.length > 200 ? articleText : article.abstract;
-          items.push({ ...article, abstract, source: "rss", category: "news", year: new Date().getFullYear() });
-          seenTitles.add(normTitle(article.title));
-          newsFound++;
-        }
-      }
-    }
-
-    console.log(`[Digest] Found ${newsFound}/${newsNeeded} news items`);
-  }
 
   // Fill remaining slots — progressively relax constraints to guarantee TOTAL_ITEMS
   // Pass 1: use third search query with moderate threshold
@@ -1542,7 +1624,7 @@ Return JSON only (no markdown):
     const fillQuery = searchQueries[2] || `${focusInterest} applications`;
     // Main-line fill stays in the same recent window as the primary pool. Truly
     // old work belongs in the separately gated foundational lane below.
-    const fillResults = await searchPapers(fillQuery, 10, "publicationDate", paperSearchPlan(2));
+    const fillResults = await searchPapers(fillQuery, 10, "publicationDate", paperSearchPlanFor(2, fastMovingResearch));
     const fillEmbs = await embedBatch(fillResults.map(paperText));
     const fillQueryEmb = await embedText(fillQuery);
     for (let fi = 0; fi < fillResults.length; fi++) {
@@ -1571,7 +1653,7 @@ Return JSON only (no markdown):
     // Vary the broad query with theme words — the bare interest string returned a
     // nearly fixed result set every run (audit 6.6)
     const broadQuery = `${focusInterest} ${themeWords.slice(0, 2).join(" ")}`.trim();
-    const broadResults = await searchPapers(broadQuery, 12, "publicationDate", unscopedPaperSearchPlan);
+    const broadResults = await searchPapers(broadQuery, 12, "publicationDate", unscopedPlanFor(fastMovingResearch));
     const broadEmbs = await embedBatch(broadResults.map(paperText));
     const broadQueryEmb = await embedText(broadQuery);
     for (let bi = 0; bi < broadResults.length; bi++) {
@@ -1598,7 +1680,7 @@ Return JSON only (no markdown):
   if (items.length < TOTAL_ITEMS) {
     console.log(`[Digest] Still ${items.length}/${TOTAL_ITEMS}, searching with theme text...`);
     await delay(300);
-    const themeResults = await searchPapers(theme, 10, "publicationDate", unscopedPaperSearchPlan);
+    const themeResults = await searchPapers(theme, 10, "publicationDate", unscopedPlanFor(fastMovingResearch));
     const themeResultEmbs = await embedBatch(themeResults.map(paperText));
     for (let ti = 0; ti < themeResults.length; ti++) {
       if (items.length >= TOTAL_ITEMS) break;

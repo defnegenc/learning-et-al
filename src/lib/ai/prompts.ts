@@ -115,9 +115,16 @@ ${listing}`;
  * and plans the argument structure.
  * Research: Radev (2000) Cross-Document Structure Theory, Yao (2023) Tree of Thoughts.
  */
-export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number, dossier?: string | null, fastMovingResearch = false) {
+export function selectionSkeletonPrompt(candidates: PaperListing[], theme: string, targetCount: number, dossier?: string | null, fastMovingResearch = false, minPapers = 0) {
   const listing = formatPapers(candidates, 1200);
   const currentYear = new Date().getFullYear();
+  const newsCount = candidates.filter(c => c.category === "news").length;
+  const newsGuidance = newsCount > 0
+    ? `\nTHE POOL MIXES ACADEMIC PAPERS AND NEWS (category "news"). All ${targetCount} slots are open competition with one hard rule: select at least ${minPapers} academic paper${minPapers === 1 ? "" : "s"}.
+- A news item earns a slot ONLY when it adds something no paper in the pool can: a real-world event, deployment, controversy, or consequence that makes the theme concrete right now.
+- News passes the same relevance gate as papers. A news item that is merely in the topic's neighborhood FAILS — an all-paper selection beats padding with weak news.
+- Never select two news items that report the same story.\n`
+    : "";
   const recencyGuidance = fastMovingResearch
     ? `CURRENT-EVIDENCE FLOOR: This is a rapidly changing research area. If any ${currentYear} paper passes the relevance gate, select at least one ${currentYear} paper. When selecting three papers, keep at least two from ${currentYear - 1}-${currentYear} whenever two such candidates add distinct, useful evidence. In that case, at most one paper may be from ${currentYear - 2} or earlier. This rule never rescues an off-topic paper.`
     : `RECENCY: This is not a rapidly changing research area. Use publication year only as a tie-break between equally relevant and complementary papers. Older evidence can be the right evidence, so do not force a current-year paper into the set.`;
@@ -138,7 +145,8 @@ Use this to break ties between papers that are equally relevant and equally comp
   return `Theme: "${theme}"
 ${taste}
 
-You have ${candidates.length} candidate papers. Your job is to pick the BEST ${targetCount} that COMPLEMENT each other for an interesting argument about the theme. Then plan the argument.
+You have ${candidates.length} candidate sources. Your job is to pick the BEST ${targetCount} that COMPLEMENT each other for an interesting argument about the theme. Then plan the argument.
+${newsGuidance}
 
 Candidates:
 ${listing}

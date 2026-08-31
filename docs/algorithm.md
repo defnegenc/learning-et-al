@@ -21,7 +21,8 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - **Step 2's three search queries** fire together (the scope ladder *inside* each query stays ordered — precision→recall widening is inherently serial). Results are merged afterwards in query order, so dedup stays deterministic and query 1 still owns a shared title.
 - **Step 4c (foundational lane)** starts right after Step 4b and is merged after Step 5. Step 5 already filters foundational items out of its headline sources, so it never read the lane's result; the only coupling was that both mutated `items`. `findFoundationalItem()` returns instead of pushing. Accepted edge case: Step 5's exclusion gate can drop a lane paper *after* tier 1 mined its reference list — the ancestor is still a real, verified, LLM-gated foundational text, and the merge point re-checks for title collisions.
 - **Stage A (metadata) and Stage B (skeleton)** fire together. Both read only `paperListing` + `finalTheme`, and the skeleton no longer drops papers.
-- Smaller: the **news web search** is kicked off before the selection call and awaited in Step 4.
+- **Retrieval scouts** (added 2026-08-31): every Step 1 candidate that clears the gates runs Steps 2-3 (search + scoring, no LLM calls) **in parallel**; the winner is the candidate with the strongest actual paper pool. See Step 1 below.
+- The **news web search** is kicked off as soon as the winning question is known; its vetted survivors enter the Step 3b selection call alongside the papers (changed 2026-08-31 — news used to be fetched after selection for leftover slots).
 
 **Timing instrumentation**: `generateDigest` logs `[Digest][timing] <stage>: +Xs (total Ys)` at every stage boundary. Grep Vercel logs for `[Digest][timing]` to see where a slow run actually went.
 
@@ -48,7 +49,7 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - LLM builds around the topic-seeded interest, may add up to 2 naturally connected candidate interests, and generates **three candidate working questions** — each a genuinely different angle *inside the same seed topic*, each with its own stakes, 3 search queries and news query. It does **not** choose OpenAlex fields or taxonomy filters. `selectedInterests` is canonicalized against real user interests and the seed interest is forced into slot 0 so rotation memory cannot drift from the actual grounding. (A response in the old single-theme shape is accepted as a one-candidate list, so a model that ignores the contract still ships a digest.)
 - Headline taste is calibrated to user-approved examples: recognizable subject + consequential tension + plain spoken English (for example, "Does AI help students learn or cheat?"). A bare capability question is not enough, and interrogative shape should vary across days.
 - **Candidate screening is deterministic and free** (changed 2026-08-20). Every candidate must clear `themeProblemsWithoutSources()` — the ≤10-word ceiling, the paraphrased-jargon tells, insider acronyms, stacked intensifiers — plus a non-empty `stakes` and the novelty check (≥2 shared non-stop words with any of the last 5 themes). A candidate that fails is **dropped**, not repaired. This replaces two conditional LLM round-trips: the >10-word shortener and the novelty fresh-angle retry. The bar is identical; only the remedy changed, and with three candidates on the table a rewrite is rarely the cheapest fix. (Novelty is still a word check, not embedding similarity — see Part 5.2 of algo-audit.md.)
-- **One batched cold read** over every candidate that survived screening (`coldRead()` has always taken an array; Step 5 uses it the same way). Among candidates with zero cold-read objections, the **highest `interest` score wins**. Only when nothing survives both filters does the single re-angle repair call fire, seeded with the least-broken candidate and its objections.
+- **One batched cold read** over every candidate that survived screening (`coldRead()` has always taken an array; Step 5 uses it the same way). Every candidate with zero cold-read objections becomes a **retrieval scout** (see below); only when nothing survives both filters does the single re-angle repair call fire, seeded with the least-broken candidate and its objections, and the repaired line becomes the sole scout.
 - Worst case at Step 1 is now **2 calls** (hypothesis + cold read) plus a rare third; it used to be up to 5 serial calls.
 - **Lay stakes, enforced upstream** (added 2026-08-17): the hypothesis call must return a `stakes` field — what a normal person loses, gains, or misjudges if they never learn this. A headline polish is the last mile; whether a digest can interest a layman is mostly decided here, by which ANGLE of the seed topic gets picked. Empty stakes is an angle failure, not a topic failure.
 - **Cold read of the working question** (added 2026-08-17, batched 2026-08-20): the same context-free judge used in Step 5 (see below) reads the candidate working questions, and a candidate with any cold-reader objection is dropped. Only if *every* candidate is objected to does ONE re-angle call fire inside the same seed. The seed rotation stays mechanical — the topic is never abandoned, only the angle moves. This matters beyond the headline: a study-shaped working question retrieves study-shaped papers, which caps how interesting Step 5 can honestly be.
@@ -56,9 +57,11 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 
 **Shared taste block** (`THEME_TASTE_RULES`, added 2026-08-17): every prompt that writes or rewrites a theme interpolates it — hypothesis, the re-angle repair, the not-enough-papers reframe, and Step 5 + its repair. (The shortener and novelty-retry prompts were two of the original five; both were deleted on 2026-08-20 when Step 1 went to three candidates, since a failing candidate is now dropped rather than rewritten.) The retry paths used to carry almost none of the taste rules, so a mangled theme from a retry degraded retrieval as well as the headline. They all now interpolate one constant (dinner-table test, name-the-object, placeholder ban, study-design rule, acronym rule, banned words, one-intensifier rule, length). Same class of gotcha as the `shortName` rules living in two places — change the constant, never restate a rule.
 
-**Theme retry loop** (up to 2 retries): If the theme produces too few qualifying papers, the pipeline changes the researchable angle and queries while keeping the OpenAlex topic, then re-searches. Each retry is an additional AI call.
+**Retrieval scouts** (added 2026-08-31): the pipeline no longer commits to one candidate by headline appeal alone. Every eligible candidate races through Steps 2-3 **in parallel** — search, hybrid scoring, and the threshold cascade, all LLM-free — and the winner is picked by **actual pool strength**: papers above `SIM_ONTOPIC` (capped at 4), then papers above `SIM_MIDPOINT` (capped at 6), then raw pool depth, with **cold-read `interest` as the tie-break**. The caps are deliberate: beyond ~4 strong papers a 3-slot digest gains nothing, so between two healthy pools the more interesting question wins. This fixes two things at once: the latency tail (a weak question used to cost up to two *serial* reframe cycles) and "a study-shaped question retrieves study-shaped papers" (the best-reading question no longer ships with the worst pool). At most 3 scouts × 3 queries = 9 concurrent OpenAlex requests, inside the 10 rps polite pool.
 
-### Step 2: Paper Search (lines ~370-400)
+**Theme retry loop** (up to 2 retries, now rare): only when EVERY scout retrieved weakly (<2 papers at `SIM_MIDPOINT` or better) does the LLM reframe the angle and queries while keeping the OpenAlex topic, then re-search. A reframed pool replaces the incumbent only if it is strictly stronger under the same rank.
+
+### Step 2: Paper Search (per scout)
 
 3 queries via source priority chain: **OpenAlex → Semantic Scholar → arXiv** (in practice OpenAlex nearly always answers, so it's effectively the sole source — audit 6.1). The three queries run **concurrently** (3 concurrent requests, each internally serial through its scope ladder, sits well inside OpenAlex's 10 rps polite pool); the inter-query sleeps are gone.
 
@@ -93,16 +96,13 @@ Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 
 **Theme retry on weak match**: only breaks the theme retry loop early when papers pass `SIM_MIDPOINT` or higher. If papers only pass below `SIM_MIDPOINT`, the pipeline retries with a new theme before accepting weak-match papers.
 
-**Dynamic item count** (lines ~568-581): counts papers above `SIM_ONTOPIC`.
-- ≥3 strong papers → 3 papers + 0 news
-- ≤1 strong paper → 1 paper + 2 news
-- Otherwise → 2 papers + 1 news (default)
+**Item mix** (changed 2026-08-31): there are no fixed paper/news targets anymore. Papers and vetted news candidates enter the SAME Step 3b selection call and compete for the 3 slots, with a hard floor of **1 academic paper** (`MIN_PAPERS`) and a cap of 2 news, both enforced in code after the LLM answers. (The old rule — ≥3 papers above `SIM_ONTOPIC` → all-papers — fired on effectively every run once `relSim` started counting similarity to a paper's own retrieval query on 2026-07-23, which is why digests stopped carrying news entirely.)
 
 **Wide pool via MMR** (λ=0.6): selects ~6 diverse papers from qualified candidates. MMR penalizes candidates similar to already-picked papers.
 
-### Step 3b: LLM Complementarity Selection (AI call 5, lines ~548-587)
+### Step 3b: LLM Complementarity Selection (AI call 5)
 
-If the wide pool has more papers than needed, `selectionSkeletonPrompt` asks the LLM to pick the best N for complementarity. When the reader has a **taste dossier**, it is injected here as a `WHO YOU ARE PICKING FOR` block — this step is where the real quality call is made, so it is the one place taste is allowed to argue. The prompt states explicitly that the note breaks ties only: it cannot relax the relevance gate, and if the note conflicts with the theme, the theme wins.
+The selection pool is the MMR wide pool (~6 papers) **plus up to 2 vetted news candidates** (see Step 4 — news is gated *before* this call). If the pool exceeds 3 items, `selectionSkeletonPrompt` asks the LLM to pick the best 3 overall for complementarity. When news is present the prompt adds the mixed-pool rules: at least 1 academic paper, a news item earns a slot only by adding a real-world event/deployment/consequence no paper can, weak news loses to an all-paper selection, and never two news items telling the same story. Code re-enforces the ≥1-paper floor and ≤2-news cap regardless of what the LLM returns. When the reader has a **taste dossier**, it is injected here as a `WHO YOU ARE PICKING FOR` block — this step is where the real quality call is made, so it is the one place taste is allowed to argue. The prompt states explicitly that the note breaks ties only: it cannot relax the relevance gate, and if the note conflicts with the theme, the theme wins.
 
 Selection criteria:
 - Selects papers that each contribute something DIFFERENT
@@ -114,16 +114,15 @@ Selection criteria:
 - Falls back to top-N by score if LLM fails.
 - Note: `argumentArc` and `paperRoles` from this step are currently discarded — Stage B re-derives them. Could be consolidated.
 
-### Step 4: News Search (lines ~680-730)
+### Step 4: News Candidates (vetted BEFORE selection, changed 2026-08-31)
 
-When news slots are needed:
+News no longer waits for leftover slots — the web search fires as soon as the winning question is known, and its gated survivors (max 2) enter the Step 3b selection pool:
 - Web search via Serper / DuckDuckGo using `newsQuery + focusInterest + currentYear-1 + currentYear`.
 - Scored by embedding similarity to theme (raw cosine, threshold 0.15) **AND** the `isNewsRelevant` word guard (≥2 interest words + ≥2 theme words in title+snippet) — snippets are too short for embeddings alone (audit 6.4).
 - **Listicle filter**, **academic domain filter** (20+ publisher domains), dedup.
-- **Paywall detection**: article fetcher rejects pages with 2+ paywall signals.
-- Article text via **paragraph density scoring** (`<p>` tag extraction), longest-run heuristic as fallback.
-- RSS fallback: **field-specific feeds** + Google News RSS by topic.
-- **`isNewsRelevant`** validation (word-count guard) applied to BOTH the primary web search path and the RSS fallback (fixed 2026-07-23).
+- RSS fallback when web search yields nothing usable: **field-specific feeds** + Google News RSS by topic, through the same word guard.
+- **Article text is fetched only for news the selection keeps** (paragraph density scoring, longest-run heuristic as fallback; paywall detection rejects pages with 2+ paywall signals). A snippet is enough to judge relevance; the synthesis gets the real article.
+- Skipped entirely when the wide pool is empty, so the ≥1-paper floor cannot be violated by a news-only selection.
 
 ### Step 4 Fill Passes (lines ~732-825)
 
@@ -289,8 +288,8 @@ non-blocking.
 | 1 | Hypothesis (3 candidates) | 1 | Always | strong | ~900 | ~300 |
 | 2 | Cold read of candidate questions | 1 | If ≥1 survives screening | judge | ~500 | ~350 |
 | 3 | Working-question re-angle | 1 | Only if NO candidate clears both filters | strong | ~900 | ~120 |
-| 4 | Theme retry (bad papers) | 1 | Up to 2x if <2 papers | strong | ~800 | ~100 |
-| 5 | Complementarity selection | 3b | If wide pool > target | strong | ~2000 | ~200 |
+| 4 | Theme retry (bad papers) | 1 | Up to 2x, only if EVERY scout retrieved weakly (rare) | strong | ~800 | ~100 |
+| 5 | Complementarity selection | 3b | If selection pool (papers + news) > 3 | strong | ~2200 | ~200 |
 | 6 | LLM re-ranking | 4b | If ≥2 papers | judge | ~600 | ~100 |
 | 6b | Foundational tier-2 naming | 4c | If tier 1 found nothing | strong | ~800 | ~150 |
 | 6c | Foundational gate | 4c | If any candidate cleared the bars | judge | ~1200 | ~100 |
@@ -431,7 +430,7 @@ Feedback events also store contextual features (paper category, source, year, ke
 - **LLM re-ranking** catches topically related but uninformative papers
 - **Theme novelty scoring** prevents repetitive theme patterns
 - **Academic domain filter** excludes journal articles from news slots
-- **Dynamic item count** adapts to available quality
+- **Unified paper+news selection** (2026-08-31) lets news compete for slots instead of being a fixed quota or, after the 2026-07-23 relSim change, never appearing at all
 - **Broad news fallback** ensures minimum 2 sources when papers are scarce
 
 ## What Didn't Work
@@ -456,6 +455,8 @@ Feedback events also store contextual features (paper category, source, year, ke
 - **Coverage check on plain text instead of bold**: matched "lung" anywhere, not inside `**bold**`. Fixed.
 - **SIM_MIN_THEME at 0.12**: let Bhagavad Gita papers through for AI themes. Raised to 0.15.
 - **SIM_ONTOPIC at 0.30**: too strict, rejected all papers for some themes. Reverted to 0.25.
+- **≥3-strong-papers → all-papers upgrade**: once `relSim` counted a paper's similarity to its own retrieval query (2026-07-23), the bar was met on effectively every run and news disappeared from digests entirely. Replaced by unified paper+news selection (2026-08-31).
+- **Committing to one Step 1 candidate by cold-read interest alone**: the best-reading question sometimes retrieved the worst pool, costing up to two serial reframe cycles. Replaced by retrieval scouts (2026-08-31).
 
 ---
 
