@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, ChevronDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, Loader2, X } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
 import { paperByline, READING_BODY } from "@/components/paper-card";
@@ -861,10 +861,12 @@ function AnswerSquare({ n, open, label, onToggle }: {
  * and under it in the flow on a narrow one, and it is the same component both
  * times — the only difference is which column it is rendered into.
  */
-function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, owed }: {
+function AnswerPanel({ thread, streaming, error, onClose, onFollowUp, familiarityOffer, familiarityValue, onFamiliarity, onSkipFamiliarity, owed }: {
   thread: ReadingThread;
   streaming: boolean;
   error?: string | null;
+  /** Closing from here, rather than hunting for the square back in the text. */
+  onClose: () => void;
   onFollowUp: (question: string) => void;
   familiarityOffer?: FamiliarityTopic | null;
   familiarityValue?: FamiliarityValue | null;
@@ -880,7 +882,23 @@ function AnswerPanel({ thread, streaming, error, onFollowUp, familiarityOffer, f
     <div style={{ borderLeft: BORDER, paddingLeft: 16 }}>
       {thread.turns.map((turn, i) => (
         <div key={turn.id} style={{ marginTop: i === 0 ? 0 : 16 }}>
-          <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 6px" }}>{turn.question}</p>
+          {/* The close sits on the first question rather than in a header bar of
+              its own: an answer in the margin is a long way from the square that
+              opened it, and hunting back through the paragraph for a 18px box is
+              not a way to put something down. */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <p style={{ ...BODY_SM, fontWeight: 600, margin: "0 0 6px", flex: 1, minWidth: 0 }}>{turn.question}</p>
+            {i === 0 && (
+              <button
+                onClick={onClose}
+                aria-label="Close this answer"
+                title="Close (or press Escape)"
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: MUTED, display: "flex", flexShrink: 0 }}
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
           {turn.answer
             ? <p style={{ ...BODY_STYLE, margin: 0 }}>{turn.answer}</p>
             : <DigWait />}
@@ -1301,6 +1319,19 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
   useEffect(() => { setTipSeen(nuxSeen(READING_TIP_KEY)); }, []);
 
+  // Escape puts everything down: the question you were about to ask and every
+  // answer left open. The margin goes with them, so one key clears the page
+  // back to the paper.
+  useEffect(() => {
+    const close = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setHeld(null);
+      setOpenTags(prev => (prev.size ? new Set() : prev));
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, []);
+
   const loadCompanion = useCallback(async () => {
     setCompanionPending(true);
     setCompanionFailed(false);
@@ -1560,6 +1591,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
       thread={t}
       streaming={t.turns.some(turn => turn.id === streamingTurn)}
       error={t.turns.some(turn => turn.id === streamingTurn) ? null : askError}
+      onClose={() => toggleTag(t.id)}
       onFollowUp={q => ask({ question: q, threadId: t.id })}
       familiarityOffer={t.id === lastDigThreadId ? familiarityOffer : null}
       familiarityValue={activeFamiliarity}
