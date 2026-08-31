@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
-  ACID_GREEN, BODY_SM, BODY_STYLE, BORDER, DIM, INK, LABEL_STYLE, MUTED, SHADOW, SURFACE,
+  ACID_GREEN, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_SM, INK, LABEL_STYLE, MUTED, SHADOW, SURFACE,
 } from "@/components/design-system";
 import {
   FIRST_SAVE_EVENT, OPEN_LIBRARY_EVENT, dismissSaveTip, openLibrary, saveTipDismissed,
@@ -49,8 +49,8 @@ export function SaveTipStrip({ show }: { show: boolean }) {
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...LABEL_STYLE, marginBottom: 6 }}>Tip</div>
-        <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>
+        <div style={{ ...DISPLAY_SM, color: MUTED, textTransform: "none", marginBottom: 6 }}>Tip:</div>
+        <p style={{ ...BODY_STYLE, color: INK, margin: 0 }}>
           Save a paper and your librarian starts reading it: a guided
           walkthrough, key terms, and what&rsquo;s been published since, waiting
           in your library.
