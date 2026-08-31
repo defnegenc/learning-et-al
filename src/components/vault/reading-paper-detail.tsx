@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { ArrowLeft, Bookmark, ChevronDown, Loader2, X } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { TermChip } from "@/components/today/brief-digest";
-import { PaperCard, paperByline, READING_BODY } from "@/components/paper-card";
+import { paperByline, READING_BODY } from "@/components/paper-card";
 import { READING_TIP_KEY, markNuxSeen, nuxSeen } from "@/lib/nux";
 import {
   type FamiliarityTopic,
@@ -741,10 +741,11 @@ function Beat({ heading, sectionKey, children }: {
   );
 }
 
-// Follow-up work reads as cards, because it is papers and there is one card for
-// a paper in this product. It used to be a hairline-separated list, which was a
-// second way of drawing the same object.
-function HomeworkCard({ item, sourcePaperId, index }: { item: HomeworkItem; sourcePaperId: string; index: number }) {
+// Follow-up work reads as a plain list, not as cards: one hairline-separated row
+// per paper with a save on the right. Cards were tried here and are too much
+// object for a list of things you have not read, at the foot of a page whose
+// whole argument is that the paper is the only thing on it.
+function HomeworkRow({ item, sourcePaperId }: { item: HomeworkItem; sourcePaperId: string }) {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -764,50 +765,35 @@ function HomeworkCard({ item, sourcePaperId, index }: { item: HomeworkItem; sour
     finally { setSaving(false); }
   }
 
-  // A citing work is not in our papers table yet, so it is shaped into the card
-  // rather than fetched as one. Everything the compact card reads is here; what
-  // is missing (summary, keywords) is missing because OpenAlex did not give it.
-  const asPaper: PaperItem = {
-    id: item.openAlexId || item.url || item.title,
-    title: item.title,
-    summary: null,
-    source: "semantic_scholar",
-    sourceUrl: item.url,
-    keywords: [],
-    authors: item.authors ?? [],
-    year: item.year,
-    abstract: item.abstract || null,
-    category: "recent",
-  };
+  const meta = [
+    item.year ? String(item.year) : "",
+    item.venue || "",
+    item.citationCount > 0 ? `${item.citationCount} citations` : "",
+  ].filter(Boolean).join(" · ");
 
   return (
-    <PaperCard
-      paper={asPaper}
-      index={index}
-      size="compact"
-      // No `loggedIn`: the card's own bookmark saves a paper we already have a
-      // row for, and this one has to go through save-external. The save lives
-      // in the footnote instead, which is the one place a compact card lets a
-      // caller put its own control.
-      onOpen={p => { if (p.sourceUrl) window.open(p.sourceUrl, "_blank", "noopener,noreferrer"); }}
-      footnote={
-        <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ ...BODY_SM, color: DIM, flex: 1, minWidth: 0 }}>
-            {item.citationCount > 0 ? `${item.citationCount} citations` : "Cites this paper"}
-          </span>
-          <button
-            onClick={save}
-            title={saved ? "In your library" : "Save to your library"}
-            style={{ ...BODY_SM, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: INK }}
-          >
-            {saving
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Bookmark size={14} fill={saved ? INK : "none"} />}
-            {saved ? "Saved" : "Save"}
-          </button>
-        </span>
-      }
-    />
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "18px 0", borderTop: HAIRLINE }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <a
+          href={item.url || undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ ...DISPLAY_SM, textDecoration: item.url ? "underline" : "none", textUnderlineOffset: 4 }}
+        >
+          {item.title}
+        </a>
+        <div style={{ ...BODY_STYLE, color: MUTED, marginTop: 8 }}>{meta}</div>
+      </div>
+      <button
+        onClick={save}
+        title={saved ? "In your library" : "Save to your library"}
+        style={{ background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0, flexShrink: 0, color: INK, marginTop: 3 }}
+      >
+        {saving
+          ? <Loader2 size={15} className="animate-spin" />
+          : <Bookmark size={15} fill={saved ? INK : "none"} />}
+      </button>
+    </div>
   );
 }
 
@@ -1128,39 +1114,74 @@ function useMarginTops(
 }
 
 /**
- * The recap of every hard word, folded, at the foot of the read.
+ * The recap of every hard word, in the top right, travelling with the reader.
  *
  * The chips in the prose define each term where you meet it; this catches the
  * ones the companion flagged but never used, holds the ones the reader added
- * themselves, and gives you somewhere to look a word back up. Reference, not
- * read, so it is closed until asked for.
+ * with `+ Glossary`, and gives you somewhere to look a word back up.
+ *
+ * It sits in the page's own bar, which is sticky under the site header, so it is
+ * in the same corner at every scroll position. At the foot of the read it was a
+ * folded panel you had to reach the end of the paper to use, which is exactly
+ * the wrong place for the thing you want in the middle of a sentence.
+ *
+ * Closed by default, and it closes on Escape or a click anywhere else, which is
+ * what makes it safe to hang over the read rather than push it down.
  */
-function Glossary({ terms, pending }: { terms: Jargon[]; pending: string[] }) {
-  const [open, setOpen] = useState(false);
+function GlossaryMenu({ terms, pending, open, onToggle, onClose }: {
+  terms: Jargon[];
+  /** Words the reader just added, still being defined. */
+  pending: string[];
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
   const count = terms.length + pending.length;
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open, onClose]);
+
   return (
-    <div style={{ border: BORDER, background: SURFACE, padding: "14px 16px", marginTop: 32 }}>
+    <div ref={box} style={{ position: "relative", flexShrink: 0 }}>
       <button
-        onClick={() => setOpen(v => !v)}
+        onClick={onToggle}
         aria-expanded={open}
-        style={{ ...DISPLAY_SM, display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}
+        style={{
+          ...BODY_SM, display: "inline-flex", alignItems: "center", gap: 8,
+          background: SURFACE, color: INK, border: BORDER, padding: "10px 14px",
+          cursor: "pointer",
+        }}
       >
-        <span style={{ flex: 1 }}>Glossary ({count})</span>
+        Glossary ({count})
         <ChevronDown
-          size={16}
-          style={{ color: MUTED, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
+          size={15}
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }}
         />
       </button>
       {open && (
-        <dl style={{ margin: "12px 0 0" }}>
+        <dl
+          style={{
+            position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 40,
+            width: 380, maxWidth: "calc(100vw - 40px)", maxHeight: "min(60vh, 460px)", overflowY: "auto",
+            border: BORDER, boxShadow: SHADOW, background: SURFACE,
+            margin: 0, padding: "4px 16px 14px",
+          }}
+        >
           {pending.map(term => (
-            <div key={`pending-${term}`} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+            <div key={`pending-${term}`} style={{ padding: "12px 0", borderTop: HAIRLINE }}>
               <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{term}</dt>
               <dd style={{ ...BODY_SM, color: MUTED, fontStyle: "italic", margin: "2px 0 0" }}>Looking it up&hellip;</dd>
             </div>
           ))}
           {terms.map(g => (
-            <div key={g.term} style={{ padding: "10px 0", borderTop: HAIRLINE }}>
+            <div key={g.term} style={{ padding: "12px 0", borderTop: HAIRLINE }}>
               <dt style={{ ...BODY_STYLE, fontWeight: 600 }}>{g.term}</dt>
               <dd style={{ ...BODY_SM, color: DIM, margin: "2px 0 0" }}>{g.def}</dd>
             </div>
@@ -1243,6 +1264,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   // glossary immediately, greyed, because a word you just asked to keep should
   // appear in the list you asked to keep it in.
   const [pendingTerms, setPendingTerms] = useState<string[]>([]);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
   // Folded until it has something to say. The rail is beside a paper someone
   // came here to read, and an open panel with three suggested questions in it
   // is the product asking for attention before the reader has spent any. It
@@ -1303,6 +1325,7 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      setGlossaryOpen(false);
       setHeld(null);
       setActive({ kind: "none" });
       setOpenTags(prev => (prev.size ? new Set() : prev));
@@ -1503,6 +1526,8 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
     if (!tipSeen) { markNuxSeen(READING_TIP_KEY); setTipSeen(true); }
     const clean = term.trim();
     if (!clean) return;
+    // Open the list you just added to, or the add goes somewhere invisible.
+    setGlossaryOpen(true);
     setPendingTerms(prev => prev.includes(clean) ? prev : [...prev, clean]);
     try {
       if (fixture) {
@@ -1664,8 +1689,12 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto" }} className="px-5 md:px-8 pt-6 pb-24">
-      {/* The top bar: out of the page on the left, into the paper on the right. */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, marginBottom: 28 }}>
+      {/* The top bar: out of the page on the left, the glossary and the paper
+          itself on the right. Sticky under the site header, so the glossary is
+          in the same corner at every scroll position: a word list you can only
+          reach by scrolling to the end of the read is no use in the middle of a
+          sentence, which is where you need it. */}
+      <div className="reading-bar">
         {onBack ? (
           <button
             onClick={onBack}
@@ -1675,6 +1704,15 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           </button>
         ) : <span />}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          {(glossary.length > 0 || pendingTerms.length > 0) && (
+            <GlossaryMenu
+              terms={glossary}
+              pending={pendingTerms}
+              open={glossaryOpen}
+              onToggle={() => setGlossaryOpen(v => !v)}
+              onClose={() => setGlossaryOpen(false)}
+            />
+          )}
           {paper.sourceUrl && (
             <a
               href={paper.sourceUrl}
@@ -1787,10 +1825,6 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
 
 
 
-          {(glossary.length > 0 || pendingTerms.length > 0) && (
-            <Glossary terms={glossary} pending={pendingTerms} />
-          )}
-
           {/* ── What's happened since ── */}
           <h2 style={{ ...DISPLAY_LG, margin: "56px 0 6px" }}>What&apos;s happened since</h2>
           <p style={{ ...BODY_STYLE, color: MUTED, margin: "0 0 10px" }}>
@@ -1804,16 +1838,9 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           ) : homework.length === 0 ? (
             <p style={{ ...BODY_STYLE, color: MUTED, fontStyle: "italic", margin: "12px 0 0" }}>Nothing citing this yet — it may be too new.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5" style={{ marginTop: 16 }}>
-              {homework.map((item, i) => (
-                <HomeworkCard
-                  key={item.openAlexId || item.title}
-                  item={item}
-                  sourcePaperId={paper.id}
-                  // Off the source paper's own slot, so the citing work beside a
-                  // pink paper is not pink too.
-                  index={index + i + 1}
-                />
+            <div>
+              {homework.map(item => (
+                <HomeworkRow key={item.openAlexId || item.title} item={item} sourcePaperId={paper.id} />
               ))}
             </div>
           )}
@@ -1866,6 +1893,20 @@ export function ReadingPaperDetail({ paper, index = 0, onBack, fixture }: {
           gap: 40px;
         }
         .reading-margin { position: relative; }
+        /* Sticky under the 52px site header. The background is opaque because
+           the read passes underneath it. */
+        .reading-bar {
+          position: sticky;
+          top: 52px;
+          z-index: 30;
+          background: var(--color-surface);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 12px 0 16px;
+          margin-bottom: 12px;
+        }
         /* No ::selection override here. The drag wears the product's ordinary
            ink selection, and the paper's hue arrives on release, drawn by the
            page in useSelectionPick. */
