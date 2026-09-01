@@ -156,7 +156,7 @@ export default function DigestPermalink() {
               {authStatus === "unauthenticated" && (
                 <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
               )}
-              <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
+              <ShareDigestButton digestId={digest.id} theme={displayTheme} date={digest.date} compact />
             </div>
           </div>
 

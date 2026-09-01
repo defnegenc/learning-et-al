@@ -509,7 +509,7 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
                     question. As an `i` next to Share it waits to be asked. */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {!session && <WhatIsThis onSignIn={onSignIn} />}
-                  <ShareDigestButton digestId={digest.id} theme={displayTheme} compact />
+                  <ShareDigestButton digestId={digest.id} theme={displayTheme} date={digest.date} compact />
                 </div>
               </div>
               {generateError && (

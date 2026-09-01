@@ -190,7 +190,7 @@ export function DigestHistory() {
         <Label>
           {new Date(digest.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </Label>
-        <ShareDigestButton digestId={digest.id} theme={displayTheme(digest)} compact />
+        <ShareDigestButton digestId={digest.id} theme={displayTheme(digest)} date={digest.date} compact />
       </div>
       <h2 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>{displayTheme(digest)}</h2>
       {digest.gist && <p style={{ ...BODY_STYLE, fontWeight: 600, color: INK, margin: "0 0 28px" }}>{digest.gist}</p>}
