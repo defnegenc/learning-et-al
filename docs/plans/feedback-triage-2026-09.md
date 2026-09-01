@@ -19,6 +19,10 @@ Source: `learningetal-feedback.md`, the cumulative external review log (deep aud
 - **Sitemap `/vault` entry removed** (it 404s; vault is a client-side tab, not a route).
 - Verified during the same pass: `/api/admin/check` already returns 403 anonymously (fixed since the Aug 26 review), and paper dedupe (audit #6) was already fixed upstream (dedupes all history by normalized title + OpenAlex ID, `digest.ts:728-737`).
 
+### RSS feed (E9, shipped Sep 1)
+
+- **`/feed.xml`** is an RSS 2.0 route over the public editions: the same non-hidden admin rows `/api/public/digests` serves, newest 20, with the central question as the item title, the gist as the summary, the paper titles the edition was built from, and a link to `/digest/<id>`. XML-escaped, HTML body in CDATA (the terminator is neutralised), missing theme falls back to "Learning et al., <date>". Cached `s-maxage=1800` like the other public endpoints, `dynamic = "force-dynamic"` so the build does not need the database. Autodiscovery via `alternates.types` in the root metadata. Verified end to end against a scratch SQLite database: hidden editions excluded, escaping correct, link tag rendered.
+
 ### Not done from the security review, deliberately
 
 - **security.txt**: needs a contact address choice from Defne.
@@ -47,7 +51,7 @@ Source: `learningetal-feedback.md`, the cumulative external review log (deep aud
 
 ### Workstream E: Distribution / SEO
 
-9. **RSS/Atom feed** at `/feed.xml` from the public digests. Cheap, self-contained.
+9. ~~**RSS/Atom feed** at `/feed.xml` from the public digests.~~ Shipped Sep 1, see Done above.
 10. **Server-render `/digest/[id]` + real sitemap.** The permalink page is `"use client"` + API fetch; convert to a server component that reads the DB directly (keep interactivity in client children), then emit per-edition sitemap entries.
 
 ### Workstream F: Shared-link UX (read the Paper design board first)
@@ -76,7 +80,7 @@ Source: `learningetal-feedback.md`, the cumulative external review log (deep aud
 | 2 | A3 + C4 + C5 (stat gate, blockquote scrub, methodType enum) | All prompt-plus-code-gate changes to the same pipeline stage |
 | 3 | C7 (dead fields) + C6 (gist variety) | Touches prompts and schema broadly; easier after 2 lands |
 | 4 | D8 (venue matching) | Isolated in venue-quality.ts + fetcher ordering |
-| 5 | E9 (RSS) | Cheap growth win |
+| ~~5~~ | ~~E9 (RSS)~~ | Shipped Sep 1 |
 | 6 | E10 (SSR permalink + sitemap) | Bigger refactor of the permalink page |
 | 7 | F11-F14 (shared-link UX) | Needs the Paper board and a design pass first |
 

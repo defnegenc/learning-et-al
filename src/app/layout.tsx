@@ -37,6 +37,12 @@ export const metadata: Metadata = {
     "A daily research digest that finds, synthesises, and contrasts papers around one provocative question.",
   applicationName: "Learning et al.",
   keywords: ["research digest", "AI", "papers", "synthesis", "daily reading"],
+  // Feed autodiscovery: readers and browser extensions look for this link tag.
+  alternates: {
+    types: {
+      "application/rss+xml": [{ url: "/feed.xml", title: "Learning et al." }],
+    },
+  },
   openGraph: {
     type: "website",
     url: "https://learningetal.com",
