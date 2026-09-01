@@ -185,8 +185,15 @@ export function DigestHistory() {
   ) : (
     <div>
       {/* Same share affordance as Today and the permalink page: an archived
-          digest is just as shareable as this morning's. */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 12 }}>
+          digest is just as shareable as this morning's.
+
+          It sits *beside* the date rather than edge-aligned opposite it. Today
+          and the permalink both run in a 760px column, where a control on the
+          right rim still reads as part of the eyebrow row; this pane is over a
+          thousand pixels wide, and a frameless 16px word alone in that corner
+          is a control nobody finds. Grouped with the date, it is where the eye
+          already is. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
         <Label>
           {new Date(digest.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </Label>
