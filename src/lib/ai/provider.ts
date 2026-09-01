@@ -113,6 +113,35 @@ export function judgeConfigFrom(cfg: AIConfig): AIConfig {
   return model ? { ...cfg, model } : cfg;
 }
 
+/**
+ * The independent fact-checker: a model from a DIFFERENT provider family that
+ * reads the finished synthesis draft against the raw source texts.
+ *
+ * This is deliberately not part of the judge tier. The judge tier shares the
+ * run's provider, so when the strong and judge models are family (Opus writes,
+ * Haiku extracts the findings the critique checks against), a shared misreading
+ * passes through the whole chain. Self-preference research says a model grades
+ * its own family's output leniently — see docs/plans/cross-provider-judge.md.
+ * A cheap foreign model checking "does this draft misstate these sources" is
+ * the one slot where a second provider earns its keep.
+ *
+ * Activates only when FACTCHECK_AI_PROVIDER and FACTCHECK_AI_KEY are both set;
+ * unset = null = the pass never runs, provably zero behavior change. The pass
+ * is advisory and never blocks a digest — its issues merge into the Stage D
+ * revision, and any call failure is swallowed at the call site.
+ */
+export function factCheckConfig(): AIConfig | null {
+  const provider = process.env.FACTCHECK_AI_PROVIDER?.trim() as AIConfig["provider"] | undefined;
+  const apiKey = process.env.FACTCHECK_AI_KEY?.trim();
+  if (!provider || !apiKey) return null;
+  return {
+    apiKey,
+    provider,
+    model: process.env.FACTCHECK_AI_MODEL?.trim() || getDefaultModel(provider),
+    baseUrl: process.env.FACTCHECK_AI_BASE_URL || "",
+  };
+}
+
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -467,6 +467,34 @@ Be harsh. A 3 is average. Most syntheses are 2-3. A 5 means publishable.`;
  * twice. `weakestPoint`/`revision` may be empty when fact issues alone triggered
  * the rewrite.
  */
+/**
+ * Independent fact check: a model from a DIFFERENT provider family reads the
+ * synthesis draft against the raw source texts. Deliberately NOT against the
+ * Stage A findings — those were extracted by the same family that wrote the
+ * draft, and an unshared failure mode is the whole point of this pass.
+ */
+export function independentFactCheckPrompt(synthesis: string, sources: { index: number; title: string; text: string }[]) {
+  const listing = sources.map(s => `[Source ${s.index}] "${s.title}"\n${s.text}`).join("\n\n");
+  return `You are fact-checking a research digest against its sources. You did not write it and have no stake in it reading well.
+
+DIGEST TEXT:
+"""
+${synthesis}
+"""
+
+SOURCES (the only ground truth — check against nothing else):
+${listing}
+
+Flag ONLY claims in the digest that are UNGROUNDED (supported nowhere in the source text) or CONTRADICTED (the source says otherwise). Check every number, percentage, sample size, and named result especially hard — a stat that appears in the digest but nowhere in its source is the #1 target. Attribute each issue to the source the digest ties the claim to.
+
+Do NOT flag: style, tone, structure, simplified-but-faithful paraphrase, plain-language translation of jargon, or the digest's own framing and questions.
+
+Return JSON only (no markdown fences):
+{"issues": [{"paperIndex": 1, "problem": "what the digest claims and why it is unsupported, quoting the digest phrase", "fix": "the grounded correction, using only what the source actually says"}]}
+
+Return {"issues": []} when everything checks out — an empty list is the expected result for a well-grounded digest. Never invent an issue to seem thorough.`;
+}
+
 export function synthesisRevisionPrompt(
   originalSynthesis: string,
   critique: {

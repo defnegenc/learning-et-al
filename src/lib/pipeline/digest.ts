@@ -7,8 +7,8 @@ import { searchOpenAlex, getReferencedWorkIds, getFoundationalCandidates, sample
 import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
-import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
-import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
+import { aiComplete, judgeConfigFrom, factCheckConfig, AIConfig } from "@/lib/ai/provider";
+import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, independentFactCheckPrompt, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { BANNED_WORDS_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
@@ -2427,6 +2427,35 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   // `factIssues` alongside its scores, and the single revision below carries
   // both. Long-output regenerations drop from up to 2 here to at most 1.
   console.log(`[Digest] Stage D: self-critique (quality + factual accuracy)...`);
+
+  // Independent fact check (optional, cross-family): fires concurrently with
+  // the critique below, reading the SAME draft against the RAW source texts
+  // rather than the Stage A findings — those were extracted by the same model
+  // family that wrote the draft, and an unshared failure mode is the point.
+  // Its issues merge into the one existing revision; a failure here never
+  // blocks a digest. See factCheckConfig() in provider.ts.
+  type FactIssue = { paperIndex: number; problem: string; fix: string };
+  const factCheck = factCheckConfig();
+  const independentFactPromise: Promise<FactIssue[]> = factCheck
+    ? aiComplete(
+        factCheck,
+        "You are a meticulous, adversarial fact-checker. Return only JSON.",
+        independentFactCheckPrompt(synthesis, items.map((p, i) => ({
+          index: i + 1,
+          title: p.title,
+          text: p.abstract.slice(0, p.source === "rss" ? 6000 : 2500),
+        })))
+      )
+        .then(resp => (extractJson<{ issues?: FactIssue[] }>(resp)?.issues || [])
+          .filter(issue => issue?.problem?.trim() && issue?.fix?.trim()
+            && Number.isInteger(issue.paperIndex) && issue.paperIndex >= 1 && issue.paperIndex <= items.length)
+          .slice(0, 4))
+        .catch(err => {
+          console.log(`[Digest] Independent fact check failed (${err}) — continuing without it`);
+          return [] as FactIssue[];
+        })
+    : Promise.resolve([] as FactIssue[]);
+
   try {
     const critiqueResp = await aiComplete(
       aiConfig,
@@ -2451,29 +2480,41 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       bannedPhrasesFound?: string[];
       factIssues?: { paperIndex: number; problem: string; fix: string }[];
     }>(critiqueResp);
-    if (critique) {
-      const scores = critique.scores || {};
+    const independentIssues = await independentFactPromise;
+    if (factCheck) {
+      console.log(`[Digest] Independent fact check (${factCheck.provider}/${factCheck.model}): ${independentIssues.length} issue(s)`);
+    }
+    if (critique || independentIssues.length > 0) {
+      const scores = critique?.scores || {};
       const minScore = Math.min(scores.argument || 5, scores.connection || 5, scores.accessibility || 5, scores.relatability || 5, scores.specificity || 5, scores.coverage || 5, scores.freshness || 5);
-      const banned = critique.bannedPhrasesFound || [];
-      const factIssues = (critique.factIssues || []).filter(i => i?.problem?.trim() && i?.fix?.trim());
-      console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} rel=${scores.relatability} spec=${scores.specificity} cov=${scores.coverage} fresh=${scores.freshness}${banned.length ? ` bannedPhrases=[${banned.slice(0, 3).join(", ")}]` : ""}`);
+      const banned = critique?.bannedPhrasesFound || [];
+      // Both checkers feed the same revision: the self-critique's issues first,
+      // then the cross-family pass's, capped so a paranoid checker cannot turn
+      // the revision prompt into a laundry list.
+      const factIssues = [
+        ...(critique?.factIssues || []).filter(i => i?.problem?.trim() && i?.fix?.trim()),
+        ...independentIssues,
+      ].slice(0, 6);
+      if (critique) {
+        console.log(`[Digest] Critique scores: arg=${scores.argument} conn=${scores.connection} acc=${scores.accessibility} rel=${scores.relatability} spec=${scores.specificity} cov=${scores.coverage} fresh=${scores.freshness}${banned.length ? ` bannedPhrases=[${banned.slice(0, 3).join(", ")}]` : ""}`);
+      }
       if (factIssues.length > 0) {
         console.log(`[Digest] Factual issues found: ${factIssues.map(i => `Paper ${i.paperIndex}: ${i.problem} → ${i.fix}`).join("; ")}`);
       }
 
       // Editorial feedback only counts when the critique actually supplied it;
       // fact issues can trigger the rewrite on their own.
-      const hasEditorialFix = minScore < 4 && Boolean(critique.weakestPoint) && Boolean(critique.revision);
+      const hasEditorialFix = minScore < 4 && Boolean(critique?.weakestPoint) && Boolean(critique?.revision);
       if (hasEditorialFix || factIssues.length > 0) {
-        console.log(`[Digest] Revising (${[hasEditorialFix ? `weakest: ${critique.weakestPoint}` : null, factIssues.length > 0 ? `${factIssues.length} factual issue(s)` : null].filter(Boolean).join("; ")})...`);
+        console.log(`[Digest] Revising (${[hasEditorialFix ? `weakest: ${critique?.weakestPoint}` : null, factIssues.length > 0 ? `${factIssues.length} factual issue(s)` : null].filter(Boolean).join("; ")})...`);
         const revised = await aiComplete(
           aiConfig,
           SYNTHESIS_PROSE_SYSTEM,
           synthesisRevisionPrompt(
             synthesis,
             {
-              weakestPoint: hasEditorialFix ? critique.weakestPoint! : "",
-              revision: hasEditorialFix ? critique.revision! : "",
+              weakestPoint: hasEditorialFix ? critique?.weakestPoint ?? "" : "",
+              revision: hasEditorialFix ? critique?.revision ?? "" : "",
               bannedPhrasesFound: banned,
               factIssues,
             },

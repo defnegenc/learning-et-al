@@ -233,6 +233,8 @@ enforcement are one repair (both merged 2026-08-20).
 
 **Stage D: Self-Critique + factual accuracy** (AI call 11, always fires) — one review call scoring 7 dimensions (argument, connection, accessibility, relatability, specificity, coverage, freshness; each 1-5) AND checking the draft against each paper's extracted findings, returning `factIssues`. A revision (AI call 12, conditional) fires when `minScore < 4` **or** any fact issue was flagged, and carries both. Uses `synthesisCritiquePrompt` + `synthesisRevisionPrompt`.
 
+**Independent cross-family fact check** (AI call 11b, optional, added 2026-09-01) — when `FACTCHECK_AI_PROVIDER`/`FACTCHECK_AI_KEY` are set, a model from a DIFFERENT provider family fires concurrently with the Stage D critique, reading the same draft against the **raw source texts** (not the Stage A findings — those were extracted by the same family that wrote the draft, and an unshared failure mode is the point; self-preference research shows a model grades its own family's output leniently, see `docs/plans/cross-provider-judge.md`). It flags only ungrounded or contradicted claims, numbers first. Its issues merge into the same single revision (combined cap of 6), so it adds no extra regeneration and roughly no wall clock. Advisory only: a failed or unconfigured pass never blocks a digest. Uses `independentFactCheckPrompt` + `factCheckConfig()`.
+
   *Merged 2026-08-20.* The factual pass used to be its own call plus its own full-synthesis rewrite immediately before Stage D — two reviews of the same draft against the same papers, and a draft with both a weak argument and a misstated finding was regenerated **twice**. Long-output regenerations here drop from up to 2 to at most 1.
 
 **Final repair** (AI call 13, conditional) — runs AFTER all revisions and is the last synthesis modification. Two **deterministic** checks run first and together: is any paper missing its `[Source N]` tag, and are there fewer `- **[Source N]` bullets than papers? If either fails, ONE repair call fixes both.
@@ -281,7 +283,9 @@ picturable noun, so titles are graspable, not just punchy.
 knowledge-critical), **judge** = `judgeConfigFrom(aiConfig)`, i.e. `AI_MODEL_DIGEST_JUDGE`
 when set and the identical strong config when it isn't. Judge-tier calls are structured
 JSON judgment or grounded extraction, and every one already treats an absent verdict as
-non-blocking.
+non-blocking. **factcheck** = `factCheckConfig()`, a separate provider+key entirely
+(`FACTCHECK_AI_*`), present so a second model family can check the first; the call is
+skipped when unconfigured.
 
 | # | Call | Step | When | Tier | Input tokens (approx) | Output (approx) |
 |---|------|------|------|------|-----------------------|-----------------|
@@ -300,6 +304,7 @@ non-blocking.
 | 9 | Skeleton (Stage B) | 6 | Always, concurrent with 8 | strong | ~4000 | ~300 |
 | 10 | Synthesis draft (Stage C) | 6 | Always | strong | ~5000 | ~400 |
 | 11 | Critique + fact check (Stage D) | 6 | Always | strong | ~4000 | ~350 |
+| 11b | Independent cross-family fact check | 6 | If `FACTCHECK_AI_*` configured (concurrent with 11, separate provider) | factcheck | ~5000 | ~150 |
 | 12 | Revision | 6 | If any score <4 OR any fact issue | strong | ~2500 | ~400 |
 | 13 | Final repair | 6 | If a paper is missing or bullets are short | strong | ~2000 | ~400 |
 | 14 | Gist | 6b | Always | judge | ~1500 | ~60 |
