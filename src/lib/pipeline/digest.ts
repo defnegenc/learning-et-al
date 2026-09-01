@@ -2313,8 +2313,14 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   // `finalTheme`, and the skeleton no longer drops papers, so there is no data
   // dependency between them — run them concurrently and pay for one round-trip.
   console.log(`[Digest] Stage A + B: generating metadata and argument skeleton...`);
+  // Stage A is the pipeline's longest structured output (a 4-item foundational
+  // day needs ~1,300+ tokens of strict JSON), so it gets a raised output cap:
+  // at the default 4096, thinking-enabled Gemini models truncated it mid-JSON
+  // on exactly the 4-item digests (2026-08-24/26/31), which blanked every
+  // card's plainName, summary, findings and takeaway at once.
+  const STAGE_A_MAX_TOKENS = 8192;
   const [metadataResp, skeletonResp] = await Promise.all([
-    aiComplete(judge, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx)),
+    aiComplete(judge, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx), { maxTokens: STAGE_A_MAX_TOKENS }),
     aiComplete(
       aiConfig,
       "You analyze relationships between research papers and plan argument structures. Return only JSON.",
@@ -2323,14 +2329,27 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   ]);
   logStage("stage A+B (metadata + skeleton)");
 
-  // Stage A: parse metadata
-  let metadata: { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
-  try {
-    const metaParsed = extractJson<typeof metadata>(metadataResp);
-    if (!metaParsed) throw new Error("No JSON");
+  // Stage A: parse metadata, with ONE retry before accepting empty defaults —
+  // empty defaults are a whole digest of title-plus-raw-abstract cards, which
+  // is worse than the ~10s a retry costs.
+  type StageAMetadata = { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
+  let metaParsed = extractJson<StageAMetadata>(metadataResp);
+  if (!metaParsed) {
+    console.log(`[Digest] Metadata parse failed — retrying Stage A once...`);
+    try {
+      metaParsed = extractJson<StageAMetadata>(
+        await aiComplete(judge, SYNTHESIS_SYSTEM, metadataPrompt(paperListing, finalTheme, synthesisCtx), { maxTokens: STAGE_A_MAX_TOKENS })
+      );
+    } catch (err) {
+      console.log(`[Digest] Stage A retry call failed (${err})`);
+    }
+    logStage("stage A retry");
+  }
+  let metadata: StageAMetadata;
+  if (metaParsed) {
     metadata = metaParsed;
-  } catch {
-    console.log(`[Digest] Metadata parse failed, using empty defaults`);
+  } else {
+    console.log(`[Digest] Metadata parse failed after retry, using empty defaults`);
     metadata = { items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })), keyConcepts: [], suggestedQuestions: [] };
   }
 

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bookmark, Info } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
+import { stripAbstractLabel } from "@/lib/utils";
 import { announceSave } from "@/lib/save-nux";
 import {
   BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
@@ -244,7 +245,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
   // dark to read a highlight through. See `foundationalSlots`.
   const mark = foundational ? foundationalSlots()[0] : washSlots(index)[0];
 
-  const body = (paper.summary || paper.abstract || "").trim();
+  // stripAbstractLabel: rows whose metadata run failed fall back to the raw
+  // abstract, which often opens with the publisher's literal "Abstract" label.
+  const body = stripAbstractLabel((paper.summary || paper.abstract || "").trim());
   const hero = body.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || body;
   const byline = paperByline(paper);
 
