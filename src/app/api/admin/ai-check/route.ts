@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/get-user";
-import { aiComplete, aiConfigFor } from "@/lib/ai/provider";
+import { aiComplete, aiConfigFor, judgeConfigFrom } from "@/lib/ai/provider";
 
 const ADMIN_ID = process.env.ADMIN_USER_ID || "";
 
@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
   // prove the credentials the pipeline will actually use.
   const aiConfig = aiConfigFor("digest");
   const model = aiConfig.model || "(provider default)";
+  const judgeConfig = judgeConfigFrom(aiConfig);
+  const judgeModel = judgeConfig.model || "(provider default)";
 
   if (!aiConfig.apiKey) {
     return NextResponse.json({
@@ -31,13 +33,22 @@ export async function GET(req: NextRequest) {
       "Reply with exactly: pong",
       "ping"
     );
+    const judgeText = judgeModel === model
+      ? text
+      : await aiComplete(
+        judgeConfig,
+        "Reply with exactly: pong",
+        "ping"
+      );
 
     return NextResponse.json({
       ok: true,
       provider: aiConfig.provider,
       model,
+      judgeModel,
       hasKey: true,
       response: text.trim(),
+      judgeResponse: judgeText.trim(),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -45,6 +56,7 @@ export async function GET(req: NextRequest) {
       ok: false,
       provider: aiConfig.provider,
       model,
+      judgeModel,
       hasKey: true,
       error: message,
     }, { status: 500 });
