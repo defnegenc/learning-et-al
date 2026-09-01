@@ -23,13 +23,13 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `ADMIN_USER_ID` — User ID whose digest is shown to logged-out visitors
 - `CRON_AI_KEY` — API key used by cron for server-side digest generation
 - `CRON_AI_PROVIDER` — Provider for cron (`gemini`, `anthropic`, `openai`, or `other`). If unset, the code currently falls back to `gemini`; do not treat that fallback as proof of the live Vercel configuration.
-- `CRON_AI_MODEL` — Model for cron. If unset, the code chooses a provider default; if set in Vercel, the value is masked and must be verified/replaced in Vercel directly.
+- `CRON_AI_MODEL` - Model for cron. If unset, the code chooses a provider default; if set in Vercel, the value is masked and must be verified/replaced in Vercel directly. A model ID clearly belonging to another provider is ignored in favor of the current provider's default.
 - `RESEND_API_KEY` — Resend API key for digest emails
 - `INVITE_CODE` — Optional invite code for gated access
 - `EMBEDDING_MODEL` — Optional override (default: `all-MiniLM-L6-v2`, alt: `bge-small-en-v1.5`)
 - `FONTS_BASE_URL`: Private URL prefix serving the Cabinet Grotesk files at `$FONTS_BASE_URL/<filename>`. They are gitignored (Fontshare's license forbids redistribution in a public repo); `scripts/fetch-fonts.mjs` downloads any that are missing before `next build`. Unset = build proceeds with system-font fallbacks. Hanken Grotesk needs no fetching (next/font + one committed OFL ttf for the OG image). See `public/fonts/README.md`.
 - `AI_MODEL_DIGEST` / `AI_MODEL_COMPANION` / `AI_MODEL_DIG` / `AI_MODEL_CHAT` / `AI_MODEL_METADATA` / `AI_MODEL_HEALTHCHECK` — Optional per-task model overrides. Each falls back to `CRON_AI_MODEL`, then the provider default. Set one to move a single kind of work onto a cheaper or better model without a deploy. See `aiConfigFor()` in `src/lib/ai/provider.ts`.
-- `AI_MODEL_DIGEST_JUDGE` — Optional. Model for the digest pipeline's *judgment and extraction* calls only (cold reads, the Step 4b re-rank, the foundational gate, Stage A metadata, the gist). Same provider and key as the run; model only. Unset = identical to the run's config, i.e. no change. Point it at a flash-class model **on the same provider as the live `CRON_AI_PROVIDER`** to cut judge latency; it is also the instant rollback. See `judgeConfigFrom()` in `src/lib/ai/provider.ts`.
+- `AI_MODEL_DIGEST_JUDGE` - Optional. Model for the digest pipeline's *judgment and extraction* calls only (cold reads, the Step 4b re-rank, the foundational gate, Stage A metadata, the gist). Same provider and key as the run; model only. Unset = identical to the run's config, i.e. no change. Point it at a flash-class model **on the same provider as the live `CRON_AI_PROVIDER`** to cut judge latency; it is also the instant rollback. A model ID clearly belonging to another provider is ignored so a stale override cannot break generation after a provider switch. See `judgeConfigFrom()` in `src/lib/ai/provider.ts`.
 
 ## Architecture
 ```

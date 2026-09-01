@@ -36,6 +36,35 @@ function getDefaultModel(provider: AIConfig["provider"]) {
   }
 }
 
+/** Identify model families whose provider is unambiguous from the model ID. */
+function knownModelProvider(model: string): AIConfig["provider"] | null {
+  const normalized = model.trim().toLowerCase();
+  if (normalized.startsWith("claude-")) return "anthropic";
+  if (normalized.startsWith("gemini-")) return "gemini";
+  if (/^(gpt-|chatgpt-|o[134](?:-|$))/.test(normalized)) return "openai";
+  return null;
+}
+
+function modelMatchesProvider(provider: AIConfig["provider"], model: string): boolean {
+  const knownProvider = knownModelProvider(model);
+  return provider === "other" || knownProvider === null || knownProvider === provider;
+}
+
+function modelForProvider(
+  provider: AIConfig["provider"],
+  candidates: Array<{ model: string | undefined; source: string }>,
+): string {
+  for (const candidate of candidates) {
+    const model = candidate.model?.trim();
+    if (!model) continue;
+    if (modelMatchesProvider(provider, model)) return model;
+    console.warn(
+      `[AI] Ignoring ${candidate.source} model "${model}" because it does not match provider "${provider}".`,
+    );
+  }
+  return getDefaultModel(provider);
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Task routing
    ──────────────────────────────────────────────────────────────────────────── */
@@ -87,7 +116,10 @@ export function aiConfigFor(task: AITask): AIConfig {
   return {
     apiKey: process.env.CRON_AI_KEY || "",
     provider,
-    model: process.env[TASK_ENV[task]] || process.env.CRON_AI_MODEL || getDefaultModel(provider),
+    model: modelForProvider(provider, [
+      { model: process.env[TASK_ENV[task]], source: TASK_ENV[task] },
+      { model: process.env.CRON_AI_MODEL, source: "CRON_AI_MODEL" },
+    ]),
     baseUrl: process.env.CRON_AI_BASE_URL || "",
   };
 }
@@ -110,7 +142,14 @@ export function aiConfigFor(task: AITask): AIConfig {
  */
 export function judgeConfigFrom(cfg: AIConfig): AIConfig {
   const model = process.env.AI_MODEL_DIGEST_JUDGE?.trim();
-  return model ? { ...cfg, model } : cfg;
+  if (!model) return cfg;
+  if (!modelMatchesProvider(cfg.provider, model)) {
+    console.warn(
+      `[AI] Ignoring AI_MODEL_DIGEST_JUDGE model "${model}" because it does not match provider "${cfg.provider}".`,
+    );
+    return cfg;
+  }
+  return { ...cfg, model };
 }
 
 async function sleep(ms: number) {
