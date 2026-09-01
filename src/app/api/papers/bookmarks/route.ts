@@ -6,7 +6,7 @@ import { getAuthUser } from "@/lib/get-user";
 
 export async function GET(req: NextRequest) {
   const userId = await getAuthUser(req);
-  if (!userId) return NextResponse.json({ ids: [] });
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const rows = await db.query.feedback.findMany({
     where: and(eq(feedback.userId, userId), eq(feedback.type, "star")),
     columns: { paperId: true },
