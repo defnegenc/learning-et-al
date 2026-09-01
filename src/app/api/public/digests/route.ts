@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, or, isNull } from "drizzle-orm";
 
 export async function GET() {
   const adminId = process.env.ADMIN_USER_ID;
@@ -11,7 +11,7 @@ export async function GET() {
     const rows = await db
       .select({ id: digests.id, date: digests.date, theme: digests.theme })
       .from(digests)
-      .where(eq(digests.userId, adminId))
+      .where(and(eq(digests.userId, adminId), or(isNull(digests.hidden), eq(digests.hidden, false))))
       .orderBy(desc(digests.date))
       .limit(30);
 

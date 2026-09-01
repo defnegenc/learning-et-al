@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
-import { eq, desc, asc, and } from "drizzle-orm";
+import { eq, desc, asc, and, or, isNull } from "drizzle-orm";
 import { LIST_COLUMNS, attachNewsFullText } from "@/lib/db/paper-payload";
 
 /**
@@ -29,7 +29,13 @@ export async function GET(req: NextRequest) {
           where: and(eq(digests.id, digestId), eq(digests.userId, adminId)),
         })
       : await db.query.digests.findFirst({
-          where: eq(digests.userId, adminId),
+          // A hidden digest is one the admin rejected mid-regeneration; the
+          // logged-out homepage must not serve it while the replacement runs.
+          // (Direct ?digestId= permalinks stay reachable on purpose.)
+          where: and(
+            eq(digests.userId, adminId),
+            or(isNull(digests.hidden), eq(digests.hidden, false)),
+          ),
           orderBy: desc(digests.createdAt),
         });
 
@@ -45,13 +51,22 @@ export async function GET(req: NextRequest) {
       }),
     );
 
+    // Whitelist, never spread: the row also carries the owner's userId, private
+    // notes, seedInterests profile, and pipeline debug fields (workingTheme,
+    // themeCandidates, searchQueries). None of that belongs on an
+    // unauthenticated endpoint.
     return NextResponse.json({
       digest: {
-        ...digest,
+        id: digest.id,
+        date: digest.date,
+        theme: digest.theme,
+        synthesisContent: digest.synthesisContent,
+        gist: digest.gist,
+        starred: digest.starred,
+        createdAt: digest.createdAt,
         keyConcepts: digest.keyConcepts ? JSON.parse(digest.keyConcepts) : [],
         suggestedQuestions: digest.suggestedQuestions ? JSON.parse(digest.suggestedQuestions) : [],
         suggestedAnswers: digest.suggestedAnswers ? JSON.parse(digest.suggestedAnswers) : [],
-        seedInterests: digest.seedInterests ? JSON.parse(digest.seedInterests) : [],
       },
       papers: digestPapers.map((p) => ({
         ...p,
