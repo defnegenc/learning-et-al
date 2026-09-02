@@ -130,7 +130,7 @@ export function selectionSkeletonPrompt(candidates: PaperListing[], theme: strin
   // It must not override the relevance gate below — a paper this reader would
   // love is still wrong if it isn't about the theme.
   const taste = dossier?.trim()
-    ? `\nWHO YOU ARE PICKING FOR — a working note on this reader, from what they have saved, skipped, asked about and complained about:
+    ? `\nWHO YOU ARE PICKING FOR. The librarian keeps a note on this reader, built from what they have saved, skipped, asked about and complained about. It is addressed to them, so every "you" inside the quotes is the READER and never you; the **marks** are emphasis for their copy of it, so read through them.
 """
 ${dossier.trim()}
 """

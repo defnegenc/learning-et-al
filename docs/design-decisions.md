@@ -1991,3 +1991,56 @@ needs near-white highlights to read as metal, and a band of near white behind
 13px type is the one thing on a card you cannot read, so the fill has to be pale
 champagne with `GOLD` itself as the edge. What decided it against the tab is that
 the tab is still a label, and a label is the thing being removed.
+
+---
+
+## The librarian's note, 2026-09-02: addressed to you, and short
+
+The note shipped as ~300 words of third-person prose ("This reader tends to
+save..."), which is the right form for the selection prompt and the wrong form
+for the one screen it was built to be read on. Two changes, one argument.
+
+**Second person, because the panel exists to be disagreed with.** The reason the
+dossier is shown at all is that a taste model nobody can inspect is one nobody
+can correct. "This reader tends to save methods papers" is a file being kept on
+somebody: it takes a beat to work out that the reader is the subject, and the
+register invites reading it as a document rather than as a claim. "You save
+methods papers" is a sentence you either nod at or object to on sight, and
+objecting is the entire mechanism, since the panel is read-only and the way to
+move the note is to save, skip and complain.
+
+It costs the selection prompt nothing. The note arrives quoted and labelled, and
+the `WHO YOU ARE PICKING FOR` block now says outright that every "you" inside the
+quotes is the reader and never the model.
+
+**Ninety words, not three hundred.** The long version covered four areas and
+hedged each one. Three hundred words of hedged prose is not more information than
+ninety, it is the same information the reader will not finish, and the thing it
+feeds is a tie-break between papers that already passed the relevance gate: that
+wants specifics, not coverage. Complaints drop out of the required list, because
+a complaint that mattered shows up in what gets walked past anyway.
+
+**Marks, in the keyword index.** The note bolds up to four phrases and the panel
+draws them the way a paper card draws its claim: a spectrum fill behind bold
+weight, `boxDecorationBreak: clone` so a wrapped phrase keeps its highlight on
+both lines. The hue is `wordSlot`, so a phrase in the note is the same colour as
+the cluster tag above it that names the same thing. The tags now tint on the
+label alone: hashing "sleep · 4" gave a different slot from "sleep", so the match
+had never landed. The prompt asks for four marks and `MAX_MARKS` enforces four,
+so a model that bolds ten things degrades to plain weight rather than confetti.
+A rule in the prompt and a mechanism after it, as with the banned words.
+
+**The em dash finally has a mechanism.** It was a prompt line in eleven files and
+a scrub in none, which is the arrangement that ships violations. `EM_DASH_RULE`
+and `stripEmDashes` now sit beside the banned words in
+`src/lib/ai/banned-words.ts` with the same three layers, and the note runs
+through both scrubs on its way into the row. A dash between clauses becomes a
+comma; one that already sits next to punctuation is dropped instead, so a dash
+following a comma cannot leave two commas behind.
+En dashes in numeric ranges are untouched. The other ten prompts keep their
+prompt line for now and are the obvious next thing to wire in.
+
+**Existing notes are left alone.** A row written in the old voice renders in the
+old voice until it is rewritten, which happens at five new signals, at seven
+days, or immediately on "Rewrite it". Backfilling would have meant a model call
+per reader to repair copy that expires on its own inside a week.

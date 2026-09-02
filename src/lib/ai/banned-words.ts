@@ -8,7 +8,7 @@
  * carried the list at all, so the one line the reader sees first had no rule to
  * break.
  *
- * Same three-layer shape as the em-dash ban:
+ * Three layers, and the em-dash ban at the foot of this file has the same three:
  *   1. `BANNED_WORDS_RULE` goes into every prompt that writes reader-facing copy.
  *   2. `bannedWordsIn` is a deterministic gate on the headline, so a violating
  *      candidate is rejected and repaired before anything else runs.
@@ -79,4 +79,40 @@ export function stripBannedWords(text: string): string {
 /** `stripBannedWords` for a value that may be absent. Nulls stay null. */
 export function stripBannedWordsMaybe<T extends string | null | undefined>(text: T): T {
   return text ? (stripBannedWords(text) as T) : text;
+}
+
+/* ── The em dash ─────────────────────────────────────────────────────────── */
+
+/**
+ * The em dash ban, given the same three layers as the words above.
+ *
+ * It was a prompt line in eleven places and a mechanism in none, which is
+ * exactly the arrangement that ships violations: eleven chances for a model to
+ * forget and no chance to catch it afterwards. `EM_DASH_RULE` is the prompt
+ * line and `stripEmDashes` is the net under it.
+ *
+ * En dashes in numeric ranges are untouched; only U+2014 is.
+ */
+const EM_DASH = "—";
+
+/** The prompt line. Interpolate it; never restate it by hand. */
+export const EM_DASH_RULE =
+  `COPY RULE: never write an em dash (${EM_DASH}). Use a comma, a period, a colon, or parentheses instead.`;
+
+/**
+ * The same text with every em dash replaced by punctuation that reads.
+ *
+ * A dash between clauses becomes a comma, which is grammatical wherever the
+ * dash was; one that sits next to punctuation already carrying the pause is
+ * dropped instead, so ", ${EM_DASH}" never becomes ", ,".
+ */
+export function stripEmDashes(text: string): string {
+  if (!text || !text.includes(EM_DASH)) return text;
+  return text
+    .replace(/(^|\n)[ \t]*—[ \t]*/g, "$1")
+    .replace(/([,;:.!?])[ \t]*—[ \t]*/g, "$1 ")
+    .replace(/[ \t]*—[ \t]*([,;:.!?])/g, "$1")
+    .replace(/[ \t]*—[ \t]*/g, ", ")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }

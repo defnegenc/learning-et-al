@@ -397,8 +397,12 @@ rewrite on its own.
 
 Two representations come out, used in two places and nowhere else:
 
-1. **~300 words of prose** → the Step 3b selection prompt. Prose because it is
-   inspectable, survives schema drift, and is the form the model can use.
+1. **Under 90 words of prose, written to the reader in the second person** →
+   the Step 3b selection prompt, and `Settings → Librarian`. Prose because it is
+   inspectable, survives schema drift, and is the form the model can use. The
+   selection block names who "you" refers to, so the note's second person can
+   never be read as an instruction to the model. (Was ~300 words in the third
+   person until 2026-09-02.)
 2. **Embedding centroids of saved papers**, greedily clustered (join at cosine
    0.45, ≤5 clusters) → the `tasteBoost` in Step 3. Never one global average.
 

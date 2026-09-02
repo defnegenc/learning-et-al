@@ -93,9 +93,13 @@ Theme-first, not paper-first. Every digest starts with a provocative **central q
   comma, period, colon, semicolon, parentheses, or different sentence structure.
   Before sending or saving generated text, scan for U+2014 and replace every
   occurrence. Do not reproduce it inside quotations. There are no automatic
-  exceptions. En dashes in numeric ranges are still allowed. `aiComplete`
-  sanitizes survivors (see docs/plans/reading-view-revamp.md, "Global copy
-  rule").
+  exceptions. En dashes in numeric ranges are still allowed. `aiComplete` does
+  NOT sanitize survivors, whatever docs/plans/reading-view-revamp.md ("Global
+  copy rule") says. The mechanism is `EM_DASH_RULE` and `stripEmDashes` in
+  `src/lib/ai/banned-words.ts`: put the rule in the prompt, run the scrub on the
+  copy's way into the database. Wired into the librarian's note; every other
+  prompt still carries the rule and nothing under it, so when you touch one of
+  those paths, add the scrub.
 - **Never write "quietly" or "silently" in generated copy.** Same standing as
   the em dash rule, and it covers everything a reader sees: the digest headline,
   the gist, synthesis prose, card summaries, findings, takeaways, key-concept

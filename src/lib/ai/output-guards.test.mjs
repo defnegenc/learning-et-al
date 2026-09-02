@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "./output-guards.ts";
+import { stripEmDashes } from "./banned-words.ts";
 
 test("accepts direct questions and setup-plus-question headlines", () => {
   assert.deepEqual(themeQuestionProblems("Who's liable when a government AI agent fails?"), []);
@@ -35,4 +36,18 @@ test("rejects the empty metadata fallback before a raw abstract can publish", ()
     methodType: "Literature review",
     claim: "Writing detectors should not be trusted on their own.",
   }, 1), []);
+});
+
+test("replaces em dashes with punctuation that reads", () => {
+  assert.equal(stripEmDashes("You save methods papers — the ones with a protocol."),
+    "You save methods papers, the ones with a protocol.");
+  assert.equal(stripEmDashes("The answer — yes — is in the appendix."),
+    "The answer, yes, is in the appendix.");
+  assert.equal(stripEmDashes("You skip the surveys, — every time."),
+    "You skip the surveys, every time.");
+  assert.equal(stripEmDashes("You read closely—and slowly."), "You read closely, and slowly.");
+  assert.equal(stripEmDashes("— You walk past the reviews."), "You walk past the reviews.");
+  assert.equal(stripEmDashes("Effects held over 2019\u20132024."), "Effects held over 2019\u20132024.");
+  assert.equal(stripEmDashes("Nothing to change here."), "Nothing to change here.");
+  assert.equal(stripEmDashes(""), "");
 });

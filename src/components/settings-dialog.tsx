@@ -14,7 +14,7 @@ import type { S2Field } from "@/lib/field-hierarchy";
 import { InterestLedger, MAX_INTERESTS, type CustomTopics } from "@/components/interest-ledger";
 import {
   ACID_GREEN, ActionButton, BODY_STYLE, DIM, DISPLAY_SM, FIELD, HAIRLINE, INK,
-  MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE, Tag,
+  MUTED, PageTitle, SectionLabel, Segmented, SiteHeader, SURFACE, Tag, wordSlot,
 } from "@/components/design-system";
 
 export type SettingsTab = "interests" | "librarian" | "account";
@@ -50,14 +50,74 @@ interface Dossier {
 }
 
 /**
- * What your librarian thinks you like.
+ * The most marked phrases the note is allowed to draw.
  *
- * The dossier is a working note the librarian rewrites from what you save, skip,
+ * The prompt asks for at most four and the fill is loud enough that ten would
+ * read as confetti rather than emphasis, so the cap is enforced here too: past
+ * the fourth, a marked phrase keeps its weight and loses its hue. A rule in the
+ * prompt and a mechanism after it, the same shape as the banned-words ban.
+ */
+const MAX_MARKS = 4;
+
+/**
+ * The note's `**marked**` phrases, drawn the way a paper card draws its claim:
+ * a spectrum fill behind bold weight, cloned across a line break so a phrase
+ * that wraps keeps its highlight on both lines.
+ *
+ * The hue is `wordSlot`, the keyword index, so a phrase in the note is the same
+ * colour as the cluster tag above it that names the same thing, and the same
+ * colour that concept wears anywhere else in the product.
+ */
+function TheNote({ text }: { text: string }) {
+  // Counted across the whole note, not per paragraph: four marks in each of
+  // three paragraphs is twelve marks, which is the thing the cap exists to stop.
+  let drawn = 0;
+  const draw = (para: string) =>
+    para.split(/\*\*(.+?)\*\*/g).map((part, i) => {
+      if (!part) return null;
+      if (i % 2 === 0) return <span key={i}>{part}</span>;
+      const hue = drawn++ < MAX_MARKS ? wordSlot(part) : undefined;
+      return (
+        <strong
+          key={i}
+          style={{
+            fontWeight: 600,
+            background: hue,
+            padding: hue ? "1px 4px" : undefined,
+            boxDecorationBreak: "clone",
+            WebkitBoxDecorationBreak: "clone",
+          }}
+        >
+          {part}
+        </strong>
+      );
+    });
+
+  return (
+    <>
+      {text.split(/\n{2,}/).map(para => para.trim()).filter(Boolean).map((para, i) => (
+        <p key={i} style={{ ...BODY_STYLE, margin: "0 0 14px", maxWidth: 560 }}>
+          {draw(para)}
+        </p>
+      ))}
+    </>
+  );
+}
+
+/**
+ * What your librarian has worked out about you.
+ *
+ * The dossier is a short note the librarian rewrites from what you save, skip,
  * ask about and complain about, and it is fed to the step that chooses each
  * day's papers. Showing it is not a nicety: a reader who can see what the
  * product concluded about them can tell when it is wrong, and a taste model
- * nobody can inspect is one nobody can trust. Read-only for now — the way to
- * correct it is to save, skip and complain, which is also the way it was built.
+ * nobody can inspect is one nobody can trust.
+ *
+ * Which is also why it is addressed to you and why it is short. "This reader
+ * tends to save…" is a file being kept on somebody; "You save…" is a claim you
+ * can disagree with on sight, and disagreeing is the only correction there is,
+ * since the panel is read-only and the way to move the note is to save, skip and
+ * complain, which is the way it was built.
  */
 function LibrarianPanel() {
   const [data, setData] = useState<Dossier | null>(null);
@@ -95,9 +155,8 @@ function LibrarianPanel() {
     <div className="flex-1 overflow-y-auto px-4 py-5 md:px-10 md:py-8">
       <PageTitle style={{ marginBottom: 12 }}>Your librarian</PageTitle>
       <p style={{ ...BODY_STYLE, color: DIM, maxWidth: 560, margin: "0 0 28px" }}>
-        A note it keeps on you, from what you save, what you scroll past, and what
-        you ask once you are reading. It is what breaks the tie when two papers
-        are equally good.
+        What it has worked out about you, from what you save, skip and ask about.
+        It breaks the tie when two papers are equally good.
       </p>
 
       {loading ? (
@@ -107,24 +166,23 @@ function LibrarianPanel() {
           <div style={{ ...DISPLAY_SM, marginBottom: 8 }}>Nothing written yet</div>
           <p style={{ ...BODY_STYLE, color: MUTED, maxWidth: 520, margin: 0 }}>
             Save a few papers and ask a few questions. Once there is enough to go
-            on, the note appears here — and starts shaping what you are sent.
+            on, the note appears here and starts shaping what you are sent.
           </p>
         </div>
       ) : (
         <>
           {data.clusters.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {/* Tinted by the label alone. Left to hash the whole string, the
+                  count would move the hue and a cluster would stop matching the
+                  same words marked in the note below it. */}
               {data.clusters.map(c => (
-                <Tag key={c.label} label={`${c.label} · ${c.count}`} />
+                <Tag key={c.label} label={`${c.label} · ${c.count}`} tint={wordSlot(c.label)} />
               ))}
             </div>
           )}
 
-          {data.dossier.split(/\n{2,}/).map((para, i) => (
-            <p key={i} style={{ ...BODY_STYLE, margin: i === 0 ? "0 0 16px" : "0 0 16px", maxWidth: 620 }}>
-              {para.trim()}
-            </p>
-          ))}
+          <TheNote text={data.dossier} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginTop: 24, paddingTop: 20, borderTop: HAIRLINE }}>
             <span style={{ ...BODY_STYLE, color: MUTED }}>
