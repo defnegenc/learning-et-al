@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { PaperItem } from "@/lib/types";
 import { flattenSynthesis, resolvePaperFromBold, splitSynthesisTheme } from "./synthesis-text";
 import { PaperCard, paperByline } from "@/components/paper-card";
@@ -289,11 +289,30 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
   }
   flush();
 
+  // Advancing past a stop reveals the next source below the fold; scroll it
+  // into view or the button just relabels while the new card sits offscreen.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const revealedCountRef = useRef(0);
+  const [pendingScroll, setPendingScroll] = useState(false);
+  const advanceStep = () => {
+    revealedCountRef.current = els.length;
+    setPendingScroll(true);
+    setStep((s) => s + 1);
+  };
+  useEffect(() => {
+    if (!pendingScroll) return;
+    setPendingScroll(false);
+    const target = containerRef.current?.children[revealedCountRef.current];
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [pendingScroll, step]);
+
   return (
-    <div>
+    <div ref={containerRef}>
       <style>{`
         @keyframes briefRise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
-        .brief-line { animation: briefRise 0.4s ease both; }
+        .brief-line { animation: briefRise 0.4s ease both; scroll-margin-top: 96px; }
         @media (prefers-reduced-motion: reduce) { .brief-line { animation: none; } }
       `}</style>
 
@@ -302,7 +321,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
       {/* User-paced: reveal one source at a time, then straight into dig deeper */}
       {!allRevealed && (
         <div className="brief-line" style={{ marginTop: 24 }}>
-          <ActionButton onClick={() => setStep((s) => s + 1)}>
+          <ActionButton onClick={advanceStep}>
             {nextPaperName ? `Next: ${nextPaperName}` : anySourceRevealed ? "Next source" : "Reveal first source →"}
           </ActionButton>
         </div>
