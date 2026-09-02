@@ -60,11 +60,12 @@ const PAPER: PaperItem = {
 const MARK = foundationalSlots()[0];
 
 /**
- * The gold tab needs a second, darker gold for its own edge: a 2px `GOLD` border
- * around a `GOLD` fill is not a border. This is the one place it exists, and if
- * a gold tab ships it belongs in the design system beside `GOLD`, not here.
+ * The tab's fill is a long way lighter than `GOLD` on purpose. Gold at full
+ * strength needs near-white highlights to look like metal, and a band of near
+ * white behind 13px type is the one thing on the card you cannot read. Pale
+ * champagne keeps the ink text at full contrast across every band, and it lets
+ * `GOLD` itself be the tab's edge rather than a second, darker gold.
  */
-const GOLD_DEEP = "#8a6c12";
 
 function emphasize(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
@@ -537,7 +538,7 @@ function GoldTab({ shine, compact = false }: { shine: boolean; compact?: boolean
         top: -13,
         left: compact ? 16 : 20,
         zIndex: 2,
-        border: `2px solid ${GOLD_DEEP}`,
+        border: `2px solid ${GOLD}`,
         padding: "1px 10px",
         display: "inline-flex",
         alignItems: "center",
@@ -588,34 +589,32 @@ function TabGoldCompact({ shine }: { shine: boolean }) {
 /* ── F · In the lead ─────────────────────────────────────────────────────── */
 
 /**
- * The words "Foundational Text", set large in the display face, inside the
- * sentence that does the explaining. There is no tab, no eyebrow, no heading and
- * no second block: the card says what it is in the course of saying why it
- * matters, which is one sentence instead of a label plus a sentence.
+ * The words "Foundational Text" inside the sentence that does the explaining.
+ * There is no tab, no eyebrow, no heading and no second block: the card says what
+ * it is in the course of saying why it matters, which is one sentence instead of
+ * a label plus a sentence.
  *
- * The oversized F and T are the whole mechanism. They make the phrase read as a
- * name for a kind of thing rather than as two ordinary words, at the size the
- * eyebrow used to occupy but inside the prose, and they give the hover
- * definition something to hang on: the phrase carries the ink tooltip the way a
- * hard word in the synthesis does, so the info icon goes too.
+ * The phrase takes the size, face and weight of whatever line it lands in. All it
+ * adds is the capitals, which make it read as the name of a kind of thing rather
+ * than as two ordinary words, and a gold underline, which is what carries the
+ * hover definition. Nothing else is needed: the phrase holds the ink tooltip the
+ * way a hard word in the synthesis does, so the info icon goes too.
  *
  * This one needs the pipeline to write a different sentence. See
  * `foundationalLead` below and the note on the page.
  */
-function BigFT({ size }: { size: number }) {
+function BigFT() {
   const [open, setOpen] = useState(false);
-  const cap: React.CSSProperties = { fontSize: Math.round(size * 1.42) };
   return (
     <span
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       style={{
-        fontFamily: DISPLAY, fontWeight: 700, fontSize: size, letterSpacing: "-0.02em",
-        color: INK, position: "relative", cursor: "help",
+        position: "relative", cursor: "help",
         borderBottom: `2px solid ${GOLD}`, whiteSpace: "nowrap",
       }}
     >
-      <span style={cap}>F</span>oundational <span style={cap}>T</span>ext
+      Foundational Text
       {open && (
         <span style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, pointerEvents: "none" }}>
           <InkTip>
@@ -636,10 +635,10 @@ function BigFT({ size }: { size: number }) {
 const LEAD_PREDICATE =
   "turned a hunch about gossip into a measurable property of networks, and nearly every later argument about how information moves through a crowd is answering it.";
 
-function Lead({ size }: { size: number }) {
+function Lead() {
   return (
     <>
-      This <BigFT size={size} />, written in {PAPER.year}, {LEAD_PREDICATE}
+      This <BigFT />, written in {PAPER.year}, {LEAD_PREDICATE}
     </>
   );
 }
@@ -650,7 +649,7 @@ function InTheLead() {
       <div>
         <Title />
         <Byline />
-        <p style={{ ...HERO, marginTop: 14 }}><Lead size={22} /></p>
+        <p style={{ ...HERO, marginTop: 14 }}><Lead /></p>
         <p style={{ ...BODY_STYLE, color: DIM, margin: "12px 0 0" }}>{PAPER.summary}</p>
       </div>
       <Body />
@@ -664,7 +663,7 @@ function InTheLeadCompact() {
     <CompactShell>
       <CompactHead />
       <Byline />
-      <p style={{ ...BODY_STYLE, margin: "4px 0 0", ...CLAMP }}><Lead size={15} /></p>
+      <p style={{ ...BODY_STYLE, margin: "4px 0 0", ...CLAMP }}><Lead /></p>
     </CompactShell>
   );
 }
@@ -812,15 +811,15 @@ export default function FoundationalPrototypes() {
         .proto-split > section + section { border-left: ${BORDER}; padding-left: 24px; }
         .proto-shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
         .proto-tab-flat {
-          background: linear-gradient(180deg, #fdf1c4 0%, #e7c765 44%, #b8901f 52%, #d9b850 78%, #f3e3a6 100%);
+          background: linear-gradient(180deg, #fdf6dd 0%, #f2e2ae 46%, #e6d094 54%, #f7ecc6 100%);
         }
         .proto-tab-shine {
           background: linear-gradient(100deg,
-            #a8811a 0%, #d9b34a 9%, #fff8d8 17%, #d9b34a 25%,
-            #b8901f 36%, #fdf3c8 46%, #c9a227 56%,
-            #8f6f14 68%, #edd88f 80%, #c9a227 92%, #a8811a 100%);
+            #eddfae 0%, #f7edc9 11%, #fdf8e4 21%, #f5e9c0 31%,
+            #e9dba6 44%, #fcf6df 57%, #f3e6bb 69%,
+            #e7d79f 82%, #f1e4b6 100%);
           background-size: 320% 100%;
-          animation: proto-sheen 4.5s linear infinite;
+          animation: proto-sheen 16s linear infinite;
         }
         @keyframes proto-sheen {
           from { background-position: 0% 0; }
