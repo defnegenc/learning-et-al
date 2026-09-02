@@ -1939,3 +1939,55 @@ sentence. It is a control in the page's own bar now, and that bar is sticky
 under the site header, so it is in the same corner at every scroll position.
 Adding a word with `+ Glossary` opens it; Escape closes it along with everything
 else.
+
+---
+
+## The foundational card, 2026-09-02
+
+**The label and the explanation are one sentence now.** The card carried a mono
+all-caps FOUNDATIONAL TEXT eyebrow at the top left, an info eye beside it, and a
+tinted **Significance** panel with a Display/SM heading under the hero. That is a
+Label and a second heading wrapped around one sentence, on a card that already
+has a title, a byline, a hero, findings, a takeaway and a button. Both are
+deleted. The gate's reason takes the hero's place and is written as something
+spoken: *"Today you have a Foundational Text: this is the one that turned a hunch
+about gossip into a measurable property of networks."* The paper's own summary
+drops to Body 15 underneath, because on a foundational card the line worth
+setting large is why it still matters, not what it says.
+
+**The eyebrow was redundant with the frame.** Gold border, gold shadow and the
+fixed 02+01 wash already say which card this is, three times, before any type is
+read. Saying it a fourth time in mono capitals is the product labelling its own
+categories at the reader.
+
+**The phrase is the treatment.** "Foundational Text", capital F and capital T,
+wherever it falls in that line, with a 2px gold underline and the same `InkTip`
+a hard word in the synthesis opens. That retires the info eye: the definition
+now hangs on the words being defined, which is where the product already puts
+definitions. Capitals and an underline, nothing else. An earlier version set the
+F and the T at 1.42x the surrounding size and it read as decoration rather than
+as a term.
+
+**A phrase that carries a treatment cannot be left to a prompt.** The
+`pickFoundational` gate is asked for the phrase and given five worked openings,
+but a model that forgets it would take the label off the card entirely.
+`foundationalLead()` recases a lower-case "foundational text" in place and puts
+the plainest of the five openings in front of a line that has none. Same shape as
+the em-dash and banned-words bans: a rule in the prompt, a mechanism after it.
+`foundationalReason` also joins the `stripBannedWordsMaybe` list on insert, which
+it had never been on, and it is now the loudest copy on the card.
+
+**The shelf says something too.** A foundational paper in the vault used to be a
+gold frame and nothing else, since the compact card never rendered the reason.
+The lead now takes the preview line's place there.
+
+**Considered and rejected.** Five treatments were built at
+`/prototype/foundational`: a bolded body-face lead-in where the panel was; a
+standfirst behind a gold rule above the title; a footnote sharing the foot of the
+card with Read paper; and a gold folder tab straddling the top border, in an
+outlined version and two filled ones. The tab is the closest runner-up and the
+page keeps it. Its filled version needed a lesson recorded: gold at full strength
+needs near-white highlights to read as metal, and a band of near white behind
+13px type is the one thing on a card you cannot read, so the fill has to be pale
+champagne with `GOLD` itself as the edge. What decided it against the tab is that
+the tab is still a label, and a label is the thing being removed.

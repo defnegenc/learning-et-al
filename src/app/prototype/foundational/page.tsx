@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Bookmark, Info } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
-import { paperByline, READING_BODY } from "@/components/paper-card";
+import { PaperCard, paperByline, READING_BODY } from "@/components/paper-card";
 import {
   BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, MUTED,
   SHADOW, SHADOW_GOLD, SURFACE, foundationalSlots, foundationalWash, InkTip,
@@ -627,29 +627,38 @@ function BigFT() {
 }
 
 /**
- * What the pipeline would return under F: the predicate only, no subject and no
- * date. The card owns "This <phrase>, written in <year>," because the year is
- * already on the paper and the capitalised phrase is a typographic decision, not
- * something a model should be asked to remember to produce.
+ * What the pipeline returns under F: one spoken line containing the phrase once.
+ * Five openings are given to the gate as worked examples, and the card repairs a
+ * line that comes back without the phrase rather than trusting it. Switch the
+ * sample below to see the others.
  */
-const LEAD_PREDICATE =
-  "turned a hunch about gossip into a measurable property of networks, and nearly every later argument about how information moves through a crowd is answering it.";
+const LEADS = [
+  "Today you have a Foundational Text: this is the one that turned a hunch about gossip into a measurable property of networks.",
+  "Foundational Text alert \u{1F440} nearly every argument you have read about how information moves through a crowd is answering this one.",
+  "Guess what? Going back to our roots with a Foundational Text. It is where the idea that acquaintances beat friends for news actually comes from.",
+  "Oh look, today's digest has a Foundational Text! This is where the study of how a rumour crosses a city stopped being a metaphor.",
+  "Back to basics with this Foundational Text: it made \u201cwho you barely know\u201d into something a researcher could measure.",
+];
 
-function Lead() {
+function Lead({ which }: { which: number }) {
+  const text = LEADS[which % LEADS.length];
+  const at = text.indexOf("Foundational Text");
   return (
     <>
-      This <BigFT />, written in {PAPER.year}, {LEAD_PREDICATE}
+      {text.slice(0, at)}
+      <BigFT />
+      {text.slice(at + "Foundational Text".length)}
     </>
   );
 }
 
-function InTheLead() {
+function InTheLead({ leadIndex }: { leadIndex: number }) {
   return (
     <Shell>
       <div>
         <Title />
         <Byline />
-        <p style={{ ...HERO, marginTop: 14 }}><Lead /></p>
+        <p style={{ ...HERO, marginTop: 14 }}><Lead which={leadIndex} /></p>
         <p style={{ ...BODY_STYLE, color: DIM, margin: "12px 0 0" }}>{PAPER.summary}</p>
       </div>
       <Body />
@@ -658,52 +667,38 @@ function InTheLead() {
   );
 }
 
-function InTheLeadCompact() {
+function InTheLeadCompact({ leadIndex }: { leadIndex: number }) {
   return (
     <CompactShell>
       <CompactHead />
       <Byline />
-      <p style={{ ...BODY_STYLE, margin: "4px 0 0", ...CLAMP }}><Lead /></p>
+      <p style={{ ...BODY_STYLE, margin: "4px 0 0", ...CLAMP }}><Lead which={leadIndex} /></p>
     </CompactShell>
   );
 }
 
-/* ── Today, as it ships ──────────────────────────────────────────────────── */
+/* ── The shipped card ────────────────────────────────────────────────────── */
 
-/** The current card, rebuilt here so the comparison is on one page. */
-function Shipped() {
-  return (
-    <Shell>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", lineHeight: "16px", textTransform: "uppercase", color: INK }}>
-            Foundational text
-          </span>
-          <Eye />
-        </span>
-        <Save />
-      </div>
-      <div>
-        <Title withSave={false} />
-        <Byline />
-        <p style={{ ...HERO, marginTop: 4 }}>{PAPER.summary}</p>
-      </div>
-      <section style={{ background: `color-mix(in oklab, ${MARK} 55%, ${SURFACE})`, padding: "14px 16px" }}>
-        <h3 style={{ ...DISPLAY_SM, margin: "0 0 8px" }}>Significance</h3>
-        <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{PAPER.foundationalReason}</p>
-      </section>
-      <Body />
-      <ReadPaper />
-    </Shell>
-  );
+/**
+ * Not a mock: the real `PaperCard`, fed the same sample. F is what ships, so
+ * this is the check that the component and the candidate above it agree.
+ *
+ * The old card is not rebuilt here any more. It was a mono all-caps eyebrow over
+ * a Display/SM heading over a filled panel, and it is gone from the product.
+ */
+function ShippedCard({ lead }: { lead: number }) {
+  return <PaperCard paper={{ ...PAPER, foundationalReason: LEADS[lead % LEADS.length] }} index={0} size="digest" loggedIn />;
 }
 
-function ShippedCompact() {
+function ShippedCardCompact({ lead }: { lead: number }) {
   return (
-    <CompactShell>
-      <CompactHead />
-      <Byline />
-    </CompactShell>
+    <PaperCard
+      paper={{ ...PAPER, foundationalReason: LEADS[lead % LEADS.length] }}
+      index={0}
+      size="compact"
+      loggedIn
+      initialBookmarked
+    />
   );
 }
 
@@ -713,8 +708,9 @@ interface Candidate {
   key: string;
   name: string;
   note: string;
-  digest: () => React.ReactNode;
-  compact: () => React.ReactNode;
+  /** `lead` is which of the five sample openings to draw; only F reads it. */
+  digest: (lead: number) => React.ReactNode;
+  compact: (lead: number) => React.ReactNode;
   /** What the pipeline would have to write differently for this one to work. */
   prompt?: React.ReactNode;
 }
@@ -738,30 +734,28 @@ const CANDIDATES: Candidate[] = [
     key: "F",
     name: "F · In the lead",
     note: "The phrase says it, nothing else does. No tab, no eyebrow, no heading, no second block: \u201cThis Foundational Text, written in 1973, \u2026\u201d, with the F and the T set large in the display face so the phrase reads as the name of a kind of thing. The hover definition hangs on the phrase, the way a hard word in the synthesis does, so the info icon goes too. Needs a prompt change: see the note under this card.",
-    digest: InTheLead,
-    compact: InTheLeadCompact,
+    digest: (lead) => <InTheLead leadIndex={lead} />,
+    compact: (lead) => <InTheLeadCompact leadIndex={lead} />,
     prompt: (
       <>
-        <strong style={{ fontWeight: 600, color: INK }}>Prompt change.</strong>{" "}
-        The gate in <code>pickFoundational</code> currently asks for a whole sentence
-        (&ldquo;one plain-English sentence on why this text changed the field&rdquo;), which
-        arrives with its own subject: &ldquo;This paper showed that&hellip;&rdquo;. F needs the
-        predicate only, so the card can own the subject, the phrase and the year, all
-        three of which it already has. The ask becomes: finish the sentence &ldquo;This
-        Foundational Text, written in 1973, __&rdquo; in at most 25 words, no citation
-        counts, no restating the title. Composing the opening in the card rather than
-        asking a model to produce the capitals is the difference between a rule and a
-        hope. Not applied yet: it would leave every other candidate on this page
-        rendering half a sentence.
+        <strong style={{ fontWeight: 600, color: INK }}>Shipped, with the prompt change.</strong>{" "}
+        The gate in <code>pickFoundational</code> used to ask for &ldquo;one plain-English
+        sentence on why this text changed the field&rdquo;. It now asks for the card&rsquo;s
+        opening line: spoken, warm, two sentences at the outside, containing the exact
+        phrase once, with the five openings above given as worked examples. Because the
+        phrase carries the whole treatment, a line that comes back without it is repaired
+        rather than trusted: <code>foundationalLead</code> recases a lower-case one in
+        place and puts the plainest opening in front of a line that has none. A rule in
+        the prompt and a mechanism after it, same shape as the banned-words ban.
       </>
     ),
   },
   {
     key: "0",
-    name: "As it ships today",
-    note: "The mono all-caps eyebrow, then a Display/SM heading over a tinted panel. Two headings and a filled box for one sentence, on a card that already carries five other blocks. Here for comparison only.",
-    digest: Shipped,
-    compact: ShippedCompact,
+    name: "The shipped card",
+    note: "The real component, not a mock, fed the opening selected above. F is what ships, so this is the check that the card and the candidate agree. The old treatment (mono all-caps eyebrow, Display/SM heading, tinted panel) is gone from the product and is not rebuilt here.",
+    digest: (lead) => <ShippedCard lead={lead} />,
+    compact: (lead) => <ShippedCardCompact lead={lead} />,
   },
   {
     key: "A",
@@ -802,6 +796,7 @@ const CANDIDATES: Candidate[] = [
 
 export default function FoundationalPrototypes() {
   const [only, setOnly] = useState<string | null>(null);
+  const [lead, setLead] = useState(0);
   const shown = only ? CANDIDATES.filter(c => c.key === only) : CANDIDATES;
 
   return (
@@ -851,7 +846,7 @@ export default function FoundationalPrototypes() {
         </p>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 40 }}>
-          {[{ key: "", name: "All" }, ...CANDIDATES.map(c => ({ key: c.key, name: c.key === "0" ? "Today" : c.key }))].map(o => {
+          {[{ key: "", name: "All" }, ...CANDIDATES.map(c => ({ key: c.key, name: c.key === "0" ? "Shipped" : c.key }))].map(o => {
             const active = (only ?? "") === o.key;
             return (
               <button
@@ -865,12 +860,25 @@ export default function FoundationalPrototypes() {
           })}
         </div>
 
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 40 }}>
+          <span style={{ ...BODY_SM, color: DIM, marginRight: 4 }}>F&rsquo;s opening line:</span>
+          {LEADS.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setLead(i)}
+              style={{ ...DISPLAY_SM, padding: "8px 14px", border: BORDER, background: lead === i ? INK : SURFACE, color: lead === i ? SURFACE : INK, cursor: "pointer" }}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: "flex", flexDirection: "column", gap: 64 }}>
           {shown.map(c => (
             <section key={c.key}>
               <h2 style={{ ...DISPLAY_SM, fontSize: 20, margin: "0 0 8px" }}>{c.name}</h2>
               <p style={{ ...BODY_SM, color: DIM, margin: "0 0 22px", maxWidth: 640 }}>{c.note}</p>
-              {c.digest()}
+              {c.digest(lead)}
               {c.prompt && (
                 <p style={{ ...BODY_SM, color: DIM, margin: "18px 0 0", padding: "14px 16px", border: `2px solid ${GOLD}`, maxWidth: 640 }}>
                   {c.prompt}
@@ -878,7 +886,7 @@ export default function FoundationalPrototypes() {
               )}
               <p style={{ ...BODY_SM, color: MUTED, margin: "26px 0 12px" }}>On the vault shelf:</p>
               <div className="proto-shelf">
-                {c.compact()}
+                {c.compact(lead)}
                 <div style={{ border: `2px dashed ${MUTED}`, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, minHeight: 120 }}>
                   <span style={{ ...BODY_SM, color: MUTED, textAlign: "center" }}>
                     an ordinary saved paper sits here

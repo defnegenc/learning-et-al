@@ -139,8 +139,11 @@ const FOUNDATIONAL_MIN_AGE_YEARS = 8;
 const FOUNDATIONAL_MIN_CITATIONS = 500;
 
 /** Foundational-lane LLM gate: is any candidate a genuinely field-defining text for
- *  this theme (not just an old survey)? Returns the pick + a one-sentence plain-English
- *  "why this mattered", or null — null is the expected outcome most days. */
+ *  this theme (not just an old survey)? Returns the pick + the card's spoken lead
+ *  ("Today you have a Foundational Text: ..."), or null. Null is the expected outcome
+ *  most days. The lead has to contain the exact phrase "Foundational Text", which the
+ *  card draws as a defined term; `foundationalLead` in `paper-card.tsx` repairs a line
+ *  that arrives without it. */
 async function pickFoundational(
   aiConfig: AIConfig,
   theme: string,
@@ -160,7 +163,22 @@ A FOUNDATIONAL text set the stage for a whole field of thought — it coined the
 
 Pick AT MOST ONE — only if it is genuinely foundational AND genuinely behind today's question (a reader would feel "oh, THIS is where that whole idea started"). It is completely fine to pick none; most days have none.
 
-Return JSON: {"pick": 1 | null, "reason": "one plain-English sentence on why this text changed the field — written for a smart non-expert, no citation counts"}`
+THE LEAD. On a pick, write the line that opens the card. It is the first thing the reader meets, and it does two jobs at once: it tells them they have a Foundational Text today, and it says in plain English what this one set in motion. Rules:
+- Speak it. Warm, a little delighted, the way you would say it to a friend who reads this over coffee. Then get to the substance.
+- The exact phrase "Foundational Text", capital F and capital T, appears once and only once. The site draws that phrase as a defined term, so it has to be spelled that way.
+- Vary the opening. Do not reach for the same one every day.
+- Written for a smart non-expert: no citation counts, no "seminal", no restating the title, no jargon left undefined.
+- Two sentences at the outside, 40 words at the outside.
+${BANNED_WORDS_RULE}
+
+Openings that work. Match the voice, do not copy the wording:
+- "Today you have a Foundational Text: ..."
+- "Foundational Text alert 👀 ..."
+- "Guess what? Going back to our roots with a Foundational Text. ..."
+- "Oh look, today's digest has a Foundational Text! ..."
+- "Back to basics with this Foundational Text: ..."
+
+Return JSON: {"pick": 1 | null, "reason": "the lead, as described above"}`
   );
   const gate = extractJson<{ pick?: number | null; reason?: string }>(gateResp);
   const pickIdx = gate?.pick;
@@ -2594,7 +2612,7 @@ Return JSON (no markdown fences):
         keyFindings: JSON.stringify((aiItem.findings || []).map(stripBannedWords)),
         connectionReason: stripBannedWordsMaybe(aiItem.connectionToTheme) || null,
         category: item.category,
-        foundationalReason: item.foundationalReason || null,
+        foundationalReason: stripBannedWordsMaybe(item.foundationalReason) || null,
         year: item.year,
         sourceIndex: i,
         openAlexId: item.openAlexId || null,

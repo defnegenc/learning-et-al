@@ -170,9 +170,19 @@ ADDITIVE: it asks "what did today's papers build on?" Two tiers:
 Both tiers end at the same LLM gate on the top ≤3: "genuinely field-defining (Weiser's
 ubiquitous computing essay), or just an old survey?" Picking NONE is the expected outcome
 most days — scarcity is what keeps the gold treatment meaningful (~1-2 per week).
-- On a pick: added as a 4th item with `category: "foundational"` and the gate's one-sentence
-  `foundationalReason` (stored on `papers.foundational_reason`). UI: gold border + ★
-  FOUNDATIONAL chip + reason line on the paper card; gold frame on the papers-mode card.
+- On a pick: added as a 4th item with `category: "foundational"` and the gate's
+  `foundationalReason` (stored on `papers.foundational_reason`, scrubbed by
+  `stripBannedWordsMaybe` on the way in like every other piece of generated copy).
+  **The reason is now the card's opening line, not a footnote to it**: the gate is asked
+  for a spoken, warm, two-sentences-at-most lead that contains the exact phrase
+  "Foundational Text" once, with five worked openings in the prompt ("Today you have a
+  Foundational Text: ...", "Foundational Text alert ...", "Back to basics with this
+  Foundational Text: ..."). UI: gold border and gold shadow, the lead in the hero's place
+  at Display 22 with the phrase drawn as a defined term (gold underline, ink tooltip), and
+  the paper's own summary demoted to Body 15 under it. There is no eyebrow and no
+  Significance panel; the phrase is the label. `foundationalLead()` in `paper-card.tsx`
+  guarantees the phrase is present (recase, or prepend the plainest opening) so a model
+  that forgets it cannot take the label off the card.
 - The synthesis's ERA AWARENESS block (metadataPrompt) already handles decade-old papers:
   acknowledge the era, say why it still matters, one sentence of contrast with today.
 

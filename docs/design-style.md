@@ -215,11 +215,19 @@ the wash index can no longer drift between two files.
 - **Frame:** 2px `#C9A227` with a `5px 5px 0` gold shadow. One gold moment.
 - **Wash:** fixed at slots 02 + 01 rather than taking a position stride — it
   isn't competing for wayfinding, the gold already says which card it is.
-- **Order:** label, title, byline, reason. The reason closes the card behind a
-  2px gold rule.
-- **The eye:** 15px, gold at rest, ink on hover, opening the same ink tooltip
-  used for hard-word definitions. The label stays constant so the lane is
-  recognisable the third time; the eye carries the explanation the first.
+- **Order:** title, byline, lead, summary. There is no eyebrow and no
+  Significance panel: both were removed on 2026-09-02, having put a mono
+  all-caps Label and a Display/SM heading over a filled box around one sentence,
+  on a card that already carries five other blocks.
+- **The lead:** the pipeline's reason, in the hero's place at Display 22. It is
+  written as a spoken line that names the thing while explaining it ("Today you
+  have a Foundational Text: ..."), so the label and the explanation are one
+  sentence. The paper's own summary drops to Body 15 under it.
+- **The phrase:** "Foundational Text", capital F and capital T, drawn as a
+  defined term wherever it falls in that line: a 2px gold underline opening the
+  same `InkTip` used for hard-word definitions. No icon. This is the entire
+  treatment, and `foundationalLead()` guarantees the phrase is in the line
+  before the card tries to draw it.
 
 ---
 
@@ -239,7 +247,7 @@ the wash index can no longer drift between two files.
 | `Tag` | Body-face tag, `glass` \| `solid` |
 | `TopicChip` / `AddChip` | Interest-picker units. Idle white + 2px dashed rule; selected = the field's slot behind a solid ink border |
 | `Segmented` | The one "pick exactly one" shape. Settings navigation is the nav rail, not this — a segmented control reads as a toggle, which is exactly why the vault's Digests / Saved papers switch *is* one |
-| `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye |
+| `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational phrase |
 | `TextInput` | The one input shape |
 | `wash` / `washSlots` / `wordSlot` / `SPECTRUM` | The three spectrum indexes |
 
