@@ -191,14 +191,18 @@ function readableError(config: AIConfig, model: string, e: unknown, maxRetries: 
  * nothing to resolve against. This is the same call with the messages array
  * exposed; `aiComplete` is now the two-message case of it.
  */
-export async function aiChat(config: AIConfig, messages: AIMessage[]): Promise<string> {
+export async function aiChat(config: AIConfig, messages: AIMessage[], options?: { maxTokens?: number }): Promise<string> {
   const client = new OpenAI(getClientConfig(config));
   const model = config.model || getDefaultModel(config.provider);
+  // Full-length prose stages (synthesis draft + revision) run long; every other
+  // call keeps the 4096 default. A truncated draft used to be publishable
+  // mid-sentence — long-form callers pass a budget that fits their output.
+  const maxTokens = options?.maxTokens ?? 4096;
 
   const maxRetries = 2;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const response = await client.chat.completions.create({ model, messages, max_tokens: 4096 });
+      const response = await client.chat.completions.create({ model, messages, max_tokens: maxTokens });
       return response.choices[0]?.message?.content || "";
     } catch (e: unknown) {
       const status = (e as { status?: number }).status;
@@ -243,10 +247,11 @@ export async function* aiChatStream(config: AIConfig, messages: AIMessage[]): As
 export async function aiComplete(
   config: AIConfig,
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  options?: { maxTokens?: number }
 ): Promise<string> {
   return aiChat(config, [
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt },
-  ]);
+  ], options);
 }
