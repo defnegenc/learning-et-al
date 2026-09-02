@@ -12,7 +12,9 @@ export async function GET() {
       .select({ id: digests.id, date: digests.date, theme: digests.theme })
       .from(digests)
       .where(and(eq(digests.userId, adminId), or(isNull(digests.hidden), eq(digests.hidden, false))))
-      .orderBy(desc(digests.date))
+      // Same rule the homepage's featured pick uses (newest created first),
+      // so the archive's first entry for a date IS the edition the homepage showed.
+      .orderBy(desc(digests.date), desc(digests.createdAt))
       .limit(30);
 
     // Same list for every logged-out visitor — cacheable at the CDN.
