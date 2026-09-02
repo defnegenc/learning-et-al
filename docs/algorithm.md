@@ -228,6 +228,8 @@ Five stages based on research (Radev 2000, Yao 2023, Madaan 2023). Stages A and 
 concurrently; the factual pass is folded into Stage D, and the coverage gate and format
 enforcement are one repair (both merged 2026-08-20).
 
+Stage A metadata is also a publishing contract. A malformed batch response no longer becomes empty rows. Each missing, incomplete, duplicated, or source-disconnected paper item gets one independent repair call, with repairs running concurrently. If any required card field is still invalid, generation stops before storage. The digest UI never promotes a source abstract into generated card copy; legacy rows without metadata keep their synthesis passage visible beside a minimal source card.
+
 **Stage A: Metadata** (AI call 8, judge tier, fires **concurrently with Stage B**) — per-paper summaries, keywords, findings, connectionToTheme, **plainName** (plain-language paper name shown on cards above the academic title), **takeaway** (`hook` = the one surprise, `stat` = concrete anchor or null, `line` = a distinct conversational implication — powers Conversational Papers; hook/stat/line may not paraphrase one another), **methodType/methodFacts/claim** (what the source IS — "Field study", "Opinion piece", "News feature" — plus 2-3 short how-they-did-it facts and the one-sentence central claim; these fill the card's themed See-more tiles), keyConcepts, suggestedQuestions. `plainName` must distinguish the source rather than restate the digest headline or takeaway. Scripted-casual filler ("So you'd think", "Turns out", "It's kind of like", "which sounds obvious") is explicitly banned; clarity and evidence supply the voice. Uses `metadataPrompt`. keyConcepts now aggressively captures jargon a non-expert trips on — model/system names (RoBERTa, DistilBERT), technical methods (subword tokenization, self-attention), and acronyms (EEG, NLP) — so the synthesis hover-definitions actually fire on scary words.
 
 **Stage B: Argument Skeleton** (AI call 9, fires **concurrently with Stage A**) — cross-document relations (agrees/contradicts/extends/alternative_mechanism/unrelated), paper roles, core tension, argument arc. Uses `skeletonPrompt`.
@@ -282,7 +284,7 @@ picturable noun, so titles are graspable, not just punchy.
 
 ---
 
-## Total AI Calls Per Digest: 8-14
+## Total AI Calls Per Digest: 8-18
 
 "Tier" is which model the call runs on: **strong** = the run's `aiConfig` (taste- or
 knowledge-critical), **judge** = `judgeConfigFrom(aiConfig)`, i.e. `AI_MODEL_DIGEST_JUDGE`
@@ -304,6 +306,7 @@ non-blocking.
 | 7b | Cold read of headline candidates | 5 | Always | judge | ~600 | ~300 |
 | 7c | Cold read of repaired headline | 5 | If the repair call fired | judge | ~500 | ~120 |
 | 8 | Metadata (Stage A) | 6 | Always | judge | ~6000 | ~600 |
+| 8b | Per-paper metadata repair | 6 | Only for missing, incomplete, or ungrounded card metadata; broken papers run concurrently | judge | ~2500 each | ~500 each |
 | 9 | Skeleton (Stage B) | 6 | Always, concurrent with 8 | strong | ~4000 | ~300 |
 | 10 | Synthesis draft (Stage C) | 6 | Always | strong | ~5000 | ~400 |
 | 11 | Critique + fact check (Stage D) | 6 | Always | strong | ~4000 | ~350 |
@@ -311,7 +314,7 @@ non-blocking.
 | 13 | Final repair | 6 | If a paper is missing, bullets are short, or model self-commentary appears | strong | ~2000 | ~400 |
 | 14 | Gist | 6b | Always | judge | ~1500 | ~60 |
 
-**Typical: 9-11 calls** (was 12-14). Calls 3, 4, 6b, 6c, 7c, 12 and 13 are conditional.
+**Typical: 9-11 calls** (was 12-14). Calls 3, 4, 6b, 6c, 7c, 8b, 12 and 13 are conditional. Metadata repair can add up to one concurrent call per paper when the batch response is malformed or incomplete.
 **Full-synthesis regenerations are now at most 2** (draft + one revision, plus a rare
 structural repair); before the 2026-08-20 merges the ceiling was 5. Cost depends on the
 deployed `CRON_AI_PROVIDER`/`CRON_AI_MODEL`; Gemini Flash pricing is only one example, not
@@ -343,6 +346,7 @@ proof of the live production model.
 | LLM re-rank | score > 2 to keep | Step 4b |
 | Cross-digest dedup | all past digests, openAlexId + normalized title | Step 2 |
 | Citation floor | cited_by_count > 1 | Step 2 OpenAlex |
+| Card metadata | every paper has a grounded summary, plain name, findings, connection, takeaway, method type, and claim | Stage A repair, then fail closed |
 | Model self-commentary | no identity disclaimer, apology, refusal, placeholder, or permission language | Step 6 repair and pre-storage scan |
 | Bold coverage | all papers in **bold** | Step 6 final gate |
 
