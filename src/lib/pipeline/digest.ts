@@ -130,7 +130,7 @@ async function searchPapers(
     paperId: "", openAlexId: undefined,
     title: p.title, authors: p.authors, abstract: p.abstract,
     sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl,
-    citationCount: 0, year: new Date().getFullYear(),
+    citationCount: 0, year: p.year,
     source: "arxiv" as const,
   }));
 }
@@ -652,10 +652,47 @@ const CURRENT_YEAR_RECENCY_BONUS = 0.007;
 const PREVIOUS_YEAR_RECENCY_BONUS = 0.003;
 const FAST_CURRENT_YEAR_RECENCY_BONUS = 0.010;
 const FAST_PREVIOUS_YEAR_RECENCY_BONUS = 0.005;
-const FAST_MOVING_RESEARCH = /\b(?:ai|artificial intelligence|machine learning|deep learning|generative ai|ai agents?|large language models?|foundation models?|chatgpt|computer vision|natural language processing|nlp|cybersecurity)\b/i;
+// Every term must be unambiguously volatile-field vocabulary: a false positive
+// forces the tight window onto a slow field, so bare "transformers", "agentic",
+// "multimodal", "gpt" and product names other than chatgpt stay out (power
+// engineering, psychology, imaging, liver enzymes, constellations).
+const FAST_MOVING_RESEARCH = /\b(?:ai|artificial intelligence|machine learning|deep learning|generative ai|ai agents?|agentic ai|language models?|llms?|foundation models?|frontier models?|chatgpt|gpt-\d\w*|transformer models?|diffusion models?|generative models?|multimodal models?|neural networks?|reinforcement learning|rlhf|retrieval-augmented generation|prompt engineering|prompt injection|speech recognition|recommender systems?|robotics|computer vision|natural language processing|nlp|cybersecurity)\b/i;
 
 function isFastMovingResearchContext(parts: (string | undefined)[]): boolean {
   return FAST_MOVING_RESEARCH.test(parts.filter(Boolean).join(" "));
+}
+
+/**
+ * How fast the seeded field's findings go stale: volatile (AI-style, 2-year
+ * window + current-evidence floor), evergreen (art, history, perception - the
+ * best source may be decades old, so a wide window and no recency pressure),
+ * standard (everything else, today's behaviour). Obvious volatile vocabulary
+ * short-circuits; anything else goes to the judge tier, and a judge failure
+ * keeps the standard behaviour rather than guessing.
+ */
+type FieldVolatility = "volatile" | "standard" | "evergreen";
+
+async function classifyFieldVolatility(judge: AIConfig, parts: (string | undefined)[]): Promise<FieldVolatility> {
+  if (isFastMovingResearchContext(parts)) return "volatile";
+  const context = parts.filter(Boolean).join(" | ");
+  if (!context) return "standard";
+  try {
+    const resp = await aiComplete(judge,
+      "You classify research fields by how quickly their findings go stale. Return only JSON.",
+      `Research context: ${context}
+
+How quickly does current work in this field displace older work?
+- "volatile": findings from 2-3 years ago are routinely obsolete (AI, machine learning, cybersecurity, fast-moving tech)
+- "evergreen": strong work stays relevant for decades and the best source on a question is often old (art, history, philosophy, literature, classical studies, pure mathematics, settled perception and psychology results)
+- "standard": in between (most empirical sciences, medicine, economics, education, biology)
+
+Return JSON: {"volatility": "volatile" | "standard" | "evergreen"}`);
+    const parsed = extractJson<{ volatility?: string }>(resp);
+    if (parsed?.volatility === "volatile" || parsed?.volatility === "evergreen") return parsed.volatility;
+  } catch (err) {
+    console.log(`[Digest] Field volatility classification failed (${err}), using standard recency`);
+  }
+  return "standard";
 }
 
 function recencyBonus(year: number | undefined, currentYear: number, fastMoving: boolean): number {
@@ -1149,7 +1186,7 @@ Return JSON only (no markdown):
   const focusInterest = selectedInterestKeywords[0];
   const focusInterestObj = candidateInterests.find(i => i.keyword === focusInterest) ?? candidateInterests[0];
   const focusLevel = (focusInterestObj.level ?? "beginner") as "beginner" | "intermediate" | "expert";
-  const fastMovingResearch = isFastMovingResearchContext([
+  const fieldVolatility = await classifyFieldVolatility(judge, [
     focusInterest,
     seedInterestKeyword,
     seedTopic?.name,
@@ -1158,8 +1195,10 @@ Return JSON only (no markdown):
     theme,
     ...searchQueries,
   ]);
-  const recentWindowYears = fastMovingResearch ? 2 : 5;
-  console.log(`[Digest] Recency mode: ${fastMovingResearch ? "fast-moving research" : "standard"}`);
+  const fastMovingResearch = fieldVolatility === "volatile";
+  const evergreenResearch = fieldVolatility === "evergreen";
+  const recentWindowYears = fieldVolatility === "volatile" ? 2 : fieldVolatility === "evergreen" ? 10 : 5;
+  console.log(`[Digest] Recency mode: ${fieldVolatility} (window ${recentWindowYears}y)`);
 
   // ─── Theme → Search → Score loop: retry with new theme if papers don't match ───
   const MAX_THEME_RETRIES = 2;
@@ -1309,7 +1348,7 @@ Return JSON only (no markdown):
       const rrfScore = rrfScores[i];
       // Recency reorders only the already-qualified pool. Foundational work enters
       // later through its own deliberately old lane.
-      const freshnessBoost = recencyBonus(p.year, currentYear, fastMovingResearch);
+      const freshnessBoost = evergreenResearch ? 0 : recencyBonus(p.year, currentYear, fastMovingResearch);
       const venueBoost = venueQualityBoost(p.venueName, p.primaryDomain) * 0.3;
       // Taste prior: how near this sits to a cluster of papers the reader has
       // actually saved. Deliberately capped BELOW the venue signal and applied
@@ -1950,7 +1989,9 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
       : "";
     const editorialRecencyGuidance = fastMovingResearch
       ? `Keep at least one ${freshnessYear} academic paper when the source list contains one. When the sources contain enough qualified work from ${freshnessYear - 1}-${freshnessYear}, keep at most one academic paper from ${freshnessYear - 2} or earlier. The digest makes claims about a rapidly changing area, so its freshest qualified evidence cannot all be edited away.`
-      : "";
+      : evergreenResearch
+        ? `Do not prefer a source merely because it is newer: in this area the strongest treatment of the question is often an older, settled work, and age is not evidence of obsolescence.`
+        : "";
 
     const revisePrompt = `The working question used to FIND these sources was: "${theme}"
 
