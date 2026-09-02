@@ -1425,16 +1425,16 @@ Return JSON only (no markdown):
     throw new Error(`Couldn't find papers for "${theme}". Search APIs might be rate-limited. Wait a minute and try again.`);
   }
 
-  // Dynamic item count: only upgrade to all-papers when we have abundant strong matches.
-  // Never downgrade paper slots to news — the fill passes find additional papers via
-  // progressive threshold relaxation, and news rarely improves digest quality.
+  // Every edition mixes papers and reporting: 2 papers + 1 news while the paper
+  // pool is strong, 1 paper + 2 news when it is thin, so a weak paper is never
+  // padded in past a good article. News slots stay quality-gated below — if no
+  // article clears the relevance guards, the fill passes add a paper instead.
   const strongPapers = scored.filter(({ relSim }) => relSim > SIM_ONTOPIC).length;
-  if (strongPapers >= 3) {
-    targetPapers = TOTAL_ITEMS;
-    targetNews = 0;
-    console.log(`[Digest] Dynamic: ${strongPapers} strong papers → all-papers (${targetPapers}p+${targetNews}n)`);
+  if (strongPapers < 2) {
+    targetPapers = 1;
+    targetNews = 2;
+    console.log(`[Digest] Dynamic: ${strongPapers} strong papers → paper-light (${targetPapers}p+${targetNews}n)`);
   }
-  // Otherwise keep default 2+1 — fill passes will find papers at lower thresholds
 
   // ─── Wide pool + LLM selection for complementarity ──────────────────────────
   // Select a WIDER pool (~6) via MMR for diversity, then let the LLM pick the
