@@ -30,7 +30,7 @@ one overrides Paper.
 | `Tag` | Body-face tag, `glass` (on a wash) \| `solid` (hashed slot on white) | ✅ new — replaced `GlassTag`, `KeywordTag`'s styling and the concept-tag lockup |
 | `TopicChip` / `AddChip` | Interest-picker units. 2px borders, no radius, body face | ✅ the last rounded corners are gone |
 | `Segmented` | The one "pick exactly one" shape | ✅ one size (md) |
-| `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational eye | ✅ new |
+| `InkTip` | The one dark tooltip — hard words, a paper's gist, the foundational phrase | ✅ new |
 | `TextInput` | The one input shape | ✅ new |
 
 ## Save NUX — `src/components/save-nux.tsx`

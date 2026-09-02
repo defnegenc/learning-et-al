@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Bookmark, Info } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { journalName } from "@/lib/venue-name";
 import { announceSave } from "@/lib/save-nux";
 import {
-  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK, LABEL_STYLE,
+  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, DISPLAY_SM, GOLD, INK,
   foundationalSlots, foundationalWash, InkTip, SHADOW, SHADOW_GOLD, SURFACE, wash, washSlots,
 } from "@/components/design-system";
 
@@ -243,6 +243,12 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
   // The mark is a wash hue, never GOLD — gold is a line colour and is far too
   // dark to read a highlight through. See `foundationalSlots`.
   const mark = foundational ? foundationalSlots()[0] : washSlots(index)[0];
+  // The spoken line that opens a foundational card, with the phrase the card
+  // draws as a defined term guaranteed to be in it. Legacy rows with no reason
+  // stored fall through to the paper's own hero at 22, as before.
+  const opening = foundational && paper.foundationalReason
+    ? foundationalLead(paper.foundationalReason)
+    : null;
 
   // The abstract is source material, not card copy. Old malformed rows may
   // have no generated summary; showing nothing here is safer than promoting
@@ -277,47 +283,27 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
         overflow: "hidden",
       }}
     >
-      {/* Foundational eyebrow — label + info tooltip left, save action right. */}
-      {foundational && (
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-          <FoundationalMark />
-          {(loggedIn || onSignedOutSaveChange) && (
-            <BookmarkToggle
-              paper={paper}
-              initial={initialBookmarked}
-              showLabel
-              onSignedOutSaveChange={onSignedOutSaveChange}
-            />
-          )}
-        </div>
-      )}
-
       <div>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
           <h3 style={{ ...DISPLAY_SM, margin: 0, flex: 1 }}>
             {paper.plainName || paper.title}
           </h3>
-          {!foundational && (loggedIn || onSignedOutSaveChange) && (
+          {(loggedIn || onSignedOutSaveChange) && (
             <BookmarkToggle paper={paper} initial={initialBookmarked} showLabel onSignedOutSaveChange={onSignedOutSaveChange} />
           )}
         </div>
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
-        {hero && <p style={{ fontFamily: DISPLAY, fontSize: foundational ? 22 : 18, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: foundational ? "28px" : "26px", color: INK, margin: foundational ? "4px 0 0" : "14px 0 0" }}>{hero}</p>}
+        {opening ? (
+          <>
+            <FoundationalLead text={opening} style={heroStyle(22)} />
+            {/* The paper's own opening sentence, demoted: on a foundational card
+                the line worth setting large is why it still matters. */}
+            {hero && <p style={{ ...BODY_STYLE, color: DIM, margin: "12px 0 0" }}>{hero}</p>}
+          </>
+        ) : (
+          hero && <p style={heroStyle(foundational ? 22 : 18)}>{hero}</p>
+        )}
       </div>
-
-      {foundational && paper.foundationalReason && (
-        <section
-          style={{
-            background: `color-mix(in oklab, ${mark} 55%, ${SURFACE})`,
-            padding: "14px 16px",
-          }}
-        >
-          <h3 style={{ ...DISPLAY_SM, margin: "0 0 8px" }}>
-            Significance
-          </h3>
-          <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{paper.foundationalReason}</p>
-        </section>
-      )}
 
       {(findings.length > 0 || lead) && (
         <div className={hasSplit ? "paper-card-split" : undefined}>
@@ -378,6 +364,11 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
 function CompactCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSaveChange, onOpen, onUnsaved, compareMode, isSelected, onSelect, preview, footnote }: PaperCardProps) {
   const foundational = paper.category === "foundational";
   const byline = paperByline(paper);
+  // On the shelf the lead takes the preview's place. A foundational paper on the
+  // vault grid used to say nothing about itself at all beyond the gold frame.
+  const opening = foundational && paper.foundationalReason
+    ? foundationalLead(paper.foundationalReason)
+    : null;
 
   const activate = () => {
     if (compareMode) return onSelect?.(paper);
@@ -422,20 +413,11 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSav
 
       {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM }}>{byline}</div>}
 
-      {preview && (
-        <p
-          style={{
-            ...BODY_STYLE,
-            margin: "2px 0 0",
-            display: "-webkit-box",
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {preview}
-        </p>
-      )}
+      {opening ? (
+        <FoundationalLead text={opening} style={{ ...BODY_STYLE, margin: "2px 0 0", ...CLAMP_3 }} />
+      ) : preview ? (
+        <p style={{ ...BODY_STYLE, margin: "2px 0 0", ...CLAMP_3 }}>{preview}</p>
+      ) : null}
 
       {footnote && <div style={{ marginTop: "auto", paddingTop: 4 }}>{footnote}</div>}
     </div>
@@ -443,26 +425,57 @@ function CompactCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSav
 }
 
 /**
- * The foundational lockup — the label and its explanation.
+ * The foundational lead.
  *
- * The label stays constant so the lane is recognisable the third time you meet
- * it; the info control carries the explanation for the first. Gold stays a line
- * colour: frame, shadow and section rules, not a filled badge.
+ * There is no eyebrow and no Significance panel any more. Between them they put
+ * a mono all-caps Label and a Display/SM heading over a filled box around one
+ * sentence, on a card that already carries a title, a byline, a hero, findings
+ * and a takeaway: two headings for one sentence, and the label said the same
+ * thing the gold frame already says.
+ *
+ * The card now says what it is in the course of saying why it matters. The
+ * pipeline writes one spoken line ("Today you have a Foundational Text: ...")
+ * which takes the hero's place, and the paper's own summary drops to Body 15
+ * underneath it. The phrase inside that line is the label, the explanation and
+ * the whole treatment: capitals, a gold underline, and the same ink tooltip a
+ * hard word in the synthesis opens.
  */
-function FoundationalMark() {
+const FOUNDATIONAL_TERM = "Foundational Text";
+
+/**
+ * The lead sentence, guaranteed to contain the phrase the card draws.
+ *
+ * The prompt asks for it and gives five worked openings, but the phrase is what
+ * carries the entire treatment, so a model that forgets it cannot be allowed to
+ * take the label off the card with it. A miscased "foundational text" is
+ * recased in place; a line without the phrase at all gets the plainest of the
+ * five openings in front of it. Same shape as the banned-words ban: a rule in
+ * the prompt and a mechanism after it.
+ */
+export function foundationalLead(reason: string): string {
+  const text = reason.trim();
+  if (text.includes(FOUNDATIONAL_TERM)) return text;
+  const loose = text.match(/foundational text/i);
+  if (loose) return text.replace(loose[0], FOUNDATIONAL_TERM);
+  return `Today you have a ${FOUNDATIONAL_TERM}. ${startCap(text)}`;
+}
+
+/** The phrase, as a defined term: gold underline, ink tooltip, no icon. */
+function FoundationalTerm() {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start", position: "relative" }}>
-      <span style={{ ...LABEL_STYLE, color: INK }}>Foundational text</span>
-      <button
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onClick={() => setOpen(v => !v)}
-        aria-label="What is a foundational text?"
-        style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "flex", lineHeight: 1, color: open ? INK : GOLD }}
-      >
-        <Info size={15} strokeWidth={2} />
-      </button>
+    <span
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+      onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+      tabIndex={0}
+      role="button"
+      aria-label="What is a foundational text?"
+      style={{ position: "relative", cursor: "help", borderBottom: `2px solid ${GOLD}`, whiteSpace: "nowrap" }}
+    >
+      {FOUNDATIONAL_TERM}
       {open && (
         <span style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, pointerEvents: "none" }}>
           <InkTip>
@@ -470,9 +483,34 @@ function FoundationalMark() {
           </InkTip>
         </span>
       )}
-    </div>
+    </span>
   );
 }
+
+function FoundationalLead({ text, style }: { text: string; style: React.CSSProperties }) {
+  const at = text.indexOf(FOUNDATIONAL_TERM);
+  if (at < 0) return <p style={style}>{text}</p>;
+  return (
+    <p style={style}>
+      {text.slice(0, at)}
+      <FoundationalTerm />
+      {text.slice(at + FOUNDATIONAL_TERM.length)}
+    </p>
+  );
+}
+
+/** The card's big line: the foundational lead, or the paper's own first sentence. */
+function heroStyle(size: 18 | 22): React.CSSProperties {
+  return {
+    fontFamily: DISPLAY, fontSize: size, fontWeight: 700, letterSpacing: "-0.02em",
+    lineHeight: size === 22 ? "28px" : "26px", color: INK, margin: "14px 0 0",
+  };
+}
+
+/** Three lines, so a shelf row stays even whatever it is holding. */
+const CLAMP_3: React.CSSProperties = {
+  display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+};
 
 /** Body text at the reading size — exported so surfaces don't restate it. */
 export const READING_BODY: React.CSSProperties = { ...BODY_STYLE, lineHeight: "26px" };

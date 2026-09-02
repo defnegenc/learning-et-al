@@ -77,7 +77,7 @@ const PAPERS: PaperItem[] = [
     year: 1956,
     category: "foundational",
     foundationalReason:
-      "It gave the field a number to argue with for seventy years, and nearly every later model of working memory is a reply to it.",
+      "Today you have a Foundational Text: this one gave the field a number to argue with for seventy years, and nearly every later model of working memory is a reply to it.",
     digestTheme: "Does practice count if you don't sleep?",
     companionRemember:
       "The limit isn't seven items, it's seven chunks — and how much a chunk holds is the part you can actually train.",
