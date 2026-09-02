@@ -52,7 +52,8 @@ The code lives in `src/lib/pipeline/digest.ts`. Step labels here match the code 
 - Worst case at Step 1 is now **2 calls** (hypothesis + cold read) plus a rare third; it used to be up to 5 serial calls.
 - **Lay stakes, enforced upstream** (added 2026-08-17): the hypothesis call must return a `stakes` field — what a normal person loses, gains, or misjudges if they never learn this. A headline polish is the last mile; whether a digest can interest a layman is mostly decided here, by which ANGLE of the seed topic gets picked. Empty stakes is an angle failure, not a topic failure.
 - **Cold read of the working question** (added 2026-08-17, batched 2026-08-20): the same context-free judge used in Step 5 (see below) reads the candidate working questions, and a candidate with any cold-reader objection is dropped. Only if *every* candidate is objected to does ONE re-angle call fire inside the same seed. The seed rotation stays mechanical — the topic is never abandoned, only the angle moves. This matters beyond the headline: a study-shaped working question retrieves study-shaped papers, which caps how interesting Step 5 can honestly be.
-- Fallback: if LLM fails, the OpenAlex topic name is used as the theme (or the seeded interest when topic lookup failed).
+- Every generated or repaired theme must be a direct question ending in a question mark. A short setup sentence may come first, but the final sentence must begin with a question word or helping verb. `themeQuestionProblems()` rejects both plain statements and statements disguised with question punctuation.
+- Fallback: if the LLM fails, the pipeline builds a valid question from the OpenAlex topic or seeded interest, using `What matters in [subject]?` rather than exposing a topic label as the theme.
 
 **Shared taste block** (`THEME_TASTE_RULES`, added 2026-08-17): every prompt that writes or rewrites a theme interpolates it — hypothesis, the re-angle repair, the not-enough-papers reframe, and Step 5 + its repair. (The shortener and novelty-retry prompts were two of the original five; both were deleted on 2026-08-20 when Step 1 went to three candidates, since a failing candidate is now dropped rather than rewritten.) The retry paths used to carry almost none of the taste rules, so a mangled theme from a retry degraded retrieval as well as the headline. They all now interpolate one constant (dinner-table test, name-the-object, placeholder ban, study-design rule, acronym rule, banned words, one-intensifier rule, length). Same class of gotcha as the `shortName` rules living in two places — change the constant, never restate a rule.
 
@@ -198,6 +199,7 @@ The working question is retrieval scaffolding, not the displayed headline. Once 
   - (d) *Stacked intensifiers* (added 2026-08-17) — more than one of `ever / actually / truly / really / any(thing|one) / always / never` fails. One is explicitly fine (the approved set uses single "actually"); two compound into rhetoric — "Is one museum exhibit ever enough to teach anything?" reads as a put-down, not curiosity.
   - (e) *Banned word* (added 2026-08-25): "quietly" or "silently" anywhere in the line fails, from `bannedWordsIn()` in `src/lib/ai/banned-words.ts`. These were a standing verbal ban that kept shipping ("Will advertisers quietly corrupt how AI guides us?", 2026-08-25) because they lived only as one item in a long AI-tell list inside the *synthesis* prompts, and `THEME_TASTE_RULES` carried no word list at all. Now the rule text is in the taste block, the gate is here, and `stripBannedWords()` scrubs anything that survives on its way into the database.
   - On failure, ONE rewrite call receives the exact problems, kept sources, and evidence-backed thread; it is accepted only if it clears the deterministic gate **and the cold reader** (see below). Matters doubly because `theme` is also the email subject line (`email.ts`).
+  - (f) *Question shape* (added 2026-09-02): `themeQuestionProblems()` requires a direct question ending in a question mark. The last sentence must start with a question word or helping verb, so a statement cannot pass by adding question punctuation.
   - Known limitation: lexical grounding is not full grammatical understanding. The source-connection audit is the semantic backstop; a future upgrade could use POS tagging or a concreteness lexicon.
 - The **coherence guard** stays a hard rule in both the hypothesis and revise prompts: the theme must make literal sense to someone who hasn't read the papers. Comprehension beats cleverness; a specific plain question beats a vague clever one. (User feedback, July 2026 + Aug 2026.)
 - The >10-word shortener in Step 1 forbids swapping a specific noun for a generic one — the specific noun is usually the longest token, so a rule-free "shorten this" cut it first and undid the specificity work at the last mile.
@@ -239,6 +241,8 @@ enforcement are one repair (both merged 2026-08-20).
 **Final repair** (AI call 13, conditional) — runs AFTER all revisions and is the last synthesis modification. Two **deterministic** checks run first and together: is any paper missing its `[Source N]` tag, and are there fewer `- **[Source N]` bullets than papers? If either fails, ONE repair call fixes both.
 
   *Merged 2026-08-20.* These were two sequential rewrites, and the second regularly undid the first: the format-enforcement scaffold still demanded "NO intro paragraph" and a 3-sentence bullet cap, both stale since the answer-first opening paragraph landed, so a correct coverage repair got its opening paragraph stripped straight back out. The structure contract now lives in one function, `synthesisStructureContract()` in `prompts.ts`, shared by this repair and the Stage D revision.
+
+  *Expanded 2026-09-02.* A third deterministic check looks for reader-visible model self-commentary, including identity disclaimers, apologies, refusals, and permission language. The same repair call removes it. If any coverage, structure, or commentary problem remains, generation fails before storage. A final scan covers the gist, metadata, key concepts, suggested questions, and foundational copy so no unchecked reader-facing field can save model commentary.
 
 ### Step 6b: Digest Header — gist (AI call 14, judge tier, always after final synthesis)
 
@@ -304,7 +308,7 @@ non-blocking.
 | 10 | Synthesis draft (Stage C) | 6 | Always | strong | ~5000 | ~400 |
 | 11 | Critique + fact check (Stage D) | 6 | Always | strong | ~4000 | ~350 |
 | 12 | Revision | 6 | If any score <4 OR any fact issue | strong | ~2500 | ~400 |
-| 13 | Final repair | 6 | If a paper is missing or bullets are short | strong | ~2000 | ~400 |
+| 13 | Final repair | 6 | If a paper is missing, bullets are short, or model self-commentary appears | strong | ~2000 | ~400 |
 | 14 | Gist | 6b | Always | judge | ~1500 | ~60 |
 
 **Typical: 9-11 calls** (was 12-14). Calls 3, 4, 6b, 6c, 7c, 12 and 13 are conditional.
@@ -329,6 +333,7 @@ proof of the live production model.
 | Paywall detection | 2+ paywall signals | Step 4 article fetch |
 | Theme novelty | ≥2 shared non-stop words vs recent themes | Step 1 |
 | Theme word count | ≤ 10 words (8 target) | Steps 1 and 5 |
+| Question shape | direct final question ending in `?` | Steps 1 and 5, with a final fail-closed check |
 | Insider acronym | all-caps 2-5 letter token outside `HOUSEHOLD_ACRONYMS` | Steps 1 and 5 (`themeProblems`) |
 | Stacked intensifiers | >1 of ever/actually/truly/really/any(thing/one)/always/never | Steps 1 and 5 (`themeProblems`) |
 | Banned words | "quietly" / "silently" anywhere in the line | Steps 1 and 5 (`themeProblems`), then stripped at the DB insert |
@@ -338,6 +343,7 @@ proof of the live production model.
 | LLM re-rank | score > 2 to keep | Step 4b |
 | Cross-digest dedup | all past digests, openAlexId + normalized title | Step 2 |
 | Citation floor | cited_by_count > 1 | Step 2 OpenAlex |
+| Model self-commentary | no identity disclaimer, apology, refusal, placeholder, or permission language | Step 6 repair and pre-storage scan |
 | Bold coverage | all papers in **bold** | Step 6 final gate |
 
 Note: `SIM_MIN_THEME` (0.15) equals `SIM_FALLBACK` (0.15), making the cascade's last step equivalent to the hard floor.

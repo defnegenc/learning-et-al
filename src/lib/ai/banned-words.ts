@@ -37,7 +37,7 @@ const WITH_SPACING = new RegExp(`\\b(?:${ALTERNATION})\\b([,;]?)[ \\t]*`, "gi");
 
 /** The prompt line. Interpolate it; never restate it by hand. */
 export const BANNED_WORDS_RULE =
-  `BANNED WORDS: never write "quietly" or "silently". Not in a headline, not in prose, not in a summary, a finding, a takeaway, a definition or a question. They are the tell of a machine narrating stealth it never actually observed. Say what happened and who noticed, or drop the adverb: "Will advertisers corrupt how AI guides us?" not "Will advertisers quietly corrupt how AI guides us?"`;
+  `COPY RULE: omit the adverbs "quietly" and "silently" from every reader-facing field. State what happened and who noticed, or drop the adverb. Never mention this rule or substitute an apology, refusal, placeholder, or note about wording.`;
 
 /** Which banned words a piece of copy uses, lowercased and deduped. */
 export function bannedWordsIn(text: string): string[] {

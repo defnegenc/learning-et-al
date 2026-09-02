@@ -11,6 +11,7 @@ import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { BANNED_WORDS_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
+import { modelMetaTalkIn, themeQuestionProblems } from "@/lib/ai/output-guards";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -319,6 +320,16 @@ const STOP_WORDS = new Set([
 // sentence to satisfy an arbitrary hard edge.
 const MAX_THEME_WORDS = 10;
 
+function fallbackQuestion(subject: string): string {
+  const words = subject
+    .trim()
+    .replace(/[?.!]+$/, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, MAX_THEME_WORDS - 3);
+  return `What matters in ${words.join(" ") || "this research"}?`;
+}
+
 /*
  * The taste, in one place. Five prompts write or rewrite a theme (Step-1
  * hypothesis, the shortener, the novelty retry, the not-enough-papers reframe,
@@ -327,7 +338,8 @@ const MAX_THEME_WORDS = 10;
  * the headline. Same class of gotcha as the `shortName` rules living in two
  * places; interpolate this block instead of restating any of it.
  */
-const THEME_TASTE_RULES = `TASTE RULES — every question or headline you write must obey all of these:
+const THEME_TASTE_RULES = `TASTE RULES: every question you write must obey all of these:
+- QUESTION SHAPE: every theme is a direct question and ends with a question mark. A short setup sentence may come first, but the final sentence must begin with a question word or helping verb. Never submit a declarative claim with question punctuation.
 - DINNER TABLE TEST: would a smart non-expert actually SAY these words out loud? "Why can't robots fold laundry?" passes. "Can better architecture solve computational bottlenecks?" fails — nobody talks like that. The reader must get it on ONE pass, with no re-reading.
 - NO JARGON: if it contains words like "computational", "architecture", "optimization", "framework", "methodology", "paradigm", "scalability" — REWRITE in plain English. Your grandma should understand the question.
 - WHEN YOU STRIP JARGON, NAME THE OBJECT — never paraphrase the term's abstract property. Describing what a thing does or lacks produces a riddle that reads WORSE than the jargon did:
@@ -472,7 +484,7 @@ function themeProblems(theme: string, papers: { title: string; abstract?: string
  * that fails is simply dropped.
  */
 function themeProblemsWithoutSources(theme: string): string[] {
-  const problems: string[] = [];
+  const problems: string[] = [...themeQuestionProblems(theme)];
   const wordCount = theme.trim().split(/\s+/).filter(Boolean).length;
   if (wordCount > MAX_THEME_WORDS) {
     problems.push(`It is ${wordCount} words; the hard maximum is ${MAX_THEME_WORDS}.`);
@@ -930,7 +942,7 @@ These work because each has a recognizable subject, a real stake, and an open te
 BAD themes are wordy, academic, topic labels, or built on words that name nothing:
 - "Can technology read your mind without touching it?" — DOUBLE FAIL, the most common one. "Technology" names nothing (which technology? the papers were about cheap EEG headbands), and "without touching it" is a paraphrase of "non-invasive" that the reader has to decode before they can even tell what's being asked. "Can a $200 headband read your mood?" is the same question, said by a human.
 - "Can better architecture solve computational bottlenecks?" — JARGON. No normal person talks like this. "Why are AI models still so slow?" is the same idea but human.
-- "When fakes become indistinguishable from reality?" — drop the question mark, it's stronger as a statement. And "indistinguishable" is a mouthful — "Fake reviews now outnumber real ones" says more with smaller words.
+- "When fakes become indistinguishable from reality?" is vague and stiff. "Are fake reviews taking over?" says more with smaller words and creates a real question.
 - "Can AI out-create humans, or will it expand our artistic horizons?" — TOO LONG
 - "Recent advances in AI" — not interesting, zero surprise
 - "The question of whether generative AI..." — NO. Never start with "The question of"
@@ -941,12 +953,12 @@ ${THEME_TASTE_RULES}
 Rules:
 - LAY STAKES COME FIRST. Before you write the theme, answer this: what does a normal person lose, gain, or misjudge if they never learn this? Return that answer in "stakes". If you cannot answer it, the ANGLE is wrong — pick a different angle INSIDE the same seed topic rather than abandoning the topic. "Are incubators and TTOs choosing startup survivors?" is an angle failure, not a topic failure: the same literature carries "Who really decides which startups get to exist?".
 - Ask about a real TENSION, not a bare capability. "Can robots actually work in real workplaces?" implies the lab-to-workplace gap. "Can robots do tasks?" says nothing.
-- Vary the question shape across days: how/why/who/when and clear statements are as useful as can/does. Do not add "actually" or "truly" unless the evidence challenges a common belief.
+- Vary the question shape across days: how, why, who, when, and setup-plus-question forms are as useful as can or does. Every candidate still ends in a direct question. Do not add "actually" or "truly" unless the evidence challenges a common belief.
 - For beginner interests: concrete and real-world, avoid pure theory
 - For a single interest: find the unexpected angle within it
 - Only combine 2 interests if they NATURALLY connect (AI + design, robotics + cooking, biology + fashion-tech). If interests are truly unrelated (like microbiome + cryptocurrency), just pick ONE and find a great angle within it.
 - The theme must sound like something a real person would actually wonder about. "Can we see our gut health?" is great. "Can bacteria become your personal health stylist?" is too goofy.
-- PREFER A TWIST over a plain question when you can get one honestly: a reversal, a tension, or an angle the reader didn't expect ("The expert is often the last to know" beats "Do experts keep up?"). BUT the twist must make literal sense on its own — beware the FAKE TWIST, wordplay that mimics a paradox without a real claim behind it ("Does AI make designers more human?" — nobody can say what that asks). "Can AI bring out creativity in designers?" is straightforward AND interesting; that always beats a clever line that doesn't parse.
+- Prefer a twist over a plain capability question when the evidence earns it: a reversal, tension, or unexpected angle. A setup-plus-question headline can carry that twist. Beware fake paradoxes such as "Does AI make designers more human?", which nobody can answer on one read. "Can AI bring out creativity in designers?" is straightforward and interesting; that always beats a clever line that does not parse.
 
 SEARCH QUERY RULES:
 - All 3 queries must find papers a PERSON WITH THESE INTERESTS would actually want to read
@@ -968,7 +980,7 @@ Return JSON only (no markdown):
   "candidates": [
     {
       "stakes": "one sentence: what a normal person loses, gains, or misjudges if they never learn this. Never empty — if you cannot fill it, change the angle.",
-      "theme": "working research question, ideally 8 words and never over ${MAX_THEME_WORDS} — question or statement. If statement, NO question mark.",
+      "theme": "direct research question ending in ?, ideally 8 words and never over ${MAX_THEME_WORDS}",
       "searchQueries": [
         "core-evidence query using the interest or topic vocabulary, 3-6 words",
         "tension/comparison query using the interest or topic vocabulary, 3-6 words",
@@ -979,7 +991,7 @@ Return JSON only (no markdown):
   ]
 }`;
 
-  let theme = seedTopic?.name || seedInterestKeyword;
+  let theme = fallbackQuestion(seedTopic?.name || seedInterestKeyword);
   let searchQueries: string[] = seedTopic
     ? [`${seedInterestKeyword} ${seedTopic.keywords[0] || seedTopic.name}`]
     : [seedInterestKeyword];
@@ -1092,14 +1104,16 @@ Return JSON only (no markdown):
           `The working question "${theme}" was shown to a smart reader with no academic background and no other context. It failed:\n${objections.map(o => `- ${o}`).join("\n")}\n\nInterests: ${interestList}\n${seedTopicBlock}\nDo NOT abandon today's seed topic — it is already rotated. Change the ANGLE inside it: find the version of this literature a normal person has a stake in. Every seed topic came from the reader's own interests, so a human-stakes angle nearly always exists.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "re-angled question, MAX ${MAX_THEME_WORDS} WORDS", "stakes": "what a normal person loses, gains, or misjudges without this — never empty", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
         );
         const reangled = extractJson<{ theme?: string; stakes?: string; searchQueries?: string[]; newsQuery?: string }>(reangleResp);
-        if (reangled?.theme?.trim() && reangled.stakes?.trim()) {
-          theme = reangled.theme.trim();
+        const reangledTheme = reangled?.theme?.trim() || "";
+        const reangledProblems = themeProblemsWithoutSources(reangledTheme);
+        if (reangled && reangledTheme && reangled.stakes?.trim() && reangledProblems.length === 0) {
+          theme = reangledTheme;
           workingStakes = reangled.stakes.trim();
           if (reangled.searchQueries && reangled.searchQueries.length > 0) searchQueries = reangled.searchQueries;
           if (reangled.newsQuery) newsQuery = reangled.newsQuery;
           console.log(`[Digest] Re-angled working question: "${theme}" (stakes: ${workingStakes})`);
         } else {
-          console.log(`[Digest] Re-angle produced nothing usable — keeping "${theme}"`);
+          console.log(`[Digest] Re-angle produced nothing usable${reangledProblems.length > 0 ? ` (${reangledProblems.join("; ")})` : ""}, keeping "${theme}"`);
         }
       } catch (err) {
         console.log(`[Digest] Re-angle call failed (${err}) — keeping "${theme}"`);
@@ -1165,14 +1179,18 @@ Return JSON only (no markdown):
     try {
       const retryResp = await aiComplete(aiConfig,
         "You generate surprising research questions. Return only JSON.",
-        `The theme "${theme}" didn't find enough academic papers. Reframe it into a DIFFERENT, more researchable question and write more literal academic search queries.\n\nInterests: ${interestList}\n${seedTopicBlock}\nKeep today's OpenAlex topic seed. Change the angle and vocabulary, not the research neighborhood. Prefer a measurable relationship, comparison, adoption barrier, or real-world consequence over abstract philosophy.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "MAX ${MAX_THEME_WORDS} WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
+        `The theme "${theme}" didn't find enough academic papers. Reframe it into a DIFFERENT, more researchable question and write more literal academic search queries.\n\nInterests: ${interestList}\n${seedTopicBlock}\nKeep today's OpenAlex topic seed. Change the angle and vocabulary, not the research neighborhood. Prefer a measurable relationship, comparison, adoption barrier, or real-world consequence over abstract philosophy.\n\n${THEME_TASTE_RULES}\n\nReturn JSON: {"theme": "direct question ending in ?, MAX ${MAX_THEME_WORDS} WORDS", "searchQueries": ["q1","q2","q3"], "newsQuery": "2-4 keywords"}`
       );
       const retryParsed = extractJson<{ theme?: string; searchQueries?: string[]; newsQuery?: string }>(retryResp);
-      if (retryParsed?.theme) {
-        theme = retryParsed.theme;
+      const retryTheme = retryParsed?.theme?.trim() || "";
+      const retryProblems = themeProblemsWithoutSources(retryTheme);
+      if (retryParsed && retryTheme && retryProblems.length === 0) {
+        theme = retryTheme;
         if (retryParsed.searchQueries && retryParsed.searchQueries.length > 0) searchQueries = retryParsed.searchQueries;
         if (retryParsed.newsQuery) newsQuery = retryParsed.newsQuery;
         console.log(`[Digest] New theme: "${theme}"`);
+      } else if (retryTheme) {
+        console.log(`[Digest] Theme retry rejected (${retryProblems.join("; ")}), keeping "${theme}"`);
       }
     } catch { /* keep current theme if retry fails */ }
   }
@@ -1956,6 +1974,7 @@ Treat these as demonstrations of clarity, stakes, and voice — NEVER as fill-in
 REJECTED: "Does feeling present mean learning more?" A reader cannot tell this is about virtual classrooms. "Feeling present" and "learning" are abstractions without the setting. The fix is not more explanation; it is naming the virtual classroom or headset.
 
 The headline must be:
+- A DIRECT QUESTION: end with a question mark. A short setup sentence may precede it, but the final sentence must ask the question directly.
 - SELF-CONTAINED: someone who has not read the digest can say what it is about after one glance.
 - EVIDENCE-LED: the tension comes from these sources together, not from generic controversy or invented drama.
 - HUMAN-LEGIBLE: plain spoken English a smart non-expert might say aloud.
@@ -1981,9 +2000,9 @@ Return JSON only:
   "sourceOrder": [2, 1, 3],
   "orderingReason": "one sentence explaining why the reader should encounter them in this order",
   "candidates": [
-    {"theme": "candidate headline", "why": "why this wording earns attention without overstating"}
+    {"theme": "candidate question ending in ?", "why": "why this wording earns attention without overstating"}
   ],
-  "theme": "the single strongest headline, MAX ${MAX_THEME_WORDS} words"
+  "theme": "the single strongest direct question ending in ?, MAX ${MAX_THEME_WORDS} words"
 }
 
 Return 3 candidate headlines. sourceConnections and sourceOrder must include every KEPT source index exactly once and omit excluded indices.`;
@@ -2090,8 +2109,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
     } else {
       // Nothing clean. Take the most readable line as the repair's starting
       // point; its objections drive the rewrite below.
-      const readable = evaluated.find(candidate => candidate.problems.length === 0);
-      const fallback = readable ?? evaluated[0];
+      const fallback = evaluated.find(candidate => candidate.problems.length === 0);
       if (fallback) finalTheme = fallback.theme;
       console.log(`[Digest] Cold-reader gate: no candidate cleared it — repairing "${finalTheme}"`);
     }
@@ -2146,7 +2164,7 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       try {
         const groundResp = await aiComplete(aiConfig,
           "You are a sharp magazine editor repairing one research headline. Return only JSON.",
-          `This headline failed:\n"${finalTheme}"\n\nWhy it failed:\n${problems.map(p => `- ${p}`).join("\n")}\n\nThe kept final sources:\n${activePaperList}\n\nThe evidence-backed thread already identified:\n${editorialThread || "Re-read the sources and state their honest shared thread before rewriting."}\n\nRewrite the headline so it is self-contained, evidence-led, interesting, and plainly spoken. Name the recognizable subject or setting; do not replace it with abstractions. Aim for 8 words; hard maximum ${MAX_THEME_WORDS}. Also return the thread and one honest connection for every kept source so the repair can be verified.\n\nTaste examples: "Can a headset replace being in the room?" / "Virtual classrooms feel real. Does that help?" / "Are virtual classrooms ready for real students?" / "We built the virtual classroom. Can students use it?" / "Are we jumping the gun on virtual classrooms?"\nRejected: "Does feeling present mean learning more?" It hides the virtual-classroom setting behind abstractions.\n\nThe examples are taste, not templates. Follow these sources.\n\n${THEME_TASTE_RULES}\n\nAny objection above that begins "A reader with no context" came from a real cold read of this line by someone who had not seen the sources. Fix what they could not follow instead of explaining it away.\n\nReturn JSON: {"thread": "shared evidence-backed thread", "sourceConnections": [{"index": 1, "connection": "honest contribution"}], "theme": "the repaired headline"}`
+          `This headline failed:\n"${finalTheme}"\n\nWhy it failed:\n${problems.map(p => `- ${p}`).join("\n")}\n\nThe kept final sources:\n${activePaperList}\n\nThe evidence-backed thread already identified:\n${editorialThread || "Re-read the sources and state their honest shared thread before rewriting."}\n\nRewrite the headline as a direct question ending in a question mark. Keep it self-contained, evidence-led, interesting, and plainly spoken. Name the recognizable subject or setting; do not replace it with abstractions. Aim for 8 words; hard maximum ${MAX_THEME_WORDS}. Also return the thread and one honest connection for every kept source so the repair can be verified.\n\nTaste examples: "Can a headset replace being in the room?" / "Virtual classrooms feel real. Does that help?" / "Are virtual classrooms ready for real students?" / "We built the virtual classroom. Can students use it?" / "Are we jumping the gun on virtual classrooms?"\nRejected: "Does feeling present mean learning more?" It hides the virtual-classroom setting behind abstractions.\n\nThe examples are taste, not templates. Follow these sources.\n\n${THEME_TASTE_RULES}\n\nAny objection above that begins "A reader with no context" came from a real cold read of this line by someone who had not seen the sources. Fix what they could not follow instead of explaining it away.\n\nReturn JSON: {"thread": "shared evidence-backed thread", "sourceConnections": [{"index": 1, "connection": "honest contribution"}], "theme": "the repaired direct question ending in ?"}`
         );
         const groundParsed = extractJson<{
           thread?: string;
@@ -2204,6 +2222,10 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
     }
   } catch (err) {
     console.log(`[Digest] Theme revision failed (${err}), keeping original`);
+  }
+  const finalQuestionProblems = themeQuestionProblems(finalTheme);
+  if (finalQuestionProblems.length > 0) {
+    throw new Error(`Final digest theme is not a direct question: ${finalQuestionProblems.join("; ")}`);
   }
   logStage("step5 headline");
 
@@ -2408,25 +2430,32 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   const missingPapers = skeleton.paperRoles.filter(r => !synthesis.toLowerCase().includes(`[source ${r.index}]`));
   const bulletCount = (synthesis.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length;
   const structureBroken = bulletCount < skeleton.paperRoles.length;
+  const synthesisMetaTalk = modelMetaTalkIn(synthesis);
 
-  if (missingPapers.length > 0 || structureBroken) {
+  if (missingPapers.length > 0 || structureBroken || synthesisMetaTalk.length > 0) {
     if (missingPapers.length > 0) {
       console.log(`[Digest] Final coverage gap: ${missingPapers.length} paper(s) missing: ${missingPapers.map(r => `"${r.shortName}" (Paper ${r.index}: ${r.coreContribution})`).join(", ")}`);
     }
     if (structureBroken) {
       console.log(`[Digest] Synthesis has ${bulletCount} bullets but expected ${skeleton.paperRoles.length}`);
     }
+    if (synthesisMetaTalk.length > 0) {
+      console.log(`[Digest] Synthesis contains model self-commentary (${synthesisMetaTalk.join(", ")})`);
+    }
     const missingBlock = missingPapers.length > 0
-      ? `\nThese sources are MISSING from the synthesis and MUST be added, woven into the argument, using exactly these bold references:\n${missingPapers.map(r => `- **[Source ${r.index}] ${r.shortName}** — ${r.coreContribution}`).join("\n")}\n`
+      ? `\nThese sources are MISSING from the synthesis and MUST be added, woven into the argument, using exactly these bold references:\n${missingPapers.map(r => `- **[Source ${r.index}] ${r.shortName}**: ${r.coreContribution}`).join("\n")}\n`
+      : "";
+    const metaTalkBlock = synthesisMetaTalk.length > 0
+      ? "\nThe synthesis contains model self-commentary. Remove every apology, refusal, placeholder, or mention of wording rules. Rewrite the affected sentence as direct evidence-based prose.\n"
       : "";
     try {
       const repaired = await aiComplete(
         aiConfig,
         SYNTHESIS_PROSE_SYSTEM,
-        `The synthesis below breaks the required structure. Keep ALL of its content and tone; fix the structure${missingPapers.length > 0 ? " and add the missing sources" : ""}.
+        `The synthesis below breaks the publishing contract. Preserve its supported claims and tone, then fix every listed problem.
 
 Theme: "${finalTheme}"
-${missingBlock}
+${missingBlock}${metaTalkBlock}
 ${synthesisStructureContract(skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`))}
 
 Current synthesis:
@@ -2438,17 +2467,33 @@ Return ONLY the repaired synthesis. No JSON, no fences.`
       );
       const cleaned = stripFences(repaired);
       const repairedBullets = (cleaned.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length;
-      // Same acceptance bar as before: don't swap in a repair that is itself
-      // structurally empty.
-      if (cleaned.length > 100 && repairedBullets >= 1) {
+      const repairedMissing = skeleton.paperRoles.filter(r => !cleaned.toLowerCase().includes(`[source ${r.index}]`));
+      const repairedMetaTalk = modelMetaTalkIn(cleaned);
+      if (
+        cleaned.length > 100
+        && repairedBullets >= skeleton.paperRoles.length
+        && repairedMissing.length === 0
+        && repairedMetaTalk.length === 0
+      ) {
         synthesis = cleaned;
         console.log(`[Digest] Final repair applied (${repairedBullets} bullets${missingPapers.length > 0 ? `, added ${missingPapers.length} missing paper(s)` : ""})`);
       } else {
-        console.log(`[Digest] Final repair returned nothing usable, keeping synthesis as-is`);
+        console.log(`[Digest] Final repair did not clear every gate, keeping the original for the fail-closed check`);
       }
     } catch (err) {
       console.log(`[Digest] Final repair failed (${err}), keeping synthesis as-is`);
     }
+  }
+  const remainingMissingPapers = skeleton.paperRoles.filter(r => !synthesis.toLowerCase().includes(`[source ${r.index}]`));
+  const remainingBulletCount = (synthesis.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length;
+  const remainingMetaTalk = modelMetaTalkIn(synthesis);
+  const finalRepairProblems = [
+    remainingMissingPapers.length > 0 ? `${remainingMissingPapers.length} missing source reference(s)` : null,
+    remainingBulletCount < skeleton.paperRoles.length ? `${remainingBulletCount}/${skeleton.paperRoles.length} required source bullets` : null,
+    remainingMetaTalk.length > 0 ? remainingMetaTalk.join(", ") : null,
+  ].filter((problem): problem is string => Boolean(problem));
+  if (finalRepairProblems.length > 0) {
+    throw new Error(`Synthesis still breaks the publishing contract after final repair: ${finalRepairProblems.join("; ")}`);
   }
   logStage("final repair (coverage + format)");
 
@@ -2542,6 +2587,34 @@ Return JSON (no markdown fences):
   // so scrubbing on the way in covers the digest, the email and the OG image at
   // once. Dropping the adverb is always grammatical, so there is nothing to
   // repair afterwards.
+  const readerFacingFields: Array<{ name: string; value: string | null | undefined }> = [
+    { name: "theme", value: finalTheme },
+    { name: "synthesis", value: parsedAI.synthesis },
+    { name: "gist", value: gist },
+    ...parsedAI.keyConcepts.map((value, index) => ({ name: `keyConcepts[${index}]`, value })),
+    ...suggestedQuestions.map((value, index) => ({ name: `suggestedQuestions[${index}]`, value })),
+    ...items.map((item, index) => ({ name: `papers[${index}].foundationalReason`, value: item.foundationalReason })),
+    ...metadata.items.flatMap((item, index) => [
+      { name: `metadata.items[${index}].plainName`, value: item.plainName },
+      { name: `metadata.items[${index}].summary`, value: item.summary },
+      { name: `metadata.items[${index}].connectionToTheme`, value: item.connectionToTheme },
+      { name: `metadata.items[${index}].takeaway.hook`, value: item.takeaway?.hook },
+      { name: `metadata.items[${index}].takeaway.stat`, value: item.takeaway?.stat },
+      { name: `metadata.items[${index}].takeaway.line`, value: item.takeaway?.line },
+      { name: `metadata.items[${index}].methodType`, value: item.methodType },
+      { name: `metadata.items[${index}].claim`, value: item.claim },
+      ...(item.keywords || []).map((value, keywordIndex) => ({ name: `metadata.items[${index}].keywords[${keywordIndex}]`, value })),
+      ...(item.methodFacts || []).map((value, factIndex) => ({ name: `metadata.items[${index}].methodFacts[${factIndex}]`, value })),
+      ...(item.findings || []).map((value, findingIndex) => ({ name: `metadata.items[${index}].findings[${findingIndex}]`, value })),
+    ]),
+  ];
+  const fieldsWithMetaTalk = readerFacingFields
+    .map(field => ({ ...field, problems: modelMetaTalkIn(field.value || "") }))
+    .filter(field => field.problems.length > 0);
+  if (fieldsWithMetaTalk.length > 0) {
+    throw new Error(`Reader-facing output contains model self-commentary in ${fieldsWithMetaTalk.map(field => field.name).join(", ")}`);
+  }
+
   const bannedInCopy = [
     ...bannedWordsIn(finalTheme),
     ...bannedWordsIn(parsedAI.synthesis),
