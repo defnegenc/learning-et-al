@@ -250,7 +250,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
     ? foundationalLead(paper.foundationalReason)
     : null;
 
-  const body = (paper.summary || paper.abstract || "").trim();
+  // The abstract is source material, not card copy. Old malformed rows may
+  // have no generated summary; showing nothing here is safer than promoting
+  // dense academic prose into the reader-facing hero slot.
+  const body = (paper.summary || "").trim();
   const hero = body.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || body;
   const byline = paperByline(paper);
 

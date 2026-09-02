@@ -7,7 +7,8 @@
     "prebuild": "node scripts/fetch-fonts.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:output-guards": "node --experimental-strip-types --test src/lib/ai/output-guards.test.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

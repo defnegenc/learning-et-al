@@ -47,6 +47,7 @@ This means:
 8. **One paragraph** — keep it tight. If it needs two paragraphs, the second should be very short.
 9. **Include one specific number or finding** — concrete detail anchors the whole piece.
 10. **Only discuss what's in the papers** — never hallucinate connections or bring up topics not covered.
+11. **No model self-commentary**: never expose an apology, refusal, identity disclaimer, placeholder, permission claim, or mention of prompt wording. Rewrite the supported idea directly.
 
 ## What Worked
 
@@ -96,7 +97,10 @@ Stage D: One review, one revision
 
 Final repair (conditional, deterministic trigger)
   → Missing [Source N] tag and/or too few bullets → ONE rewrite
+  → Model self-commentary → the same rewrite, then fail closed if it remains
 ```
+
+The final repair now treats model self-commentary as a publishing-contract failure. Remaining coverage, structure, or commentary violations abort generation after the repair attempt. A pre-storage scan checks every reader-facing field, including the gist and metadata, so unchecked model commentary cannot be saved.
 
 **One structure contract** (`synthesisStructureContract()` in prompts.ts, added
 2026-08-20). Every prompt that *rewrites* a synthesis has to restate its shape, or the

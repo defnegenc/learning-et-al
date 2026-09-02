@@ -113,7 +113,7 @@ export function toLines(paragraphs: string[], defs: { term: string; def: string 
  */
 function PaperChip({ paper, label, cap, onOpen }: { paper: PaperItem; label: string; cap: boolean; onOpen: (p: PaperItem) => void }) {
   const [hover, setHover] = useState(false);
-  const summary = paper.summary || paper.abstract || "";
+  const summary = paper.summary || "";
   return (
     <span style={{ position: "relative", display: "inline" }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <button
@@ -255,13 +255,18 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
     if (pendingCards.length) {
       pendingCards.forEach((pi) => {
         if (!papers[pi]) return;
+        const paper = papers[pi];
+        const missingCardCopy = !paper.summary?.trim();
         els.push(
           <div key={`c${pi}`} className="brief-line" style={{ margin: firstEl ? "0" : "34px 0 0" }}>
+            {missingCardCopy && prose && (
+              <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 16px" }}>{prose}</p>
+            )}
             <PaperCard
-              paper={papers[pi]}
+              paper={paper}
               index={pi}
               loggedIn={loggedIn}
-              initialBookmarked={savedIds?.has(papers[pi].id)}
+              initialBookmarked={savedIds?.has(paper.id)}
               onSignedOutSaveChange={onSignedOutSaveChange}
               expandTick={expandTicks[pi]}
             />

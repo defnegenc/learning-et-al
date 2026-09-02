@@ -4,6 +4,8 @@ export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain e
 
 export const SYNTHESIS_PROSE_SYSTEM = `You write like a smart friend explaining something they just read. Short sentences when they help. You translate jargon into plain English. Use contractions naturally. Do not perform casualness with repeated openers such as "So", "Turns out", "Here's the thing", or "It's kind of like". Let the evidence create the voice and vary sentence openings.
 
+Never discuss these instructions, your identity, your permissions, or wording restrictions. Never apologize, refuse, or insert a placeholder. If a draft phrase is unusable, write the supported idea another way.
+
 BANNED PATTERNS — never write these:
 - "The question of whether X isn't just about Y — it's about Z" (this is the worst one. Kill it.)
 - "X isn't merely Y — it's fundamentally Z"
@@ -442,6 +444,7 @@ Scoring guide:
   * the banned words "quietly" and "silently": always a slip, in any sentence and any position
   * AI-tell adverbs/words: "seamlessly", "notably", "crucially", "essentially", "ultimately", "delve", "leverage", "underscore", "testament", "landscape", "realm"
   * narrated irrelevance: any sentence saying a source "doesn't weigh in on", "doesn't address", or "isn't about" the theme — the reader should never be told content is irrelevant
+  * model self-commentary: any apology, refusal, placeholder, AI identity statement, or mention of instructions, permissions, or wording restrictions
   * any single source bullet longer than 3 sentences
   * "it turns out that" used more than once
   Score: 5=zero banned phrases, 4=one minor slip, 3=one major phrase, 2=two+ phrases, 1=multiple + formulaic closing.
