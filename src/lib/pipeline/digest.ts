@@ -129,7 +129,7 @@ async function searchPapers(
     paperId: "", openAlexId: undefined,
     title: p.title, authors: p.authors, abstract: p.abstract,
     sourceUrl: p.sourceUrl, pdfUrl: p.pdfUrl,
-    citationCount: 0, year: new Date().getFullYear(),
+    citationCount: 0, year: p.year,
     source: "arxiv" as const,
   }));
 }
@@ -622,7 +622,11 @@ const CURRENT_YEAR_RECENCY_BONUS = 0.007;
 const PREVIOUS_YEAR_RECENCY_BONUS = 0.003;
 const FAST_CURRENT_YEAR_RECENCY_BONUS = 0.010;
 const FAST_PREVIOUS_YEAR_RECENCY_BONUS = 0.005;
-const FAST_MOVING_RESEARCH = /\b(?:ai|artificial intelligence|machine learning|deep learning|generative ai|ai agents?|large language models?|foundation models?|chatgpt|computer vision|natural language processing|nlp|cybersecurity)\b/i;
+// Every term must be unambiguously volatile-field vocabulary: a false positive
+// forces the tight window onto a slow field, so bare "transformers", "agentic",
+// "multimodal", "gpt" and product names other than chatgpt stay out (power
+// engineering, psychology, imaging, liver enzymes, constellations).
+const FAST_MOVING_RESEARCH = /\b(?:ai|artificial intelligence|machine learning|deep learning|generative ai|ai agents?|agentic ai|language models?|llms?|foundation models?|frontier models?|chatgpt|gpt-\d\w*|transformer models?|diffusion models?|generative models?|multimodal models?|neural networks?|reinforcement learning|rlhf|retrieval-augmented generation|prompt engineering|prompt injection|speech recognition|recommender systems?|robotics|computer vision|natural language processing|nlp|cybersecurity)\b/i;
 
 function isFastMovingResearchContext(parts: (string | undefined)[]): boolean {
   return FAST_MOVING_RESEARCH.test(parts.filter(Boolean).join(" "));

@@ -4,6 +4,8 @@ interface ArxivPaper {
   abstract: string;
   sourceUrl: string;
   pdfUrl: string;
+  /** Parsed from <published>; 0 when the feed omits it (same convention as OpenAlex). */
+  year: number;
 }
 
 export async function searchArxiv(query: string, maxResults = 10): Promise<ArxivPaper[]> {
@@ -23,12 +25,15 @@ export async function searchArxiv(query: string, maxResults = 10): Promise<Arxiv
     const authors = [...entry.matchAll(/<author>\s*<name>([^<]+)<\/name>/g)].map(m => m[1]);
     const pdfLink = entry.match(/href="([^"]*)"[^>]*title="pdf"/)?.[1] || "";
 
+    const publishedYear = Number(getTag("published").slice(0, 4));
+
     return {
       title: getTag("title").replace(/\n/g, " "),
       authors,
       abstract: getTag("summary").replace(/\n/g, " "),
       sourceUrl: getTag("id"),
       pdfUrl: pdfLink,
+      year: Number.isFinite(publishedYear) ? publishedYear : 0,
     };
   });
 }
