@@ -95,9 +95,10 @@ Hard floor: `SIM_MIN_THEME = 0.15` (raw `relSim`).
 **Theme retry on weak match**: only breaks the theme retry loop early when papers pass `SIM_MIDPOINT` or higher. If papers only pass below `SIM_MIDPOINT`, the pipeline retries with a new theme before accepting weak-match papers.
 
 **Dynamic item count** (lines ~568-581): counts papers above `SIM_ONTOPIC`.
-- ≥3 strong papers → 3 papers + 0 news
-- ≤1 strong paper → 1 paper + 2 news
+- <2 strong papers → 1 paper + 2 news
 - Otherwise → 2 papers + 1 news (default)
+
+Every edition mixes papers and reporting; there is no all-papers upgrade. (The old code zeroed the news slot whenever ≥3 papers cleared the relevance bar - nearly every run - which is why editions went all-paper for months. If no article clears the news relevance guards, the fill passes add a paper instead, so a bad article never takes a slot just to keep the mix.)
 
 **Wide pool via MMR** (λ=0.6): selects ~6 diverse papers from qualified candidates. MMR penalizes candidates similar to already-picked papers.
 
