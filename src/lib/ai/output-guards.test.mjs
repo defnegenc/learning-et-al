@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { modelMetaTalkIn, themeQuestionProblems } from "./output-guards.ts";
+import { metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "./output-guards.ts";
 
 test("accepts direct questions and setup-plus-question headlines", () => {
   assert.deepEqual(themeQuestionProblems("Who's liable when a government AI agent fails?"), []);
@@ -21,4 +21,18 @@ test("detects model self-commentary without flagging evidence limits", () => {
   assert.ok(modelMetaTalkIn("I must avoid that phrase. [REDACTED]").length > 0);
   assert.deepEqual(modelMetaTalkIn("The evidence cannot say why the effect disappeared."), []);
   assert.deepEqual(modelMetaTalkIn("The study compares how schools define prohibited terms."), []);
+});
+test("rejects the empty metadata fallback before a raw abstract can publish", () => {
+  assert.ok(metadataItemProblems({ index: 1, summary: "", keywords: [], findings: [] }, 1).length > 0);
+  assert.deepEqual(metadataItemProblems({
+    index: 1,
+    plainName: "The detector review",
+    summary: "A review found that writing detectors still make consequential mistakes.",
+    keywords: ["writing detectors"],
+    findings: ["Most tools remained unreliable."],
+    connectionToTheme: "tests whether deployed detectors work",
+    takeaway: { hook: "Paid tools still make mistakes.", line: "A detector score is not proof." },
+    methodType: "Literature review",
+    claim: "Writing detectors should not be trusted on their own.",
+  }, 1), []);
 });

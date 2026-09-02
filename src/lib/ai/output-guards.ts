@@ -39,3 +39,31 @@ export function modelMetaTalkIn(text: string): string[] {
     .filter(({ pattern }) => pattern.test(normalized))
     .map(({ label }) => label);
 }
+type MetadataItem = {
+  index?: number;
+  plainName?: string;
+  summary?: string;
+  keywords?: string[];
+  findings?: string[];
+  connectionToTheme?: string;
+  takeaway?: { hook?: string; line?: string };
+  methodType?: string;
+  claim?: string;
+};
+
+/** Core card fields that must exist before a generated paper can be published. */
+export function metadataItemProblems(item: MetadataItem | null | undefined, expectedIndex: number): string[] {
+  if (!item) return ["The item is missing."];
+
+  const problems: string[] = [];
+  if (item.index !== expectedIndex) problems.push(`Its index is ${item.index ?? "missing"}; expected ${expectedIndex}.`);
+  if (!item.plainName?.trim()) problems.push("Its plain-language name is empty.");
+  if (!item.summary?.trim()) problems.push("Its summary is empty.");
+  if (!item.keywords?.some(value => value.trim())) problems.push("Its keywords are empty.");
+  if (!item.findings?.some(value => value.trim())) problems.push("Its findings are empty.");
+  if (!item.connectionToTheme?.trim()) problems.push("Its theme connection is empty.");
+  if (!item.takeaway?.hook?.trim() || !item.takeaway?.line?.trim()) problems.push("Its takeaway is incomplete.");
+  if (!item.methodType?.trim()) problems.push("Its method type is empty.");
+  if (!item.claim?.trim()) problems.push("Its claim is empty.");
+  return problems;
+}

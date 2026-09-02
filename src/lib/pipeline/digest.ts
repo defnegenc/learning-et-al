@@ -11,7 +11,7 @@ import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { BANNED_WORDS_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
-import { modelMetaTalkIn, themeQuestionProblems } from "@/lib/ai/output-guards";
+import { metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "@/lib/ai/output-guards";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -2264,13 +2264,18 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   logStage("stage A+B (metadata + skeleton)");
 
   // Stage A: parse metadata
-  let metadata: { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
+  type MetadataResponse = { items: DigestAIResponse["items"]; keyConcepts: string[]; suggestedQuestions?: string[] };
+  let metadata: MetadataResponse;
   try {
-    const metaParsed = extractJson<typeof metadata>(metadataResp);
+    const metaParsed = extractJson<MetadataResponse>(metadataResp);
     if (!metaParsed) throw new Error("No JSON");
-    metadata = metaParsed;
+    metadata = {
+      items: Array.isArray(metaParsed.items) ? metaParsed.items : [],
+      keyConcepts: Array.isArray(metaParsed.keyConcepts) ? metaParsed.keyConcepts : [],
+      suggestedQuestions: Array.isArray(metaParsed.suggestedQuestions) ? metaParsed.suggestedQuestions : [],
+    };
   } catch {
-    console.log(`[Digest] Metadata parse failed, using empty defaults`);
+    console.log(`[Digest] Metadata parse failed, queuing per-paper repair`);
     metadata = { items: items.map((_, i) => ({ index: i + 1, summary: "", keywords: [], findings: [] })), keyConcepts: [], suggestedQuestions: [] };
   }
 
@@ -2282,20 +2287,97 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
     s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
       .filter(w => w.length > 3 && !metaStop.has(w))
   );
+  const summaryGroundingProblem = (aiItem: DigestAIResponse["items"][number], expectedIndex: number): string | null => {
+    if (!aiItem.summary?.trim()) return null;
+    const paper = items[expectedIndex - 1];
+    if (!paper) return "The paper is missing.";
+    const paperWords = contentWords(`${paper.title} ${paper.abstract}`);
+    const summaryWords = [...contentWords(aiItem.summary)];
+    const overlap = summaryWords.filter(w => paperWords.has(w)).length;
+    return overlap < 2 && summaryWords.length >= 3
+      ? `Its summary is disconnected from the source (content-word overlap ${overlap}).`
+      : null;
+  };
   metadata.items = metadata.items.map((aiItem) => {
     const paperIdx = aiItem.index - 1;
     const paper = items[paperIdx];
     if (!paper || !aiItem.summary) return aiItem;
-    const paperWords = contentWords(`${paper.title} ${paper.abstract}`);
-    const summaryWords = [...contentWords(aiItem.summary)];
-    const overlap = summaryWords.filter(w => paperWords.has(w)).length;
-    if (overlap < 2 && summaryWords.length >= 3) {
-      const fallback = (paper.abstract.match(/[^.!?]+[.!?]/)?.[0] ?? paper.abstract.slice(0, 180)).trim();
-      console.log(`[Digest] Summary for paper ${aiItem.index} looked disconnected from abstract (overlap=${overlap}). Falling back to abstract lead.`);
-      return { ...aiItem, summary: fallback };
+    const groundingProblem = summaryGroundingProblem(aiItem, aiItem.index);
+    if (groundingProblem) {
+      console.log(`[Digest] Summary for paper ${aiItem.index} failed grounding, queuing repair`);
+      return { ...aiItem, summary: "" };
     }
     return aiItem;
   });
+
+  // A malformed batch used to become a set of empty metadata rows. The card
+  // then fell back to the source abstract, putting dense academic prose in the
+  // reader-facing summary slot. Repair only the broken papers in parallel so
+  // each response is small enough to stay valid JSON, then fail closed if any
+  // core card field is still absent.
+  const metadataIndicesNeedingRepair = items
+    .map((_, index) => index + 1)
+    .filter((expectedIndex) => {
+      const matches = metadata.items.filter(aiItem => aiItem.index === expectedIndex);
+      if (matches.length !== 1) return true;
+      return metadataItemProblems(matches[0], expectedIndex).length > 0
+        || Boolean(summaryGroundingProblem(matches[0], expectedIndex));
+    });
+  if (metadataIndicesNeedingRepair.length > 0) {
+    console.log(`[Digest] Repairing metadata for paper${metadataIndicesNeedingRepair.length > 1 ? "s" : ""} ${metadataIndicesNeedingRepair.join(", ")}`);
+    const repairedMetadata = await Promise.all(metadataIndicesNeedingRepair.map(async (expectedIndex) => {
+      const paper = items[expectedIndex - 1];
+      const repairResp = await aiComplete(
+        judge,
+        SYNTHESIS_SYSTEM,
+        `The previous batched metadata response was incomplete or invalid. Generate complete metadata for this one paper. Keep every string within the requested limit and return one valid JSON object only.\n\n${metadataPrompt([paper], finalTheme, synthesisCtx)}`
+      );
+      const repairParsed = extractJson<MetadataResponse>(repairResp);
+      const returnedItem = repairParsed?.items?.find(aiItem => aiItem.index === 1);
+      const repairProblems = metadataItemProblems(returnedItem, 1);
+      if (!returnedItem || repairProblems.length > 0) {
+        throw new Error(`Metadata repair for paper ${expectedIndex} failed: ${repairProblems.join("; ") || "No valid item returned."}`);
+      }
+      const normalizedItem = { ...returnedItem, index: expectedIndex };
+      const groundingProblem = summaryGroundingProblem(normalizedItem, expectedIndex);
+      if (groundingProblem) {
+        throw new Error(`Metadata repair for paper ${expectedIndex} failed: ${groundingProblem}`);
+      }
+      return {
+        item: normalizedItem,
+        keyConcepts: Array.isArray(repairParsed?.keyConcepts) ? repairParsed.keyConcepts : [],
+        suggestedQuestions: Array.isArray(repairParsed?.suggestedQuestions) ? repairParsed.suggestedQuestions : [],
+      };
+    }));
+    const repairedByIndex = new Map(repairedMetadata.map(result => [result.item.index, result.item]));
+    metadata.items = items.map((_, index) => {
+      const expectedIndex = index + 1;
+      const repaired = repairedByIndex.get(expectedIndex);
+      if (repaired) return repaired;
+      const existing = metadata.items.find(aiItem => aiItem.index === expectedIndex);
+      if (!existing) throw new Error(`Metadata for paper ${expectedIndex} disappeared during repair.`);
+      return existing;
+    });
+    metadata.keyConcepts = [...new Set([
+      ...metadata.keyConcepts,
+      ...repairedMetadata.flatMap(result => result.keyConcepts),
+    ])];
+    metadata.suggestedQuestions = [...new Set([
+      ...(metadata.suggestedQuestions || []),
+      ...repairedMetadata.flatMap(result => result.suggestedQuestions),
+    ])].slice(0, 3);
+  }
+  const remainingMetadataProblems = items.flatMap((_, index) => {
+    const expectedIndex = index + 1;
+    const aiItem = metadata.items.find(candidate => candidate.index === expectedIndex);
+    return [
+      ...metadataItemProblems(aiItem, expectedIndex),
+      ...(aiItem && summaryGroundingProblem(aiItem, expectedIndex) ? [summaryGroundingProblem(aiItem, expectedIndex)!] : []),
+    ].map(problem => `Paper ${expectedIndex}: ${problem}`);
+  });
+  if (remainingMetadataProblems.length > 0) {
+    throw new Error(`Metadata still breaks the publishing contract after repair: ${remainingMetadataProblems.join("; ")}`);
+  }
 
   // Stage B: parse the skeleton (cross-document relations + argument outline)
   let skeleton: {
