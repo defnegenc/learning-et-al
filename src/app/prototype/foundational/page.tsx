@@ -38,7 +38,7 @@ const PAPER: PaperItem = {
     "Granovetter showed that the people who bring you genuinely new information are rarely your close friends: they are the acquaintances who move in circles yours does not touch.",
   abstract: "",
   source: "semantic_scholar",
-  sourceUrl: "https://example.com/weak-ties",
+  sourceUrl: "https://doi.org/10.1086/225469",
   keywords: ["networks", "sociology", "information"],
   authors: ["Mark S. Granovetter"],
   year: 1973,
@@ -58,6 +58,13 @@ const PAPER: PaperItem = {
 /* ── Shared pieces ───────────────────────────────────────────────────────── */
 
 const MARK = foundationalSlots()[0];
+
+/**
+ * The gold tab needs a second, darker gold for its own edge: a 2px `GOLD` border
+ * around a `GOLD` fill is not a border. This is the one place it exists, and if
+ * a gold tab ships it belongs in the design system beside `GOLD`, not here.
+ */
+const GOLD_DEEP = "#8a6c12";
 
 function emphasize(text: string): React.ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
@@ -498,6 +505,170 @@ function TabCompact() {
   );
 }
 
+/* ── E1 · Gold tab, E2 · Shining tab ─────────────────────────────────────── */
+
+/**
+ * E with the tab filled rather than outlined.
+ *
+ * Gold has been a line colour everywhere else in the product, and it still is on
+ * this card: the frame and the shadow. The tab is the one exception, and it can
+ * be, because it is a physical object in the metaphor. A folder tab is a piece
+ * of card stock, not a rule.
+ *
+ * Two levels of it. `flat` is stamped metal: a hard vertical gradient with a
+ * bright top half and a dark bottom half, the way a brutalist surface would
+ * render a bevel if it were allowed one. `shine` is the same bar with a light
+ * travelling across it, done by moving a wide gradient's background-position
+ * rather than by sweeping an overlay, so nothing has to clip and the eye's
+ * tooltip still escapes the tab.
+ *
+ * Ink stays the text colour in both: white on gold is unreadable at 13px, and
+ * the product has one text colour on light ground.
+ */
+function GoldTab({ shine, compact = false }: { shine: boolean; compact?: boolean }) {
+  return (
+    <span
+      className={shine ? "proto-tab-shine" : "proto-tab-flat"}
+      style={{
+        ...BODY_SM,
+        fontWeight: 600,
+        color: INK,
+        position: "absolute",
+        top: -13,
+        left: compact ? 16 : 20,
+        zIndex: 2,
+        border: `2px solid ${GOLD_DEEP}`,
+        padding: "1px 10px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        lineHeight: "22px",
+      }}
+    >
+      Foundational text {!compact && <Eye />}
+    </span>
+  );
+}
+
+function TabGold({ shine }: { shine: boolean }) {
+  return (
+    <div style={{ position: "relative", marginTop: 12 }}>
+      <GoldTab shine={shine} />
+      <Shell style={{ overflow: "visible", paddingTop: 26 }}>
+        <div>
+          <Title />
+          <Byline />
+          <p style={{ ...HERO, marginTop: 14 }}>{PAPER.summary}</p>
+          <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "12px 0 0" }}>
+            {PAPER.foundationalReason}
+          </p>
+        </div>
+        <Body />
+        <ReadPaper />
+      </Shell>
+    </div>
+  );
+}
+
+function TabGoldCompact({ shine }: { shine: boolean }) {
+  return (
+    <div style={{ position: "relative", marginTop: 12, height: "100%" }}>
+      <GoldTab shine={shine} compact />
+      <CompactShell style={{ overflow: "visible", paddingTop: 20 }}>
+        <CompactHead />
+        <Byline />
+        <p style={{ ...BODY_STYLE, fontStyle: "italic", color: DIM, margin: "2px 0 0", ...CLAMP }}>
+          {PAPER.foundationalReason}
+        </p>
+      </CompactShell>
+    </div>
+  );
+}
+
+/* ── F · In the lead ─────────────────────────────────────────────────────── */
+
+/**
+ * The words "Foundational Text", set large in the display face, inside the
+ * sentence that does the explaining. There is no tab, no eyebrow, no heading and
+ * no second block: the card says what it is in the course of saying why it
+ * matters, which is one sentence instead of a label plus a sentence.
+ *
+ * The oversized F and T are the whole mechanism. They make the phrase read as a
+ * name for a kind of thing rather than as two ordinary words, at the size the
+ * eyebrow used to occupy but inside the prose, and they give the hover
+ * definition something to hang on: the phrase carries the ink tooltip the way a
+ * hard word in the synthesis does, so the info icon goes too.
+ *
+ * This one needs the pipeline to write a different sentence. See
+ * `foundationalLead` below and the note on the page.
+ */
+function BigFT({ size }: { size: number }) {
+  const [open, setOpen] = useState(false);
+  const cap: React.CSSProperties = { fontSize: Math.round(size * 1.42) };
+  return (
+    <span
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      style={{
+        fontFamily: DISPLAY, fontWeight: 700, fontSize: size, letterSpacing: "-0.02em",
+        color: INK, position: "relative", cursor: "help",
+        borderBottom: `2px solid ${GOLD}`, whiteSpace: "nowrap",
+      }}
+    >
+      <span style={cap}>F</span>oundational <span style={cap}>T</span>ext
+      {open && (
+        <span style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 40, pointerEvents: "none" }}>
+          <InkTip>
+            Earlier thinking that set the terms of the argument, giving today&rsquo;s newer work something to build on, revise, or push against.
+          </InkTip>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * What the pipeline would return under F: the predicate only, no subject and no
+ * date. The card owns "This <phrase>, written in <year>," because the year is
+ * already on the paper and the capitalised phrase is a typographic decision, not
+ * something a model should be asked to remember to produce.
+ */
+const LEAD_PREDICATE =
+  "turned a hunch about gossip into a measurable property of networks, and nearly every later argument about how information moves through a crowd is answering it.";
+
+function Lead({ size }: { size: number }) {
+  return (
+    <>
+      This <BigFT size={size} />, written in {PAPER.year}, {LEAD_PREDICATE}
+    </>
+  );
+}
+
+function InTheLead() {
+  return (
+    <Shell>
+      <div>
+        <Title />
+        <Byline />
+        <p style={{ ...HERO, marginTop: 14 }}><Lead size={22} /></p>
+        <p style={{ ...BODY_STYLE, color: DIM, margin: "12px 0 0" }}>{PAPER.summary}</p>
+      </div>
+      <Body />
+      <ReadPaper />
+    </Shell>
+  );
+}
+
+function InTheLeadCompact() {
+  return (
+    <CompactShell>
+      <CompactHead />
+      <Byline />
+      <p style={{ ...BODY_STYLE, margin: "4px 0 0", ...CLAMP }}><Lead size={15} /></p>
+    </CompactShell>
+  );
+}
+
 /* ── Today, as it ships ──────────────────────────────────────────────────── */
 
 /** The current card, rebuilt here so the comparison is on one page. */
@@ -545,9 +716,47 @@ interface Candidate {
   note: string;
   digest: () => React.ReactNode;
   compact: () => React.ReactNode;
+  /** What the pipeline would have to write differently for this one to work. */
+  prompt?: React.ReactNode;
 }
 
 const CANDIDATES: Candidate[] = [
+  {
+    key: "E1",
+    name: "E1 · Gold tab",
+    note: "E with the tab filled instead of outlined: stamped metal, a hard bright-to-dark gradient with a darker gold edge, because a 2px gold border around a gold fill is not a border. Ink text stays ink; white on gold is unreadable at 13px.",
+    digest: () => <TabGold shine={false} />,
+    compact: () => <TabGoldCompact shine={false} />,
+  },
+  {
+    key: "E2",
+    name: "E2 · Shining tab",
+    note: "The same bar with a light travelling across it. The sheen moves a wide gradient's background-position rather than sweeping an overlay, so the tab never has to clip and the eye's tooltip still escapes it. Holds still for anyone who has asked for reduced motion.",
+    digest: () => <TabGold shine />,
+    compact: () => <TabGoldCompact shine />,
+  },
+  {
+    key: "F",
+    name: "F · In the lead",
+    note: "The phrase says it, nothing else does. No tab, no eyebrow, no heading, no second block: \u201cThis Foundational Text, written in 1973, \u2026\u201d, with the F and the T set large in the display face so the phrase reads as the name of a kind of thing. The hover definition hangs on the phrase, the way a hard word in the synthesis does, so the info icon goes too. Needs a prompt change: see the note under this card.",
+    digest: InTheLead,
+    compact: InTheLeadCompact,
+    prompt: (
+      <>
+        <strong style={{ fontWeight: 600, color: INK }}>Prompt change.</strong>{" "}
+        The gate in <code>pickFoundational</code> currently asks for a whole sentence
+        (&ldquo;one plain-English sentence on why this text changed the field&rdquo;), which
+        arrives with its own subject: &ldquo;This paper showed that&hellip;&rdquo;. F needs the
+        predicate only, so the card can own the subject, the phrase and the year, all
+        three of which it already has. The ask becomes: finish the sentence &ldquo;This
+        Foundational Text, written in 1973, __&rdquo; in at most 25 words, no citation
+        counts, no restating the title. Composing the opening in the card rather than
+        asking a model to produce the capitals is the difference between a rule and a
+        hope. Not applied yet: it would leave every other candidate on this page
+        rendering half a sentence.
+      </>
+    ),
+  },
   {
     key: "0",
     name: "As it ships today",
@@ -602,6 +811,24 @@ export default function FoundationalPrototypes() {
         .proto-split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
         .proto-split > section + section { border-left: ${BORDER}; padding-left: 24px; }
         .proto-shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        .proto-tab-flat {
+          background: linear-gradient(180deg, #fdf1c4 0%, #e7c765 44%, #b8901f 52%, #d9b850 78%, #f3e3a6 100%);
+        }
+        .proto-tab-shine {
+          background: linear-gradient(100deg,
+            #a8811a 0%, #d9b34a 9%, #fff8d8 17%, #d9b34a 25%,
+            #b8901f 36%, #fdf3c8 46%, #c9a227 56%,
+            #8f6f14 68%, #edd88f 80%, #c9a227 92%, #a8811a 100%);
+          background-size: 320% 100%;
+          animation: proto-sheen 4.5s linear infinite;
+        }
+        @keyframes proto-sheen {
+          from { background-position: 0% 0; }
+          to   { background-position: 320% 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .proto-tab-shine { animation: none; background-position: 22% 0; }
+        }
         @media (max-width: 720px) {
           .proto-split, .proto-shelf { grid-template-columns: 1fr; gap: 20px; }
           .proto-split > section + section { border-left: none; border-top: ${BORDER}; padding-left: 0; padding-top: 20px; }
@@ -613,9 +840,10 @@ export default function FoundationalPrototypes() {
           Foundational treatments
         </h1>
         <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 8px", maxWidth: 640 }}>
-          Five ways to say &ldquo;this one set the terms&rdquo; without a mono all-caps eyebrow and
-          without a tinted Significance panel. Gold frame, gold shadow and the 02+01 wash are
-          fixed in every one; only the word and the sentence move.
+          Round two is the first three: E with the tab filled in gold, the same tab with a
+          light moving across it, and one with no marker anywhere at all, where the phrase in
+          the opening sentence is the label. Round one follows below. Gold frame, gold shadow
+          and the 02+01 wash are fixed in every one; only the word and the sentence move.
         </p>
         <p style={{ ...BODY_SM, color: MUTED, margin: "0 0 28px", maxWidth: 640 }}>
           Each candidate is shown twice: the full card as Today renders it, then the compact card
@@ -644,6 +872,11 @@ export default function FoundationalPrototypes() {
               <h2 style={{ ...DISPLAY_SM, fontSize: 20, margin: "0 0 8px" }}>{c.name}</h2>
               <p style={{ ...BODY_SM, color: DIM, margin: "0 0 22px", maxWidth: 640 }}>{c.note}</p>
               {c.digest()}
+              {c.prompt && (
+                <p style={{ ...BODY_SM, color: DIM, margin: "18px 0 0", padding: "14px 16px", border: `2px solid ${GOLD}`, maxWidth: 640 }}>
+                  {c.prompt}
+                </p>
+              )}
               <p style={{ ...BODY_SM, color: MUTED, margin: "26px 0 12px" }}>On the vault shelf:</p>
               <div className="proto-shelf">
                 {c.compact()}
