@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -73,7 +74,11 @@ export const digests = sqliteTable("digests", {
   starred: integer("starred", { mode: "boolean" }).$default(() => false),
   hidden: integer("hidden", { mode: "boolean" }).$default(() => false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
+}, (table) => [
+  // One visible edition per reader per day. Partial so hidden history can keep
+  // same-date rows; mirrors the micro-migration in src/lib/db/index.ts.
+  uniqueIndex("digests_user_date_visible_unique").on(table.userId, table.date).where(sql`COALESCE(${table.hidden}, 0) = 0`),
+]);
 
 /**
  * A digest can appear in more than its author's history after it is shared.

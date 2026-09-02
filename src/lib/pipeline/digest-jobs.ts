@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { digestJobs, digests, interests, papers, users } from "@/lib/db/schema";
 import { sendDigestEmail, type DigestEmailData } from "@/lib/email";
@@ -198,6 +198,10 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
   }[] = [];
 
   for (const job of runnable) {
+    // Atomic claim. The 04:00 seeder and the hourly slot workers overlap, and
+    // an unguarded flip let two invocations run the same job, which generated
+    // duplicate editions for the same date. Only update while the job is still
+    // claimable, then verify this worker is the one holding it.
     const startedAt = new Date();
     await db.update(digestJobs).set({
       status: "running",
@@ -206,7 +210,18 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
       updatedAt: startedAt,
       startedAt,
       finishedAt: null,
-    }).where(eq(digestJobs.id, job.id));
+    }).where(and(
+      eq(digestJobs.id, job.id),
+      or(
+        inArray(digestJobs.status, ["pending", "failed"]),
+        and(eq(digestJobs.status, "running"), or(isNull(digestJobs.startedAt), lt(digestJobs.startedAt, retryBefore))),
+      ),
+    ));
+    const claimed = await db.query.digestJobs.findFirst({ where: eq(digestJobs.id, job.id) });
+    if (!claimed || claimed.status !== "running" || claimed.attempts !== job.attempts + 1 || claimed.startedAt?.getTime() !== startedAt.getTime()) {
+      results.push({ jobId: job.id, userId: job.userId, status: "skipped_claimed_elsewhere" });
+      continue;
+    }
 
     const user = await db.query.users.findFirst({ where: eq(users.id, job.userId) });
     if (!user) {

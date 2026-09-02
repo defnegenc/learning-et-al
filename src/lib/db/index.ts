@@ -85,6 +85,19 @@ const MICRO_MIGRATIONS = [
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
   "CREATE UNIQUE INDEX IF NOT EXISTS taste_dossiers_user_unique ON taste_dossiers(user_id)",
+  // One visible edition per reader per day. Duplicated dates already exist in
+  // prod (cron double-fires + force regens each inserted a fresh row), so hide
+  // every visible duplicate but the earliest first, or the partial unique
+  // index below can never be created. The update is idempotent and the index
+  // only covers visible rows, so hidden history keeps its duplicates.
+  `UPDATE digests SET hidden = 1
+   WHERE COALESCE(hidden, 0) = 0 AND id NOT IN (
+     SELECT id FROM (
+       SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id, date ORDER BY created_at ASC, id ASC) AS rn
+       FROM digests WHERE COALESCE(hidden, 0) = 0
+     ) WHERE rn = 1
+   )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS digests_user_date_visible_unique ON digests(user_id, date) WHERE COALESCE(hidden, 0) = 0",
 ];
 let migrated: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {

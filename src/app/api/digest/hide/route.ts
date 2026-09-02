@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { digests } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 
 export async function POST(req: NextRequest) {
@@ -18,6 +18,20 @@ export async function POST(req: NextRequest) {
     if (!digest) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const newHidden = !digest.hidden;
+    if (newHidden === false) {
+      // Unhiding must not put a second visible edition on the same date — the
+      // digests_user_date_visible_unique index would reject it with a 500.
+      const visibleSameDate = await db.query.digests.findFirst({
+        where: and(
+          eq(digests.userId, userId),
+          eq(digests.date, digest.date),
+          or(isNull(digests.hidden), eq(digests.hidden, false)),
+        ),
+      });
+      if (visibleSameDate) {
+        return NextResponse.json({ error: "Another edition for this date is already visible. Hide it first." }, { status: 409 });
+      }
+    }
     await db.update(digests).set({ hidden: newHidden }).where(eq(digests.id, digestId));
 
     return NextResponse.json({ hidden: newHidden });
