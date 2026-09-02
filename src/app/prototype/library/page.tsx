@@ -202,7 +202,7 @@ export default function LibraryPrototype() {
                   <span style={{ ...BODY_SM, fontStyle: "italic", color: DIM, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     Saved from &ldquo;{p.digestTheme}&rdquo;
                   </span>
-                  <span style={{ ...DISPLAY_SM, whiteSpace: "nowrap" }}>Read &rarr;</span>
+                  <span style={{ ...DISPLAY_SM, whiteSpace: "nowrap" }}>Learn more &rarr;</span>
                 </div>
               }
             />

@@ -1,60 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bookmark } from "lucide-react";
 import {
-  ACID_GREEN, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
-  HAIRLINE, INK, Segmented, SHADOW, SURFACE, wash, washSlots,
+  BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY_LG, DISPLAY_SM,
+  HAIRLINE, INK, Segmented, SHADOW, SURFACE, wash,
 } from "@/components/design-system";
 
 /*
- * The save signal: /prototype/save-signal.
+ * The save signal, round two: /prototype/save-signal.
  *
- * The complaint: on the digest a saved paper differs from an unsaved one by a
- * 16px bookmark swapping outline for fill, and nothing else. Saving is the
- * single strongest thing a reader can do (it starts the librarian reading),
- * and the card barely registers it.
+ * Round one tried four shapes; the shelf line won (saving appends a foot line
+ * to the card: where the paper went, plus the door to the reading view). This
+ * round keeps the shelf line on every card and varies the LANGUAGE instead:
+ * what the control says before, during, and after.
  *
- * Four candidates, each built only from moves the menu already sanctions.
- * Every card here is interactive: click its save control and watch the state
- * change. The cards are local mockups of the digest card's header, not the
- * production component, because the candidates change the control itself.
+ * One rule hangs over all of it (CLAUDE.md): the save control has exactly one
+ * name. Whatever wins here replaces "Save"/"Saved" EVERYWHERE (the tip strip,
+ * the first-save panel, the vault empty state), never joins them.
  *
- *  · Acid tick  : the bookmark and its word turn acid green when saved. The
- *                  menu names acid green as "confirmation that something
- *                  stuck: the bookmark fill", so this is arguably the drawn
- *                  design, never implemented (the code fills ink).
- *  · Shadow     : the card's hard shadow recolours from ink to the card's own
- *                  wash hue when saved. "Colour falls behind things" is the one
- *                  sanctioned colour-beside-ink move; a saved card literally
- *                  gets its colour filed behind it.
- *  · Button     : the control becomes a real button, Display/SM like every
- *                  button: outline "Save", ink-filled "Saved". Loudest, and the
- *                  most honest about being an action rather than an icon.
- *  · Shelf line : saving appends a foot line to the card: a bold body-face
- *                  lead-in ("In your library.") plus "Open the reading view →",
- *                  which also answers how you get from a digest card to
- *                  /library/[id].
+ *  · Save          : ships today, the baseline to beat.
+ *  · Keep          : archive vocabulary; "kept" is what you do to something
+ *                    you're not done with.
+ *  · Shelve        : the library metaphor said out loud; pairs with the vault.
+ *  · Learn more    : wildcard. One verb does everything: it saves AND opens
+ *                    the reading view. There is no separate bookmark.
+ *  · Read it for me: wildcard. Save as delegation to the librarian; the label
+ *                    moves through tenses as the prep actually runs.
+ *
+ * All cards are interactive. "Read it for me" simulates prep with a timer.
  */
 
-type Variant = "acid" | "shadow" | "button" | "shelfline";
+type Scheme = "save" | "keep" | "shelve" | "learnmore" | "readforme";
 
-const VARIANTS: { key: Variant; label: string }[] = [
-  { key: "acid", label: "Acid tick" },
-  { key: "shadow", label: "Shadow" },
-  { key: "button", label: "Button" },
-  { key: "shelfline", label: "Shelf line" },
+const OPTIONS: { key: Scheme; label: string }[] = [
+  { key: "save", label: "Save" },
+  { key: "keep", label: "Keep" },
+  { key: "shelve", label: "Shelve" },
+  { key: "learnmore", label: "Learn more" },
+  { key: "readforme", label: "Read it for me" },
 ];
 
-const NOTES: Record<Variant, string> = {
-  acid:
-    "Green is this product's word for \"that worked\", and the menu already assigns it to the bookmark fill. Cheapest change, stays in the corner, but it is still a 16px signal.",
-  shadow:
-    "The whole card announces the save without adding a single element: the one shadow recolours to the card's own hue. Reads at a glance across a full digest, and unsaved cards stay exactly as they are.",
-  button:
-    "Every button is Display/SM upper, so the save was arguably always meant to be one. Unmissable, and the filled state doubles as the saved marker. Costs the card corner some quiet.",
-  shelfline:
-    "The card grows a consequence, not just a state: it tells you where the paper went and offers the door to it. This one also solves the digest-to-reading-view gap on its own.",
+const NOTES: Record<Scheme, string> = {
+  save:
+    "The baseline. \"Save\" is honest and universal, but it describes filing, not what actually happens: a librarian starts reading. The shelf line has to carry all of that meaning by itself.",
+  keep:
+    "\"Keep\" is warmer than \"save\": you keep what you are not done with. Still one syllable, still instantly clear, and \"Kept\" reads as a state rather than a past action.",
+  shelve:
+    "The library metaphor said out loud. It matches where the paper lands (your shelf, your library) and gives the vault language to inherit. Risk: \"shelve\" also means \"set aside and forget\" in normal speech.",
+  learnmore:
+    "The wildcard that collapses two actions into one: \"Learn more\" saves the paper AND opens the reading view, because wanting to learn more is the only reason anyone saves. Cost: you can no longer keep a paper for later without opening it now.",
+  readforme:
+    "Save as delegation. You are not filing a document, you are handing it to someone: the label moves through \"Read it for me\", then \"Reading it for you\" while prep runs, then \"Read for you\". The control itself becomes the status, and the first-save panel's explanation stops being needed.",
 };
 
 const SAMPLE = {
@@ -69,28 +66,19 @@ const SAMPLE_2 = {
   hero: "The community that returns is not the one that left: the rare species that anchor the network can be gone for good.",
 };
 
-function SaveControl({ variant, saved, onToggle }: { variant: Variant; saved: boolean; onToggle: () => void }) {
-  if (variant === "button") {
-    return (
-      <button
-        onClick={onToggle}
-        style={{
-          ...DISPLAY_SM,
-          padding: "6px 14px",
-          border: BORDER,
-          background: saved ? INK : SURFACE,
-          color: saved ? SURFACE : INK,
-          cursor: "pointer",
-          flexShrink: 0,
-          transition: "background 140ms, color 140ms",
-        }}
-      >
-        {saved ? "Saved" : "Save"}
-      </button>
-    );
-  }
-  const acid = variant === "acid" && saved;
-  const color = acid ? ACID_GREEN : saved ? INK : DIM;
+/** unsaved control word · saved control word · shelf-line lead · shelf-line rest */
+const WORDS: Record<Exclude<Scheme, "learnmore" | "readforme">, {
+  unsaved: string; saved: string; lead: string; rest: string;
+}> = {
+  save: { unsaved: "Save", saved: "Saved", lead: "In your library.", rest: "The librarian is reading it now." },
+  keep: { unsaved: "Keep", saved: "Kept", lead: "Kept.", rest: "The librarian is reading it now." },
+  shelve: { unsaved: "Shelve", saved: "Shelved", lead: "On your shelf.", rest: "The librarian is reading it now." },
+};
+
+function BookmarkWord({ saved, word, onToggle, busy }: {
+  saved: boolean; word: string; onToggle: () => void; busy?: boolean;
+}) {
+  const color = saved ? INK : DIM;
   return (
     <button
       onClick={onToggle}
@@ -98,99 +86,187 @@ function SaveControl({ variant, saved, onToggle }: { variant: Variant; saved: bo
         display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
         background: "none", border: "none", padding: 0, cursor: "pointer",
       }}
-      title={saved ? "Remove from your library" : "Save to your library"}
     >
       <Bookmark size={16} fill={saved ? color : "none"} color={color} />
-      <span style={{ ...BODY_SM, fontWeight: 600, color }}>{saved ? "Saved" : "Save"}</span>
+      <span style={{ ...BODY_SM, fontWeight: 600, color, fontStyle: busy ? "italic" : "normal" }}>{word}</span>
     </button>
   );
 }
 
-function ProtoCard({ variant, washIndex, initialSaved, sample, compact }: {
-  variant: Variant;
-  washIndex: number;
-  initialSaved: boolean;
-  sample: typeof SAMPLE;
-  compact?: boolean;
-}) {
-  const [saved, setSaved] = useState(initialSaved);
-  const hue = washSlots(washIndex)[0];
-  const shadow = variant === "shadow" && saved ? `5px 5px 0 0 ${hue}` : SHADOW;
-
+function ShelfLine({ lead, rest, door }: { lead: string; rest: string; door: string }) {
   return (
-    <div
-      style={{
-        ...wash(washIndex),
-        border: BORDER,
-        boxShadow: shadow,
-        padding: compact ? "16px 18px" : "22px 24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-        transition: "box-shadow 140ms",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <h3 style={{ ...DISPLAY_SM, margin: 0, flex: 1 }}>{sample.title}</h3>
-        <SaveControl variant={variant} saved={saved} onToggle={() => setSaved(s => !s)} />
-      </div>
-      <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM }}>{sample.byline}</div>
-      {!compact && <p style={{ ...BODY_STYLE, margin: 0 }}>{sample.hero}</p>}
-      {variant === "shelfline" && saved && (
-        <div style={{ borderTop: `1px solid ${INK}`, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ ...BODY_SM }}>
-            <strong style={{ fontWeight: 600 }}>In your library.</strong> The librarian is reading it now.
-          </span>
-          <span style={{ ...DISPLAY_SM, cursor: "pointer", whiteSpace: "nowrap" }}>Open the reading view &rarr;</span>
-        </div>
-      )}
+    <div style={{ borderTop: `1px solid ${INK}`, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+      <span style={{ ...BODY_SM }}>
+        <strong style={{ fontWeight: 600 }}>{lead}</strong> {rest}
+      </span>
+      <span style={{ ...DISPLAY_SM, cursor: "pointer", whiteSpace: "nowrap" }}>{door} &rarr;</span>
     </div>
   );
 }
 
+function Frame({ washIndex, compact, sample, control, foot }: {
+  washIndex: number; compact?: boolean; sample: typeof SAMPLE;
+  control: React.ReactNode; foot: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        ...wash(washIndex), border: BORDER, boxShadow: SHADOW,
+        padding: compact ? "16px 18px" : "22px 24px",
+        display: "flex", flexDirection: "column", gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <h3 style={{ ...DISPLAY_SM, margin: 0, flex: 1 }}>{sample.title}</h3>
+        {control}
+      </div>
+      <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM }}>{sample.byline}</div>
+      {!compact && <p style={{ ...BODY_STYLE, margin: 0 }}>{sample.hero}</p>}
+      {foot}
+    </div>
+  );
+}
+
+/** Save / Keep / Shelve: bookmark control, shelf line appears on save. */
+function WordCard({ scheme, washIndex, initialSaved, sample, compact }: {
+  scheme: "save" | "keep" | "shelve"; washIndex: number; initialSaved: boolean;
+  sample: typeof SAMPLE; compact?: boolean;
+}) {
+  const [saved, setSaved] = useState(initialSaved);
+  const w = WORDS[scheme];
+  return (
+    <Frame
+      washIndex={washIndex} compact={compact} sample={sample}
+      control={<BookmarkWord saved={saved} word={saved ? w.saved : w.unsaved} onToggle={() => setSaved(s => !s)} />}
+      foot={saved && <ShelfLine lead={w.lead} rest={w.rest} door="Learn more" />}
+    />
+  );
+}
+
+/** Learn more: no bookmark. One ink button saves AND opens the reading view. */
+function LearnMoreCard({ washIndex, initialSaved, sample, compact }: {
+  washIndex: number; initialSaved: boolean; sample: typeof SAMPLE; compact?: boolean;
+}) {
+  const [saved, setSaved] = useState(initialSaved);
+  return (
+    <Frame
+      washIndex={washIndex} compact={compact} sample={sample}
+      control={null}
+      foot={
+        saved ? (
+          <ShelfLine lead="In your library." rest="The reading view opened; it stays yours either way." door="Back to it" />
+        ) : (
+          <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 4 }}>
+            <button
+              onClick={() => setSaved(true)}
+              style={{ ...DISPLAY_SM, padding: "6px 14px", border: BORDER, background: INK, color: SURFACE, cursor: "pointer" }}
+            >
+              Learn more &rarr;
+            </button>
+          </div>
+        )
+      }
+    />
+  );
+}
+
+/** Read it for me: the label moves through tenses as prep runs (simulated). */
+function ReadForMeCard({ washIndex, initialPhase, sample, compact }: {
+  washIndex: number; initialPhase: "idle" | "ready"; sample: typeof SAMPLE; compact?: boolean;
+}) {
+  const [phase, setPhase] = useState<"idle" | "reading" | "ready">(initialPhase);
+
+  useEffect(() => {
+    if (phase !== "reading") return;
+    const t = setTimeout(() => setPhase("ready"), 2800);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  const word = phase === "idle" ? "Read it for me" : phase === "reading" ? "Reading it for you…" : "Read for you";
+  return (
+    <Frame
+      washIndex={washIndex} compact={compact} sample={sample}
+      control={
+        <BookmarkWord
+          saved={phase !== "idle"}
+          busy={phase === "reading"}
+          word={word}
+          onToggle={() => setPhase(p => (p === "idle" ? "reading" : "idle"))}
+        />
+      }
+      foot={phase === "ready" && <ShelfLine lead="Ready in your library." rest="The walkthrough is waiting." door="Learn more" />}
+    />
+  );
+}
+
 export default function SaveSignalPrototype() {
-  const [variant, setVariant] = useState<Variant>("acid");
+  const [scheme, setScheme] = useState<Scheme>("save");
+
+  const pair = (compact: boolean) => {
+    const a = compact ? 2 : 0;
+    const b = compact ? 3 : 1;
+    if (scheme === "learnmore") {
+      return (
+        <>
+          <LearnMoreCard washIndex={a} initialSaved={false} sample={SAMPLE} compact={compact} />
+          <LearnMoreCard washIndex={b} initialSaved sample={SAMPLE_2} compact={compact} />
+        </>
+      );
+    }
+    if (scheme === "readforme") {
+      return (
+        <>
+          <ReadForMeCard washIndex={a} initialPhase="idle" sample={SAMPLE} compact={compact} />
+          <ReadForMeCard washIndex={b} initialPhase="ready" sample={SAMPLE_2} compact={compact} />
+        </>
+      );
+    }
+    return (
+      <>
+        <WordCard scheme={scheme} washIndex={a} initialSaved={false} sample={SAMPLE} compact={compact} />
+        <WordCard scheme={scheme} washIndex={b} initialSaved sample={SAMPLE_2} compact={compact} />
+      </>
+    );
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: SURFACE, color: INK }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "48px 24px 80px" }}>
-        <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>The save signal</h1>
+        <h1 style={{ ...DISPLAY_LG, margin: "0 0 10px" }}>The save signal, round two</h1>
         <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 24px", maxWidth: 640 }}>
-          Four ways a card can register that you saved it, all built from moves the menu
-          already allows. Every save control here works: click it. The left card starts
-          unsaved, the right one starts saved.
+          The shelf line stays on every card; what changes is the language. Whatever wins
+          replaces &ldquo;Save&rdquo; everywhere: the control has exactly one name, so this
+          is a rename, never a fourth string. Every control here works; click it. The left
+          card starts unsaved, the right one saved.
         </p>
 
         <Segmented
-          value={variant}
-          onChange={setVariant}
-          options={VARIANTS}
-          style={{ maxWidth: 640, marginBottom: 12 }}
+          value={scheme}
+          onChange={setScheme}
+          options={OPTIONS}
+          style={{ maxWidth: 760, marginBottom: 12 }}
         />
-        <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 28px", maxWidth: 640 }}>{NOTES[variant]}</p>
+        <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 28px", maxWidth: 640 }}>{NOTES[scheme]}</p>
 
-        <div key={variant} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 32, marginBottom: 40 }}>
-          <ProtoCard variant={variant} washIndex={0} initialSaved={false} sample={SAMPLE} />
-          <ProtoCard variant={variant} washIndex={1} initialSaved sample={SAMPLE_2} />
+        <div key={scheme} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 32, marginBottom: 40 }}>
+          {pair(false)}
         </div>
 
-        <h2 style={{ ...DISPLAY_SM, margin: "0 0 12px" }}>The same signal, compact</h2>
+        <h2 style={{ ...DISPLAY_SM, margin: "0 0 12px" }}>The same language, compact</h2>
         <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 20px", maxWidth: 640 }}>
-          The rail and the vault render the compact card, so whatever wins has to survive
-          at this size too.
+          The rail and the vault render the compact card, so the winning words have to
+          survive at this size beside a long title.
         </p>
-        <div key={`${variant}-c`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 28, marginBottom: 48 }}>
-          <ProtoCard variant={variant} washIndex={2} initialSaved={false} sample={SAMPLE} compact />
-          <ProtoCard variant={variant} washIndex={3} initialSaved sample={SAMPLE_2} compact />
+        <div key={`${scheme}-c`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 28, marginBottom: 48 }}>
+          {pair(true)}
         </div>
 
         <div style={{ borderTop: HAIRLINE, paddingTop: 32 }}>
-          <h2 style={{ ...DISPLAY_SM, margin: "0 0 12px" }}>While we are in that corner: what &ldquo;Read paper&rdquo; does</h2>
+          <h2 style={{ ...DISPLAY_SM, margin: "0 0 12px" }}>&ldquo;Learn more&rdquo; replaces &ldquo;Read paper&rdquo;</h2>
           <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 20px", maxWidth: 640 }}>
-            Today the digest card&rsquo;s one action, &ldquo;Read paper ↗&rdquo;, leaves the product for
-            the publisher&rsquo;s page, and nothing on the digest reaches the reading view at all.
-            Proposal: the primary action goes to the reading view, and the source link
-            becomes a quiet word in the byline.
+            The card&rsquo;s primary action goes to the reading view and says why you&rsquo;d
+            go: you are learning more about this paper, not fetching a PDF. The publisher
+            link becomes a word in the byline.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 32 }}>
             <div style={{ border: BORDER, padding: "16px 18px" }}>
@@ -209,7 +285,7 @@ export default function SaveSignalPrototype() {
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <span style={{ ...DISPLAY_SM, padding: "6px 14px", border: BORDER, background: INK, color: SURFACE }}>
-                  Read paper &rarr;
+                  Learn more &rarr;
                 </span>
               </div>
             </div>
