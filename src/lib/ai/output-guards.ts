@@ -39,7 +39,6 @@ export function modelMetaTalkIn(text: string): string[] {
     .filter(({ pattern }) => pattern.test(normalized))
     .map(({ label }) => label);
 }
-
 type MetadataItem = {
   index?: number;
   plainName?: string;

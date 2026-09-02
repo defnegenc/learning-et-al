@@ -22,7 +22,6 @@ test("detects model self-commentary without flagging evidence limits", () => {
   assert.deepEqual(modelMetaTalkIn("The evidence cannot say why the effect disappeared."), []);
   assert.deepEqual(modelMetaTalkIn("The study compares how schools define prohibited terms."), []);
 });
-
 test("rejects the empty metadata fallback before a raw abstract can publish", () => {
   assert.ok(metadataItemProblems({ index: 1, summary: "", keywords: [], findings: [] }, 1).length > 0);
   assert.deepEqual(metadataItemProblems({
