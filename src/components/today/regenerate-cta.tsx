@@ -11,8 +11,12 @@ function wordCount(value: string) {
 }
 
 // End-of-digest escape hatch: big centered dark-grey text + X. Clicking reveals
-// a one-line reason input; submitting files digest feedback, hides the digest,
-// and force-regenerates. Named after its reward (a fresh digest), not the complaint.
+// a one-line reason input; submitting files digest feedback and
+// force-regenerates. The current edition is NOT hidden here: the pipeline
+// retires it atomically the moment the replacement is ready to insert (force
+// path in generateDigest), so the site never sits with no visible edition for
+// today while a multi-minute generation runs - or if it fails. Named after its
+// reward (a fresh digest), not the complaint.
 export function RegenerateCta({ digestId, generating, onRegenerate }: {
   digestId: string;
   generating: boolean;
@@ -32,11 +36,6 @@ export function RegenerateCta({ digestId, generating, onRegenerate }: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ digestId, reason: reason.trim() }),
-      });
-      await fetch("/api/digest/hide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ digestId }),
       });
     } catch { /* non-critical — still regenerate */ }
     onRegenerate();

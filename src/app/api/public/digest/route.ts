@@ -9,7 +9,7 @@ import { LIST_COLUMNS, attachNewsFullText } from "@/lib/db/paper-payload";
  * This is what keeps a first-time visitor off a cold serverless function — a cold
  * /api/public/digest was measured at ~1.9s against ~0.2s warm.
  */
-const PUBLIC_CACHE_HEADERS = { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" };
+const PUBLIC_CACHE_HEADERS = { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" };
 
 /**
  * Public endpoint — no auth required.
