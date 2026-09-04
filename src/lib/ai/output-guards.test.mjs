@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "./output-guards.ts";
+import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "./output-guards.ts";
 
 test("accepts direct questions and setup-plus-question headlines", () => {
   assert.deepEqual(themeQuestionProblems("Who's liable when a government AI agent fails?"), []);
@@ -35,4 +35,30 @@ test("rejects the empty metadata fallback before a raw abstract can publish", ()
     methodType: "Literature review",
     claim: "Writing detectors should not be trusted on their own.",
   }, 1), []);
+});
+
+test("dedupeKeyConcepts drops repeat terms regardless of case or reworded definitions", () => {
+  const concepts = [
+    "large language models: AI systems trained on massive amounts of text.",
+    "natural language processing: getting computers to work with human language.",
+    "Large Language Models: AI systems trained on huge amounts of text that power chatbots.",
+    "digitization: scanning paper documents into searchable digital files.",
+    "Digitization: converting printed books into computer text",
+    "metadata: extra descriptive information attached to a record.",
+    "catalogue metadata: the descriptive details archivists record about an item.",
+  ];
+  assert.deepEqual(dedupeKeyConcepts(concepts), [
+    "large language models: AI systems trained on massive amounts of text.",
+    "natural language processing: getting computers to work with human language.",
+    "digitization: scanning paper documents into searchable digital files.",
+    "metadata: extra descriptive information attached to a record.",
+    "catalogue metadata: the descriptive details archivists record about an item.",
+  ]);
+});
+
+test("dedupeKeyConcepts handles missing colons, blank terms, and trailing punctuation", () => {
+  assert.deepEqual(dedupeKeyConcepts([]), []);
+  assert.deepEqual(dedupeKeyConcepts([": no term here", "corpus", "Corpus.", "  corpus  : a text collection"]), [
+    "corpus",
+  ]);
 });

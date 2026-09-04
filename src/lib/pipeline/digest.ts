@@ -11,7 +11,7 @@ import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { BANNED_WORDS_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
-import { metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "@/lib/ai/output-guards";
+import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "@/lib/ai/output-guards";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -2676,7 +2676,7 @@ Return ONLY the repaired synthesis. No JSON, no fences.`
   const parsedAI: DigestAIResponse = {
     items: metadata.items,
     synthesis,
-    keyConcepts: metadata.keyConcepts || [],
+    keyConcepts: dedupeKeyConcepts(metadata.keyConcepts || []),
   };
 
   // Digest-level Q&A was removed (questions now live on reading-list papers),
