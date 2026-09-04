@@ -211,7 +211,14 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
     // duplicate editions for the same date. Only update while the job is still
     // claimable, then verify this worker is the one holding it.
     const startedAt = new Date();
-    await db.update(digestJobs).set({
+    // Claim by optimistic concurrency on attempts: the WHERE pins the attempts
+    // value we read, so a racing worker's claim matches 0 rows once ours lands
+    // (SQLite serializes the writes). The previous version re-read the row and
+    // compared startedAt timestamps - but integer timestamp columns round-trip
+    // at second precision, so the millisecond comparison could never pass and
+    // EVERY claim read as "claimed elsewhere". No cron generation ran at all
+    // after this guard shipped; Sep 3's empty day was this.
+    const claimedRows = await db.update(digestJobs).set({
       status: "running",
       attempts: job.attempts + 1,
       error: null,
@@ -220,13 +227,13 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
       finishedAt: null,
     }).where(and(
       eq(digestJobs.id, job.id),
+      eq(digestJobs.attempts, job.attempts),
       or(
         inArray(digestJobs.status, ["pending", "failed"]),
         and(eq(digestJobs.status, "running"), or(isNull(digestJobs.startedAt), lt(digestJobs.startedAt, retryBefore))),
       ),
-    ));
-    const claimed = await db.query.digestJobs.findFirst({ where: eq(digestJobs.id, job.id) });
-    if (!claimed || claimed.status !== "running" || claimed.attempts !== job.attempts + 1 || claimed.startedAt?.getTime() !== startedAt.getTime()) {
+    )).returning({ id: digestJobs.id });
+    if (claimedRows.length === 0) {
       results.push({ jobId: job.id, userId: job.userId, status: "skipped_claimed_elsewhere" });
       continue;
     }
