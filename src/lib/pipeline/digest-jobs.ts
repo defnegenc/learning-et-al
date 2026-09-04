@@ -183,7 +183,12 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
     inArray(digestJobs.status, ["pending", "failed", "running"]),
     lt(digestJobs.attempts, MAX_ATTEMPTS),
   );
-  const jobFilter = date ? and(eq(digestJobs.date, date), runnableJobFilter) : runnableJobFilter;
+  // Always scope to a date (today's unless given). generateDigest generates for
+  // TODAY regardless of job.date, so working old jobs is nonsense - and with
+  // MAX_ATTEMPTS raised above 3, every ancient failed job became runnable again
+  // and the oldest-first batch burned every slot on zombies (users deleted,
+  // paused, or interest-less), starving today's job.
+  const jobFilter = and(eq(digestJobs.date, date ?? utcDateString()), runnableJobFilter);
   const jobs = await db.select().from(digestJobs)
     .where(jobFilter)
     .orderBy(asc(digestJobs.date), asc(digestJobs.updatedAt))
@@ -296,8 +301,12 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
   const remaining = await db.select({ id: digestJobs.id }).from(digestJobs)
     .where(jobFilter);
 
+  // The cron route returns this as JSON but nothing persists it - log it so the
+  // invocation's log row shows which jobs ran and why they stopped.
+  console.log(`[Cron] batch ${date ?? utcDateString()}: ${results.map(r => `${r.jobId}:${r.status}${r.error ? `(${r.error.slice(0, 120)})` : ""}`).join(", ") || "no runnable jobs"}; ${remaining.length} still runnable`);
+
   return {
-    date: date ?? "all",
+    date: date ?? utcDateString(),
     requested: batchSize,
     claimed: runnable.length,
     remaining: remaining.length,
