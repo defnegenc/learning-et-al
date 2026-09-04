@@ -9,7 +9,10 @@ import { postDigestToX } from "@/lib/twitter";
 type UserRow = typeof users.$inferSelect;
 type DigestJobStatus = typeof digestJobs.$inferSelect.status;
 
-const MAX_ATTEMPTS = 3;
+// One attempt per hourly slot (04:00-16:00 UTC), so 13 lets a job keep
+// retrying through the whole day. At 3, a bad model/API window in the early
+// morning exhausted every attempt by 06:00 UTC and the date stayed empty.
+const MAX_ATTEMPTS = 13;
 const DEFAULT_BATCH_SIZE = 2;
 
 export function utcDateString(date = new Date()): string {
