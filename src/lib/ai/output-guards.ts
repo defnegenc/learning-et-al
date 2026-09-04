@@ -67,3 +67,24 @@ export function metadataItemProblems(item: MetadataItem | null | undefined, expe
   if (!item.claim?.trim()) problems.push("Its claim is empty.");
   return problems;
 }
+
+/**
+ * Digest-level concepts arrive as "term: definition" strings from the batched
+ * metadata call plus any per-paper repairs, and each call re-defines the same
+ * term in different words - so exact-string dedupe lets "large language models"
+ * through three times. Dedupe on the term, case-insensitively, and keep the
+ * first definition.
+ */
+export function dedupeKeyConcepts(concepts: string[]): string[] {
+  const seen = new Set<string>();
+  return concepts.filter((concept) => {
+    const term = (concept.includes(":") ? concept.slice(0, concept.indexOf(":")) : concept)
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[.!]+$/, "");
+    if (!term || seen.has(term)) return false;
+    seen.add(term);
+    return true;
+  });
+}
