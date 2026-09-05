@@ -802,7 +802,13 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
   const seenOpenAlexIds = new Set<string>();   // stable work IDs (survive title variants)
   const recentlyUsedKeywords = new Set<string>();
   if (allDigestIds.length > 0) {
-    const allRecentPapers = await db.query.papers.findMany({ where: inArray(papers.digestId, allDigestIds) });
+    // Only the columns the dedup/rotation loop reads — pulling full rows here
+    // (full_text included) exceeds Turso's response size limit once the digest
+    // history grows to hundreds of entries.
+    const allRecentPapers = await db.query.papers.findMany({
+      where: inArray(papers.digestId, allDigestIds),
+      columns: { digestId: true, title: true, openAlexId: true, keywords: true },
+    });
     const rotationDigestIds = new Set(recentDigestsForRotation.map(d => d.id));
     for (const p of allRecentPapers) {
       seenPaperTitles.add(normTitle(p.title));
