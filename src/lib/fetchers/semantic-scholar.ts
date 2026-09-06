@@ -1,3 +1,5 @@
+import { hasBlockedDoiPrefix } from "./source-quality";
+
 export interface SemanticScholarPaper {
   paperId: string;
   title: string;
@@ -91,6 +93,16 @@ export async function searchSemanticScholar(
 
     return data.data
       .filter((paper: Record<string, unknown>) => paper.title && paper.abstract)
+      // Fetch-time source-quality gate: repository DOIs (Zenodo et al.) never
+      // reach the candidate pool. See source-quality.ts.
+      .filter((paper: Record<string, unknown>) => {
+        const doi = ((paper.externalIds || {}) as Record<string, string>).DOI;
+        if (hasBlockedDoiPrefix(doi)) {
+          console.log(`[S2] Dropped repository-source candidate "${((paper.title as string) || "").slice(0, 60)}" (${doi})`);
+          return false;
+        }
+        return true;
+      })
       .map((paper: Record<string, unknown>) => {
         const externalIds = (paper.externalIds || {}) as Record<string, string>;
         const arxivId = externalIds.ArXiv;
