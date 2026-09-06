@@ -1,3 +1,5 @@
+import { hasBlockedDoiPrefix } from "./source-quality";
+
 const OA_BASE = "https://api.openalex.org";
 const OA_MAILTO = "hello@learningeteal.app";
 
@@ -6,6 +8,7 @@ const OA_SELECT = [
   "publication_year", "authorships", "primary_location",
   "open_access", "related_works", "primary_topic",
   "best_oa_location",
+  "doi",
 ].join(",");
 
 const OA_CONCEPT_MAP: Record<string, string> = {
@@ -37,6 +40,7 @@ const OA_CONCEPT_MAP: Record<string, string> = {
 
 interface OARawWork {
   id: string;
+  doi?: string | null;
   title: string | null;
   abstract_inverted_index: Record<string, number[]> | null;
   cited_by_count: number;
@@ -88,6 +92,17 @@ function reconstructAbstract(inv: Record<string, number[]> | null): string {
     for (const pos of positions) words[pos] = word;
   }
   return words.filter(Boolean).join(" ");
+}
+
+// Fetch-time source-quality gate: repository DOIs (Zenodo et al.) never reach
+// the candidate pool. See source-quality.ts.
+function passesSourceQuality(w: OARawWork): boolean {
+  const doiOrUrl = w.doi || w.primary_location?.landing_page_url;
+  if (hasBlockedDoiPrefix(doiOrUrl)) {
+    console.log(`[OpenAlex] Dropped repository-source candidate "${(w.title || "").slice(0, 60)}" (${doiOrUrl})`);
+    return false;
+  }
+  return true;
 }
 
 function mapWork(raw: OARawWork): OpenAlexPaper {
@@ -216,6 +231,7 @@ export async function searchOpenAlex(
     const data = await res.json();
     const mapped = (data.results as OARawWork[] || [])
       .filter(w => w.title && w.abstract_inverted_index)
+      .filter(passesSourceQuality)
       .map(mapWork)
       .filter(p => p.title && p.abstract.length > 50);
     const shortlisted = mapped.slice(0, limit);
@@ -502,6 +518,7 @@ export async function getFoundationalCandidates(
     const data = await res.json();
     return (data.results as OARawWork[] || [])
       .filter(w => w.title && w.abstract_inverted_index)
+      .filter(passesSourceQuality)
       .map(mapWork)
       .filter(p => p.abstract.length > 50);
   } catch (err) {
