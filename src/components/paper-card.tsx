@@ -254,7 +254,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
   // have no generated summary; showing nothing here is safer than promoting
   // dense academic prose into the reader-facing hero slot.
   const body = (paper.summary || "").trim();
-  const hero = body.match(/[^.!?]+[.!?]+["')\]]?/)?.[0]?.trim() || body;
+  // First sentence, but never cut at a decimal ("3.27 million"): a terminator
+  // only ends the hero when whitespace or the end of the text follows it.
+  const hero = body.match(/^(?:[^.!?]|[.!?](?=\d))+[.!?]+["')\]]?(?=\s|$)/)?.[0]?.trim() || body;
   const byline = paperByline(paper);
 
   const isNews = paper.source === "rss";
