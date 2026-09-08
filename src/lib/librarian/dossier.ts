@@ -133,7 +133,7 @@ function clusterLabel(members: LedgerPaper[]): string {
 
 const DOSSIER_SYSTEM = `You are a librarian keeping a private working note about one reader, so that the next person choosing what to send them can choose well.
 
-Write 200-300 words of plain prose in the third person ("This reader…"). No headings, no bullets, no markdown.
+Write at most 120 words of plain prose in the third person ("This reader…"). No headings, no bullets, no markdown. Shorter is better: this note is the reader's observations on themselves, so every sentence must earn its place.
 
 Cover, in this order and only where the evidence supports it:
 1. What they reliably save — the subject matter, and just as importantly the SHAPE of work they go for (methods papers vs field studies vs argument pieces; new results vs older thinking).
