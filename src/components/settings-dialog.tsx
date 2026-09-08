@@ -49,6 +49,118 @@ interface Dossier {
   clusters: { label: string; count: number }[];
 }
 
+interface HomeworkItem {
+  id: string;
+  topic: string;
+}
+
+/**
+ * Give your librarian homework: a topic to keep pulling into the next digests.
+ * An assignment is a high-weight interest under the hood, so it wins the theme
+ * draw most days and fades over the following days as rotation and decay push
+ * it back down. Digests it seeded arrive flagged "From your homework".
+ */
+function HomeworkSection() {
+  const [homework, setHomework] = useState<HomeworkItem[]>([]);
+  const [draft, setDraft] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/homework");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled) setHomework(json.homework ?? []);
+      } catch { /* no homework yet is the empty state */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function assign() {
+    const topic = draft.trim();
+    if (topic.length < 3 || assigning) return;
+    setAssigning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/homework", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setHomework(prev => [{ id: json.homework.id, topic: json.homework.topic }, ...prev]);
+        setDraft("");
+      } else {
+        setError(json.error || "Couldn't assign that.");
+      }
+    } catch {
+      setError("Couldn't assign that.");
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  async function retire(id: string) {
+    setHomework(prev => prev.filter(h => h.id !== id));
+    try {
+      await fetch("/api/homework", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    } catch { /* the row is gone from the panel either way */ }
+  }
+
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <SectionLabel style={{ marginBottom: 10 }}>Homework</SectionLabel>
+      <p style={{ ...BODY_STYLE, color: DIM, maxWidth: 560, margin: "0 0 12px" }}>
+        Give your librarian homework — a topic to keep pulling into your digest
+        over the next few days. What it finds arrives flagged as homework.
+      </p>
+      <div style={{ display: "flex", gap: 8, maxWidth: 560 }}>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") assign(); }}
+          placeholder="e.g. children's mental models of ai"
+          style={{
+            ...BODY_STYLE,
+            flex: 1,
+            padding: "8px 12px",
+            border: HAIRLINE,
+            borderRadius: 8,
+            color: INK,
+            background: SURFACE,
+            outline: "none",
+          }}
+        />
+        <ActionButton variant="outline" shadow={false} disabled={assigning || draft.trim().length < 3} onClick={assign}>
+          {assigning ? <Loader2 size={15} className="animate-spin" /> : "Assign"}
+        </ActionButton>
+      </div>
+      {error && <p style={{ ...BODY_STYLE, color: MUTED, margin: "8px 0 0" }}>{error}</p>}
+      {homework.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+          {homework.map(h => (
+            <Tag
+              key={h.id}
+              label={h.topic}
+              onClick={() => retire(h.id)}
+              title="Retire this homework"
+              trailing={<span aria-hidden style={{ fontWeight: 700 }}>×</span>}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * What your librarian thinks you like.
  *
@@ -94,11 +206,8 @@ function LibrarianPanel() {
   return (
     <div className="flex-1 overflow-y-auto px-4 py-5 md:px-10 md:py-8">
       <PageTitle style={{ marginBottom: 12 }}>Your librarian</PageTitle>
-      <p style={{ ...BODY_STYLE, color: DIM, maxWidth: 560, margin: "0 0 28px" }}>
-        A note it keeps on you, from what you save, what you scroll past, and what
-        you ask once you are reading. It is what breaks the tie when two papers
-        are equally good.
-      </p>
+
+      <HomeworkSection />
 
       {loading ? (
         <div className="flex items-center py-10"><Loader2 size={18} className="animate-spin" style={{ color: MUTED }} /></div>
