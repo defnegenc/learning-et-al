@@ -47,7 +47,7 @@ export const interests = sqliteTable("interests", {
   keyword: text("keyword").notNull(),
   field: text("field").default("Computer Science"),
   weight: real("weight").default(1.0),
-  source: text("source", { enum: ["seed", "star", "engagement", "dislike"] }).notNull(),
+  source: text("source", { enum: ["seed", "star", "engagement", "dislike", "homework"] }).notNull(),
   level: text("level", { enum: ["beginner", "intermediate", "expert"] }).default("intermediate"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
