@@ -169,6 +169,7 @@ interface Digest {
   suggestedAnswers?: string[];
   seedInterests?: { keyword: string; field: string }[];
   gist?: string | null;
+  homeworkTopic?: string | null;
   notes?: string | null;
   starred: boolean | null;
   hidden?: boolean | null;
@@ -524,6 +525,7 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
             <DigestHeader
               seedInterests={digest.seedInterests}
               gist={digest.gist}
+              homeworkTopic={digest.homeworkTopic}
               keyConcepts={digest.keyConcepts}
               topics={(() => {
                 // Digest topics beyond your interests: paper keywords first (the
@@ -624,4 +626,4 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
       )}
     </div>
   );
-}
+        }

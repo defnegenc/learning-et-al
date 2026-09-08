@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { fieldColor } from "@/lib/field-hierarchy";
-import { BODY_STYLE, INK, SURFACE, Tag } from "@/components/design-system";
+import { BODY_STYLE, DIM, INK, SURFACE, Tag } from "@/components/design-system";
 import { DefinitionText } from "./definition-term";
 
 /**
@@ -52,9 +52,11 @@ function AddableTopic({ topic, field, isLoggedIn, onSignIn }: {
  * gist — the one-line answer. Renders nothing if the digest predates these
  * fields.
  */
-export function DigestHeader({ seedInterests, gist, keyConcepts = [], topics, isLoggedIn = false, onSignIn }: {
+export function DigestHeader({ seedInterests, gist, keyConcepts = [], topics, homeworkTopic, isLoggedIn = false, onSignIn }: {
   seedInterests?: { keyword: string; field: string }[];
   gist?: string | null;
+  /** Set when one of the reader's homework assignments seeded this digest. */
+  homeworkTopic?: string | null;
   keyConcepts?: string[];
   topics?: string[];
   isLoggedIn?: boolean;
@@ -70,7 +72,8 @@ export function DigestHeader({ seedInterests, gist, keyConcepts = [], topics, is
   const SHOW_GIST = true;
   const showTags = SHOW_TAGS && (chips.length > 0 || extraTopics.length > 0);
   const showGist = SHOW_GIST && !!gist;
-  if (!showTags && !showGist) return null;
+  const showHomework = !!homeworkTopic;
+  if (!showTags && !showGist && !showHomework) return null;
 
   return (
     <div style={{ marginTop: 8 }}>
@@ -83,6 +86,11 @@ export function DigestHeader({ seedInterests, gist, keyConcepts = [], topics, is
             <AddableTopic key={t} topic={t} field={defaultField} isLoggedIn={isLoggedIn} onSignIn={onSignIn} />
           ))}
         </div>
+      )}
+      {showHomework && (
+        <p style={{ ...BODY_STYLE, color: DIM, margin: "0 0 12px" }}>
+          From your homework: {homeworkTopic}
+        </p>
       )}
       {showGist && (
         <p style={{ ...BODY_STYLE, fontWeight: 600, color: INK, margin: 0 }}>

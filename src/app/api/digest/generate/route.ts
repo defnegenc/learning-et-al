@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDigest } from "@/lib/pipeline/digest";
+import { flagHomeworkDigest } from "@/lib/librarian/homework";
 import { AIConfig, aiConfigFor } from "@/lib/ai/provider";
 import { getAuthUser } from "@/lib/get-user";
 import { trackEvent } from "@/lib/track";
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Server AI key not configured." }, { status: 500 });
     }
     const digest = await generateDigest(userId, aiConfig, force);
+    // Homework flag: exact, from seedInterests — see lib/librarian/homework.
+    if (digest?.id) await flagHomeworkDigest(userId, digest.id);
 
     trackEvent(userId, "digest_generate", { metadata: { force: !!force } });
 

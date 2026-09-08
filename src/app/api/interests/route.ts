@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { interests, users } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc, ne } from "drizzle-orm";
 import { getAuthUser } from "@/lib/get-user";
 
 export async function PUT(req: NextRequest) {
@@ -18,7 +18,9 @@ export async function PUT(req: NextRequest) {
     }
 
     // Replace all existing interests
-    await db.delete(interests).where(eq(interests.userId, userId));
+    // Homework rows are interests too, but they belong to the librarian
+    // panel — a settings save must not wipe or rewrite them.
+    await db.delete(interests).where(and(eq(interests.userId, userId), ne(interests.source, "homework")));
     for (const item of items) {
       const level = ["beginner", "intermediate", "expert"].includes(item.level ?? "")
         ? item.level!
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
       db.query.users.findFirst({ where: eq(users.id, userId) }),
     ]);
 
-    return NextResponse.json({ interests: userInterests, cadence: userRow?.cadence, emailOptOut: userRow?.emailOptOut ?? false });
+    return NextResponse.json({ interests: userInterests.filter(i => i.source !== "homework"), cadence: userRow?.cadence, emailOptOut: userRow?.emailOptOut ?? false });
   } catch (error) {
     console.error("Interests fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch interests" }, { status: 500 });
