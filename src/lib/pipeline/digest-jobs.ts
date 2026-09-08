@@ -4,6 +4,7 @@ import { digestJobs, digests, interests, papers, users } from "@/lib/db/schema";
 import { sendDigestEmail, type DigestEmailData } from "@/lib/email";
 import { AIConfig, aiConfigFor } from "@/lib/ai/provider";
 import { generateDigest } from "@/lib/pipeline/digest";
+import { flagHomeworkDigest } from "@/lib/librarian/homework";
 import { postDigestToX } from "@/lib/twitter";
 
 type UserRow = typeof users.$inferSelect;
@@ -272,6 +273,8 @@ export async function processDigestJobBatch(aiConfig: AIConfig, batchSize = DEFA
 
     try {
       const digest = await generateDigest(user.id, aiConfig);
+      // Homework flag: exact, from seedInterests — see lib/librarian/homework.
+      if (digest?.id) await flagHomeworkDigest(user.id, digest.id);
       const xResult = digest?.id ? await postAdminDigestToX(user, digest.id) : { status: "x_skipped_no_digest" };
       const emailResult = await sendCadenceEmail(user, job.date);
       const finishedAt = new Date();
