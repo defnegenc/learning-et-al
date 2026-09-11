@@ -57,7 +57,7 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 
 {
   "items": [
-    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding with its **key result phrase** bolded", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact, or null", "line": "how you'd bring it up to a friend, casual and spoken" }, "methodType": "what this IS, 1-3 plain words", "methodFacts": ["method fact 1", "method fact 2"], "claim": "the paper's central claim, one plain sentence" }
+    { "index": 1, "plainName": "plain-language name for the paper, MAX 6 words", "summary": "plain factual TL;DR of the study: what they did and what they found, 1-2 uncomplicated sentences, MAX 45 words, no jargon, no rhetorical questions", "keywords": ["kw1", "kw2", "kw3"], "findings": ["Specific finding with its **key result phrase** bolded", "Specific finding 2", "Specific finding 3"], "connectionToTheme": "one sentence: why this paper matters for today's question", "takeaway": { "hook": "the ONE surprising thing worth remembering, one plain sentence", "stat": "one concrete number or vivid fact pulled from the abstract. null ONLY when the abstract truly contains no number, percentage, count, date, or quotable concrete fact", "line": "how you'd bring it up to a friend, casual and spoken" }, "methodType": "what this IS, 1-3 plain words", "methodFacts": ["method fact 1", "method fact 2"], "claim": "the paper's central claim, one plain sentence" }
   ],
   "keyConcepts": ["term: one-sentence plain-English definition", "term2: definition"],
   "suggestedQuestions": ["question 1", "question 2", "question 3"]
@@ -285,9 +285,11 @@ The [Source N] prefix is REQUIRED in every bold reference. It maps the name to t
 
 BEFORE WRITING, read each paper's abstract in the listing above. For any claim you make about a paper — especially anything framed as a "barrier", "limitation", "factor", "constraint", or "problem" — you MUST anchor it in a specific detail from that paper's abstract. If the abstract is vague, find a concrete method, number, or example elsewhere in the abstract. If there is genuinely nothing concrete, drop that claim rather than filling with jargon.
 
+CROSS-PAPER GROUNDING (hard rule): every comparison, contrast, or conditional claim that spans papers — "X only works when...", "the effect holds where...", "while study A shows this in one context, study B shows it in another" — MUST map to something a source abstract explicitly states. If a condition, population, culture, or mechanism is not stated in an abstract, it does not go in. Never upgrade "the effect was stronger under X" into "it only works under X". Never invent a cross-cultural, cross-population, or shared-mechanism condition no source actually tested. When two studies used different methods, samples, or measures, do not fuse them into one clean comparison — say what each showed on its own terms, and let the contrast stay messy if the methods are messy.
+
 Write the synthesis in EXACTLY this structure. No other format accepted.
 
-ANSWER VARIETY: When the theme is a genuine yes/no question, choose the opening that best fits the evidence: "Yes.", "No.", "Sometimes.", "It depends.", "It's complicated.", "Mostly.", "Not really.", "Only in some cases.", "Yes, but...", "No, unless...", or "Sort of." Do not default to "Sort of", and do not hedge when the papers support a clear yes or no. For who/what/how/why questions, answer in the question's own shape without a yes/no-style verdict.
+ANSWER VARIETY: When the theme is a genuine yes/no question, choose the opening that best fits the evidence: "Yes.", "No.", "Sometimes.", "It depends.", "It's complicated.", "Mostly.", "Not really.", "Only in some cases.", "Yes, but...", "No, unless...", or "Sort of." Do not default to "Sort of", and do not hedge when the papers support a clear yes or no. Reserve "It depends" and "It's complicated" for a genuine split in the evidence, and when you open with one, the very next sentence MUST say what it depends on. For who/what/how/why questions, answer in the question's own shape without a yes/no-style verdict.
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
@@ -406,6 +408,8 @@ ${synthesis}
 FIRST: Count how many of the ${paperTitles.length} papers appear in **bold** in the synthesis. A paper counts as "mentioned" if its title, short name, or any recognizable reference appears in bold.
 
 SECOND: check the synthesis for FACTUAL ACCURACY against the findings above. Flag any paper whose contribution is misrepresented, exaggerated, or missing key nuance, and put it in "factIssues" with the fix. An empty array means the synthesis represents every paper honestly. Do not invent an issue to look thorough, and do not flag a claim merely for being brief.
+
+ALSO: check every COMPARATIVE or CONDITIONAL claim that spans papers — any "only works when", "holds where", "stronger in one context than another", or shared-mechanism framing. Each must be explicitly supported by the findings/summaries above. If the synthesis invents a condition, population, culture, or mechanism no source states, or upgrades "stronger under X" into "only under X", or fuses studies with different methods into one clean comparison, flag it in "factIssues" against the paper it leans on most, with a fix that states each study on its own terms.
 
 THEN: score each dimension 1-5 and give specific, actionable feedback.
 
@@ -566,47 +570,6 @@ KEYCONCEPTS RULES:
 - MUST include at least 1 concept that explains the user's core interest: "${ctx?.focusInterest ?? "the main topic"}"
 - Format MUST be "term: definition"
 - Definitions must be one plain sentence, as if explaining to a curious 20-year-old`;
-}
-
-function SYNTHESIS_RULES(theme: string, _ctx?: DigestContext) {
-  return `SYNTHESIS — answer "${theme}" using the papers as evidence.
-
-The theme is a question. Your synthesis MUST open by answering it directly and concisely. For a yes/no question, choose the verdict that best fits the evidence: "yes", "no", "sometimes", "it depends", "it's complicated", "mostly", "not really", "only in some cases", "yes, but", "no, unless", or "sort of". Do not default to any one phrase, and do not hedge when the evidence supports a clear answer. For who/what/how/why questions, answer in the question's own shape instead of adding a yes/no-style verdict. Don't describe the papers first. Don't meta-frame. Answer first, then earn the answer with the papers.
-
-You are NOT summarizing papers. You are making a point about the theme question, and the papers are your proof. Think of it like a short op-ed, not a book report.
-
-BAD (meta-frame opener — doesn't answer the question):
-"Three studies examine whether consciousness can be engineered. One looks at..., another explores..."
-This tells me there are three studies. It doesn't answer the question. Don't do this.
-
-BAD (paper-by-paper book report):
-"**Paper A** found X. **Paper B** found Y. **Paper C** found Z. Together they show..."
-This is boring. Don't do this.
-
-GOOD (answer-first, papers as evidence, SHORT paper names, GROUNDED in real life):
-"Making airplane wings is basically expensive guesswork right now. **the composites review** found that AI can turn that guesswork into predictable science by standardizing how manufacturers pick their materials. But here's the thing: smarter tech doesn't always win. **the solar shading study** found that fancy movable panels don't beat simple fixed ones. What matters is matching the design to your specific climate. And **Duolingo** proves the ultimate version of this: 50 million people practice vocabulary daily because a cartoon owl made repetition addictive. The lesson across all three? The smartest design isn't the most complex one. It's the one that actually fits the problem."
-
-CRITICAL RULES:
-- Translate jargon into things a smart non-expert already knows.
-- When moving between papers, ADD A BRIDGE SENTENCE.
-- NEVER mention topics that aren't in the papers.
-- NEVER use a paper as an analogy or bridge if it's from a different domain than the theme. Each paper must earn its place by directly contributing evidence or mechanism to the central question — not by being a "conceptual parallel."
-- If a paper doesn't meaningfully connect to the theme, SKIP IT. Better 2 papers well than 3 with one forced.
-- If two papers seem barely related, be honest about it.
-
-LENGTH: 5-8 sentences. ONE paragraph.
-START with the point, not the build-up.
-
-RULES:
-- Name papers CONVERSATIONALLY in **bold** with parenthetical source/year: "**the McKinsey fashion report** (Iwedi, 2026)"
-- After first mention, just use the short bold name.
-- Include one specific number or finding.
-- End naturally. No formulaic closing.
-- NO: demonstrates, reveals, highlights, suggests, nuanced, multifaceted, fundamentally, inherently, arguably, seamlessly, notably, crucially, essentially, ultimately, delve, leverage, underscore, testament, landscape, realm.
-- ${BANNED_WORDS_RULE}
-- NO em dashes. Use periods, "but", "and" instead.
-- NEVER write "The question of whether X isn't just about Y — it's about Z" or any variation of this pattern.
-- NO restating the theme. Sound like a person, not a speech.`;
 }
 
 // ─── Other prompts ───────────────────────────────────────────────────────────
