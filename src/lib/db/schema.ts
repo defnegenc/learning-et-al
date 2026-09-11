@@ -139,7 +139,6 @@ export const papers = sqliteTable("papers", {
   methodType: text("method_type"), // what this IS: "Field study", "Opinion piece", "Randomized trial"…
   methodFacts: text("method_facts"), // JSON string[] — method micro-facts ("62 participants", "two-week experiment")
   claim: text("claim"), // the paper's central claim in one-two plain sentences
-  dinnerLine: text("dinner_line"), // casual "mention it at a dinner party" one-liner, generated on demand
   relatesLine: text("relates_line"), // clean one-sentence "how this relates to today's question", generated on demand
   abstractJargon: text("abstract_jargon"), // JSON [{term, def}] — hover defs for the abstract, generated on first detail open
   eli5: text("eli5"), // legacy plain-language gist (superseded by companion.gist; kept for old rows)
