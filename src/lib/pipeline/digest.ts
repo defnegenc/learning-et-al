@@ -624,6 +624,15 @@ function isListicle(title: string, source: string): boolean {
     || (t.length < 60 && /\b(everything you need|all you need to know|complete guide|ultimate guide)\b/.test(t));
 }
 
+// When Stage A leaves takeaway.stat empty, fall back to the bolded key-result
+// phrase of the paper's first finding - already abstract-grounded by the
+// findings rules, so the card never invents a stat to fill the tile.
+function boldedResultPhrase(finding: string | undefined): string | null {
+  if (!finding) return null;
+  const m = finding.match(/\*\*([^*]+)\*\*/);
+  return m ? m[1].trim() : null;
+}
+
 function isNewsRelevant(
   article: { title: string; abstract: string },
   themeWords: string[],
@@ -1562,6 +1571,7 @@ Return JSON only (no markdown):
     console.log(`[Digest] Step 4: finding ${newsNeeded} news via web search: "${newsSearchTerms}"`);
     // Started before the selection call above, so this usually resolves instantly.
     const webResults = webResultsPromise ? await webResultsPromise : [];
+    console.log(`[Digest] News web search returned ${webResults.length} candidate(s)`);
 
     const newsTexts = webResults.map(r => `${r.title}. ${r.snippet}`);
     const newsEmbs = newsTexts.length > 0 ? await embedBatch(newsTexts) : [];
@@ -1598,6 +1608,41 @@ Return JSON only (no markdown):
       newsFound++;
     }
 
+    // Second chance with the bare news query: the combined
+    // "${newsQuery} ${focusInterest} year year" string over-constrains news
+    // search, and an empty/over-narrow candidate set starves the lane before
+    // any guard gets a vote. Retry unadorned, with the relaxed word floors
+    // (snippet-scale text) plus the same sim/listicle/academic/seen gates.
+    if (newsFound < newsNeeded && newsQuery.trim()) {
+      const bare = await webSearch(newsQuery, newsNeeded * 3).catch(() => [] as Awaited<ReturnType<typeof webSearch>>);
+      if (bare.length > 0) {
+        console.log(`[Digest] News bare-query retry returned ${bare.length} candidate(s)`);
+        const bareTexts = bare.map(r => `${r.title}. ${r.snippet}`);
+        const bareEmbs = bareTexts.length > 0 ? await embedBatch(bareTexts) : [];
+        const bareScored = bare
+          .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, bareEmbs[i]) }))
+          .filter(({ result }) => !isListicle(result.title, result.source))
+          .filter(({ result }) => !isAcademicDomain(result.link))
+          .filter(({ result }) => !seenTitles.has(normTitle(result.title)))
+          .sort((x, y) => y.sim - x.sim);
+        for (const { result, sim } of bareScored) {
+          if (newsFound >= newsNeeded) break;
+          if (sim < 0.15) continue;
+          if (!isNewsRelevant({ title: result.title, abstract: result.snippet }, themeWords, focusInterest, { minInterestWords: 1, minThemeWords: 1 })) continue;
+          const articleText = await fetchArticleText(result.link);
+          const abstract = articleText.length > 200 ? articleText : result.snippet;
+          items.push({
+            title: result.title, authors: [result.source],
+            abstract, sourceUrl: result.link,
+            source: "rss", category: "news", year: new Date().getFullYear(),
+          });
+          seenTitles.add(normTitle(result.title));
+          console.log(`[Digest] News (bare query) ${newsFound + 1}/${newsNeeded}: "${result.title}" (sim ${sim.toFixed(2)})`);
+          newsFound++;
+        }
+      }
+    }
+
     // RSS fallback for remaining news slots
     if (newsFound < newsNeeded) {
       const newsTerms = newsQuery.split(/\s+/).slice(0, 3);
@@ -1620,7 +1665,7 @@ Return JSON only (no markdown):
     // don't reuse (e.g. "find themes in interviews"). When that happens, retry
     // the same candidates with a single-word floor - the 0.15 embedding floor,
     // the listicle/academic/seen filters, and the interest-word check all stay.
-    if (newsFound === 0 && scoredNews.length > 0) {
+    if (newsFound < newsNeeded && scoredNews.length > 0) {
       console.log(`[Digest] News lane starved (${rejectedBySim} below sim floor, ${rejectedByWords} word-guarded, of ${scoredNews.length} candidates) - retrying with relaxed word guard`);
       for (const { result, sim } of scoredNews) {
         if (newsFound >= newsNeeded) break;
@@ -2683,7 +2728,6 @@ Return ONLY the repaired synthesis. No JSON, no fences.`
   // so suggested questions are stored for legacy rows but answers are no
   // longer pre-generated.
   const suggestedQuestions = metadata.suggestedQuestions || [];
-  const suggestedAnswers: string[] = [];
 
   // Seed interests (drives header chips) — map the LLM's chosen keywords back to their field.
   const seedInterests = selectedInterestKeywords.map((kw) => {
@@ -2707,12 +2751,21 @@ Return ONLY the repaired synthesis. No JSON, no fences.`
     const headlineConceptBlock = headlineConcepts.length > 0
       ? `\nPotentially unfamiliar terms used in the question (metadata grounded in today's sources):\n${headlineConcepts.map(concept => `- ${concept.term}${concept.definition ? `: ${concept.definition}` : ""}`).join("\n")}\nDefine them in plain language before interpreting the result.\n`
       : "";
+    // Verdict rut guard: recent openings go into the prompt so "it depends"
+    // (or any one verdict) can't become the house style by default.
+    const recentVerdicts = allPastDigests
+      .map(dgst => ((dgst.gist || "").match(/^\s*([A-Za-z',]+(?: [A-Za-z',]+)?)[.,!:-]/) || [])[1]?.trim())
+      .filter((v): v is string => Boolean(v))
+      .slice(0, 5);
+    const recentVerdictBlock = recentVerdicts.length > 0
+      ? `\nRecent editions opened with: ${recentVerdicts.map(v => `"${v}"`).join(", ")}. Pick the verdict the evidence supports, and when several fit, prefer one NOT on this list. Never open with "It depends" unless the evidence genuinely splits - and then the same sentence must say what it depends on.\n`
+      : "";
     const gistResp = await aiComplete(
       judge,
       "You write punchy, plain-English digest headers that sound like a smart friend talking, not an AI. Return only JSON.",
       `Central question: "${finalTheme}"
 Seed interests: ${seedList}
-${headlineConceptBlock}
+${headlineConceptBlock}${recentVerdictBlock}
 
 Today's synthesis:
 ${synthesis}
@@ -2827,7 +2880,6 @@ Return JSON (no markdown fences):
     synthesisContent: stripBannedWords(parsedAI.synthesis),
     keyConcepts: JSON.stringify((parsedAI.keyConcepts || []).map(stripBannedWords)),
     suggestedQuestions: JSON.stringify(suggestedQuestions.map(stripBannedWords)),
-    suggestedAnswers: JSON.stringify(suggestedAnswers),
     seedInterests: JSON.stringify(seedInterests),
     seedTopic: seedTopic ? JSON.stringify({
       id: seedTopic.id,
@@ -2874,7 +2926,7 @@ Return JSON (no markdown fences):
         abstract: item.abstract, fullText: item.abstract,
         summary: stripBannedWords(aiItem.summary), plainName: stripBannedWordsMaybe(aiItem.plainName) || null,
         takeawayHook: stripBannedWordsMaybe(aiItem.takeaway?.hook) || null,
-        takeawayStat: stripBannedWordsMaybe(aiItem.takeaway?.stat) || null,
+        takeawayStat: stripBannedWordsMaybe(aiItem.takeaway?.stat) || boldedResultPhrase(aiItem.findings?.[0]) || null,
         takeawayLine: stripBannedWordsMaybe(aiItem.takeaway?.line) || null,
         methodType: aiItem.methodType || null,
         methodFacts: aiItem.methodFacts?.length ? JSON.stringify(aiItem.methodFacts.map(stripBannedWords)) : null,
