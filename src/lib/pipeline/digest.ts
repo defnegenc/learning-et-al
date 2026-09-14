@@ -630,7 +630,11 @@ function isListicle(title: string, source: string): boolean {
 function boldedResultPhrase(finding: string | undefined): string | null {
   if (!finding) return null;
   const m = finding.match(/\*\*([^*]+)\*\*/);
-  return m ? m[1].trim() : null;
+  const phrase = m ? m[1].trim() : null;
+  // The slot is a STAT: a bolded label with no number in it ("artificial
+  // scarcity") reads as a malformed stat on the card, so only a phrase that
+  // carries a digit earns the fallback.
+  return phrase && /\d/.test(phrase) ? phrase : null;
 }
 
 function isNewsRelevant(

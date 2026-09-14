@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { BriefDigest } from "./brief-digest";
 import { RegenerateCta } from "./regenerate-cta";
 import { DigestHeader } from "./digest-header";
@@ -477,26 +478,18 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
               {!session && publicDigestList.length > 1 && (
                 <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: 8 }}>
                   {publicDigestIdx < publicDigestList.length - 1 && (
-                    <button
+                    <Link
                       aria-label="See yesterday's digest"
-                      onClick={() => {
-                        const next = publicDigestIdx + 1;
-                        setPublicDigestIdx(next);
-                        fetchDigest(publicDigestList[next].id);
-                      }}
-                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
-                    >← see yesterday&apos;s digest</button>
+                      href={`/digest/${publicDigestList[publicDigestIdx + 1].id}`}
+                      style={{ ...BODY_SM, color: DIM }}
+                    >← see yesterday&apos;s digest</Link>
                   )}
                   {publicDigestIdx > 0 && (
-                    <button
+                    <Link
                       aria-label="See newer digest"
-                      onClick={() => {
-                        const prev = publicDigestIdx - 1;
-                        setPublicDigestIdx(prev);
-                        fetchDigest(publicDigestList[prev].id);
-                      }}
-                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", ...BODY_SM, color: DIM }}
-                    >see newer digest →</button>
+                      href={`/digest/${publicDigestList[publicDigestIdx - 1].id}`}
+                      style={{ ...BODY_SM, color: DIM }}
+                    >see newer digest →</Link>
                   )}
                 </div>
               )}

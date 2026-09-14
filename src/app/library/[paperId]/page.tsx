@@ -7,7 +7,7 @@ import type { PaperItem } from "@/lib/types";
 import { NoiseOverlay } from "@/components/noise-overlay";
 import { ReadingPaperDetail } from "@/components/vault/reading-paper-detail";
 import {
-  ActionButton, BODY_STYLE, DIM, DISPLAY_LG, PageLoader, SiteHeader, SURFACE,
+  ActionButton, BODY_STYLE, BORDER, DIM, DISPLAY_LG, Label, PageLoader, SiteHeader, SURFACE,
 } from "@/components/design-system";
 
 /*
@@ -35,7 +35,7 @@ export default function LibraryPaperPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (status === "loading") return;
     let cancelled = false;
     (async () => {
       try {
@@ -69,13 +69,33 @@ export default function LibraryPaperPage() {
   }
 
   if (status === "unauthenticated") {
+    // A stranger landing from a shared link has no library - say what the
+    // paper IS (the same card facts the public digest shows) before asking
+    // for the account. The walkthrough itself stays behind sign-in.
     return shell(
-      <div className="flex flex-col items-center justify-center py-24 gap-5 px-4">
-        <h1 style={{ ...DISPLAY_LG, textAlign: "center", margin: 0 }}>This one&apos;s in your library</h1>
-        <p style={{ ...BODY_STYLE, color: DIM, textAlign: "center", maxWidth: 420 }}>
-          Sign in to read the walkthrough.
-        </p>
-        <ActionButton variant="primary" onClick={() => signIn("google")}>Sign in</ActionButton>
+      <div className="flex flex-col py-24 gap-5 px-4" style={{ maxWidth: 760, margin: "0 auto" }}>
+        {paper ? (
+          <>
+            <div style={{ border: BORDER, padding: "20px 22px", background: SURFACE }}>
+              <Label>{paper.digestTheme ? "From the digest" : "Paper"}</Label>
+              <h1 style={{ ...DISPLAY_LG, margin: "10px 0 6px" }}>{paper.title}</h1>
+              <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>
+                {[paper.authors?.join(", "), paper.source, paper.year].filter(Boolean).join(" · ")}
+              </p>
+              {paper.summary && (
+                <p style={{ ...BODY_STYLE, margin: "14px 0 0" }}>{paper.summary}</p>
+              )}
+            </div>
+            <div className="flex flex-col items-start gap-4">
+              <p style={{ ...BODY_STYLE, color: DIM, margin: 0, maxWidth: 420 }}>
+                Sign in to read the full walkthrough - the findings, the method, and the companion that answers questions about it.
+              </p>
+              <ActionButton variant="primary" onClick={() => signIn("google")}>Sign in</ActionButton>
+            </div>
+          </>
+        ) : (
+          <PageLoader />
+        )}
       </div>
     );
   }

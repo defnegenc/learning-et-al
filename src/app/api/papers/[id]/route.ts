@@ -19,7 +19,6 @@ import { LIST_COLUMNS } from "@/lib/db/paper-payload";
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getAuthUser(req);
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const { id } = await params;
@@ -33,6 +32,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       where: eq(digests.id, paper.digestId),
       columns: { id: true, theme: true, date: true, seedInterests: true },
     });
+
+    // Logged out, hand back only what the public homepage already shows on a
+    // digest card: identity, venue, and the summary. The walkthrough payload
+    // (findings, provenance, seed interests) stays behind sign-in.
+    if (!userId) {
+      return NextResponse.json({
+        paper: {
+          id: paper.id,
+          title: paper.title,
+          authors: paper.authors ? JSON.parse(paper.authors) : [],
+          source: paper.source,
+          year: paper.year,
+          summary: paper.summary,
+          sourceUrl: paper.sourceUrl,
+          digestId: paper.digestId,
+          digestTheme: digest?.theme ?? null,
+          digestDate: digest?.date ?? null,
+        },
+        publicOnly: true,
+      });
+    }
 
     return NextResponse.json({
       paper: {

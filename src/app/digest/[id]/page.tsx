@@ -13,7 +13,7 @@ import { NoiseOverlay } from "@/components/noise-overlay";
 import { pendingPaperIds, setPendingSharedPaper } from "@/lib/shared-saves";
 import { FirstSaveConfirmation } from "@/components/save-nux";
 import { WhatIsThis } from "@/components/what-is-this";
-import { ACID_GREEN, ActionButton, BODY_SM, BODY_STYLE, BORDER, DISPLAY, INK, Label, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
+import { ACID_GREEN, ActionButton, BODY_SM, BODY_STYLE, BORDER, DIM, DISPLAY, INK, Label, PageLoader, SiteHeader, SURFACE } from "@/components/design-system";
 
 interface Digest {
   id: string;
@@ -36,6 +36,7 @@ export default function DigestPermalink() {
   const [deviceSavedIds, setDeviceSavedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [archiveList, setArchiveList] = useState<{ id: string; date: string }[]>([]);
 
   const loggedIn = authStatus === "authenticated";
 
@@ -61,6 +62,14 @@ export default function DigestPermalink() {
   useEffect(() => {
     setDeviceSavedIds(pendingPaperIds(id));
   }, [id]);
+
+  // Archive neighbors for prev/next browsing. The public list is newest-first.
+  useEffect(() => {
+    fetch("/api/public/digests")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => setArchiveList(Array.isArray(rows) ? rows : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!loggedIn) return;
@@ -101,6 +110,24 @@ export default function DigestPermalink() {
 
   const accountName = authSession?.user?.name || authSession?.user?.email || "Signed in";
   const displayTheme = splitSynthesisTheme(digest.synthesisContent || "", digest.theme ?? undefined).displayTheme;
+
+  const archiveIdx = archiveList.findIndex((d) => d.id === digest.id);
+  const olderDigest = archiveIdx >= 0 && archiveIdx < archiveList.length - 1 ? archiveList[archiveIdx + 1] : null;
+  const newerDigest = archiveIdx > 0 ? archiveList[archiveIdx - 1] : null;
+  const archiveNav = (olderDigest || newerDigest) ? (
+    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
+      {olderDigest && (
+        <Link href={`/digest/${olderDigest.id}`} style={{ ...BODY_SM, color: DIM }}>
+          ← see the previous digest
+        </Link>
+      )}
+      {newerDigest && (
+        <Link href={`/digest/${newerDigest.id}`} style={{ ...BODY_SM, color: DIM }}>
+          see newer digest →
+        </Link>
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className="relative min-h-screen" style={{ background: SURFACE }}>
@@ -146,6 +173,9 @@ export default function DigestPermalink() {
         style={{ position: "relative", zIndex: 10, maxWidth: 760, margin: "0 auto" }}
       >
         <div style={{ marginBottom: 28 }}>
+          {/* Archive nav: the same yesterday/newer pair the homepage shows,
+              but URL-real so the back button and copy-link keep working. */}
+          {archiveNav}
           {/* Same row Today uses: the eyebrow on the left, page actions on the
               right, both above the question. A shared link is most people's
               first contact with this product, so the explainer stays beside
