@@ -98,7 +98,7 @@ export default function Home() {
 
       <SiteHeader
         right={
-          <ActionButton variant="primary" shadow={false} style={{ padding: "7px 14px" }} onClick={() => signIn("google")}>
+          <ActionButton variant="outline" shadow={false} style={{ padding: "7px 14px" }} onClick={() => signIn("google")}>
             Sign in
           </ActionButton>
         }
