@@ -10,76 +10,73 @@ import { digests, papers } from "@/lib/db/schema";
  * no-op read. Entries can be deleted after they apply.
  */
 
-const SEP14_DIGEST_ID = "14a4708f-400b-4971-8e40-7ec9b2561e42"; // 2026-09-14 edition
-const SEP14_STAPLE_PAPER_ID = "a02bd65c-d2eb-4b2e-b8b0-77ab6d204871"; // [Source 4]
+const SEP15_DIGEST_ID = "69dbc60d-8968-42bf-b646-90ece1a3cc2e"; // 2026-09-15 edition
+const SEP15_REVIEW_PAPER_ID = "a10beb87-c55a-4efa-b2bb-ec21b699709f"; // [Source 1]
 
 export async function runContentPatches(): Promise<string[]> {
   const applied: string[] = [];
 
-  // 2026-09-14 edition, from the daily review:
-  // - "twenty-five years" is bad arithmetic (2000 → 2026) with no established endpoint.
-  // - [Source 4]'s stored payload is ACS page metadata, not an abstract, so the
-  //   helicity/enzyme-resistance/chemical-baggage claims are unverifiable as written;
-  //   every kept claim now traces to the paper's own title ("An All-Hydrocarbon
-  //   Cross-Linking System for Enhancing the Helicity and Metabolic Stability of
-  //   Peptides").
-  // - "side effects" misreads design tradeoffs as clinical ones.
+  // 2026-09-15 edition, from the daily review:
+  // - Theme said "millions of papers": the millions are patent sentences (Source 2);
+  //   the paper corpus is Source 3's 250,000.
+  // - [Source 2]: nobody hand-graded GPT-4's labels with accuracy/consistency scores;
+  //   the abstract describes BLEU + topic modeling inside a human-supervised framework,
+  //   and 0.91 is an F1 score, not "matched expert judgment on 91%".
+  // - The gist/closing claim that both teams used human spot-checks is unsupported.
+  // - [Source 4]: "the tool everyone still uses" is editorializing.
+  // - "each inventing their own spot-check" / "skip validation entirely" overstate
+  //   the review; the supported claim is that no standard or convergence exists.
   const d = await db.query.digests.findFirst({
-    where: eq(digests.id, SEP14_DIGEST_ID),
-    columns: { synthesisContent: true, gist: true },
+    where: eq(digests.id, SEP15_DIGEST_ID),
+    columns: { synthesisContent: true, gist: true, theme: true },
   });
-  if (d?.synthesisContent?.includes("twenty-five years")) {
+  if (d?.synthesisContent?.includes("accuracy and consistency scores")) {
     const synthesisContent = d.synthesisContent
       .replace(
-        "Yes, and it took twenty-five years to get here. Back in 2000",
-        "Yes. Back in 2000",
+        "That's the honest answer to who checks the AI's work: right now, it's a patchwork of individual research teams each inventing their own spot-check, because no shared standard exists yet.",
+        "That's the honest answer to who checks the AI's work: right now, there is no shared standard for it, and the field has not converged on one.",
       )
       .replace(
-        "making it both **more helical** and more resistant to the enzymes that normally chew peptides apart in the body.",
-        "making it both **more helical** and more metabolically stable.",
+        "built the tool everyone still uses to sort text into hidden themes automatically",
+        "built a way to sort text into hidden themes automatically",
       )
       .replace(
-        "comes with side effects that needed cataloging",
-        "comes with design tradeoffs that needed cataloging",
+        "then had humans grade those labels using accuracy and consistency scores before trusting any of it. The AI-generated labels then trained a second, smaller model that matched expert judgment on **91% of a two-category test**.",
+        "then scored those labels with BLEU and topic modeling inside a human-supervised framework before trusting any of it. The AI-generated labels then trained a second, smaller model that reached an **F1 of 0.91 on a two-category test**.",
+      )
+      .replace(
+        "Two teams built human spot-checks from scratch, on different problems, with no shared rulebook between them, and that's still the state of the art.",
+        "Two teams checked the AI's work in two different ways, on different problems, with no shared rulebook between them, and that's still the state of the art.",
       );
     const gist = (d.gist ?? "").replace(
-      "25 years of peptide engineering",
-      "decades of peptide engineering",
+      "Right now it's whoever built the AI: two teams each made their own human spot-check, but no shared standard exists across the field.",
+      "Right now it's whoever built the AI: each team checks the work its own way, and no shared standard exists across the field.",
+    );
+    const theme = (d.theme ?? "").replace(
+      "AI sorts millions of papers. Who checks its work?",
+      "AI reads millions of patent sentences and 250,000 papers. Who checks its work?",
     );
     await db
       .update(digests)
-      .set({ synthesisContent, gist })
-      .where(eq(digests.id, SEP14_DIGEST_ID));
-    applied.push("digest-2026-09-14");
+      .set({ synthesisContent, gist, theme })
+      .where(eq(digests.id, SEP15_DIGEST_ID));
+    applied.push("digest-2026-09-15");
   }
 
   const p = await db.query.papers.findFirst({
-    where: eq(papers.id, SEP14_STAPLE_PAPER_ID),
-    columns: { summary: true },
+    where: eq(papers.id, SEP15_REVIEW_PAPER_ID),
+    columns: { keyFindings: true },
   });
-  if (p?.summary?.includes("digestive enzymes")) {
+  if (p?.keyFindings?.includes("skip validation entirely")) {
+    const keyFindings = p.keyFindings.replace(
+      "Most researchers **skip validation entirely** or use inconsistent, one-off methods",
+      "Validation practice is **inconsistent and one-off** across teams - nothing has converged into a standard",
+    );
     await db
       .update(papers)
-      .set({
-        summary:
-          "Chemists attached a carbon-only chemical bridge, or 'staple,' between two points on a short peptide chain to lock it into a spring-like helix shape, making the peptide more helical and more metabolically stable.",
-        claim:
-          "Locking a peptide into a helix with an all-carbon staple makes the peptide more helical and more metabolically stable.",
-        keyFindings: JSON.stringify([
-          "An all-hydrocarbon staple **increased the helicity** of peptides",
-          "The same staple **increased the peptides' metabolic stability**",
-          "The crosslink used **only carbon and hydrogen** atoms",
-        ]),
-        methodFacts: JSON.stringify([
-          "They chemically linked two points on a peptide chain.",
-          "The cross-link used only carbon and hydrogen atoms.",
-          "They measured the peptide's helicity and metabolic stability.",
-        ]),
-        takeawayHook:
-          "Welding two points of a floppy peptide chain together with a simple carbon bridge can make it hold its shape and stay metabolically stable.",
-      })
-      .where(eq(papers.id, SEP14_STAPLE_PAPER_ID));
-    applied.push("paper-2026-09-14-source4");
+      .set({ keyFindings })
+      .where(eq(papers.id, SEP15_REVIEW_PAPER_ID));
+    applied.push("paper-2026-09-15-source1");
   }
 
   return applied;

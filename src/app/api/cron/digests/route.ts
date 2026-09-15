@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCronAiConfig, processDigestJobBatch } from "@/lib/pipeline/digest-jobs";
+import { runContentPatches } from "@/lib/pipeline/content-patches";
 
 // Each invocation handles a small bounded batch. Vercel Hobby cron jobs can run
 // only once per day, so vercel.json schedules several daily slot paths that
@@ -13,6 +14,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // One-time, idempotent edition fixes (see content-patches.ts). The daily
+    // cron carries them too; the worker gives them more chances to land.
+    let patches: string[] = [];
+    try {
+      patches = await runContentPatches();
+    } catch (patchError) {
+      console.error("content patches failed", patchError);
+    }
     const url = new URL(req.url);
     const date = url.searchParams.get("date") || undefined;
     const batchSizeParam = Number(url.searchParams.get("batchSize") || "");
@@ -21,7 +30,7 @@ export async function GET(req: NextRequest) {
       : 2;
     const aiConfig = getCronAiConfig();
     const batch = await processDigestJobBatch(aiConfig, batchSize, date);
-    return NextResponse.json({ ok: true, batch });
+    return NextResponse.json({ ok: true, batch, patches });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
