@@ -300,7 +300,14 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
         : digestId
           ? `/api/public/digest?digestId=${digestId}`
           : "/api/public/digest";
-      const res = await fetch(endpoint, fresh ? { cache: "no-store" } : undefined);
+      let res = await fetch(endpoint, fresh ? { cache: "no-store" } : undefined);
+      // Stale local session: localStorage still holds a userId but the server
+      // session is gone (expired cookie, cleared site data), so /api/digest 401s
+      // while the public digest is fine. Fall back instead of trapping the reader
+      // on the empty "brewing" state with a raw "Unauthorized" error.
+      if (res.status === 401 && session) {
+        res = await fetch("/api/public/digest", fresh ? { cache: "no-store" } : undefined);
+      }
       if (!res.ok) return;
       const data = await res.json();
       setDigest(data.digest);
@@ -369,7 +376,11 @@ export function TodayPage({ session, onRegisterRefresh, onSignIn, onFirstDigestL
         await fetchDigest(undefined, true);
       } else {
         const data = await res.json().catch(() => ({}));
-        setGenerateError(data.error || `Generation failed (${res.status}). Check your API key in settings.`);
+        setGenerateError(
+          res.status === 401
+            ? "Your sign-in session has expired. Sign in again, then retry."
+            : data.error || `Generation failed (${res.status}). Check your API key in settings.`
+        );
       }
     } catch (err) {
       setGenerateError("Network error. Couldn't reach the server.");
