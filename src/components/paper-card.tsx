@@ -239,6 +239,10 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
     if (expandTick) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [expandTick]);
 
+  // Mobile only: findings and the body copy stay behind one tap instead of
+  // competing with the takeaway. Desktop renders everything as before.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
   const foundational = paper.category === "foundational";
   // The mark is a wash hue, never GOLD — gold is a line colour and is far too
   // dark to read a highlight through. See `foundationalSlots`.
@@ -295,37 +299,83 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
           )}
         </div>
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
+        <div className="pc-desktop">
+          {opening ? (
+            <>
+              <FoundationalLead text={opening} style={heroStyle(22)} />
+              {/* The paper's own opening sentence, demoted: on a foundational card
+                  the line worth setting large is why it still matters. */}
+              {hero && <p style={{ ...BODY_STYLE, color: DIM, margin: "12px 0 0" }}>{hero}</p>}
+            </>
+          ) : (
+            hero && <p style={heroStyle(foundational ? 22 : 18)}>{hero}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile: title and byline, then the one conclusion, plain. No giant
+          hero, no highlight behind text, no gold underline - those are the
+          desktop's room talking. Findings and the body copy stay one tap
+          away rather than competing with the point of the card. */}
+      <div className="pc-mobile">
         {opening ? (
-          <>
-            <FoundationalLead text={opening} style={heroStyle(22)} />
-            {/* The paper's own opening sentence, demoted: on a foundational card
-                the line worth setting large is why it still matters. */}
-            {hero && <p style={{ ...BODY_STYLE, color: DIM, margin: "12px 0 0" }}>{hero}</p>}
-          </>
-        ) : (
-          hero && <p style={heroStyle(foundational ? 22 : 18)}>{hero}</p>
+          <p style={{ ...READING_BODY, margin: 0 }}>{opening}</p>
+        ) : lead ? (
+          <p style={{ ...READING_BODY, margin: 0 }}>
+            <span style={{ fontWeight: 600 }}>{lead}</span>
+            {rest ? ` ${rest}` : ""}
+          </p>
+        ) : null}
+        {(findings.length > 0 || hero) && (
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((v) => !v)}
+            style={{ ...DISPLAY_SM, background: "none", border: "none", padding: 0, cursor: "pointer", color: DIM, textAlign: "left", alignSelf: "flex-start" }}
+          >
+            {detailsOpen ? "Hide findings & details ↑" : "Findings & details ↓"}
+          </button>
+        )}
+        {detailsOpen && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {hero && <p style={{ ...BODY_STYLE, color: DIM, margin: 0 }}>{hero}</p>}
+            {findings.length > 0 && (
+              <CardColumn heading={findingsLabel}>
+                <FindingList items={findings} />
+              </CardColumn>
+            )}
+            {opening && lead && (
+              <CardColumn heading="Takeaway">
+                <p style={{ ...READING_BODY, margin: 0 }}>
+                  <span style={{ fontWeight: 600 }}>{lead}</span>
+                  {rest ? ` ${rest}` : ""}
+                </p>
+              </CardColumn>
+            )}
+          </div>
         )}
       </div>
 
-      {(findings.length > 0 || lead) && (
-        <div className={hasSplit ? "paper-card-split" : undefined}>
-          {findings.length > 0 && (
-            <CardColumn heading={findingsLabel}>
-              <FindingList items={findings} />
-            </CardColumn>
-          )}
-          {lead && (
-            <CardColumn heading="Takeaway">
-              <p style={{ ...READING_BODY, margin: 0 }}>
-                <span style={{ background: mark, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px", fontWeight: 600 }}>
-                  {lead}
-                </span>
-                {rest ? ` ${rest}` : ""}
-              </p>
-            </CardColumn>
-          )}
-        </div>
-      )}
+      <div className="pc-desktop">
+        {(findings.length > 0 || lead) && (
+          <div className={hasSplit ? "paper-card-split" : undefined}>
+            {findings.length > 0 && (
+              <CardColumn heading={findingsLabel}>
+                <FindingList items={findings} />
+              </CardColumn>
+            )}
+            {lead && (
+              <CardColumn heading="Takeaway">
+                <p style={{ ...READING_BODY, margin: 0 }}>
+                  <span style={{ background: mark, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "2px 4px", fontWeight: 600 }}>
+                    {lead}
+                  </span>
+                  {rest ? ` ${rest}` : ""}
+                </p>
+              </CardColumn>
+            )}
+          </div>
+        )}
+      </div>
 
       {paper.sourceUrl && (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -342,9 +392,12 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
       )}
 
       <style>{`
+        .pc-mobile { display: none; }
         .paper-card-split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
         .paper-card-split > section + section { border-left: ${BORDER}; padding-left: 24px; }
         @media (max-width: 720px) {
+          .pc-desktop { display: none; }
+          .pc-mobile { display: flex; flex-direction: column; gap: 16px; }
           .paper-card-split { grid-template-columns: 1fr; gap: 20px; }
           .paper-card-split > section + section { border-left: none; border-top: ${BORDER}; padding-left: 0; padding-top: 20px; }
         }

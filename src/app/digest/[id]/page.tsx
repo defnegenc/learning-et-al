@@ -101,9 +101,17 @@ export default function DigestPermalink() {
     );
   }
 
-  const displayDate = new Date(`${digest.date}T12:00:00`).toLocaleDateString("en-US", {
+  const digestDate = new Date(`${digest.date}T12:00:00`);
+  const displayDate = digestDate.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  // Same facts, short enough that date + info + Share always fit one phone line.
+  const compactDate = digestDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
     day: "numeric",
     year: "numeric",
   });
@@ -115,7 +123,9 @@ export default function DigestPermalink() {
   const olderDigest = archiveIdx >= 0 && archiveIdx < archiveList.length - 1 ? archiveList[archiveIdx + 1] : null;
   const newerDigest = archiveIdx > 0 ? archiveList[archiveIdx - 1] : null;
   const archiveNav = (olderDigest || newerDigest) ? (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
+    // A phone's first screen is already doing enough; archive browsing keeps
+    // the desktop top spot and stays off the mobile one.
+    <div className="hidden md:flex" style={{ alignItems: "center", gap: 16, marginBottom: 8 }}>
       {olderDigest && (
         <Link href={`/digest/${olderDigest.id}`} style={{ ...BODY_SM, color: DIM }}>
           ← see the previous digest
@@ -155,7 +165,7 @@ export default function DigestPermalink() {
             </div>
           ) : authStatus === "unauthenticated" ? (
             <ActionButton
-              variant="primary"
+              variant="outline"
               shadow={false}
               style={{ padding: "7px 12px" }}
               onClick={() => signIn("google", { redirectTo: window.location.href })}
@@ -180,8 +190,11 @@ export default function DigestPermalink() {
               right, both above the question. A shared link is most people's
               first contact with this product, so the explainer stays beside
               Share rather than competing with the headline. */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
-            <Label>{displayDate}</Label>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16, whiteSpace: "nowrap" }}>
+            <Label>
+              <span className="hidden md:inline">{displayDate}</span>
+              <span className="md:hidden">{compactDate}</span>
+            </Label>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
               {authStatus === "unauthenticated" && (
                 <WhatIsThis onSignIn={() => signIn("google", { redirectTo: window.location.href })} />
