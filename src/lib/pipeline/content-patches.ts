@@ -79,5 +79,114 @@ export async function runContentPatches(): Promise<string[]> {
     applied.push("paper-2026-09-15-source1");
   }
 
+  // 2026-09-16 edition: the foundational card over-explained itself before
+  // Findings. Trim the lead to its point (the demoted summary sentence was
+  // removed card-side in paper-card.tsx).
+  const SEP16_PAPER_ID = "9b2994bf-db65-470e-974a-a4c1c86a993b"; // A rulebook of loved-place patterns
+  const p2 = await db.query.papers.findFirst({
+    where: eq(papers.id, SEP16_PAPER_ID),
+    columns: { foundationalReason: true },
+  });
+  if (p2?.foundationalReason?.includes("the same premise every AI-generated-park scheme is borrowing from")) {
+    await db
+      .update(papers)
+      .set({
+        foundationalReason:
+          "Foundational Text alert 👀 Christopher Alexander's pattern language basically invented reusable, human-centered building blocks - the premise every AI-generated-park scheme borrows from.",
+      })
+      .where(eq(papers.id, SEP16_PAPER_ID));
+    applied.push("paper-2026-09-16-foundational-lead");
+  }
+
+
+  // 2026-09-16 edition, from the daily review:
+  // - The central conclusion claimed no AI landscape research anywhere asks
+  //   whether people like what gets built; narrowed to today's sources.
+  // - "Grass" was never one of Source 1's classes; its six are Water scene,
+  //   landscape scene, living scene, sky scene, architecture and transportation.
+  // - Source 2 (a robot-vision survey) does not support the landscape-design
+  //   theme; dropped, the source markers renumbered, its four key concepts removed.
+  // - "a local feeling at home" / "hasn't been felt by anyone" / "felt warmer
+  //   than one built by a committee" were unsourced; removed or narrowed to
+  //   what the study reports.
+  // - Alexander/Ishikawa "observed ... over years" is unsourced; fact removed.
+  const SEP16_DIGEST_ID = "cf408331-3a65-4bf2-a62f-483786319630"; // 2026-09-16 edition
+  const SEP16_ROBOT_PAPER_ID = "70c8c03a-3531-4bfc-b2ce-fbb4cd6fc39e"; // dropped Source 2
+  const SEP16_URBANRURAL_PAPER_ID = "5fd4c8e6-28bf-41ae-8a36-c6929f7a6a50";
+  const d2 = await db.query.digests.findFirst({
+    where: eq(digests.id, SEP16_DIGEST_ID),
+    columns: { synthesisContent: true, gist: true, keyConcepts: true },
+  });
+  if (d2?.synthesisContent?.includes("photo of water from a photo of grass")) {
+    const synthesisContent = `Not really, not yet anyway. None of the AI landscape research in today's edition asks people whether they like what gets built. They measure whether a computer can sort a photo into categories like water and sky, or whether a design scores higher on a rubric.
+
+- **[Source 1] the fractal landscape scanner** found it can sort **200 landscape photos** into six categories like water scenes and sky scenes using fractal math, but says accuracy drops hard when the edges between regions get **blurry or low-contrast**.
+
+> That's pattern recognition, not design. What happens when AI moves beyond sorting pictures?
+
+- **[Source 2] the urban-rural AI design study** tested whether AI can balance **traditional rural culture** against modern city needs, and found AI-based designs scored **0.77 points higher on aesthetics** and **0.70 higher on harmony** than traditional methods. The study reports rubric scores, not how people feel about living with the results.
+
+> A higher rubric score isn't the same as people preferring the place.
+
+- **[Source 3] the pattern language book** argues that the world's most loved places were **not made by architects** at all, but by ordinary people using a shared design language to build their own houses and streets.
+
+None of these AI systems measured what the people who will actually stand in the park think.`;
+    const gist =
+      "Not really, not yet: AI tools get graded on sorting photos or hitting a rubric score, not on whether a real person likes standing in the finished place.";
+    await db
+      .update(digests)
+      .set({ synthesisContent, gist })
+      .where(eq(digests.id, SEP16_DIGEST_ID));
+    applied.push("digest-2026-09-16-landscape-review");
+  }
+  if (d2?.keyConcepts?.includes("path planning")) {
+    const concepts = JSON.parse(d2.keyConcepts) as string[];
+    const keyConcepts = JSON.stringify(
+      concepts.filter(
+        (c) =>
+          !c.startsWith("visual perception:") &&
+          !c.startsWith("path planning:") &&
+          !c.startsWith("decision-making (AI):") &&
+          !c.startsWith("control systems:"),
+      ),
+    );
+    await db
+      .update(digests)
+      .set({ keyConcepts })
+      .where(eq(digests.id, SEP16_DIGEST_ID));
+    applied.push("digest-2026-09-16-key-concepts");
+  }
+
+  const robot = await db.query.papers.findFirst({
+    where: eq(papers.id, SEP16_ROBOT_PAPER_ID),
+    columns: { title: true },
+  });
+  if (robot?.title?.includes("Intelligent robot systems")) {
+    await db.delete(papers).where(eq(papers.id, SEP16_ROBOT_PAPER_ID));
+    await db
+      .update(papers)
+      .set({ sourceIndex: 1 })
+      .where(eq(papers.id, SEP16_URBANRURAL_PAPER_ID));
+    await db
+      .update(papers)
+      .set({ sourceIndex: 2 })
+      .where(eq(papers.id, SEP16_PAPER_ID));
+    applied.push("digest-2026-09-16-drop-source2");
+  }
+
+  const p3 = await db.query.papers.findFirst({
+    where: eq(papers.id, SEP16_PAPER_ID),
+    columns: { methodFacts: true },
+  });
+  if (p3?.methodFacts?.includes("over years")) {
+    const facts = JSON.parse(p3.methodFacts) as string[];
+    const methodFacts = JSON.stringify(facts.filter((f) => !f.includes("over years")));
+    await db
+      .update(papers)
+      .set({ methodFacts })
+      .where(eq(papers.id, SEP16_PAPER_ID));
+    applied.push("paper-2026-09-16-method-facts");
+  }
+
   return applied;
 }

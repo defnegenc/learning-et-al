@@ -132,7 +132,7 @@ export default function RunThePaper() {
               Validated
             </span>
           </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 18, flexWrap: "wrap" }}>
+          <div className="flex flex-col md:flex-row md:items-end" style={{ gap: 16, marginTop: 18 }}>
             <ColorInput label="Color A" value={colorA} onChange={setColorA} />
             <ColorInput label="Color B" value={colorB} onChange={setColorB} />
             <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "flex-end" }}>

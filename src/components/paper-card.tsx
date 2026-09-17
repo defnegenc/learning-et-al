@@ -296,12 +296,7 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
         </div>
         {byline && <div style={{ ...BODY_SM, fontStyle: "italic", color: DIM, marginTop: 2 }}>{byline}</div>}
         {opening ? (
-          <>
-            <FoundationalLead text={opening} style={heroStyle(22)} />
-            {/* The paper's own opening sentence, demoted: on a foundational card
-                the line worth setting large is why it still matters. */}
-            {hero && <p style={{ ...BODY_STYLE, color: DIM, margin: "12px 0 0" }}>{hero}</p>}
-          </>
+          <FoundationalLead text={opening} style={heroStyle(22)} />
         ) : (
           hero && <p style={heroStyle(foundational ? 22 : 18)}>{hero}</p>
         )}
