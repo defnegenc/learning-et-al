@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 import { ArrowLeft } from "lucide-react";
 import type { PaperItem } from "@/lib/types";
 import { BriefDigest } from "@/components/today/brief-digest";
@@ -33,7 +34,11 @@ const REQUEST_TIMEOUT_MS = 15_000;
 
 async function fetchJson(url: string, signal: AbortSignal) {
   const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(`Request failed with ${response.status}`) as Error & { status: number };
+    error.status = response.status;
+    throw error;
+  }
   return response.json();
 }
 
@@ -51,6 +56,12 @@ export function DigestHistory() {
   const [digest, setDigest] = useState<LoadedDigest | null>(null);
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [listError, setListError] = useState(false);
+  // Stale local session: localStorage still says signed in but the server
+  // session is gone (mobile browsers drop the cookie), so the vault APIs 401.
+  // There is no public vault to fall back to the way Today has - the only way
+  // forward is signing in again, so say that instead of a load error that
+  // retrying can never fix.
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [digestError, setDigestError] = useState(false);
   const [listAttempt, setListAttempt] = useState(0);
   const [digestAttempt, setDigestAttempt] = useState(0);
@@ -80,8 +91,10 @@ export function DigestHistory() {
         setList(items);
         if (items.length > 0) setActiveId(items[0].id);
       })
-      .catch(() => {
-        if (!cancelled) setListError(true);
+      .catch((e) => {
+        if (cancelled) return;
+        if ((e as { status?: number }).status === 401) setSessionExpired(true);
+        else setListError(true);
       })
       .finally(() => window.clearTimeout(timeout));
     return () => {
@@ -108,8 +121,10 @@ export function DigestHistory() {
         });
         setPapers(d.papers ?? []);
       })
-      .catch(() => {
-        if (!cancelled) setDigestError(true);
+      .catch((e) => {
+        if (cancelled) return;
+        if ((e as { status?: number }).status === 401) setSessionExpired(true);
+        else setDigestError(true);
       })
       .finally(() => window.clearTimeout(timeout));
     return () => {
@@ -121,7 +136,15 @@ export function DigestHistory() {
 
   // Keep the page loader for the initial archive request. Once the list exists,
   // a selected digest owns its loading and error state inside the reading pane.
-  if (list === null && !listError) return <PageLoader />;
+  if (list === null && !listError && !sessionExpired) return <PageLoader />;
+  if (sessionExpired) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "80px 0" }}>
+        <p style={{ ...BODY_STYLE, color: ACID_PINK, margin: 0 }}>Your sign-in session has expired.</p>
+        <ActionButton onClick={() => signIn("google")}>Sign in</ActionButton>
+      </div>
+    );
+  }
   if (listError) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "80px 0" }}>

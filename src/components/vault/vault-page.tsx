@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import type { PaperItem } from "@/lib/types";
 import { PaperCard } from "@/components/paper-card";
-import { BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, PageHeader, PageLoader, Segmented } from "@/components/design-system";
+import { ACID_PINK, ActionButton, BODY_SM, BODY_STYLE, DIM, DISPLAY_SM, MUTED, PageHeader, PageLoader, Segmented } from "@/components/design-system";
 import { useOpenLibrary } from "@/components/save-nux";
 import { DigestHistory } from "./digest-history";
 
@@ -14,6 +15,10 @@ const PREP_POLL_MS = 10_000;
 export function VaultPage() {
   const [papers, setPapers] = useState<PaperItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Same stale-session trap as the digest archive: a 401 here means the
+  // server session is gone, not that the shelf failed to load - showing an
+  // empty library would read as lost saves. Send the reader to sign in.
+  const [sessionExpired, setSessionExpired] = useState(false);
   // Two shelves, equal peers — not a page with a hidden sub-view.
   //
   // Digests opens by default only for a reader with nothing saved. Once there
@@ -41,6 +46,11 @@ export function VaultPage() {
     if (!loaded.current) setLoading(true);
     try {
       const res = await fetch("/api/vault");
+      if (res.status === 401) {
+        setSessionExpired(true);
+        setPapers([]);
+        return;
+      }
       if (!res.ok) throw new Error("Failed to fetch saved papers");
       const data = await res.json();
       setPapers(data.papers ?? []);
@@ -89,6 +99,11 @@ export function VaultPage() {
 
       {view === "history" ? (
         <DigestHistory />
+      ) : sessionExpired ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "80px 0" }}>
+          <p style={{ ...BODY_STYLE, color: ACID_PINK, margin: 0 }}>Your sign-in session has expired.</p>
+          <ActionButton onClick={() => signIn("google")}>Sign in</ActionButton>
+        </div>
       ) : loading ? (
         <PageLoader />
       ) : papers.length === 0 ? (
