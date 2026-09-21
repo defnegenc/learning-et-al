@@ -257,6 +257,8 @@ Stage A metadata is also a publishing contract. A malformed batch response no lo
 
   *Expanded 2026-09-02.* A third deterministic check looks for reader-visible model self-commentary, including identity disclaimers, apologies, refusals, and permission language. The same repair call removes it. If any coverage, structure, or commentary problem remains, generation fails before storage. A final scan covers the gist, metadata, key concepts, suggested questions, and foundational copy so no unchecked reader-facing field can save model commentary.
 
+  *Expanded 2026-09-20.* Evidence fidelity. Three failure classes reached published editions on Sep 17-19: results widened past the measured subject or comparator (one component's dissolution reported as the whole combo's), proposed uses upgraded into achieved intent ("exactly as designed", "proof of concept"), and downstream consequences the source never measured (how a pill behaves in the gut). One shared constant, `EVIDENCE_RULES` in `prompts.ts`, now carries the subject / modal / measurement fidelity contract into `metadataPrompt`, `synthesisFromSkeletonPrompt`, `synthesisCritiquePrompt` (as a THIRD fact-check pass naming SUBJECT WIDENING / MODAL UPGRADE / UNMEASURED INFERENCE) and `synthesisRevisionPrompt`; the gist prompt's EVIDENCE GUARD carries the same measured-subject rule. A deterministic last line, `overclaimProblems` in `output-guards.ts`, then sweeps the same reader-facing fields as the self-commentary scan for phrasings that are never reader-safe unless a source says them verbatim: as-designed intent, "proof of concept", intent/concealment framings ("hid", "concealed", "cover up", "without telling anyone") and unsupported evidentiary-absence claims ("lacks proof", "too limited to prove"). Any hit fails generation before storage. `output-guards.test.mjs` locks the fixtures and asserts every claim-writing prompt still carries `EVIDENCE_RULES`.
+
 ### Step 6b: Digest Header — gist (AI call 14, judge tier, always after final synthesis)
 
 Powers the zero-click header rendered under the central question (`DigestHeader` in
@@ -359,6 +361,7 @@ proof of the live production model.
 | Citation floor | cited_by_count > 1 | Step 2 OpenAlex |
 | Card metadata | every paper has a grounded summary, plain name, findings, connection, takeaway, method type, and claim | Stage A repair, then fail closed |
 | Model self-commentary | no identity disclaimer, apology, refusal, placeholder, or permission language | Step 6 repair and pre-storage scan |
+| Overclaim phrasing | no "exactly as designed", "proof of concept", concealment/intent framing, or "lacks proof"-style evidentiary-absence claims | Pre-storage scan (`overclaimProblems`), fail closed |
 | Bold coverage | all papers in **bold** | Step 6 final gate |
 
 Note: `SIM_MIN_THEME` (0.15) equals `SIM_FALLBACK` (0.15), making the cascade's last step equivalent to the hard floor.

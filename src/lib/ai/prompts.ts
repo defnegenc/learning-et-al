@@ -1,5 +1,19 @@
 import { BANNED_WORDS_RULE } from "./banned-words";
 
+/*
+ * EVIDENCE FIDELITY - the grounding contract every claim-writing prompt carries.
+ *
+ * Three failure classes reached published editions on Sep 17-19, 2026: results
+ * widened past the measured subject or comparator, proposed uses upgraded into
+ * achieved intent or proven outcomes, and downstream consequences the source
+ * never measured. Shared as one constant for the same reason
+ * `synthesisStructureContract` exists: hand-copied rule blocks drift.
+ */
+export const EVIDENCE_RULES = `EVIDENCE FIDELITY - three grounding rules that outrank style:
+- SUBJECT FIDELITY: attribute every result to exactly the subject and comparator the source measured. If the study measured one component against its own baseline ("the drug inside the cocrystal vs the plain drug alone"), never widen the claim to the whole combination, the whole field, or everyone. Never turn "plays an influential role" into a ranking like "the largest share", and never turn "some teams" into "teams everywhere".
+- MODAL FIDELITY: keep the source's confidence level. "Proposed", "potential", "could", and "offers an approach" stay hypothetical - never "exactly as designed", "proven", "proof of concept", "on purpose", or any intent or outcome the source did not state.
+- MEASUREMENT FIDELITY: claim only what was measured. Never infer downstream biological, behavioral, market, or consumer outcomes (how a pill behaves in the gut, how users will act, what an industry needs) that the source did not measure or state. If the source measured structure only, structure is all you may claim.`;
+
 export const SYNTHESIS_SYSTEM = `You write for smart people who are NOT domain experts. You translate jargon into plain English — "photovoltaic shading devices" becomes "solar panel shades on buildings", "composite laminates" becomes "layered materials like in airplane wings". Use contractions when natural. Be conversational by being clear and specific, not by adding scripted tics such as "So you'd think", "Turns out", "It's kind of like", or "which sounds obvious". Vary sentence openings. Never say "notably", "furthermore", or "demonstrates". Ground everything in real-world problems the reader can picture. ${BANNED_WORDS_RULE} CRITICAL: Always return valid JSON with no text before or after the JSON object.`;
 
 export const SYNTHESIS_PROSE_SYSTEM = `You write like a smart friend explaining something they just read. Short sentences when they help. You translate jargon into plain English. Use contractions naturally. Do not perform casualness with repeated openers such as "So", "Turns out", "Here's the thing", or "It's kind of like". Let the evidence create the voice and vary sentence openings.
@@ -64,6 +78,8 @@ Here are ${items.length} items. Produce JSON (no markdown fences):
 }
 
 ${METADATA_RULES(ctx)}
+
+${EVIDENCE_RULES}
 
 TAKEAWAY RULES (per paper) — this is what makes a paper repeatable, not just readable:
 - hook: the SINGLE most surprising or counterintuitive thing this paper shows, in one plain sentence a non-expert would actually repeat. NOT a summary of the whole paper. Lead with the surprise.
@@ -287,6 +303,8 @@ BEFORE WRITING, read each paper's abstract in the listing above. For any claim y
 
 CROSS-PAPER GROUNDING (hard rule): every comparison, contrast, or conditional claim that spans papers — "X only works when...", "the effect holds where...", "while study A shows this in one context, study B shows it in another" — MUST map to something a source abstract explicitly states. If a condition, population, culture, or mechanism is not stated in an abstract, it does not go in. Never upgrade "the effect was stronger under X" into "it only works under X". Never invent a cross-cultural, cross-population, or shared-mechanism condition no source actually tested. When two studies used different methods, samples, or measures, do not fuse them into one clean comparison — say what each showed on its own terms, and let the contrast stay messy if the methods are messy.
 
+${EVIDENCE_RULES}
+
 Write the synthesis in EXACTLY this structure. No other format accepted.
 
 ANSWER VARIETY: When the theme is a genuine yes/no question, choose the opening that best fits the evidence: "Yes.", "No.", "Sometimes.", "It depends.", "It's complicated.", "Mostly.", "Not really.", "Only in some cases.", "Yes, but...", "No, unless...", or "Sort of." Do not default to "Sort of", and do not hedge when the papers support a clear yes or no. Reserve "It depends" and "It's complicated" for a genuine split in the evidence, and when you open with one, the very next sentence MUST say what it depends on. For who/what/how/why questions, answer in the question's own shape without a yes/no-style verdict.
@@ -411,6 +429,13 @@ SECOND: check the synthesis for FACTUAL ACCURACY against the findings above. Fla
 
 ALSO: check every COMPARATIVE or CONDITIONAL claim that spans papers — any "only works when", "holds where", "stronger in one context than another", or shared-mechanism framing. Each must be explicitly supported by the findings/summaries above. If the synthesis invents a condition, population, culture, or mechanism no source states, or upgrades "stronger under X" into "only under X", or fuses studies with different methods into one clean comparison, flag it in "factIssues" against the paper it leans on most, with a fix that states each study on its own terms.
 
+THIRD: check every claim for the three grounding failures that have reached published editions, and flag each in "factIssues" with a fix:
+- SUBJECT WIDENING: the synthesis attributes a result to a wider subject or comparator than the source measured. Examples: the whole combination dissolves slower when only one component was tested against its own baseline; a contact type ranked "the largest share" when the source says "influential"; "everyone" or "most founders" when the source studied some.
+- MODAL UPGRADE: a source's "potential", "proposed", or "could" written as achieved intent or a proven outcome: "exactly as designed", "proof of concept", "deliberately", "is now used to".
+- UNMEASURED INFERENCE: a downstream biological, behavioral, market, or consumer consequence the source never measured or stated, such as how a pill behaves in the gut or how people will act on the result.
+
+${EVIDENCE_RULES}
+
 THEN: score each dimension 1-5 and give specific, actionable feedback.
 
 Return JSON (no markdown fences):
@@ -509,7 +534,9 @@ Write the improved version. Return ONLY the revised synthesis (no JSON, no markd
 
 If the critique flagged a vague claim (e.g. "structural limitations" without specifics), go back to the paper's abstract/findings in context and PULL a specific number, mechanism, or example to replace it. Vague → concrete. Never leave a claim unexplained.
 
-If the critique flagged a formulaic closing, rewrite the final sentence so it ends on a specific image, stat, or open question — NOT a summary of what the papers "collectively reveal" or a restatement of the theme.`;
+If the critique flagged a formulaic closing, rewrite the final sentence so it ends on a specific image, stat, or open question, NOT a summary of what the papers "collectively reveal" or a restatement of the theme.
+
+${EVIDENCE_RULES}`;
 }
 
 // ─── Shared rule blocks ──────────────────────────────────────────────────────
