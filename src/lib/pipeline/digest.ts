@@ -8,10 +8,10 @@ import { fetchRssArticles, isHeadlineOnlyAbstract } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
-import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, CLAIM_SELF_CHECK, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
+import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, evidenceVerifierPrompt, CLAIM_SELF_CHECK, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { BANNED_WORDS_RULE, PROMPT_ONLY_BANNED_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
-import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, overclaimProblems, themeQuestionProblems } from "@/lib/ai/output-guards";
+import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, overclaimProblems, stripVerdictOpener, themeQuestionProblems, verdictPolarity } from "@/lib/ai/output-guards";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -2568,12 +2568,20 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
     tensionHint: p.tensionHint,
   }));
 
+  // Recent gist openers, extracted once and fed to BOTH the synthesis and the
+  // gist calls below: a repeated stock opener ("Mostly." every morning) is the
+  // house rut flagged in the Sep reviews.
+  const recentOpeners = allPastDigests
+    .map(dgst => ((dgst.gist || "").match(/^\s*([A-Za-z',]+(?: [A-Za-z',]+)?)[.,!:-]/) || [])[1]?.trim())
+    .filter((v): v is string => Boolean(v))
+    .slice(0, 5);
+
   // Stage C: Draft synthesis from skeleton
   console.log(`[Digest] Stage C: drafting synthesis from skeleton...`);
   let synthesis = await aiComplete(
     aiConfig,
     SYNTHESIS_PROSE_SYSTEM,
-    synthesisFromSkeletonPrompt(finalPaperListing, finalTheme, skeleton),
+    synthesisFromSkeletonPrompt(finalPaperListing, finalTheme, skeleton, recentOpeners),
     { maxTokens: 8192 }
   );
   synthesis = stripFences(synthesis);
@@ -2772,10 +2780,7 @@ Return ONLY the repaired synthesis. No JSON, no fences.`
       : "";
     // Verdict rut guard: recent openings go into the prompt so "it depends"
     // (or any one verdict) can't become the house style by default.
-    const recentVerdicts = allPastDigests
-      .map(dgst => ((dgst.gist || "").match(/^\s*([A-Za-z',]+(?: [A-Za-z',]+)?)[.,!:-]/) || [])[1]?.trim())
-      .filter((v): v is string => Boolean(v))
-      .slice(0, 5);
+    const recentVerdicts = recentOpeners;
     const recentVerdictBlock = recentVerdicts.length > 0
       ? `\nRecent editions opened with: ${recentVerdicts.map(v => `"${v}"`).join(", ")}. Pick the verdict the evidence supports, and when several fit, prefer one NOT on this list. Never open with "It depends" unless the evidence genuinely splits - and then the same sentence must say what it depends on.\n`
       : "";
@@ -2825,11 +2830,162 @@ Return JSON (no markdown fences):
       const stripped = gist.replace(/^\s*(sort of|sorta|kind of|kinda|not quite|not really|maybe|sometimes|it depends|it's complicated|mostly|only in some cases)[.,!:-]+\s*/i, "");
       if (stripped && stripped !== gist) gist = stripped.charAt(0).toUpperCase() + stripped.slice(1);
     }
+    // Verdict agreement: gist and synthesis answer the same question, but two
+    // separate calls can still disagree (Sep 23: gist "Mostly." vs synthesis
+    // "Yes, at least partly"). One regeneration with the synthesis verdict
+    // made explicit; if it still disagrees, strip the gist's verdict opener
+    // deterministically so the two can never contradict.
+    const synthesisPolarity = verdictPolarity(synthesis);
+    if (gist && synthesisPolarity && synthesisPolarity !== "mixed") {
+      let gistPolarity = verdictPolarity(gist);
+      if (gistPolarity && gistPolarity !== "mixed" && gistPolarity !== synthesisPolarity) {
+        console.log(`[Digest] Gist verdict ("${gistPolarity}") disagrees with synthesis ("${synthesisPolarity}"), regenerating once`);
+        const retryResp = await aiComplete(
+          judge,
+          "You write punchy, plain-English digest headers that sound like a smart friend talking, not an AI. Return only JSON.",
+          `Central question: "${finalTheme}"
+
+Today's synthesis (its verdict is authoritative - match it):
+${synthesis}
+
+Write the gist. The synthesis verdict is "${synthesisPolarity === "yes" ? "a yes-leaning answer" : "a no-leaning answer"}" - the gist must agree with it. One plain sentence, max 25 words. No AI-speak, no em dashes.
+
+${BANNED_WORDS_RULE}
+
+Return JSON (no markdown fences): {"gist": "..."}`
+        );
+        const retryParsed = extractJson<{ gist?: string }>(retryResp);
+        const retryGist = retryParsed?.gist?.trim();
+        const retryPolarity = retryGist ? verdictPolarity(retryGist) : null;
+        if (retryGist && retryPolarity !== null && (retryPolarity === "mixed" || retryPolarity === synthesisPolarity)) {
+          gist = retryGist;
+          console.log(`[Digest] Gist regenerated to match synthesis verdict: "${gist}"`);
+        } else if (retryGist && retryPolarity === null) {
+          gist = retryGist;
+          console.log(`[Digest] Gist regenerated with direct answer (no verdict opener): "${gist}"`);
+        } else {
+          gist = stripVerdictOpener(gist);
+          console.log(`[Digest] Gist retry still disagreed, stripped verdict opener: "${gist}"`);
+        }
+        gistPolarity = verdictPolarity(gist);
+        if (gistPolarity && gistPolarity !== "mixed" && gistPolarity !== synthesisPolarity) {
+          gist = stripVerdictOpener(gist);
+          console.log(`[Digest] Gist verdict still mismatched after retry, opener stripped: "${gist}"`);
+        }
+      }
+    }
     console.log(`[Digest] Gist: "${gist}"`);
   } catch (err) {
     console.log(`[Digest] Gist generation failed (${err}), continuing without`);
   }
   logStage("gist");
+
+  // ─── Stage E: independent evidence verifier (fail closed) ─────────────────
+  // Every check above runs inside the call that wrote the prose
+  // (CLAIM_SELF_CHECK) or pattern-matches known phrases (overclaimProblems).
+  // Neither catches a fluent claim the abstract never made - the near-daily
+  // Sep 17-24 defect ("solid precision" for an abstract with no results,
+  // "trustworthy fonts" when no source measured trust, a licensing bill
+  // written up as AI job losses). One independent call reads the final copy
+  // against the abstracts and only the abstracts. Synthesis/gist problems get
+  // one repair + re-verify; anything left, or any per-item field problem,
+  // fails closed - the job retries the whole generation.
+  try {
+    const runVerifier = async (currentSynthesis: string, currentGist: string) => {
+      const verifierResp = await aiComplete(
+        aiConfig,
+        "You are an independent fact-checker. Return only JSON.",
+        evidenceVerifierPrompt({
+          theme: finalTheme,
+          gist: currentGist,
+          synthesis: currentSynthesis,
+          items: items.map((paper, i) => {
+            const aiItem = metadata.items.find(x => x.index === i + 1);
+            return {
+              index: i + 1,
+              title: paper.title,
+              abstract: paper.abstract,
+              findings: aiItem?.findings || [],
+              fields: aiItem ? [
+                { name: "summary", value: aiItem.summary || "" },
+                { name: "claim", value: aiItem.claim || "" },
+                { name: "takeaway.hook", value: aiItem.takeaway?.hook || "" },
+                { name: "takeaway.stat", value: aiItem.takeaway?.stat || "" },
+                { name: "takeaway.line", value: aiItem.takeaway?.line || "" },
+                { name: "connectionToTheme", value: aiItem.connectionToTheme || "" },
+                ...(aiItem.methodFacts || []).map((fact, j) => ({ name: `methodFacts[${j}]`, value: fact })),
+              ].filter(field => field.value.trim().length > 0) : [],
+            };
+          }),
+        }),
+        { maxTokens: 4096 }
+      );
+      const parsed = extractJson<{ problems?: Array<{ field?: string; claim?: string; reason?: string; fix?: string }> }>(verifierResp);
+      return (parsed?.problems || []).filter(problem => problem?.claim?.trim() && problem?.reason?.trim());
+    };
+
+    let verifierProblems = await runVerifier(synthesis, gist);
+    if (verifierProblems.length > 0) {
+      console.log(`[Digest] Evidence verifier flagged ${verifierProblems.length} unsupported claim(s): ${verifierProblems.map(problem => `${problem.field}: "${(problem.claim || "").slice(0, 60)}" (${(problem.reason || "").slice(0, 80)})`).join("; ")}`);
+      const digestWide = verifierProblems.filter(problem => problem.field === "synthesis" || problem.field === "gist");
+      const perItem = verifierProblems.filter(problem => problem.field !== "synthesis" && problem.field !== "gist");
+      if (perItem.length > 0) {
+        // Per-item fields (takeaway, claim, methodFacts) interlock with the
+        // card structure - patching them piecemeal risks an incoherent card,
+        // so fail closed and let the retry regenerate metadata.
+        throw new Error(`Evidence verifier found unsupported per-item claims: ${perItem.map(problem => `${problem.field} (${(problem.reason || "").slice(0, 80)})`).join("; ")}`);
+      }
+      if (digestWide.length > 0) {
+        const repairedResp = await aiComplete(
+          aiConfig,
+          SYNTHESIS_PROSE_SYSTEM,
+          `An independent fact-checker checked this digest against the source abstracts and flagged claims the sources do not support. Fix EVERY flagged claim with the suggested fix or by cutting it. Change nothing else.
+
+Theme: "${finalTheme}"
+
+FLAGGED CLAIMS:
+${digestWide.map(problem => `- In ${problem.field}: "${problem.claim}" - ${problem.reason}. Fix: ${problem.fix}`).join("\n")}
+
+Current gist: "${gist}"
+
+Current synthesis:
+"""
+${synthesis}
+"""
+
+${synthesisStructureContract(skeleton.paperRoles.map(r => `**[Source ${r.index}] ${r.shortName}**`))}
+
+Return JSON (no markdown fences): {"synthesis": "the full corrected synthesis", "gist": "the corrected gist, one plain sentence, max 25 words"}`,
+          { maxTokens: 8192 }
+        );
+        const repaired = extractJson<{ synthesis?: string; gist?: string }>(repairedResp);
+        const repairedSynthesis = repaired?.synthesis?.trim();
+        const repairedGist = repaired?.gist?.trim();
+        const repairedBullets = repairedSynthesis ? (repairedSynthesis.match(/^\s*-\s+\*\*\[source\s*\d+\]/gim) || []).length : 0;
+        const repairedMissing = skeleton.paperRoles.filter(r => repairedSynthesis && !repairedSynthesis.toLowerCase().includes(`[source ${r.index}]`));
+        if (repairedSynthesis && repairedSynthesis.length > 100 && repairedBullets >= skeleton.paperRoles.length && repairedMissing.length === 0) {
+          synthesis = repairedSynthesis;
+          parsedAI.synthesis = repairedSynthesis;
+          if (repairedGist) gist = repairedGist;
+          console.log(`[Digest] Verifier repair applied, re-verifying...`);
+          verifierProblems = await runVerifier(synthesis, gist);
+        } else {
+          console.log(`[Digest] Verifier repair broke the synthesis contract, keeping original for the fail-closed check`);
+        }
+      }
+      if (verifierProblems.length > 0) {
+        throw new Error(`Evidence verifier still finds unsupported claims after repair: ${verifierProblems.map(problem => `${problem.field}: "${(problem.claim || "").slice(0, 60)}"`).join("; ")}`);
+      } else if (digestWide.length > 0) {
+        console.log(`[Digest] Evidence verifier passed after repair`);
+      }
+    } else {
+      console.log(`[Digest] Evidence verifier: all claims supported`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Evidence verifier")) throw err;
+    console.log(`[Digest] Evidence verifier call failed (${err}), continuing - deterministic sweeps still apply`);
+  }
+  logStage("stage E evidence verifier");
 
   // Last line of defence for the banned words. Every prompt that writes copy
   // carries the rule and the headline has a gate in front of it, but a model

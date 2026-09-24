@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "./output-guards.ts";
-import { overclaimProblems } from "./output-guards.ts";
+import { overclaimProblems, stripVerdictOpener, verdictPolarity } from "./output-guards.ts";
 import { readFileSync } from "node:fs";
 
 test("accepts direct questions and setup-plus-question headlines", () => {
@@ -154,4 +154,21 @@ test("Sep 22: hedge fidelity, claim self-check, and the land ban reach every gis
   const bannedSource = readFileSync(new URL("./banned-words.ts", import.meta.url), "utf8");
   const banList = bannedSource.match(/export const BANNED_WORDS = \[([^\]]*)\]/);
   assert.ok(banList && !banList[1].includes("land"), "land variants leaked into the mechanical scrub list");
+});
+
+test("verdictPolarity reads stock openers and rejects non-verdicts", () => {
+  assert.equal(verdictPolarity("Yes. Detailed prompts win on every rubric line."), "yes");
+  assert.equal(verdictPolarity("Mostly. The effect holds in four of five samples."), "yes");
+  assert.equal(verdictPolarity("No. The gains vanish outside the lab."), "no");
+  assert.equal(verdictPolarity("Not really. The samples differ too much."), "no");
+  assert.equal(verdictPolarity("It depends. The effect flips with class size."), "mixed");
+  assert.equal(verdictPolarity("Sometimes. Older buildings see the benefit."), "mixed");
+  assert.equal(verdictPolarity("Yes, but only for new builds."), "mixed");
+  assert.equal(verdictPolarity("Dynamic assessment adapts through live back-and-forth."), null);
+});
+
+test("stripVerdictOpener removes the verdict and keeps the answer", () => {
+  assert.equal(stripVerdictOpener("Mostly. The effect holds in four of five samples."), "The effect holds in four of five samples.");
+  assert.equal(stripVerdictOpener("It depends: class size flips the result."), "Class size flips the result.");
+  assert.equal(stripVerdictOpener("Dynamic assessment adapts through live back-and-forth."), "Dynamic assessment adapts through live back-and-forth.");
 });
