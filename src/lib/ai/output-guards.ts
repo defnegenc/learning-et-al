@@ -88,3 +88,42 @@ export function dedupeKeyConcepts(concepts: string[]): string[] {
     return true;
   });
 }
+const OVERCLAIM_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
+  // Sep 19 opener/gist upgraded the cocrystal abstract's "potential synergistic
+  // therapeutic application" into achieved intent: "exactly as designed".
+  { label: "an as-designed intent claim", pattern: /\bexactly as (?:designed|intended|planned)\b/i },
+  // Sep 18 takeawayStat called the 2010-2014 exit wave a "proof of concept";
+  // the abstract only says those exits facilitated uptake.
+  { label: "a proof-of-concept claim", pattern: /\bproof of concept\b/i },
+  // Sep 20: absence in the source rewritten as deliberate intent - missing
+  // reporting became "hid the math", nondisclosed deviations became "changed
+  // criteria without telling anyone". A missing detail is a gap; concealment
+  // is an accusation the source must itself support.
+  { label: "an intent/concealment claim", pattern: /\b(?:hid|hides|hiding|conceal(?:ed|s|ing)?|cover(?:ed|s)? up)\b/i },
+  { label: "an intent/concealment claim", pattern: /\bwithout telling (?:anyone|readers|the public)\b/i },
+  // Sep 20: an evidentiary absence the supplied abstract never asserted -
+  // tDCS "lacks proof", study designs "too limited to prove efficacy". Claiming
+  // what the evidence CANNOT show is as unsupported as claiming what it does.
+  { label: "an unsupported evidentiary-absence claim", pattern: /\b(?:lacks?|without|no) proof\b/i },
+  { label: "an unsupported evidentiary-absence claim", pattern: /\btoo limited to prove\b/i },
+  // Sep 22: a hedged replication claim shipped as the universal absolute
+  // "almost identically". The phrase has no innocent use in reader-facing
+  // digest copy - a source that measured near-identical results says so in
+  // numbers, not in this adverb pair.
+  { label: "a universal-replication claim", pattern: /\balmost identically\b/i },
+];
+
+/**
+ * Modal-upgrade and epistemic-overreach phrases that have reached published
+ * editions. Deterministic guards cannot judge subject widening, verdict scope,
+ * or unmeasured inference - the critique pass and EVIDENCE_RULES carry those -
+ * but these framings are never reader-safe unless a source says them verbatim,
+ * and ours did not.
+ */
+export function overclaimProblems(text: string): string[] {
+  if (!text) return [];
+  const normalized = text.replaceAll("\u2019", "'");
+  return OVERCLAIM_PATTERNS
+    .filter(({ pattern }) => pattern.test(normalized))
+    .map(({ label }) => label);
+}
