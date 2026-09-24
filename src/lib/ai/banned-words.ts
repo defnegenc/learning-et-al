@@ -72,7 +72,7 @@ export function stripBannedWords(text: string): string {
   return text
     .replace(WITH_SPACING, (_match, punctuation: string, offset: number, whole: string) =>
       // Sentence starts only. A colon is deliberately not one: a key concept
-      // reads "stealth marketing: paying influencers", not "â¦: Paying â¦".
+      // reads "stealth marketing: paying influencers", not "…: Paying …".
       /(?:^|[.!?]\s|\n\s*)$/.test(whole.slice(0, offset))
         ? RECASE
         : (punctuation ? `${punctuation} ` : "")
