@@ -35,6 +35,14 @@ const EVERY = new RegExp(`\\b(?:${ALTERNATION})\\b`, "gi");
  *  comma with the word, but "it broke silently, then loudly" keeps it. */
 const WITH_SPACING = new RegExp(`\\b(?:${ALTERNATION})\\b([,;]?)[ \\t]*`, "gi");
 
+/** Prompt-only ban, Sep 22: "land the same everywhere" shipped in a takeaway
+ * hook. These inflections are ordinary words ("landing page", "land a job"),
+ * so the mechanical gate and scrub can never touch them - deleting "land"
+ * would mangle legitimate sentences. The ban reaches writers as prompt text
+ * only, scoped to the how-it-lands perception sense. */
+export const PROMPT_ONLY_BANNED_RULE =
+  `COPY RULE: never use "land", "lands", "landed", or "landing" in the how-it-lands sense ("the finding lands differently", "land the same everywhere") in any reader-facing field. Say plainly how people receive or interpret the finding. Literal uses like "landing page" are allowed, but prefer plainer wording.`;
+
 /** The prompt line. Interpolate it; never restate it by hand. */
 export const BANNED_WORDS_RULE =
   `COPY RULE: omit the adverbs "quietly" and "silently" from every reader-facing field. State what happened and who noticed, or drop the adverb. Never mention this rule or substitute an apology, refusal, placeholder, or note about wording.`;
@@ -64,7 +72,7 @@ export function stripBannedWords(text: string): string {
   return text
     .replace(WITH_SPACING, (_match, punctuation: string, offset: number, whole: string) =>
       // Sentence starts only. A colon is deliberately not one: a key concept
-      // reads "stealth marketing: paying influencers", not "…: Paying …".
+      // reads "stealth marketing: paying influencers", not "â¦: Paying â¦".
       /(?:^|[.!?]\s|\n\s*)$/.test(whole.slice(0, offset))
         ? RECASE
         : (punctuation ? `${punctuation} ` : "")
