@@ -25,7 +25,23 @@
  */
 
 /** The ban list. One place: the rule text, the gate and the scrub all read it. */
-export const BANNED_WORDS = ["quietly", "silently"] as const;
+export const BANNED_WORDS = [
+  "quietly",
+  "silently",
+  // Sep 24 review, item 6: formulaic framings that kept shipping. "the shape
+  // of" and the "how this lands" variants are detachable phrases and "sharper"
+  // is an adjective, so deletion stays grammatical for them; the "sharpen"
+  // verb forms lean on the gate and repair loop first, scrub as backstop.
+  "see how this lands",
+  "how this lands",
+  "how this landed",
+  "the shape of",
+  "sharpen",
+  "sharpens",
+  "sharpened",
+  "sharpening",
+  "sharper",
+] as const;
 
 const ALTERNATION = BANNED_WORDS.join("|");
 const CONTAINS = new RegExp(`\\b(?:${ALTERNATION})\\b`, "i");
@@ -41,7 +57,25 @@ const WITH_SPACING = new RegExp(`\\b(?:${ALTERNATION})\\b([,;]?)[ \\t]*`, "gi");
  * would mangle legitimate sentences. The ban reaches writers as prompt text
  * only, scoped to the how-it-lands perception sense. */
 export const PROMPT_ONLY_BANNED_RULE =
-  `COPY RULE: never use "land", "lands", "landed", or "landing" in the how-it-lands sense ("the finding lands differently", "land the same everywhere") in any reader-facing field. Say plainly how people receive or interpret the finding. Literal uses like "landing page" are allowed, but prefer plainer wording.`;
+  `COPY RULE: never use "land", "lands", "landed", or "landing" in the how-it-lands sense ("the finding lands differently", "land the same everywhere") in any reader-facing field. Say plainly how people receive or interpret the finding. Literal uses like "landing page" are allowed, but prefer plainer wording. Never use "fair" as vague judgment ("it's fair to say", "fair to assume", "to be fair"): state what the evidence shows instead. Literal uses like "a fair coin" or "fair trade" are allowed.`;
+
+const LAND_PERCEPTION = /\bland(?:s|ed|ing)?\s+(?:differently|the same|unevenly|hard|harder|soft|softly|flat|well|badly|poorly)\b/i;
+const FAIR_VAGUE = /\b(?:it(?:'s| is)\s+)?fair to (?:say|assume|call|argue|describe)\b|\bto be fair\b/i;
+
+/**
+ * Hits of the prompt-only bans in a piece of copy, as human-readable labels.
+ * Detection is deliberately narrow - only the senses the rule names - so
+ * innocent uses ("landing page", "a fair coin") never trip the gate. The gate
+ * re-runs generation on a hit; these words can never join the scrub.
+ */
+export function promptOnlyBannedIn(text: string): string[] {
+  if (!text) return [];
+  const normalized = text.replaceAll("\u2019", "'");
+  const hits: string[] = [];
+  if (LAND_PERCEPTION.test(normalized)) hits.push('the how-it-lands sense of "land"');
+  if (FAIR_VAGUE.test(normalized)) hits.push('the vague-judgment sense of "fair"');
+  return hits;
+}
 
 /** The prompt line. Interpolate it; never restate it by hand. */
 export const BANNED_WORDS_RULE =
