@@ -2971,4 +2971,4 @@ Return JSON (no markdown fences):
   logStage("db insert");
 
   return digest;
-  }
+}
