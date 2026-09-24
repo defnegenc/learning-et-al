@@ -3136,4 +3136,4 @@ Return JSON (no markdown fences): {"synthesis": "the full corrected synthesis", 
   logStage("db insert");
 
   return digest;
-                                                                                   }
+}
