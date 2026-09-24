@@ -274,7 +274,8 @@ export function synthesisFromSkeletonPrompt(
     coreTension?: string;
     coreInsight?: string;
     argumentArc: string;
-  }
+  },
+  recentOpeners?: string[]
 ) {
   const listing = formatPapers(items, 1500);
   const insight = skeleton.coreInsight || skeleton.coreTension || "find the thread";
@@ -318,6 +319,7 @@ ${EVIDENCE_RULES}
 Write the synthesis in EXACTLY this structure. No other format accepted.
 
 ANSWER VARIETY: When the theme is a genuine yes/no question, choose the opening that best fits the evidence: "Yes.", "No.", "Sometimes.", "It depends.", "It's complicated.", "Mostly.", "Not really.", "Only in some cases.", "Yes, but...", "No, unless...", or "Sort of." Do not default to "Sort of", and do not hedge when the papers support a clear yes or no. Reserve "It depends" and "It's complicated" for a genuine split in the evidence, and when you open with one, the very next sentence MUST say what it depends on. For who/what/how/why questions, answer in the question's own shape without a yes/no-style verdict.
+${recentOpeners && recentOpeners.length > 0 ? `Recent editions opened with: ${recentOpeners.map(o => `"${o}"`).join(", ")}. Pick the opening the evidence supports; when several fit, prefer one NOT on this list. A repeated stock opener is the house rut.` : ""}
 
 STRUCTURE (return ONLY this — no JSON, no markdown fences):
 
@@ -547,6 +549,80 @@ If the critique flagged a vague claim (e.g. "structural limitations" without spe
 If the critique flagged a formulaic closing, rewrite the final sentence so it ends on a specific image, stat, or open question — NOT a summary of what the papers "collectively reveal" or a restatement of the theme.
 
 ${EVIDENCE_RULES}`;
+}
+
+// ─── Evidence verifier (Stage E) ────────────────────────────────────────────
+// The near-daily Sep 17-24 defect: fluent claims the abstracts never made -
+// "solid precision" for an abstract with no results, "trustworthy fonts" when
+// no source measured trust, a licensing bill written up as AI job losses.
+// CLAIM_SELF_CHECK runs inside the call that wrote the prose, so nothing
+// checks it independently; overclaimProblems only pattern-matches known
+// phrases. This prompt drives the independent verifier call in digest.ts:
+// the final copy goes in, the abstracts go in, unsupported claims come out.
+
+export interface EvidenceVerifierItem {
+  index: number;
+  title: string;
+  abstract: string;
+  /** keyFindings already grounded against this abstract - a synthesis or gist
+   * claim that contradicts them is a problem. */
+  findings: string[];
+  /** Reader-facing fields generated for this item (summary, claim, takeaway.*,
+   * connectionToTheme, methodFacts). */
+  fields: Array<{ name: string; value: string }>;
+}
+
+export function evidenceVerifierPrompt(input: {
+  theme: string;
+  gist: string;
+  synthesis: string;
+  items: EvidenceVerifierItem[];
+}): string {
+  const itemBlocks = input.items.map(item => `
+### Source ${item.index}: ${item.title}
+ABSTRACT (the only ground truth for this source):
+"""
+${item.abstract}
+"""
+${item.findings.length > 0 ? `KEY FINDINGS already verified against this abstract (treat as reliable):\n${item.findings.map(f => `- ${f}`).join("\\n")}\n` : ""}GENERATED FIELDS to check for this source:
+${item.fields.map(f => `- items[${item.index}].${f.name}: "${f.value}"`).join("\\n")}
+`).join("\\n");
+
+  return `You are an independent fact-checker for a research digest. You did not write any of the copy below. Your only job: find claims the sources do not support.
+
+CENTRAL QUESTION: "${input.theme}"
+
+${itemBlocks}
+
+GENERATED DIGEST-WIDE COPY to check:
+- gist: "${input.gist}"
+- synthesis:
+"""
+${input.synthesis}
+"""
+
+CHECK EVERY CLAIM in the gist, the synthesis, and the generated fields against the abstracts. A claim is SUPPORTED only when an abstract (or a listed key finding) states it, at the same scope and confidence. Flag everything else. You MUST flag at least these classes:
+
+1. RESULT FROM NOTHING: a result, performance, or effect claim about a source whose abstract reports no results (e.g. a non-empirical overview "found" something, "solid precision" when no metric appears).
+2. UNMEASURED CONSTRUCT: a claim naming something no source measured - trust, precision, adoption, behavior, market outcomes - as if it were measured. If the source measured performance, "trust" is a problem.
+3. NULL AS EQUIVALENCE: "no significant difference" written as "just as good", "equally effective", "the same" - an underpowered null result is not evidence of equality. Also flag missing caveats about tiny samples when a null is used to dismiss a difference.
+4. INTERNAL CONTRADICTION: a gist or synthesis claim that contradicts a source's own listed key findings (e.g. the card says the cause is "not stated" while the synthesis names a cause).
+5. SCOPE UPGRADE: a hedged or bounded source claim written as universal ("everywhere", "always", "no one can", "the field is shrinking") when the abstract does not say that.
+
+Do NOT flag: style, structure, hedged restatements of the same claim, or anything an abstract does support. Do not invent doubts; only unsupported claims. Quote the offending span verbatim.
+
+Return JSON (no markdown fences):
+{
+  "problems": [
+    {
+      "field": "gist" | "synthesis" | "items[N].<name>",
+      "claim": "the exact unsupported span, quoted",
+      "reason": "which class and why the abstract does not support it",
+      "fix": "replacement wording the abstract DOES support, or \\"cut\\""
+    }
+  ]
+}
+If every claim is supported, return {"problems": []}.`;
 }
 
 // ─── Shared rule blocks ──────────────────────────────────────────────────────
