@@ -4,7 +4,7 @@ import { eq, and, desc, inArray, isNull, or } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { searchArxiv } from "@/lib/fetchers/arxiv";
 import { searchOpenAlex, getReferencedWorkIds, getFoundationalCandidates, sampleSeedTopic, type OpenAlexPaper, type OpenAlexTopic, type OpenAlexSearchScope } from "@/lib/fetchers/open-alex";
-import { fetchRssArticles } from "@/lib/fetchers/rss";
+import { fetchRssArticles, isHeadlineOnlyAbstract } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
@@ -1662,6 +1662,15 @@ Return JSON only (no markdown):
         if (seenTitles.has(normTitle(article.title))) continue;
         if (isNewsRelevant(article, themeWords, focusInterest)) {
           const articleText = await fetchArticleText(article.sourceUrl);
+          // Source sufficiency: a headline-only RSS abstract is not a source.
+          // The Sep 24 Michigan licensing piece passed every guard on its
+          // headline alone (Google News links don't resolve to fetchable
+          // article text), so when the fetch fails there is nothing to ground
+          // a card in - skip to the next candidate.
+          if (articleText.length <= 200 && isHeadlineOnlyAbstract(article.title, article.abstract)) {
+            console.log(`[Digest] News skipped, headline-only source with no fetchable body: "${article.title.slice(0, 60)}"`);
+            continue;
+          }
           const abstract = articleText.length > 200 ? articleText : article.abstract;
           items.push({ ...article, abstract, source: "rss", category: "news", year: new Date().getFullYear() });
           seenTitles.add(normTitle(article.title));
