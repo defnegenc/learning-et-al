@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "./output-guards.ts";
+import { dedupeKeyConcepts, filterKeyConceptsToSources, metadataItemProblems, modelMetaTalkIn, takeawayStatProblems, themeQuestionProblems } from "./output-guards.ts";
+import { bannedWordsIn, promptOnlyBannedIn, stripBannedWords } from "./banned-words.ts";
 import { overclaimProblems, stripVerdictOpener, verdictPolarity } from "./output-guards.ts";
 import { readFileSync } from "node:fs";
 
@@ -149,11 +150,14 @@ test("Sep 22: hedge fidelity, claim self-check, and the land ban reach every gis
   const digestSource = readFileSync(new URL("../pipeline/digest.ts", import.meta.url), "utf8");
   assert.ok(digestSource.includes("CLAIM_SELF_CHECK"), "gist prompt does not run the claim self-check");
   assert.ok(digestSource.includes("PROMPT_ONLY_BANNED_RULE"), "gist prompt does not carry the land ban");
-  // The scrub must stay adverb-only: "land" variants are prompt-only, so a
-  // literal use can never be mangled by mechanical removal.
+  // Standalone "land" variants stay prompt-only, so a literal use can never
+  // be mangled by mechanical removal. The Sep 24 review (item 6) added the
+  // exact "how this lands" phrases to the scrub; those multiword phrases have
+  // no innocent use, so the standalone-word guard is what remains load-bearing.
   const bannedSource = readFileSync(new URL("./banned-words.ts", import.meta.url), "utf8");
   const banList = bannedSource.match(/export const BANNED_WORDS = \[([^\]]*)\]/);
-  assert.ok(banList && !banList[1].includes("land"), "land variants leaked into the mechanical scrub list");
+  const banEntries = banList ? [...banList[1].matchAll(/"([^"]+)"/g)].map(m => m[1]) : [];
+  assert.ok(!banEntries.some(e => /^lands?$|^landed$|^landing$/.test(e)), "standalone land variants leaked into the mechanical scrub list");
 });
 
 test("verdictPolarity reads stock openers and rejects non-verdicts", () => {
@@ -171,4 +175,39 @@ test("stripVerdictOpener removes the verdict and keeps the answer", () => {
   assert.equal(stripVerdictOpener("Mostly. The effect holds in four of five samples."), "The effect holds in four of five samples.");
   assert.equal(stripVerdictOpener("It depends: class size flips the result."), "Class size flips the result.");
   assert.equal(stripVerdictOpener("Dynamic assessment adapts through live back-and-forth."), "Dynamic assessment adapts through live back-and-forth.");
+});
+
+test("takeawayStatProblems requires a number and a measured result", () => {
+  assert.deepEqual(takeawayStatProblems(null), []);
+  assert.deepEqual(takeawayStatProblems(undefined), []);
+  assert.deepEqual(takeawayStatProblems(""), []);
+  assert.deepEqual(takeawayStatProblems("47% of patients improved within 8 weeks"), []);
+  assert.deepEqual(takeawayStatProblems("Accuracy rose from 61% to 74%"), []);
+  assert.ok(takeawayStatProblems("a big effect").length > 0);
+  assert.ok(takeawayStatProblems("12").length > 0);
+  assert.ok(takeawayStatProblems("the strongest result").length > 0);
+});
+
+test("filterKeyConceptsToSources drops concepts no source names", () => {
+  const corpus = "Transformer models for solar panel shading. A study of 212 buildings using transformer models and photovoltaic shading devices.";
+  assert.deepEqual(filterKeyConceptsToSources(["NLP: natural language processing"], corpus), []);
+  assert.equal(filterKeyConceptsToSources(["transformer models: a model family"], corpus).length, 1);
+  assert.equal(filterKeyConceptsToSources(["building: a structure"], corpus).length, 1);
+  assert.equal(filterKeyConceptsToSources(["photovoltaic shading devices: solar panel shades"], corpus).length, 1);
+});
+
+test("phrase bans reach the mechanical gate and scrub", () => {
+  assert.ok(bannedWordsIn("See how this lands:").includes("see how this lands"));
+  assert.ok(bannedWordsIn("The shape of the field changed.").includes("the shape of"));
+  assert.ok(bannedWordsIn("a sharper picture").includes("sharper"));
+  assert.equal(stripBannedWords("The shape of the field changed."), "The field changed.");
+  assert.equal(stripBannedWords("A sharper picture emerged."), "A picture emerged.");
+});
+
+test("promptOnlyBannedIn flags the vague senses and spares literal uses", () => {
+  assert.ok(promptOnlyBannedIn("It's fair to say the effect is real.").length > 0);
+  assert.ok(promptOnlyBannedIn("The finding lands differently for teachers.").length > 0);
+  assert.ok(promptOnlyBannedIn("To be fair, the sample was small.").length > 0);
+  assert.deepEqual(promptOnlyBannedIn("A fair coin flip decided the order."), []);
+  assert.deepEqual(promptOnlyBannedIn("The landing page converted well."), []);
 });

@@ -46,7 +46,7 @@ type MetadataItem = {
   keywords?: string[];
   findings?: string[];
   connectionToTheme?: string;
-  takeaway?: { hook?: string; line?: string };
+  takeaway?: { hook?: string; line?: string; stat?: string | null };
   methodType?: string;
   claim?: string;
 };
@@ -63,9 +63,48 @@ export function metadataItemProblems(item: MetadataItem | null | undefined, expe
   if (!item.findings?.some(value => value.trim())) problems.push("Its findings are empty.");
   if (!item.connectionToTheme?.trim()) problems.push("Its theme connection is empty.");
   if (!item.takeaway?.hook?.trim() || !item.takeaway?.line?.trim()) problems.push("Its takeaway is incomplete.");
+  if (item.takeaway?.stat?.trim()) problems.push(...takeawayStatProblems(item.takeaway.stat));
   if (!item.methodType?.trim()) problems.push("Its method type is empty.");
   if (!item.claim?.trim()) problems.push("Its claim is empty.");
   return problems;
+}
+
+/**
+ * A takeaway stat must carry a number and a measured result. Sep 24 review,
+ * item 9: fragments like "a big effect" shipped in the stat slot. An absent
+ * stat is fine (the field is nullable) - only present-but-broken stats are
+ * problems. Detection stays mechanical: a digit, plus a change/difference cue.
+ */
+export function takeawayStatProblems(stat: string | null | undefined): string[] {
+  if (!stat?.trim()) return [];
+  const problems: string[] = [];
+  if (!/\d/.test(stat)) problems.push("Its takeaway stat has no number; a stat must include a measured quantity or be omitted.");
+  if (!/(?:%|percent|fold|times|points?|n\s*=|p\s*[<=]|more|less|fewer|higher|lower|greater|doubl\w*|halv\w*|tripl\w*|increas\w*|decreas\w*|reduc\w*|improv\w*|outperform\w*|drop\w*|fell|fall\w*|rose|ris\w*|grew|grow\w*|gain\w*|lost|loss|cut\b|slow\w*|fast\w*|strong\w*|weak\w*)/i.test(stat)) {
+    problems.push("Its takeaway stat states no measured result (a change, difference, or comparison) or it should be omitted.");
+  }
+  return problems;
+}
+
+/**
+ * Drops key concepts whose term appears in no abstract, title, or keyword.
+ * Sep 24 review, item 12: "NLP" shipped as a concept when no source mentioned
+ * it. Matching is a case-insensitive substring check with a singular/plural
+ * tolerance; a concept that fails is removed, never rephrased.
+ */
+export function filterKeyConceptsToSources(concepts: string[], sourceText: string): string[] {
+  const haystack = sourceText.toLowerCase().replace(/\s+/g, " ");
+  return concepts.filter((concept) => {
+    const term = (concept.includes(":") ? concept.slice(0, concept.indexOf(":")) : concept)
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[.!]+$/, "");
+    if (!term) return false;
+    const singular = term.replace(/s$/, "");
+    return haystack.includes(term)
+      || (singular !== term && haystack.includes(singular))
+      || haystack.includes(`${term}s`);
+  });
 }
 
 /**
