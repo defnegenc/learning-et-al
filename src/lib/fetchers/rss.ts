@@ -5,7 +5,27 @@ interface RssArticle {
   authors: string[];
   abstract: string;
   sourceUrl: string;
+  // Publication date from the feed item (Google News RSS always carries one;
+  // field feeds usually do). Undefined when the feed didn't say.
+  publishedDate?: string;
 }
+
+// A "news" slot is an editorial promise of currency. The Sep 24 edition filled
+// it with an Oct 2024 Michigan licensing piece from Google News RSS: the item
+// carried no date downstream and its "abstract" was just the headline. Google
+// News reaches back years for keyword matches, so its items must prove
+// freshness - a missing date is a reject here, unlike the Serper path where
+// unknown dates pass (see web-search.ts).
+export const GOOGLE_NEWS_MAX_AGE_DAYS = 14;
+
+export function isFreshGoogleNewsDate(pubDate: string | undefined, now: number): boolean {
+  if (!pubDate) return false;
+  const parsed = Date.parse(pubDate);
+  if (Number.isNaN(parsed)) return false;
+  return now - parsed <= GOOGLE_NEWS_MAX_AGE_DAYS * 864e5;
+}
+
+const GOOGLE_NEWS_RSS_PREFIX = "https://news.google.com/rss";
 
 // Default tech feeds — used as fallback when no field-specific feeds match
 const DEFAULT_FEEDS = [
@@ -100,12 +120,18 @@ export async function fetchRssArticles(
       console.error(`[RSS] Failed to fetch ${uniqueFeeds[i]}:`, result.reason);
       continue;
     }
+    const isGoogleNews = uniqueFeeds[i].startsWith(GOOGLE_NEWS_RSS_PREFIX);
     for (const item of result.value.items.slice(0, maxPerFeed)) {
+      if (isGoogleNews && !isFreshGoogleNewsDate(item.isoDate || item.pubDate, Date.now())) {
+        console.log(`[RSS] Dropped Google News item with missing or stale date: "${(item.title || "").slice(0, 60)}" (${item.isoDate || item.pubDate || "no date"})`);
+        continue;
+      }
       articles.push({
         title: item.title || "Untitled",
         authors: item.creator ? [item.creator] : [],
         abstract: item.contentSnippet || item.content || "",
         sourceUrl: item.link || "",
+        publishedDate: item.isoDate || item.pubDate || undefined,
       });
     }
   }
@@ -120,4 +146,17 @@ export async function fetchRssArticles(
     .sort((a, b) => b.score - a.score)
     .slice(0, 10)
     .map((s) => s.article);
+}
+
+/** True when an RSS "abstract" is really just the headline restated (Google
+ * News RSS items ship the title as the content, sometimes with the outlet
+ * name appended). A headline-only item has no reporting to ground a digest
+ * card in, so it is never a sufficient source on its own. */
+export function isHeadlineOnlyAbstract(title: string, abstract: string): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const a = norm(abstract);
+  if (a.length === 0) return true;
+  const t = norm(title);
+  if (t.length === 0) return false;
+  return a.includes(t) || t.includes(a);
 }
