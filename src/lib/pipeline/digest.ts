@@ -10,8 +10,8 @@ import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, evidenceVerifierPrompt, CLAIM_SELF_CHECK, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
-import { BANNED_WORDS_RULE, PROMPT_ONLY_BANNED_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
-import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, overclaimProblems, stripVerdictOpener, themeQuestionProblems, verdictPolarity } from "@/lib/ai/output-guards";
+import { BANNED_WORDS_RULE, PROMPT_ONLY_BANNED_RULE, bannedWordsIn, promptOnlyBannedIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
+import { dedupeKeyConcepts, filterKeyConceptsToSources, metadataItemProblems, modelMetaTalkIn, overclaimProblems, stripVerdictOpener, takeawayStatProblems, themeQuestionProblems, verdictPolarity } from "@/lib/ai/output-guards";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -2471,13 +2471,23 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
   // reader-facing summary slot. Repair only the broken papers in parallel so
   // each response is small enough to stay valid JSON, then fail closed if any
   // core card field is still absent.
+  // The "fair"/"land" perception-sense bans are prompt-only because both
+  // words have innocent uses, so they can never join the scrub: a hit re-runs
+  // generation through this same repair contract instead (Sep 24 review, 6).
+  const metadataPromptBanProblems = (aiItem: { plainName?: string; summary?: string; connectionToTheme?: string; takeaway?: { hook?: string; line?: string; stat?: string | null }; claim?: string; keywords?: string[]; findings?: string[] } | null | undefined): string[] => {
+    if (!aiItem) return [];
+    const fields = [aiItem.plainName, aiItem.summary, aiItem.connectionToTheme, aiItem.takeaway?.hook, aiItem.takeaway?.line, aiItem.takeaway?.stat, aiItem.claim, ...(aiItem.keywords || []), ...(aiItem.findings || [])];
+    const hits = [...new Set(fields.flatMap(value => promptOnlyBannedIn(value || "")))];
+    return hits.map(hit => `Its copy uses ${hit}; rewrite the sentence instead of deleting the word.`);
+  };
   const metadataIndicesNeedingRepair = items
     .map((_, index) => index + 1)
     .filter((expectedIndex) => {
       const matches = metadata.items.filter(aiItem => aiItem.index === expectedIndex);
       if (matches.length !== 1) return true;
       return metadataItemProblems(matches[0], expectedIndex).length > 0
-        || Boolean(summaryGroundingProblem(matches[0], expectedIndex));
+        || Boolean(summaryGroundingProblem(matches[0], expectedIndex))
+        || metadataPromptBanProblems(matches[0]).length > 0;
     });
   if (metadataIndicesNeedingRepair.length > 0) {
     console.log(`[Digest] Repairing metadata for paper${metadataIndicesNeedingRepair.length > 1 ? "s" : ""} ${metadataIndicesNeedingRepair.join(", ")}`);
@@ -2490,7 +2500,15 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       );
       const repairParsed = extractJson<MetadataResponse>(repairResp);
       const returnedItem = repairParsed?.items?.find(aiItem => aiItem.index === 1);
-      const repairProblems = metadataItemProblems(returnedItem, 1);
+      // A stat that comes back broken a second time stores as null (the field
+      // is optional); it never fail-closes the edition on its own.
+      if (returnedItem?.takeaway?.stat && takeawayStatProblems(returnedItem.takeaway.stat).length > 0) {
+        returnedItem.takeaway = { ...returnedItem.takeaway, stat: undefined };
+      }
+      const repairProblems = [
+        ...metadataItemProblems(returnedItem, 1),
+        ...metadataPromptBanProblems(returnedItem),
+      ];
       if (!returnedItem || repairProblems.length > 0) {
         throw new Error(`Metadata repair for paper ${expectedIndex} failed: ${repairProblems.join("; ") || "No valid item returned."}`);
       }
@@ -2523,11 +2541,19 @@ Return 3 candidate headlines. sourceConnections and sourceOrder must include eve
       ...repairedMetadata.flatMap(result => result.suggestedQuestions),
     ])].slice(0, 3);
   }
+  // Same null-not-throw rule for stats that never entered the repair loop:
+  // number plus measured result, or the field is omitted (Sep 24 review, 9).
+  metadata.items = metadata.items.map(aiItem =>
+    aiItem.takeaway?.stat && takeawayStatProblems(aiItem.takeaway.stat).length > 0
+      ? { ...aiItem, takeaway: { ...aiItem.takeaway, stat: undefined } }
+      : aiItem
+  );
   const remainingMetadataProblems = items.flatMap((_, index) => {
     const expectedIndex = index + 1;
     const aiItem = metadata.items.find(candidate => candidate.index === expectedIndex);
     return [
       ...metadataItemProblems(aiItem, expectedIndex),
+      ...metadataPromptBanProblems(aiItem),
       ...(aiItem && summaryGroundingProblem(aiItem, expectedIndex) ? [summaryGroundingProblem(aiItem, expectedIndex)!] : []),
     ].map(problem => `Paper ${expectedIndex}: ${problem}`);
   });
@@ -2745,10 +2771,17 @@ Return ONLY the repaired synthesis. No JSON, no fences.`
   }
   logStage("final repair (coverage + format)");
 
+  // A key concept must name something today's sources actually name: "NLP"
+  // shipped as a concept though no abstract, title, or keyword mentioned it
+  // (Sep 24 review, item 12). Failing concepts are dropped, not rephrased.
+  const conceptSourceText = [
+    ...items.map(item => `${item.title} ${item.abstract}`),
+    ...metadata.items.flatMap(aiItem => aiItem.keywords || []),
+  ].join(" ");
   const parsedAI: DigestAIResponse = {
     items: metadata.items,
     synthesis,
-    keyConcepts: dedupeKeyConcepts(metadata.keyConcepts || []),
+    keyConcepts: filterKeyConceptsToSources(dedupeKeyConcepts(metadata.keyConcepts || []), conceptSourceText),
   };
 
   // Digest-level Q&A was removed (questions now live on reading-list papers),
@@ -3109,13 +3142,22 @@ Return JSON (no markdown fences): {"synthesis": "the full corrected synthesis", 
   await db.insert(papers).values(
     items.map((item, i) => {
       const aiItem = parsedAI.items.find(x => x.index === i + 1) || { summary: "", keywords: [], findings: [], connectionToTheme: "", plainName: "", takeaway: undefined, methodType: undefined, methodFacts: undefined, claim: undefined };
+      // A takeaway stat must be a number plus a measured result; anything
+      // else (fragments, bare adjectives) stores as null rather than shipping.
+      const statCandidate = stripBannedWordsMaybe(aiItem.takeaway?.stat);
+      const statFallback = boldedResultPhrase(aiItem.findings?.[0]);
+      const takeawayStat = statCandidate && takeawayStatProblems(statCandidate).length === 0
+        ? statCandidate
+        : statFallback && takeawayStatProblems(statFallback).length === 0
+          ? statFallback
+          : null;
       return {
         digestId: digest.id,
         title: item.title, authors: JSON.stringify(item.authors),
         abstract: item.abstract, fullText: item.abstract,
         summary: stripBannedWords(aiItem.summary), plainName: stripBannedWordsMaybe(aiItem.plainName) || null,
         takeawayHook: stripBannedWordsMaybe(aiItem.takeaway?.hook) || null,
-        takeawayStat: stripBannedWordsMaybe(aiItem.takeaway?.stat) || boldedResultPhrase(aiItem.findings?.[0]) || null,
+        takeawayStat,
         takeawayLine: stripBannedWordsMaybe(aiItem.takeaway?.line) || null,
         methodType: aiItem.methodType || null,
         methodFacts: aiItem.methodFacts?.length ? JSON.stringify(aiItem.methodFacts.map(stripBannedWords)) : null,
@@ -3136,4 +3178,4 @@ Return JSON (no markdown fences): {"synthesis": "the full corrected synthesis", 
   logStage("db insert");
 
   return digest;
-}
+                                                                                      }
