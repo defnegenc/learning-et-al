@@ -8,10 +8,10 @@ import { fetchRssArticles } from "@/lib/fetchers/rss";
 import { fetchArticleText, isAcademicDomain } from "@/lib/fetchers/article";
 import { webSearch } from "@/lib/fetchers/web-search";
 import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
-import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
+import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, CLAIM_SELF_CHECK, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
-import { BANNED_WORDS_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
-import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, themeQuestionProblems } from "@/lib/ai/output-guards";
+import { BANNED_WORDS_RULE, PROMPT_ONLY_BANNED_RULE, bannedWordsIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
+import { dedupeKeyConcepts, metadataItemProblems, modelMetaTalkIn, overclaimProblems, themeQuestionProblems } from "@/lib/ai/output-guards";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -2783,8 +2783,11 @@ ${synthesis}
 VOICE: Sound like a real person talking to a friend. Use contractions. Plain words. NO AI-speak — never use "seamlessly", "notably", "delve", "leverage", "underscore", "landscape", "realm", "testament", "at the frontier". No em dashes. No "the studies show".
 
 ${BANNED_WORDS_RULE}
+${PROMPT_ONLY_BANNED_RULE}
 
-EVIDENCE GUARD: Every claim in the gist must be supported by the synthesis. Do not invent a psychological mechanism to make the answer sound complete. Avoid "everyone", "every", "always", and "never" unless the sources actually establish that universal claim.
+EVIDENCE GUARD: Every claim in the gist must be supported by the synthesis. Do not invent a psychological mechanism to make the answer sound complete. Avoid "everyone", "every", "always", and "never" unless the sources actually establish that universal claim. Keep the synthesis's measured subject and confidence level: never widen a result measured on one component to the whole system, and never turn a proposed or potential use into achieved intent ("exactly as designed") or a proven outcome. Keep the source's hedges and measured constructs: "tend to" never becomes "everywhere", and if no source measured trust, the gist never claims trust.
+
+${CLAIM_SELF_CHECK}
 
 TERM BRIDGE: If the central question relies on a named contrast that a smart non-expert may only half-understand, define both sides in parallel BEFORE giving the implication. Use concrete verbs, not a dictionary definition. You may use two short sentences and up to 35 words for this case.
 
@@ -2852,6 +2855,17 @@ Return JSON (no markdown fences):
     .filter(field => field.problems.length > 0);
   if (fieldsWithMetaTalk.length > 0) {
     throw new Error(`Reader-facing output contains model self-commentary in ${fieldsWithMetaTalk.map(field => field.name).join(", ")}`);
+  }
+
+  // Same fail-closed sweep for the modal upgrades that reached published
+  // editions (Sep 18-19): a deterministic last line over every reader-facing
+  // field, so a phrase like "exactly as designed" cannot ship even if every
+  // prompt and the critique pass missed it.
+  const fieldsWithOverclaims = readerFacingFields
+    .map(field => ({ ...field, problems: overclaimProblems(field.value || "") }))
+    .filter(field => field.problems.length > 0);
+  if (fieldsWithOverclaims.length > 0) {
+    throw new Error(`Reader-facing output contains unsupported overclaim phrasing in ${fieldsWithOverclaims.map(field => `${field.name} (${field.problems.join(", ")})`).join(", ")}`);
   }
 
   const bannedInCopy = [
