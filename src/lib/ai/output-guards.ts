@@ -69,6 +69,20 @@ export function metadataItemProblems(item: MetadataItem | null | undefined, expe
   return problems;
 }
 
+/** How many years back a paper can be while honestly labeled "recent". */
+export const RECENT_MAX_AGE_YEARS = 3;
+
+/**
+ * The "recent" lane is an age claim, not a pool label. Sep 24 review, item 3:
+ * wide-pool, fill, broad, theme-search and swap-in picks were hardcoded
+ * "recent", so a 2017 paper shipped under a current-work label. Anything
+ * older than three years goes to the foundational lane instead; an unknown
+ * year stays "recent" rather than guessing.
+ */
+export function categoryForYear(year: number | undefined, currentYear: number): "recent" | "foundational" {
+  return year !== undefined && currentYear - year > RECENT_MAX_AGE_YEARS ? "foundational" : "recent";
+}
+
 /**
  * A takeaway stat must carry a number and a measured result. Sep 24 review,
  * item 9: fragments like "a big effect" shipped in the stat slot. An absent

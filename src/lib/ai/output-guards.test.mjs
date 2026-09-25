@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dedupeKeyConcepts, filterKeyConceptsToSources, metadataItemProblems, modelMetaTalkIn, takeawayStatProblems, themeQuestionProblems } from "./output-guards.ts";
+import { categoryForYear, dedupeKeyConcepts, filterKeyConceptsToSources, metadataItemProblems, modelMetaTalkIn, takeawayStatProblems, themeQuestionProblems } from "./output-guards.ts";
 import { bannedWordsIn, promptOnlyBannedIn, stripBannedWords } from "./banned-words.ts";
 import { overclaimProblems, stripVerdictOpener, verdictPolarity } from "./output-guards.ts";
 import { readFileSync } from "node:fs";
@@ -210,4 +210,12 @@ test("promptOnlyBannedIn flags the vague senses and spares literal uses", () => 
   assert.ok(promptOnlyBannedIn("To be fair, the sample was small.").length > 0);
   assert.deepEqual(promptOnlyBannedIn("A fair coin flip decided the order."), []);
   assert.deepEqual(promptOnlyBannedIn("The landing page converted well."), []);
+});
+
+test("categoryForYear labels papers older than three years foundational", () => {
+  assert.equal(categoryForYear(2026, 2026), "recent");
+  assert.equal(categoryForYear(2023, 2026), "recent");
+  assert.equal(categoryForYear(2022, 2026), "foundational");
+  assert.equal(categoryForYear(2017, 2026), "foundational");
+  assert.equal(categoryForYear(undefined, 2026), "recent");
 });

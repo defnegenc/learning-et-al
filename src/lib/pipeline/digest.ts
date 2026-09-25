@@ -11,7 +11,7 @@ import { aiComplete, judgeConfigFrom, AIConfig } from "@/lib/ai/provider";
 import { selectionSkeletonPrompt, metadataPrompt, skeletonPrompt, synthesisFromSkeletonPrompt, synthesisCritiquePrompt, synthesisRevisionPrompt, synthesisStructureContract, evidenceVerifierPrompt, CLAIM_SELF_CHECK, SYNTHESIS_SYSTEM, SYNTHESIS_PROSE_SYSTEM } from "@/lib/ai/prompts";
 import { extractJson, stripFences } from "@/lib/ai/parse";
 import { BANNED_WORDS_RULE, PROMPT_ONLY_BANNED_RULE, bannedWordsIn, promptOnlyBannedIn, stripBannedWords, stripBannedWordsMaybe } from "@/lib/ai/banned-words";
-import { dedupeKeyConcepts, filterKeyConceptsToSources, metadataItemProblems, modelMetaTalkIn, overclaimProblems, stripVerdictOpener, takeawayStatProblems, themeQuestionProblems, verdictPolarity } from "@/lib/ai/output-guards";
+import { categoryForYear, dedupeKeyConcepts, filterKeyConceptsToSources, metadataItemProblems, modelMetaTalkIn, overclaimProblems, stripVerdictOpener, takeawayStatProblems, themeQuestionProblems, verdictPolarity } from "@/lib/ai/output-guards";
 import { bm25Score, rrfFuse } from "@/lib/bm25";
 import { embedText, embedBatch, cosineSimilarity, isEmbeddingDegraded } from "@/lib/embeddings";
 import { venueQualityBoost, isPredatoryVenue } from "@/lib/venue-quality";
@@ -804,7 +804,10 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     where: eq(digests.userId, userId),
     orderBy: desc(digests.createdAt),
   });
-  const recentDigestsForRotation = allPastDigests.slice(0, 5);
+  // Sep 24 review, item 4: themes repeated within weeks because the rotation
+  // window only remembered 5 editions. 30 editions ~= 30 days at daily cadence.
+  const ROTATION_WINDOW_EDITIONS = 30;
+  const recentDigestsForRotation = allPastDigests.slice(0, ROTATION_WINDOW_EDITIONS);
   // Dedup against EVERY paper ever shown to this user — shown papers live in the
   // vault, so re-surfacing one is repetition no matter how long ago it appeared
   // (the old 30-day window let papers recur on day 31; audit 6.5).
@@ -826,7 +829,7 @@ export async function generateDigest(userId: string, aiConfig: AIConfig, force?:
     for (const p of allRecentPapers) {
       seenPaperTitles.add(normTitle(p.title));
       if (p.openAlexId) seenOpenAlexIds.add(p.openAlexId);
-      // Only use rotation keywords from the last 5 digests
+      // Only use rotation keywords from inside the rotation window
       if (rotationDigestIds.has(p.digestId)) {
         try {
           const kws = JSON.parse(p.keywords || "[]") as string[];
@@ -1002,6 +1005,26 @@ Build today's question around this seed. This is the grounding material, NOT a h
   const recentThemeTexts = recentDigestsForRotation
     .map(d => d.theme).filter((value): value is string => Boolean(value));
 
+  // Sep 24 review, item 4: a repeat is not just repeated theme wording - the
+  // same seed re-sampled under fresh wording is the same edition. Compare
+  // candidates against recent seed topics and seed interests too. Today's own
+  // seed is excluded so the assigned topic can never veto every candidate.
+  const recentSeedTexts = recentDigestsForRotation.flatMap(d => {
+    const texts: string[] = [];
+    try {
+      const st = JSON.parse(d.seedTopic || "null") as { name?: string } | null;
+      if (st?.name && st.name !== seedTopic?.name) texts.push(st.name);
+    } catch { /* older rows have no seed topic */ }
+    try {
+      const seeds = JSON.parse(d.seedInterests || "[]") as { keyword?: string }[];
+      for (const s of seeds) {
+        const kw = (s.keyword || "").trim();
+        if (kw && kw.toLowerCase() !== seedInterestKeyword.toLowerCase()) texts.push(kw);
+      }
+    } catch { /* ignore */ }
+    return texts;
+  });
+
   const hypothesisPrompt = `You curate a daily research digest. Your job: pick 1-3 of these user interests and generate THREE candidate central questions, each with genuine surprise value.
 
 User interests (sorted by priority):
@@ -1116,15 +1139,19 @@ Return JSON only (no markdown):
 
     if (rawCandidates.length === 0) throw new Error("Hypothesis returned no usable candidate");
 
-    /** ≥2 substantial words shared with any recent theme. Was a retry; now a drop. */
-    const overlapsRecentTheme = (candidate: string) => {
+    /** ≥2 substantial words shared between the candidate and a recent text. */
+    const sharesSubstantialWords = (candidate: string, recent: string) => {
       const words = new Set(candidate.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w)));
-      return recentThemeTexts.some(recent =>
-        recent.toLowerCase().split(/\s+/)
-          .filter(w => w.length > 3 && !STOP_WORDS.has(w))
-          .filter(w => words.has(w)).length >= 2
-      );
+      return recent.toLowerCase().split(/\s+/)
+        .filter(w => w.length > 3 && !STOP_WORDS.has(w))
+        .filter(w => words.has(w)).length >= 2;
     };
+    /** ≥2 substantial words shared with any recent theme. Was a retry; now a drop. */
+    const overlapsRecentTheme = (candidate: string) =>
+      recentThemeTexts.some(recent => sharesSubstantialWords(candidate, recent));
+    /** Same bar against recent seed topics/interests (Sep 24 review, item 4). */
+    const overlapsRecentSeed = (candidate: string) =>
+      recentSeedTexts.some(recent => sharesSubstantialWords(candidate, recent));
 
     const screened = rawCandidates.map(candidate => {
       const value = candidate.theme!.trim();
@@ -1134,6 +1161,9 @@ Return JSON only (no markdown):
       }
       if (overlapsRecentTheme(value)) {
         problems.push("It shares two or more substantial words with a recent digest theme, so it is not a fresh angle.");
+      }
+      if (overlapsRecentSeed(value)) {
+        problems.push("It re-covers a topic or interest seeded within the last 30 editions, so it is not a fresh angle.");
       }
       return { candidate, theme: value, problems };
     });
@@ -1255,6 +1285,9 @@ Return JSON only (no markdown):
     label: "unscoped",
   };
 
+  // One calendar year for the whole run: scoring, lane labels, and freshness
+  // rules all read the same value (hoisted out of the theme loop for item 3).
+  const currentYear = new Date().getFullYear();
   for (let themeAttempt = 0; themeAttempt <= MAX_THEME_RETRIES; themeAttempt++) {
   if (themeAttempt > 0) {
     console.log(`[Digest] Theme "${theme}" produced too few papers — generating new theme (attempt ${themeAttempt + 1})...`);
@@ -1350,7 +1383,6 @@ Return JSON only (no markdown):
   // Research: Cormack et al. (2009) RRF, Kotkov et al. (2016) serendipity factors
   resultEmbs = await embedBatch(allResults.map(paperText));
   const queryEmbs = await embedBatch(searchQueries);
-  const currentYear = new Date().getFullYear();
 
   // Signal 1: Embedding similarity. The theme headline is deliberately jargon-free
   // and metaphorical, so good papers under-score against it (vocabulary mismatch).
@@ -1499,10 +1531,12 @@ Return JSON only (no markdown):
       sourceUrl: pick.p.sourceUrl, pdfUrl: pick.p.pdfUrl || undefined,
       source: pick.p.source, year: pick.p.year,
       openAlexId: pick.p.openAlexId || undefined,
-      // All wide-pool picks come from the field-sensitive recent window. "foundational" is
-      // reserved for the ancestor lane (Step 4c) — labeling slot 0 foundational was
-      // a lie the UI repeated ("A foundational view" on a current-year paper).
-      category: "recent",
+      // Wide-pool picks are meant to come from the field-sensitive recent
+      // window, but the label now follows the year (Sep 24 review, item 3) -
+      // an older pick lands in the foundational lane instead of shipping under
+      // a current-work label. (Labeling a CURRENT-year paper foundational was
+      // the earlier lie the UI repeated; age-derived labels are honest.)
+      category: categoryForYear(pick.p.year, currentYear),
     });
     seenTitles.add(normTitle(pick.p.title));
     console.log(`[Digest] Wide pool ${slot + 1}/${WIDE_POOL_SIZE}: "${pick.p.title}" (score ${pick.score.toFixed(4)}, rel ${pick.relSim.toFixed(2)})`);
@@ -1727,7 +1761,7 @@ Return JSON only (no markdown):
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
-          source: paper.source, category: "recent",
+          source: paper.source, category: categoryForYear(paper.year, currentYear),
           year: paper.year, openAlexId: paper.openAlexId || undefined,
         });
         seenTitles.add(normTitle(paper.title));
@@ -1758,7 +1792,7 @@ Return JSON only (no markdown):
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
           source: paper.source, year: paper.year,
           openAlexId: paper.openAlexId || undefined,
-          category: "recent",
+          category: categoryForYear(paper.year, currentYear),
         });
         seenTitles.add(normTitle(paper.title));
         console.log(`[Digest] Broad fill: "${paper.title}" (sim ${sim.toFixed(2)})`);
@@ -1782,7 +1816,7 @@ Return JSON only (no markdown):
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
-          source: paper.source, year: paper.year, category: "recent",
+          source: paper.source, year: paper.year, category: categoryForYear(paper.year, currentYear),
           openAlexId: paper.openAlexId || undefined,
         });
         seenTitles.add(normTitle(paper.title));
@@ -1953,7 +1987,7 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
         source: freshCandidate.p.source,
         year: freshCandidate.p.year,
         openAlexId: freshCandidate.p.openAlexId || undefined,
-        category: "recent",
+        category: categoryForYear(freshCandidate.p.year, currentYear),
       };
 
       if (items.length < TOTAL_ITEMS) {
@@ -2011,7 +2045,7 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
         source: replacement.p.source,
         year: replacement.p.year,
         openAlexId: replacement.p.openAlexId || undefined,
-        category: "recent",
+        category: categoryForYear(replacement.p.year, currentYear),
       };
       items[replaceIndex] = freshItem;
       selectedTitleKeys.add(normTitle(freshItem.title));
