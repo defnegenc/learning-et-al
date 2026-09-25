@@ -44,6 +44,7 @@ const MICRO_MIGRATIONS = [
   "ALTER TABLE digests ADD COLUMN working_theme TEXT",
   "ALTER TABLE digests ADD COLUMN theme_candidates TEXT",
   "ALTER TABLE digest_jobs ADD COLUMN news_log TEXT",
+  "ALTER TABLE papers ADD COLUMN published_date TEXT",
   // Phase 2 engagement-ledger columns. Keep these before Phase 3 tables: the
   // reading view can render without them, but Ask/dig reads cannot.
   "ALTER TABLE qa_pairs ADD COLUMN thread_id TEXT",
