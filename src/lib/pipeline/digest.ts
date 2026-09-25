@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { digests, papers, interests } from "@/lib/db/schema";
+import { digests, digestJobs, papers, interests } from "@/lib/db/schema";
 import { eq, and, desc, inArray, isNull, or } from "drizzle-orm";
 import { searchSemanticScholar } from "@/lib/fetchers/semantic-scholar";
 import { searchArxiv } from "@/lib/fetchers/arxiv";
@@ -733,8 +733,62 @@ const SIM_ONTOPIC  = 0.25; // strong match — clearly about the theme
 const SIM_MIDPOINT = 0.20; // moderate match — related but not directly on-topic
 const SIM_FALLBACK = 0.18; // last-resort fallback (raised from 0.15 — 0.15 lets in too much)
 
+/**
+ * Sep 24 review, item 7: dead source links shipped (404 DOI + PDF). Checks
+ * every selected item's landing page and PDF: an item whose landing page is
+ * gone (404/410) is dropped, while a dead PDF link is nulled and the item
+ * stays. 403s, other statuses, HEAD refusals, and network failures are all
+ * treated as OK - paywalls, bot guards, and flaky hosts are not deaths, and
+ * dropping on them would kill editions on transient errors.
+ */
+async function pruneDeadSourceLinks(items: TaggedItem[]): Promise<void> {
+  const statusOf = async (url: string): Promise<number | null> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      let res = await fetch(url, { method: "HEAD", redirect: "follow", signal: controller.signal });
+      if (res.status === 405 || res.status === 501) {
+        res = await fetch(url, { method: "GET", headers: { Range: "bytes=0-0" }, redirect: "follow", signal: controller.signal });
+      }
+      return res.status;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const keep = await Promise.all(items.map(async (item) => {
+    if (item.sourceUrl) {
+      const landing = await statusOf(item.sourceUrl);
+      if (landing === 404 || landing === 410) {
+        console.log(`[Digest] Source link dead (${landing}), dropping: "${item.title.slice(0, 60)}" - ${item.sourceUrl}`);
+        return false;
+      }
+    }
+    if (item.pdfUrl) {
+      const pdf = await statusOf(item.pdfUrl);
+      if (pdf === 404 || pdf === 410) {
+        console.log(`[Digest] PDF link dead (${pdf}), unlinking: "${item.title.slice(0, 60)}" - ${item.pdfUrl}`);
+        item.pdfUrl = undefined;
+      }
+    }
+    return true;
+  }));
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (!keep[i]) items.splice(i, 1);
+  }
+}
+
 export async function generateDigest(userId: string, aiConfig: AIConfig, force?: boolean) {
   const today = new Date().toISOString().split("T")[0];
+  // Sep 24 review, item 11: every news candidate's drop reason is collected
+  // and persisted to digest_jobs.news_log so the admin jobs endpoint shows why
+  // the lane starved when it did.
+  const newsDropLog: string[] = [];
+  const drop = (title: string, reason: string): false => {
+    newsDropLog.push(`${reason} - "${title.slice(0, 60)}"`);
+    return false;
+  };
 
   // Stage timer. Generation is a long chain of network + LLM round-trips, and
   // without per-stage numbers in the Vercel logs there is no way to tell which
@@ -1621,9 +1675,9 @@ Return JSON only (no markdown):
     const newsEmbs = newsTexts.length > 0 ? await embedBatch(newsTexts) : [];
     const scoredNews = webResults
       .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, newsEmbs[i]) }))
-      .filter(({ result }) => !isListicle(result.title, result.source))
-      .filter(({ result }) => !isAcademicDomain(result.link))
-      .filter(({ result }) => !seenTitles.has(normTitle(result.title)))
+      .filter(({ result }) => !isListicle(result.title, result.source) || drop(result.title, "listicle or low-quality source"))
+      .filter(({ result }) => !isAcademicDomain(result.link) || drop(result.title, "academic domain, not news"))
+      .filter(({ result }) => !seenTitles.has(normTitle(result.title)) || drop(result.title, "already shown in an earlier edition"))
       .sort((a, b) => b.sim - a.sim);
 
     let newsFound = 0;
@@ -1631,12 +1685,13 @@ Return JSON only (no markdown):
     let rejectedByWords = 0;
     for (const { result, sim } of scoredNews) {
       if (newsFound >= newsNeeded) break;
-      if (sim < 0.15) { rejectedBySim++; continue; }
+      if (sim < 0.15) { rejectedBySim++; drop(result.title, `below embedding floor (sim ${sim.toFixed(2)})`); continue; }
       // Word-guard on top of embedding sim — snippets are 1-2 sentences, where
       // cosine 0.15 is near the noise floor (audit 6.4). Better a 2-source digest
       // than a third slot with garbage news.
       if (!isNewsRelevant({ title: result.title, abstract: result.snippet }, themeWords, focusInterest)) {
         rejectedByWords++;
+        drop(result.title, "word guard: headline+snippet shares no vocabulary with the theme or interest");
         console.log(`[Digest] News rejected by word guard: "${result.title.slice(0, 60)}"`);
         continue;
       }
@@ -1665,9 +1720,9 @@ Return JSON only (no markdown):
         const bareEmbs = bareTexts.length > 0 ? await embedBatch(bareTexts) : [];
         const bareScored = bare
           .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, bareEmbs[i]) }))
-          .filter(({ result }) => !isListicle(result.title, result.source))
-          .filter(({ result }) => !isAcademicDomain(result.link))
-          .filter(({ result }) => !seenTitles.has(normTitle(result.title)))
+          .filter(({ result }) => !isListicle(result.title, result.source) || drop(result.title, "listicle or low-quality source"))
+          .filter(({ result }) => !isAcademicDomain(result.link) || drop(result.title, "academic domain, not news"))
+          .filter(({ result }) => !seenTitles.has(normTitle(result.title)) || drop(result.title, "already shown in an earlier edition"))
           .sort((x, y) => y.sim - x.sim);
         for (const { result, sim } of bareScored) {
           if (newsFound >= newsNeeded) break;
@@ -1703,6 +1758,7 @@ Return JSON only (no markdown):
           // a card in - skip to the next candidate.
           if (articleText.length <= 200 && isHeadlineOnlyAbstract(article.title, article.abstract)) {
             console.log(`[Digest] News skipped, headline-only source with no fetchable body: "${article.title.slice(0, 60)}"`);
+            drop(article.title, "headline-only source, no fetchable body");
             continue;
           }
           const abstract = articleText.length > 200 ? articleText : article.abstract;
@@ -1734,6 +1790,38 @@ Return JSON only (no markdown):
         seenTitles.add(normTitle(result.title));
         console.log(`[Digest] News (relaxed) ${newsFound + 1}/${newsNeeded}: "${result.title}" (sim ${sim.toFixed(2)})`);
         newsFound++;
+      }
+    }
+
+    // Second broader query when every theme-flavored search starved: the
+    // interest keyword alone, no theme vocabulary (Sep 24 review, item 11).
+    if (newsFound < newsNeeded && focusInterest.trim()) {
+      const interestOnly = await webSearch(focusInterest, newsNeeded * 3).catch(() => [] as Awaited<ReturnType<typeof webSearch>>);
+      if (interestOnly.length > 0) {
+        console.log(`[Digest] News interest-only fallback returned ${interestOnly.length} candidate(s)`);
+        const ioTexts = interestOnly.map(r => `${r.title}. ${r.snippet}`);
+        const ioEmbs = ioTexts.length > 0 ? await embedBatch(ioTexts) : [];
+        const ioScored = interestOnly
+          .map((result, i) => ({ result, sim: cosineSimilarity(themeEmb, ioEmbs[i]) }))
+          .filter(({ result }) => !isListicle(result.title, result.source) || drop(result.title, "listicle or low-quality source"))
+          .filter(({ result }) => !isAcademicDomain(result.link) || drop(result.title, "academic domain, not news"))
+          .filter(({ result }) => !seenTitles.has(normTitle(result.title)) || drop(result.title, "already shown in an earlier edition"))
+          .sort((x, y) => y.sim - x.sim);
+        for (const { result, sim } of ioScored) {
+          if (newsFound >= newsNeeded) break;
+          if (sim < 0.15) { drop(result.title, `below embedding floor (sim ${sim.toFixed(2)})`); continue; }
+          if (!isNewsRelevant({ title: result.title, abstract: result.snippet }, themeWords, focusInterest, { minInterestWords: 1, minThemeWords: 1 })) { drop(result.title, "word guard (relaxed)"); continue; }
+          const articleText = await fetchArticleText(result.link);
+          const abstract = articleText.length > 200 ? articleText : result.snippet;
+          items.push({
+            title: result.title, authors: [result.source],
+            abstract, sourceUrl: result.link,
+            source: "rss", category: "news", year: new Date().getFullYear(),
+          });
+          seenTitles.add(normTitle(result.title));
+          console.log(`[Digest] News (interest-only) ${newsFound + 1}/${newsNeeded}: "${result.title}" (sim ${sim.toFixed(2)})`);
+          newsFound++;
+        }
       }
     }
 
@@ -1855,8 +1943,38 @@ Return JSON only (no markdown):
     }
   }
 
+  // Sep 24 review, item 11: an edition never ships with 2 items. When the
+  // news lane starved and every fill pass still leaves a slot open, make one
+  // explicit paper backfill pass; if even that fails, throw so the job
+  // retries instead of emailing a short edition.
+  if (items.length > 0 && items.length < TOTAL_ITEMS) {
+    console.log(`[Digest] ${items.length}/${TOTAL_ITEMS} after all fill passes - explicit backfill...`);
+    const backfillQuery = `${focusInterest} ${themeWords.slice(0, 3).join(" ")}`.trim();
+    const backfillResults = await searchPapers(backfillQuery, 12, "publicationDate", unscopedPaperSearchPlan).catch(() => [] as Awaited<ReturnType<typeof searchPapers>>);
+    const backfillEmbs = backfillResults.length > 0 ? await embedBatch(backfillResults.map(paperText)) : [];
+    for (let bi = 0; bi < backfillResults.length && items.length < TOTAL_ITEMS; bi++) {
+      const paper = backfillResults[bi];
+      if (seenTitles.has(normTitle(paper.title))) continue;
+      if (paper.openAlexId && seenOpenAlexIds.has(paper.openAlexId)) continue;
+      const sim = cosineSimilarity(themeEmb, backfillEmbs[bi]);
+      if (sim > SIM_MIN_THEME) {
+        items.push({
+          title: paper.title, authors: paper.authors, abstract: paper.abstract,
+          sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
+          source: paper.source, year: paper.year,
+          openAlexId: paper.openAlexId || undefined,
+          category: categoryForYear(paper.year, currentYear),
+        });
+        seenTitles.add(normTitle(paper.title));
+        console.log(`[Digest] Backfill paper: "${paper.title}" (sim ${sim.toFixed(2)})`);
+      }
+    }
+  }
   if (items.length === 0) {
     throw new Error(`Couldn't find any relevant content for "${theme}". Try regenerating or add more interests.`);
+  }
+  if (items.length < TOTAL_ITEMS) {
+    throw new Error(`Only ${items.length}/${TOTAL_ITEMS} sources survived every fill and backfill pass for "${theme}" - failing so the job retries rather than shipping a short edition.`);
   }
   console.log(`[Digest] ${items.length} items ready (target was ${TOTAL_ITEMS}).`);
   logStage("step4 news + fills");
@@ -2106,6 +2224,10 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
   let coldReads = new Map<string, ColdReadVerdict>();
   try {
     // A scarce foundational item supplies context; it should not force the main
+    // Sep 24 review, item 7: dead source links shipped (404 DOI + PDF).
+    // Check the final selected set before the edition is written.
+    await pruneDeadSourceLinks(items);
+
     // three-source question to contort around a historical paper.
     const headlineItems = items.filter(p => p.category !== "foundational");
     const sourcesForHeadline = headlineItems.length > 0 ? headlineItems : items;
@@ -3210,6 +3332,17 @@ Return JSON (no markdown fences): {"synthesis": "the full corrected synthesis", 
     })
   );
   logStage("db insert");
+
+  // Persist the news lane's per-candidate drop log for the admin jobs
+  // endpoint (Sep 24 review, item 11). Diagnostic only - a missing job row or
+  // a failed write is never worth failing the edition over.
+  try {
+    await db.update(digestJobs)
+      .set({ newsLog: newsDropLog.length > 0 ? newsDropLog.join("\n") : null, updatedAt: new Date() })
+      .where(and(eq(digestJobs.userId, userId), eq(digestJobs.date, today)));
+  } catch (logErr) {
+    console.log(`[Digest] News drop log persist failed (${logErr}), continuing`);
+  }
 
   return digest;
 }

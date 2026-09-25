@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       error: j.error,
       emailStatus: j.emailStatus,
       emailError: j.emailError,
+      newsLog: j.newsLog,
       startedAt: j.startedAt,
       finishedAt: j.finishedAt,
     })),
