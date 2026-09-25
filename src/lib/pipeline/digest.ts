@@ -3351,4 +3351,4 @@ Return JSON (no markdown fences): {"synthesis": "the full corrected synthesis", 
   }
 
   return digest;
-          }
+}
