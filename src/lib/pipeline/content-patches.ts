@@ -188,5 +188,58 @@ None of these AI systems measured what the people who will actually stand in the
     applied.push("paper-2026-09-16-method-facts");
   }
 
+  // 2026-09-25 edition, from the daily review (Defne-approved fix):
+  // - Opening verdict "Mostly, yes" outruns the sources: the only discount
+  //   evidence is about AI-labeled news writing, and the synthesis itself says
+  //   neither mechanism was tested on visual art. Scoped to match the gist.
+  // - "pay less" implies observed payments; Source 2 is interviews plus a
+  //   choice-based conjoint (stated choices). Corrected to "would pay less".
+  // - "not any flaw readers could point to in the text itself" and
+  //   "background details nobody's consciously checking" are not in the
+  //   abstracts; cut or narrowed.
+  const SEP25_DIGEST_ID = "bacdc98b-7202-4c99-8625-fc11b5a23cea";
+  const SEP25_DISCOUNT_PAPER_ID = "8a5e68a8-cd42-4917-b45d-d0c4a83fa983"; // [Source 2]
+  const d25 = await db.query.digests.findFirst({
+    where: eq(digests.id, SEP25_DIGEST_ID),
+    columns: { synthesisContent: true, gist: true },
+  });
+  if (d25?.synthesisContent?.includes("Mostly, yes, but for different reasons")) {
+    const synthesisContent = d25.synthesisContent
+      .replace(
+        "Mostly, yes, but for different reasons depending on what \"the art\" even is. A CNN can pick out AI images by background details nobody's consciously checking, and separately, people pay less for AI-labeled news writing because they assume less love went into it.",
+        "Only in some cases. A CNN can pick out AI images by background details, and separately, people say they would pay less for AI-labeled news writing because they assume less love went into it.",
+      )
+      .replace(
+        "and found people pay less for news articles once they're labeled AI-made. The discount traces back to a belief that AI-made writing carries **less love and effort**, not any flaw readers could point to in the text itself.",
+        "and found people would pay less for news articles once they're labeled AI-made. The discount traces back to a belief that AI-made writing carries **less love and effort**.",
+      );
+    const gist = (d25.gist ?? "").replace(
+      "Only in some cases: people pay less for AI-labeled news writing,",
+      "Only in some cases: people say they'd pay less for AI-labeled news writing,",
+    );
+    await db
+      .update(digests)
+      .set({ synthesisContent, gist })
+      .where(eq(digests.id, SEP25_DIGEST_ID));
+    applied.push("digest-2026-09-25");
+  }
+
+  const p25 = await db.query.papers.findFirst({
+    where: eq(papers.id, SEP25_DISCOUNT_PAPER_ID),
+    columns: { summary: true },
+  });
+  if (p25?.summary?.includes("people pay less")) {
+    await db
+      .update(papers)
+      .set({
+        summary: p25.summary.replace(
+          "then found people pay less for content they know an AI made",
+          "then found people would pay less for content they know an AI made",
+        ),
+      })
+      .where(eq(papers.id, SEP25_DISCOUNT_PAPER_ID));
+    applied.push("paper-2026-09-25-source2");
+  }
+
   return applied;
 }
