@@ -9,10 +9,12 @@ export interface SemanticScholarPaper {
   pdfUrl: string;
   citationCount: number;
   year: number;
+  /** ISO date from S2 publicationDate */
+  publishedDate?: string;
 }
 
 const API_BASE = "https://api.semanticscholar.org/graph/v1";
-const FIELDS = "paperId,title,abstract,authors,url,citationCount,year,externalIds";
+const FIELDS = "paperId,title,abstract,authors,url,citationCount,year,publicationDate,externalIds";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -121,6 +123,7 @@ export async function searchSemanticScholar(
           pdfUrl,
           citationCount: (paper.citationCount as number) || 0,
           year: (paper.year as number) || 0,
+          publishedDate: (paper.publicationDate as string) || undefined,
         };
       });
   } catch (error) {

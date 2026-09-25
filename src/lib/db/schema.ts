@@ -133,6 +133,9 @@ export const papers = sqliteTable("papers", {
   category: text("category", { enum: ["foundational", "recent", "news"] }),
   foundationalReason: text("foundational_reason"), // foundational lane only: one sentence on why this text set the stage for the field
   year: integer("year"),
+  // ISO publication date from the paper fetcher (OpenAlex publication_date,
+  // Semantic Scholar publicationDate fallback). Null for RSS news items.
+  publishedDate: text("published_date"),
   sourceIndex: integer("source_index"),
   openAlexId: text("open_alex_id"), // stable work ID for cross-digest dedup (title matching misses preprint/published variants)
   plainName: text("plain_name"), // plain-language name for the paper, shown on cards alongside the academic title (E)

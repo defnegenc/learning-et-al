@@ -5,7 +5,7 @@ const OA_MAILTO = "hello@learningeteal.app";
 
 const OA_SELECT = [
   "id", "title", "abstract_inverted_index", "cited_by_count",
-  "publication_year", "authorships", "primary_location",
+  "publication_year", "publication_date", "authorships", "primary_location",
   "open_access", "related_works", "primary_topic",
   "best_oa_location",
   "doi",
@@ -45,6 +45,7 @@ interface OARawWork {
   abstract_inverted_index: Record<string, number[]> | null;
   cited_by_count: number;
   publication_year: number | null;
+  publication_date: string | null;
   authorships: { author: { display_name: string }; institutions?: { display_name: string }[] }[];
   primary_location: { landing_page_url: string | null; pdf_url: string | null; source?: { display_name: string } | null } | null;
   best_oa_location?: { source?: { display_name: string } | null } | null;
@@ -69,6 +70,8 @@ export interface OpenAlexPaper {
   pdfUrl: string;
   citationCount: number;
   year: number;
+  /** ISO date (YYYY-MM-DD) from OA publication_date */
+  publishedDate?: string;
   relatedWorkIds: string[];
   /** Broad academic domain from OA primary_topic (e.g. "Physical Sciences", "Health Sciences") */
   primaryDomain?: string;
@@ -129,6 +132,7 @@ function mapWork(raw: OARawWork): OpenAlexPaper {
     pdfUrl: raw.open_access?.oa_url || raw.primary_location?.pdf_url || "",
     citationCount: raw.cited_by_count || 0,
     year: raw.publication_year || 0,
+    publishedDate: raw.publication_date || undefined,
     relatedWorkIds: (raw.related_works || [])
       .slice(0, 20)
       .map((url: string) => url.replace("https://openalex.org/", "")),

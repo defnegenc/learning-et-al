@@ -29,6 +29,8 @@ type PaperSearchResult = {
   pdfUrl?: string;
   citationCount: number;
   year: number;
+  /** ISO date from OpenAlex publication_date (S2 publicationDate fallback) */
+  publishedDate?: string;
   source: "semantic_scholar" | "arxiv";
   /** Journal/conference name from OpenAlex */
   venueName?: string;
@@ -55,6 +57,8 @@ type TaggedItem = {
   source: "semantic_scholar" | "rss" | "arxiv";
   category: "foundational" | "recent" | "news";
   year?: number;
+  /** ISO date from the paper fetcher; undefined for RSS news items */
+  publishedDate?: string;
   /** OpenAlex work ID — persisted for ID-based cross-digest dedup */
   openAlexId?: string;
   /** Hint for synthesis: "this paper was selected to contradict/complicate paper 1" */
@@ -1850,7 +1854,8 @@ Return JSON only (no markdown):
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
           source: paper.source, category: categoryForYear(paper.year, currentYear),
-          year: paper.year, openAlexId: paper.openAlexId || undefined,
+          year: paper.year, publishedDate: paper.publishedDate,
+          openAlexId: paper.openAlexId || undefined,
         });
         seenTitles.add(normTitle(paper.title));
         console.log(`[Digest] Fill paper: "${paper.title}" (sim ${sim.toFixed(2)})`);
@@ -1878,7 +1883,7 @@ Return JSON only (no markdown):
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
-          source: paper.source, year: paper.year,
+          source: paper.source, year: paper.year, publishedDate: paper.publishedDate,
           openAlexId: paper.openAlexId || undefined,
           category: categoryForYear(paper.year, currentYear),
         });
@@ -1905,7 +1910,7 @@ Return JSON only (no markdown):
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
           source: paper.source, year: paper.year, category: categoryForYear(paper.year, currentYear),
-          openAlexId: paper.openAlexId || undefined,
+          publishedDate: paper.publishedDate, openAlexId: paper.openAlexId || undefined,
         });
         seenTitles.add(normTitle(paper.title));
         console.log(`[Digest] Theme fill: "${paper.title}" (sim ${sim.toFixed(2)})`);
@@ -1961,7 +1966,7 @@ Return JSON only (no markdown):
         items.push({
           title: paper.title, authors: paper.authors, abstract: paper.abstract,
           sourceUrl: paper.sourceUrl, pdfUrl: paper.pdfUrl || undefined,
-          source: paper.source, year: paper.year,
+          source: paper.source, year: paper.year, publishedDate: paper.publishedDate,
           openAlexId: paper.openAlexId || undefined,
           category: categoryForYear(paper.year, currentYear),
         });
@@ -3326,6 +3331,7 @@ Return JSON (no markdown fences): {"synthesis": "the full corrected synthesis", 
         category: item.category,
         foundationalReason: stripBannedWordsMaybe(item.foundationalReason) || null,
         year: item.year,
+        publishedDate: item.publishedDate || null,
         sourceIndex: i,
         openAlexId: item.openAlexId || null,
       };
