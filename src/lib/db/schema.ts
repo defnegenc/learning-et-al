@@ -107,6 +107,9 @@ export const digestJobs = sqliteTable("digest_jobs", {
   error: text("error"),
   emailStatus: text("email_status"),
   emailError: text("email_error"),
+  // Per-candidate news lane drop reasons for the admin jobs endpoint (one per
+  // line). Diagnostic only; null when the lane ran clean or had no candidates.
+  newsLog: text("news_log"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   startedAt: integer("started_at", { mode: "timestamp" }),
