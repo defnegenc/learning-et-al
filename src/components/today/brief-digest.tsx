@@ -212,6 +212,8 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
       .sort((a, b) => a.lineIdx - b.lineIdx)
   ), [cardsAfter]);
 
+  const mixedLanes = useMemo(() => papers.some(p => p.category !== "foundational"), [papers]);
+
   const [step, setStep] = useState(revealAll ? Number.MAX_SAFE_INTEGER : 0);
   const n = Math.min(stops[Math.min(step, stops.length - 1)] ?? lines.length, lines.length);
   const allRevealed = n >= lines.length;
@@ -269,6 +271,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
               initialBookmarked={savedIds?.has(paper.id)}
               onSignedOutSaveChange={onSignedOutSaveChange}
               expandTick={expandTicks[pi]}
+              mixedLanes={mixedLanes}
             />
           </div>
         );
@@ -302,7 +305,7 @@ export function BriefDigest({ synthesis, theme, keyConcepts, papers, revealAll, 
   useEffect(() => {
     if (!pendingScroll) return;
     setPendingScroll(false);
-    const target = containerRef.current?.children[revealedCountRef.current];
+    const target = containerRef.current?.children[revealedCountRef.current + 1]; // child 0 is the <style> tag
     if (target instanceof HTMLElement) {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
