@@ -204,6 +204,8 @@ export interface PaperCardProps {
   onSelect?: (p: PaperItem) => void;
   /** Digest only: a chip click in the prose bumps this to scroll the card here. */
   expandTick?: number;
+  /** Digest only: false when every card is foundational, so gold stops being a contrast and the spectrum wash is used. Default true. */
+  mixedLanes?: boolean;
   /**
    * Compact only: one line of substance under the byline — the reading list
    * passes the companion's "remember". Absent, the card is title and byline as
@@ -232,7 +234,7 @@ export function PaperCard(props: PaperCardProps) {
  * takeaway's claim is the only place colour lands on type, marked in the same
  * hue as the card's own wash so the mark is wayfinding, not decoration.
  */
-function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSaveChange, expandTick }: PaperCardProps) {
+function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSaveChange, expandTick, mixedLanes = true }: PaperCardProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -240,9 +242,11 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
   }, [expandTick]);
 
   const foundational = paper.category === "foundational";
+  // Gold only marks a foundational card when the digest mixes lanes.
+  const gold = foundational && mixedLanes;
   // The mark is a wash hue, never GOLD — gold is a line colour and is far too
   // dark to read a highlight through. See `foundationalSlots`.
-  const mark = foundational ? foundationalSlots()[0] : washSlots(index)[0];
+  const mark = gold ? foundationalSlots()[0] : washSlots(index)[0];
   // The spoken line that opens a foundational card, with the phrase the card
   // draws as a defined term guaranteed to be in it. Legacy rows with no reason
   // stored fall through to the paper's own hero at 22, as before.
@@ -275,9 +279,9 @@ function DigestCard({ paper, index, loggedIn, initialBookmarked, onSignedOutSave
     <div
       ref={ref}
       style={{
-        ...(foundational ? foundationalWash() : wash(index)),
-        border: `2px solid ${foundational ? GOLD : INK}`,
-        boxShadow: foundational ? SHADOW_GOLD : SHADOW,
+        ...(gold ? foundationalWash() : wash(index)),
+        border: `2px solid ${gold ? GOLD : INK}`,
+        boxShadow: gold ? SHADOW_GOLD : SHADOW,
         padding: "22px 24px",
         display: "flex",
         flexDirection: "column",
