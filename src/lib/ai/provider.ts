@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
 export interface AIConfig {
@@ -160,6 +161,52 @@ async function sleep(ms: number) {
 export interface AIMessage {
   role: "system" | "user" | "assistant";
   content: string;
+  /**
+   * Cache the conversation up to and including this message. Mark the big
+   * stable block (a paper's full text) so every later question on it is billed
+   * at a tenth of the input price. Anthropic only; other providers ignore it.
+   */
+  cache?: boolean;
+}
+
+/*
+ * Anthropic goes through its own SDK, not the OpenAI-compatible endpoint the
+ * other providers share, because that endpoint does not support prompt caching
+ * (platform.claude.com/docs/en/api/openai-sdk). Without caching, every Ask turn
+ * re-bought the whole paper at full price.
+ */
+function anthropicRequest(model: string, messages: AIMessage[], maxTokens: number): Anthropic.MessageCreateParamsNonStreaming {
+  const system = messages.filter(m => m.role === "system").map(m => m.content).join("\n");
+  const turns: Anthropic.MessageParam[] = messages
+    .filter((m): m is AIMessage & { role: "user" | "assistant" } => m.role !== "system")
+    .map(m => ({
+      role: m.role,
+      content: m.cache
+        ? [{ type: "text", text: m.content, cache_control: { type: "ephemeral" } }]
+        : m.content,
+    }));
+  const optedIn = messages.some(m => m.cache);
+  return {
+    model,
+    max_tokens: maxTokens,
+    ...(system ? { system } : {}),
+    messages: turns,
+    // A caller that marked a block is running a conversation, so also cache the
+    // tail: the next follow-up in the thread reads the history from cache too.
+    // One-shot calls stay uncached, since a write with no reread costs 1.25x.
+    ...(optedIn ? { cache_control: { type: "ephemeral" as const } } : {}),
+  };
+}
+
+/** One line per call, so a surprising bill can be traced in the Vercel logs. */
+function logUsage(provider: string, model: string, usage: {
+  input: number | null | undefined;
+  output: number | null | undefined;
+  cacheRead?: number | null;
+  cacheWrite?: number | null;
+}) {
+  const cache = provider === "anthropic" ? ` cache_read=${usage.cacheRead ?? 0} cache_write=${usage.cacheWrite ?? 0}` : "";
+  console.log(`[AI usage] ${provider} ${model} in=${usage.input ?? "?"} out=${usage.output ?? "?"}${cache}`);
 }
 
 /** Turn a provider failure into something a human can act on. */
@@ -192,17 +239,42 @@ function readableError(config: AIConfig, model: string, e: unknown, maxRetries: 
  * exposed; `aiComplete` is now the two-message case of it.
  */
 export async function aiChat(config: AIConfig, messages: AIMessage[], options?: { maxTokens?: number }): Promise<string> {
-  const client = new OpenAI(getClientConfig(config));
   const model = config.model || getDefaultModel(config.provider);
   // Full-length prose stages (synthesis draft + revision) run long; every other
   // call keeps the 4096 default. A truncated draft used to be publishable
   // mid-sentence — long-form callers pass a budget that fits their output.
   const maxTokens = options?.maxTokens ?? 4096;
-
   const maxRetries = 2;
+
+  if (config.provider === "anthropic") {
+    // The SDK retries 429s and 5xx itself.
+    const client = new Anthropic({ apiKey: config.apiKey, maxRetries });
+    try {
+      const response = await client.messages.create(anthropicRequest(model, messages, maxTokens));
+      logUsage("anthropic", model, {
+        input: response.usage.input_tokens,
+        output: response.usage.output_tokens,
+        cacheRead: response.usage.cache_read_input_tokens,
+        cacheWrite: response.usage.cache_creation_input_tokens,
+      });
+      return response.content.map(block => block.type === "text" ? block.text : "").join("");
+    } catch (e) {
+      throw readableError(config, model, e, maxRetries);
+    }
+  }
+
+  const client = new OpenAI(getClientConfig(config));
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const response = await client.chat.completions.create({ model, messages, max_tokens: maxTokens });
+      const response = await client.chat.completions.create({
+        model,
+        messages: messages.map(({ role, content }) => ({ role, content })),
+        max_tokens: maxTokens,
+      });
+      logUsage(config.provider, model, {
+        input: response.usage?.prompt_tokens,
+        output: response.usage?.completion_tokens,
+      });
       return response.choices[0]?.message?.content || "";
     } catch (e: unknown) {
       const status = (e as { status?: number }).status;
@@ -228,12 +300,37 @@ export async function aiChat(config: AIConfig, messages: AIMessage[], options?: 
  * without showing the reader the answer twice.
  */
 export async function* aiChatStream(config: AIConfig, messages: AIMessage[]): AsyncGenerator<string> {
-  const client = new OpenAI(getClientConfig(config));
   const model = config.model || getDefaultModel(config.provider);
 
+  if (config.provider === "anthropic") {
+    const client = new Anthropic({ apiKey: config.apiKey, maxRetries: 0 });
+    const stream = client.messages.stream(anthropicRequest(model, messages, 4096));
+    try {
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") yield event.delta.text;
+      }
+    } catch (e) {
+      throw readableError(config, model, e, 1);
+    }
+    const final = await stream.finalMessage();
+    logUsage("anthropic", model, {
+      input: final.usage.input_tokens,
+      output: final.usage.output_tokens,
+      cacheRead: final.usage.cache_read_input_tokens,
+      cacheWrite: final.usage.cache_creation_input_tokens,
+    });
+    return;
+  }
+
+  const client = new OpenAI(getClientConfig(config));
   let stream;
   try {
-    stream = await client.chat.completions.create({ model, messages, max_tokens: 4096, stream: true });
+    stream = await client.chat.completions.create({
+      model,
+      messages: messages.map(({ role, content }) => ({ role, content })),
+      max_tokens: 4096,
+      stream: true,
+    });
   } catch (e) {
     throw readableError(config, model, e, 1);
   }
