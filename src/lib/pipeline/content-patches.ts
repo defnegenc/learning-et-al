@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { digests, papers } from "@/lib/db/schema";
 
@@ -240,6 +240,22 @@ None of these AI systems measured what the people who will actually stand in the
       .where(eq(papers.id, SEP25_DISCOUNT_PAPER_ID));
     applied.push("paper-2026-09-25-source2");
   }
+
+  // Since #144 (2026-09-24), `categoryForYear` labeled every ordinary pick
+  // older than three years "foundational", so 2021 papers wore the gold frame
+  // and an all-older edition (2026-10-01) lost gold entirely. The gated classic
+  // always carries a `foundationalReason`; a reasonless "foundational" row from
+  // that window is a mislabeled pick and goes to "earlier".
+  const mislabeled = await db
+    .update(papers)
+    .set({ category: "earlier" })
+    .where(and(
+      eq(papers.category, "foundational"),
+      isNull(papers.foundationalReason),
+      gte(papers.createdAt, new Date("2026-09-24T00:00:00Z")),
+    ))
+    .returning({ id: papers.id });
+  if (mislabeled.length > 0) applied.push(`papers-earlier-relabel-${mislabeled.length}`);
 
   return applied;
 }

@@ -55,7 +55,7 @@ type TaggedItem = {
   sourceUrl: string;
   pdfUrl?: string;
   source: "semantic_scholar" | "rss" | "arxiv";
-  category: "foundational" | "recent" | "news";
+  category: "foundational" | "recent" | "earlier" | "news";
   year?: number;
   /** ISO date from the paper fetcher; undefined for RSS news items */
   publishedDate?: string;
@@ -1590,10 +1590,10 @@ Return JSON only (no markdown):
       source: pick.p.source, year: pick.p.year,
       openAlexId: pick.p.openAlexId || undefined,
       // Wide-pool picks are meant to come from the field-sensitive recent
-      // window, but the label now follows the year (Sep 24 review, item 3) -
-      // an older pick lands in the foundational lane instead of shipping under
-      // a current-work label. (Labeling a CURRENT-year paper foundational was
-      // the earlier lie the UI repeated; age-derived labels are honest.)
+      // window, but the label now follows the year (Sep 24 review, item 3):
+      // an older pick is "earlier" instead of shipping under a current-work
+      // label. Never "foundational": that lane is the gated classic (Step 4c)
+      // and is what draws the gold frame.
       category: categoryForYear(pick.p.year, currentYear),
     });
     seenTitles.add(normTitle(pick.p.title));
@@ -2053,7 +2053,6 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
                 relSim > SIM_MIN_THEME
               );
               if (replacement) {
-                const originalCategory = items[itemIdx].category;
                 console.log(`[Digest] Swapping ${isOffTopic ? "off-topic" : "weak"} paper for "${replacement.p.title.slice(0, 40)}"`);
                 items[itemIdx] = {
                   title: replacement.p.title, authors: replacement.p.authors,
@@ -2061,7 +2060,7 @@ Return JSON: {"scores": [{"index": 1, "relevance": N, "insight": N, "reason": "o
                   pdfUrl: replacement.p.pdfUrl || undefined,
                   source: replacement.p.source, year: replacement.p.year,
                   openAlexId: replacement.p.openAlexId || undefined,
-                  category: originalCategory,
+                  category: categoryForYear(replacement.p.year, currentYear),
                 };
                 seenTitles.add(normTitle(replacement.p.title));
               } else if ((isOffTopic || isWeak) && items.length >= 3) {
