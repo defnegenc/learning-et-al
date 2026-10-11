@@ -238,8 +238,10 @@ export async function POST(
       return [];
     });
 
-    // The paper goes in once, at the head, and the thread replays after it —
-    // not once per turn.
+    // The paper goes in once, at the head, and the thread replays after it,
+    // not once per turn. It is also the cache breakpoint: the system prompt and
+    // paper are identical for every question this reader asks about this paper,
+    // so after the first one they are billed at the cache-read rate.
     const anchor = selection
       ? `The reader highlighted this passage${sectionKey ? ` in ${SECTION_NAMES[sectionKey] ?? "the walkthrough"}` : ""}:\n\n"${selection}"\n\n`
       : "";
@@ -249,13 +251,15 @@ export async function POST(
     }`;
     const messages: AIMessage[] = [
       { role: "system", content: system },
-      { role: "user", content: `Here is the paper you have read.\n\nTitle: ${paper.title}\n\n${fullText}\n\n---\n\n${webEvidence(webResults)}` },
-      { role: "assistant", content: "Understood — ask me anything about it." },
+      { role: "user", content: `Here is the paper you have read.\n\nTitle: ${paper.title}\n\n${fullText}`, cache: true },
+      { role: "assistant", content: "Understood. Ask me anything about it." },
       ...history.flatMap((turn): AIMessage[] => [
         { role: "user", content: turn.question },
         { role: "assistant", content: stripPitchedForYou(turn.answer).body },
       ]),
-      { role: "user", content: `${anchor}${question}` },
+      // Web results belong to this question, so they ride with it rather than
+      // with the paper, where they would change the cached prefix every turn.
+      { role: "user", content: `${webEvidence(webResults)}\n\n---\n\n${anchor}${question}` },
     ];
 
     const pairId = crypto.randomUUID();
