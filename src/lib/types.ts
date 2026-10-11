@@ -17,7 +17,7 @@ export interface PaperItem {
   year?: number | null;
   abstract?: string | null;
   fullText?: string | null;
-  category?: "foundational" | "recent" | "news" | null;
+  category?: "foundational" | "recent" | "earlier" | "news" | null;
   foundationalReason?: string | null;
   keyFindings?: string[];
   connectionReason?: string | null;

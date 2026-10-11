@@ -130,7 +130,7 @@ export const papers = sqliteTable("papers", {
   keywords: text("keywords"),
   keyFindings: text("key_findings"),
   connectionReason: text("connection_reason"),
-  category: text("category", { enum: ["foundational", "recent", "news"] }),
+  category: text("category", { enum: ["foundational", "recent", "earlier", "news"] }), // foundational = the gated classic only; earlier = an ordinary pick older than RECENT_MAX_AGE_YEARS
   foundationalReason: text("foundational_reason"), // foundational lane only: one sentence on why this text set the stage for the field
   year: integer("year"),
   // ISO publication date from the paper fetcher (OpenAlex publication_date,

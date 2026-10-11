@@ -76,11 +76,16 @@ export const RECENT_MAX_AGE_YEARS = 3;
  * The "recent" lane is an age claim, not a pool label. Sep 24 review, item 3:
  * wide-pool, fill, broad, theme-search and swap-in picks were hardcoded
  * "recent", so a 2017 paper shipped under a current-work label. Anything
- * older than three years goes to the foundational lane instead; an unknown
- * year stays "recent" rather than guessing.
+ * older than three years is "earlier"; an unknown year stays "recent" rather
+ * than guessing.
+ *
+ * Never "foundational". That label means the gated classic from the
+ * foundational lane (it carries a `foundationalReason`) and draws the gold
+ * frame. Returning it here put gold on ordinary 2021 papers, and on an edition
+ * where every pick was older, turned gold off entirely.
  */
-export function categoryForYear(year: number | undefined, currentYear: number): "recent" | "foundational" {
-  return year !== undefined && currentYear - year > RECENT_MAX_AGE_YEARS ? "foundational" : "recent";
+export function categoryForYear(year: number | undefined, currentYear: number): "recent" | "earlier" {
+  return year !== undefined && currentYear - year > RECENT_MAX_AGE_YEARS ? "earlier" : "recent";
 }
 
 /**

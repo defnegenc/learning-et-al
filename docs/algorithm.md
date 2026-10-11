@@ -190,6 +190,11 @@ most days — scarcity is what keeps the gold treatment meaningful (~1-2 per wee
 
 Note: `category: "foundational"` used to be slapped on wide-pool slot 0 (just the top MMR
 pick) — that mislabel is fixed; the category is now exclusive to this lane.
+It regressed once: #144 (2026-09-24) labeled every ordinary pick older than three
+years `foundational` by year alone, so 2021 papers wore gold and an all-older edition
+lost gold entirely. Age now has its own label: `categoryForYear` returns `recent` or
+`earlier`, never `foundational`. Only this lane writes `foundational`, and its rows
+always carry a `foundationalReason`.
 
 ### Step 5: Final-Source Editorial Pass (AI call 7, conditional repair call)
 

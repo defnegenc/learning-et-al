@@ -212,10 +212,10 @@ test("promptOnlyBannedIn flags the vague senses and spares literal uses", () => 
   assert.deepEqual(promptOnlyBannedIn("The landing page converted well."), []);
 });
 
-test("categoryForYear labels papers older than three years foundational", () => {
+test("categoryForYear labels papers older than three years earlier, never foundational", () => {
   assert.equal(categoryForYear(2026, 2026), "recent");
   assert.equal(categoryForYear(2023, 2026), "recent");
-  assert.equal(categoryForYear(2022, 2026), "foundational");
-  assert.equal(categoryForYear(2017, 2026), "foundational");
+  assert.equal(categoryForYear(2022, 2026), "earlier");
+  assert.equal(categoryForYear(2017, 2026), "earlier");
   assert.equal(categoryForYear(undefined, 2026), "recent");
 });
